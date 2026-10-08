@@ -1,0 +1,60 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Node.js dependencies & logs
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Testing & Cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editor & IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Web runtime uploads & outputs (avoid leaking test files or personal documents)
+.web_uploads/
+.web_outputs/
+
+# Scratch & temporary artifacts
+scratch/
+*.tmp
+~$*
+.~lock.*
+*.temp*
+*_temp_assets/
+test_out_assets/
+tools/archive/
+
+# Personal & User Capstone documents (exclude thesis, defense slides, private files)
+docs/
+*.docx
+*.pptx
+*.pdf
+*.xlsx

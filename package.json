@@ -1,0 +1,17 @@
+{
+  "name": "antigravity-office-studio",
+  "version": "3.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Publication-Grade Universal Office & Presentation Web Studio",
+  "scripts": {
+    "dev": "node dev_launcher.js",
+    "dev:vite": "vite",
+    "dev:server": "python web_api_server.py",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^6.2.0"
+  }
+}

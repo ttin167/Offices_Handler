@@ -1,0 +1,3 @@
+# Pyrefly configuration for antigravity-doc-handler
+search-path = ["."]
+disable-search-path-heuristics = true

@@ -1,0 +1,352 @@
+{
+  "title": "Indoor Robot Vacuum Cleaner Capstone Defense",
+  "theme": "corporate_blue",
+  "mode": "in_place_template",
+  "template": "D:\\New folder (5)\\VuNguyen\\DATN_2252948_NguyenVuNguyen_Defense_backup.pptx",
+  "slide_count": 20,
+  "slides": [
+    {
+      "slide_index": 1,
+      "type": "keep"
+    },
+    {
+      "slide_index": 2,
+      "type": "keep"
+    },
+    {
+      "slide_index": 3,
+      "type": "keep"
+    },
+    {
+      "slide_index": 4,
+      "slide_number": 4,
+      "type": "split_diagram",
+      "banner": "Chapter 1. Overview",
+      "title": "Commercial Benchmark & Target Specifications",
+      "card_width_ratio": 0.50,
+      "bullet_font_size": 17.0,
+      "bullets": [
+        ["Commercial Benchmark", "Eufy RoboVac 11S MAX, Xiaomi E10, and Electrolux Trilobite evaluated for drive layout and cleaning mechanics."],
+        ["Dimensional Envelope", "Compact circular profile D = 320 mm, total height H = 82 mm (navigates under 110 mm furniture clearance)."],
+        ["Operating Payload", "Robot mass 4.0 kg, dustbin capacity 0.2 L, continuous battery operating runtime >= 75 minutes."],
+        ["Coverage Standard", "Main cleaning head coverage >= 70% reachable floor area under open workspace per IEC/ASTM 62885-7:2020."]
+      ],
+      "image_path": "D:\\New folder (5)\\VuNguyen\\extracted_figures_thesis\\fig_01_02_floor_coverage_metric.png",
+      "caption": "Figure 1.2: Principle of floor coverage measurement based on grid cell occupancy"
+    },
+    {
+      "slide_index": 5,
+      "slide_number": 5,
+      "type": "dual_diagram",
+      "banner": "Chapter 2. Conceptual Design",
+      "title": "Locomotion & Drive Layout Selection (2.1.1)",
+      "card_width_ratio": 0.50,
+      "bullet_font_size": 17.0,
+      "bullets": [
+        ["Maneuverability Target", "High agility in confined indoor environments with zero turning radius (in-place spinning R = 0)."],
+        ["Structure 1 (Selected)", "Two coaxial driving wheels + one front passive caster wheel (Figure 1.4b)."],
+        ["Structure 1 Merits", "Simple 3-wheel differential structure, easy assembly/maintenance, stable straight-line travel."],
+        ["Structure 2 (Rejected)", "Two driving wheels + 5 passive rollers (Fig 1.6b); rejected due to high rolling resistance and debris jamming."]
+      ],
+      "img1_path": "D:\\New folder (5)\\VuNguyen\\extracted_figures_thesis\\fig_01_04b_caster_schematic.png",
+      "cap1": "Figure 1.4b: Structure 1 — 2 Driving Wheels + 1 Front Caster (Selected)",
+      "img2_path": "D:\\New folder (5)\\VuNguyen\\extracted_figures_thesis\\fig_01_06b_roller_schematic.png",
+      "cap2": "Figure 1.6b: Structure 2 — 2 Driving Wheels + 5 Support Rollers (Rejected)"
+    },
+    {
+      "slide_index": 6,
+      "slide_number": 6,
+      "type": "split_diagram",
+      "banner": "Chapter 2. Conceptual Design",
+      "title": "Cleaning Mechanism Design Selection (2.1.2)",
+      "card_width_ratio": 0.50,
+      "bullet_font_size": 17.0,
+      "bullets": [
+        ["Debris Target", "Effective floor particulate pickup with moderate power and minimal maintenance."],
+        ["Alternative 1 (Rejected)", "Direct suction without main brush (Figure 1.8a); purely airflow-dependent, low pickup on smooth floors."],
+        ["Alternative 2 (Selected)", "Single roller brush mechanism (Figure 1.8b); rotating chevron brush lifts debris into suction inlet."],
+        ["Sweeping & Ducting", "Dual 180 RPM side brushes sweep edges into intake; streamlined duct connects to 0.2 L dustbin."]
+      ],
+      "image_path": "D:\\New folder (5)\\VuNguyen\\extracted_figures_thesis\\fig_01_08_cleaning_mechanisms_clean.png",
+      "caption": "Figure 1.8: Overview of cleaning mechanisms: (a) Direct Suction vs (b) Single Roller (Selected)"
+    },
+    {
+      "slide_index": 7,
+      "slide_number": 7,
+      "type": "dual_diagram",
+      "banner": "Chapter 3. Mechanical Design",
+      "title": "Wheel Dynamics & Synchronous Belt Transmission",
+      "card_width_ratio": 0.50,
+      "bullet_font_size": 17.0,
+      "bullets": [
+        ["Dynamic Forces", "Normal load N = 19.6 N, tractive force Ft = 1.8 N, traction friction margin Fr = 2.16 N."],
+        ["Actuator Sizing", "Required continuous wheel torque Twheel = 0.081 N.m at rated wheel speed of 88 RPM."],
+        ["Belt Transmission", "Synchronous timing belt drive (2GT profile, 2.0 mm pitch) with reduction ratio i = 1.5."],
+        ["Shaft Stress Analysis", "Maximum bending stress sigma_max = 18.4 MPa << [sigma] = 85 MPa (Safety factor S > 4.6)."]
+      ],
+      "img1_path": "D:\\New folder (5)\\VuNguyen\\extracted_figures_thesis\\fig_03_01_driving_wheel_forces.png",
+      "cap1": "Figure 3.1: Driving wheel tractive effort and normal force equilibrium",
+      "img2_path": "D:\\New folder (5)\\VuNguyen\\extracted_figures_thesis\\fig_03_08_cantilever_shaft_fbd.png",
+      "cap2": "Figure 3.8: Cantilever brush shaft free-body diagram and stress analysis"
+    },
+    {
+      "slide_index": 8,
+      "slide_number": 8,
+      "type": "dual_diagram",
+      "banner": "Chapter 3. Mechanical Design",
+      "title": "Chassis Structural FEA & 3D Assembly Design",
+      "card_width_ratio": 0.50,
+      "bullet_font_size": 17.0,
+      "bullets": [
+        ["Chassis Structural FEA", "Injection-molded ABS shell with internal ribs, deflection < 0.12 mm under 10 kg static payload."],
+        ["Modular Subsystems", "Independent drive wheel suspension modules, cantilever brush assembly, quick-release dustbin."],
+        ["Airflow Aerodynamics", "Convergent suction nozzle coupled to high-speed centrifugal impeller for maximum vacuum pressure."],
+        ["Complete 3D Assembly", "Comprehensive SolidWorks assembly verifying zero interference and tight manufacturing tolerances."]
+      ],
+      "img1_path": "D:\\New folder (5)\\VuNguyen\\extracted_figures_thesis\\fig_03_15_upper_view_3d.png",
+      "cap1": "Figure 3.15: 3D perspective upper view of complete robot vacuum assembly",
+      "img2_path": "D:\\New folder (5)\\VuNguyen\\extracted_figures_thesis\\fig_03_16_underside_view_3d.png",
+      "cap2": "Figure 3.16: 3D underside view showing dual side brushes and roller intake"
+    },
+    {
+      "slide_index": 9,
+      "slide_number": 9,
+      "type": "split_diagram",
+      "banner": "Chapter 4. Electrical Design",
+      "title": "Perception Sensors & Dual-MCU Architecture",
+      "card_width_ratio": 0.50,
+      "bullet_font_size": 17.0,
+      "bullets": [
+        ["Dual-MCU Topology", "ESP32 Master (Wi-Fi, high-level FSM navigation) + STM32F103 Slave (50 Hz real-time PID loops)."],
+        ["Perception Array", "3x front contact microswitches, 3x bottom cliff IR sensors, 1x 6-DOF IMU (yaw feedback)."],
+        ["Power Distribution", "4S Li-ion battery (14.8V nominal), high-efficiency buck regulators for 5V/3A and 3.3V/1A rails."],
+        ["Safe Power Rails", "Isolated motor power rail prevents inductive voltage dips from affecting MCU digital logic."]
+      ],
+      "image_path": "D:\\New folder (5)\\VuNguyen\\extracted_figures_thesis\\fig_02_01_vacuum_electrical_block.png",
+      "caption": "Figure 2.1: Electrical block diagram and power distribution architecture"
+    },
+    {
+      "slide_index": 10,
+      "slide_number": 10,
+      "type": "dual_diagram",
+      "banner": "Chapter 4. Electrical Design",
+      "title": "Custom 2-Layer PCB Layout & Hardware Realization",
+      "card_width_ratio": 0.50,
+      "bullet_font_size": 17.0,
+      "bullets": [
+        ["PCB Specifications", "2-layer FR-4 board, 1.6 mm thickness, dual ground planes for high-frequency noise immunity."],
+        ["Motor Driver Stage", "Dual TB6612FNG H-bridge drivers with reverse voltage & thermal shutdown protection."],
+        ["Signal Conditioning", "Low-pass RC filtering on sensor lines and optical isolation on encoder feedback lines."],
+        ["Hardware Realization", "SMT and through-hole assembly, compact circular profile cleanly fitting chassis interior."]
+      ],
+      "img1_path": "D:\\New folder (5)\\VuNguyen\\extracted_figures_thesis\\fig_04_06_pcb_altium_layers.png",
+      "cap1": "Figure 4.6: Altium Designer Top & Bottom copper layer routing",
+      "img2_path": "D:\\New folder (5)\\VuNguyen\\extracted_figures_thesis\\fig_07_03_fabricated_pcb_real.png",
+      "cap2": "Figure 7.3: Real fabricated 2-layer PCB module installed in chassis"
+    },
+    {
+      "slide_index": 11,
+      "slide_number": 11,
+      "type": "split_diagram",
+      "banner": "Chapter 5. Controller Design",
+      "title": "Differential Drive Kinematics & IRC Motion Model",
+      "card_width_ratio": 0.50,
+      "bullet_font_size": 17.0,
+      "bullets": [
+        ["Kinematic Model", "Unicycle model with Instantaneous Rotation Center (IRC) along coaxial wheel drive axis."],
+        ["Forward Kinematics", "Linear speed v = r(w_R + w_L)/2;  Angular speed w = r(w_R - w_L)/b."],
+        ["Inverse Kinematics", "Right wheel w_R = (2v + bw)/(2r);  Left wheel w_L = (2v - bw)/(2r)."],
+        ["Chassis Parameters", "Wheel radius r = 32.5 mm, wheelbase b = 216 mm; zero lateral skid condition."]
+      ],
+      "image_path": "D:\\New folder (5)\\VuNguyen\\extracted_figures_thesis\\fig_05_12_irc_kinematics.png",
+      "caption": "Figure 5.12: Instantaneous Rotation Center (IRC) and robot coordinate frames"
+    },
+    {
+      "slide_index": 12,
+      "slide_number": 12,
+      "type": "dual_diagram",
+      "banner": "Chapter 5. Controller Design",
+      "title": "System Identification & 3 Transfer Functions",
+      "card_width_ratio": 0.50,
+      "bullet_font_size": 17.0,
+      "bullets": [
+        ["Step Input Testing", "Experimental 7V and 8V step inputs applied to DC motors and heading dynamics at 50 Hz."],
+        ["Left Motor TF (Eq. 5.7)", "G_Left(s) = 109.3 / (s + 42.33)  [Validation Best Fit: 59.13%]."],
+        ["Right Motor TF (Eq. 5.8)", "G_Right(s) = 110.2 / (s + 36.38)  [Validation Best Fit: 72.50%]."],
+        ["Heading IMU TF (Eq. 5.41-42)", "G_Heading(s) = (1/s) * [282 / (s^2 + 13.37s + 174)]  [Fit: 56.33%]."]
+      ],
+      "img1_path": "D:\\New folder (5)\\VuNguyen\\extracted_figures_thesis\\fig_05_04_left_motor_step_response_tight.png",
+      "cap1": "Figure 5.4: Left motor experimental step responses at 7V and 8V",
+      "img2_path": "D:\\New folder (5)\\VuNguyen\\extracted_figures_thesis\\fig_05_13_heading_step_responses_tight.png",
+      "cap2": "Figure 5.13: IMU heading step responses at 0.15 m/s and 0.30 m/s"
+    },
+    {
+      "slide_index": 13,
+      "slide_number": 13,
+      "type": "metrics_summary",
+      "banner": "Chapter 5. Controller Design",
+      "title": "PI & PID Controller Tuning & Response Parameters",
+      "card_font_size": 13.5,
+      "summary_font_size": 14.0,
+      "cards": [
+        {
+          "title": "Left Motor PI (Table 5.5)",
+          "metrics": [
+            ["Proportional Gain", "kP = 0.301"],
+            ["Integral Gain", "kI = 12.745"],
+            ["Settling Time Ts", "0.14 s  (spec <= 0.15 s)"],
+            ["Max Overshoot", "0.505%  (spec < 10%)"],
+            ["Rise Time tr", "0.068 seconds"],
+            ["Closed-Loop Poles", "-42.28,  -32.94"]
+          ]
+        },
+        {
+          "title": "Right Motor PI (Table 5.7)",
+          "metrics": [
+            ["Proportional Gain", "kP = 0.323"],
+            ["Integral Gain", "kI = 11.755"],
+            ["Settling Time Ts", "0.14 s  (spec <= 0.15 s)"],
+            ["Max Overshoot", "0.505%  (spec < 10%)"],
+            ["Rise Time tr", "0.071 seconds"],
+            ["Closed-Loop Poles", "-35.98 ± 0.56j"]
+          ]
+        },
+        {
+          "title": "Heading IMU PID (Table 5.8)",
+          "metrics": [
+            ["Proportional Gain", "kP = 3.000"],
+            ["Integral Gain", "kI = 2.182"],
+            ["Derivative Gain", "kD = 0.01147"],
+            ["Settling Time Ts", "0.90 s  (band ±2%)"],
+            ["Max Overshoot", "3.65%  (spec < 10%)"],
+            ["Sampling Time", "Ts = 0.02 s  (50 Hz)"]
+          ]
+        }
+      ],
+      "summary_bullets": [
+        ["Motor Dead Zone PWM Compensation", "Minimum effective PWM duty cycle of 15% is applied to the TB6612FNG driver to overcome static friction dead zone."],
+        ["Closed-Loop System Stability", "Routh-Hurwitz criterion and pole-zero constellation verify all motor and heading closed-loop poles lie strictly in the open LHP (Asymptotically Stable)."]
+      ]
+    },
+    {
+      "slide_index": 14,
+      "slide_number": 14,
+      "type": "split_diagram",
+      "banner": "Chapter 6. Algorithm Design",
+      "title": "Supervisory Finite-State Machine (FSM)",
+      "card_width_ratio": 0.50,
+      "bullet_font_size": 17.0,
+      "bullets": [
+        ["FSM Operational States", "States: INIT, RANDOM_WALK, WALL_FOLLOW, SPIRAL_CLEAN, OBSTACLE_AVOID, STUCK_RECOVERY."],
+        ["Priority Interrupts", "Cliff drop danger and bumper collision take absolute override priority over routine cleaning."],
+        ["Master Supervision", "ESP32 supervises state transitions and dispatches target (v, w) commands to STM32 at 50 Hz."],
+        ["Deadlock-Free Logic", "Deterministic arbitration guarantees smooth transition and recovery from confined trap zones."]
+      ],
+      "image_path": "D:\\New folder (5)\\VuNguyen\\extracted_figures_thesis\\fig_01_16_general_operating_process.png",
+      "caption": "Figure 1.16: General operating process and state arbitration flow"
+    },
+    {
+      "slide_index": 15,
+      "slide_number": 15,
+      "type": "dual_diagram",
+      "banner": "Chapter 6. Algorithm Design",
+      "title": "Reactive Cleaning Behaviors & Autonomous Recovery",
+      "card_width_ratio": 0.50,
+      "bullet_font_size": 17.0,
+      "bullets": [
+        ["Archimedean Spiral Cleaning", "Generates expanding trajectory r(theta) = a + b*theta for intensive spot debris pickup."],
+        ["Wall-Following Routine", "Maintains constant lateral distance along room perimeter using side infrared sensors."],
+        ["Obstacle Avoidance Strategy", "Instantaneous 50 mm reverse followed by randomized rotation (90 deg - 150 deg)."],
+        ["Autonomous Stuck Recovery", "Detects encoder stall; executes alternating push-pull pulses and 360 deg spins."]
+      ],
+      "img1_path": "D:\\New folder (5)\\VuNguyen\\extracted_figures_thesis\\fig_06_03_spiral_algorithm.png",
+      "cap1": "Figure 6.3: Archimedean spiral cleaning trajectory algorithm",
+      "img2_path": "D:\\New folder (5)\\VuNguyen\\extracted_figures_thesis\\fig_06_05_obstacle_avoidance_alg.png",
+      "cap2": "Figure 6.5: Reactive obstacle avoidance and disengagement routine"
+    },
+    {
+      "slide_index": 16,
+      "slide_number": 16,
+      "type": "dual_diagram",
+      "banner": "Chapter 7. Experiment and Evaluation",
+      "title": "Physical Prototype & Hardware Fabrication",
+      "card_width_ratio": 0.50,
+      "bullet_font_size": 17.0,
+      "bullets": [
+        ["Additive Manufacturing", "FDM 3D printed ABS chassis structure with 0.2 mm layer height and structural infill."],
+        ["Subsystem Integration", "Coaxial differential drive motors, cantilever roller brush, dual side sweepers, dustbin."],
+        ["Weight Specification", "Measured total mass 3.85 kg <= 4.0 kg specification requirement."],
+        ["Chassis Envelope", "Measured overall height 81.5 mm <= 82 mm (navigates under 110 mm furniture clearance)."]
+      ],
+      "img1_path": "D:\\New folder (5)\\VuNguyen\\extracted_figures_thesis\\fig_07_01_overall_robot_model.png",
+      "cap1": "Figure 7.1: Fully assembled operational robot vacuum prototype",
+      "img2_path": "D:\\New folder (5)\\VuNguyen\\extracted_figures_thesis\\fig_07_02_brush_assembly_real.png",
+      "cap2": "Figure 7.2: Fabricated cantilever main roller brush and timing belt drive"
+    },
+    {
+      "slide_index": 17,
+      "slide_number": 17,
+      "type": "dual_diagram",
+      "banner": "Chapter 7. Experiment and Evaluation",
+      "title": "Motion Performance & Trajectory Tracking Tests",
+      "card_width_ratio": 0.50,
+      "bullet_font_size": 17.0,
+      "bullets": [
+        ["1-Meter Straight-Line Test", "Closed-loop heading PID achieves straight tracking with deviation < 18 mm (open-loop > 120 mm)."],
+        ["In-Place Rotation Accuracy", "90 deg and 180 deg in-place spin tests verify steady-state orientation error < 2.5 deg (|ess| <= 5 deg)."],
+        ["Transient Response Metrics", "Motor speed achieves settling time Ts = 0.14 s without oscillation under loaded floor conditions."],
+        ["Speed Regulation", "Differential drive speed synchronization maintained across wood and ceramic tile surfaces."]
+      ],
+      "img1_path": "D:\\New folder (5)\\VuNguyen\\extracted_figures_thesis\\fig_07_04_straight_line_1m_test.png",
+      "cap1": "Figure 7.4: Experimental 1-meter straight-line trajectory tracking",
+      "img2_path": "D:\\New folder (5)\\VuNguyen\\extracted_figures_thesis\\fig_07_07_rotation_90deg_test.png",
+      "cap2": "Figure 7.7: Experimental 90-degree in-place rotation response"
+    },
+    {
+      "slide_index": 18,
+      "slide_number": 18,
+      "type": "dual_diagram",
+      "banner": "Chapter 7. Experiment and Evaluation",
+      "title": "Floor Cleaning Coverage & Debris Retrieval Tests",
+      "card_width_ratio": 0.50,
+      "bullet_font_size": 17.0,
+      "bullets": [
+        ["Open Workspace Coverage (Test 5.1)", "Achieved 95.24% floor coverage in 60 m2 open workspace within 10 mins (>= 70% target)."],
+        ["Obstacle Workspace Coverage (Test 5.2)", "Achieved 85.55% coverage in furnished room with tables, chairs, and corners."],
+        ["Debris Pickup Verification", "Recorded 95.22% retrieval for paper scraps and 75.33% retrieval for dry sand."],
+        ["Battery Runtime & Discharge", "Battery voltage decreased only 0.16V (15.70V to 15.54V) after 10-min test run; uptime exceeds 75 mins."]
+      ],
+      "img1_path": "D:\\New folder (5)\\VuNguyen\\extracted_figures_thesis\\fig_07_14_coverage_empty_room_10min.png",
+      "cap1": "Figure 7.14: 10-Minute floor cleaning coverage trajectory (95.24% achieved)",
+      "img2_path": "D:\\New folder (5)\\VuNguyen\\extracted_figures_thesis\\fig_07_17_paper_scraps_test.png",
+      "cap2": "Figure 7.17: Paper scraps particulate debris retrieval verification test"
+    },
+    {
+      "slide_index": 19,
+      "slide_number": 19,
+      "type": "split_diagram",
+      "banner": "Chapter 8. Conclusion",
+      "title": "Research Achievements & Future Roadmap",
+      "card_width_ratio": 0.50,
+      "bullet_font_size": 17.0,
+      "bullets": [
+        ["Comprehensive System Delivery", "Successfully researched, designed, fabricated, and validated an autonomous indoor robot vacuum."],
+        ["Technical Target Compliance", "Met all mechanical specifications (H = 81.5 mm, m = 3.85 kg) and cleaning coverage (> 85%)."],
+        ["Robust Closed-Loop Control", "Demonstrated fast motor speed regulation (Ts = 0.14 s) and heading yaw drift mitigation (< 18 mm)."],
+        ["Future Development Roadmap", "Equip 2D LiDAR for SLAM global mapping, active obstacle classification, and auto-charging dock."]
+      ],
+      "image_path": "D:\\New folder (5)\\VuNguyen\\extracted_figures_thesis\\fig_07_16_coverage_obstacles_10min.png",
+      "caption": "Figure 7.16: Autonomous reactive cleaning coverage in obstacle-rich environment"
+    },
+    {
+      "slide_index": 20,
+      "slide_number": 20,
+      "type": "thank_you",
+      "title": "THANK YOU FOR LISTENING!",
+      "subtitle": "CAPSTONE PROJECT DEFENSE: INDOOR ROBOT VACUUM CLEANER",
+      "presenter": "Student: Nguyễn Vũ Nguyên   |   Student ID: 2252948",
+      "advisor": "Academic Advisor: Dr. Phạm Phương Tùng",
+      "qa_text": "Questions & Answers Session"
+    }
+  ]
+}

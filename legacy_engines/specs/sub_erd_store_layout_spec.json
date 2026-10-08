@@ -1,0 +1,10 @@
+{
+  "engine": "mermaid",
+  "diagram_type": "erd",
+  "diagram_name": "sub_erd_store_layout",
+  "title": "Phân hệ 4: Bố trí Mặt bằng Siêu thị & Vị trí Kệ hàng (Physical ERD)",
+  "theme_preset": "erd_pastel",
+  "scale": 3,
+  "output_path": "diagram_assets/sub_erd_store_layout.png",
+  "code": "erDiagram\n    FLOOR {\n        int FloorID PK\n        int FloorNumber\n    }\n    ZONE {\n        int ZoneID PK\n        int FloorID FK\n        varchar ZoneName\n        varchar Description\n    }\n    AISLE {\n        int AisleID PK\n        int ZoneID FK\n        varchar AisleCode\n        varchar AisleName\n    }\n    SHELF {\n        int ShelfID PK\n        varchar ShelfName\n        int AisleID FK\n        int LevelNumber\n        int NodeID FK\n    }\n    SLOT {\n        int SlotID PK\n        int ShelfID FK\n        varchar SlotCode\n        datetime LastScannedAt\n    }\n    PRODUCT_SLOT {\n        int ProductsSlotID PK\n        int SlotID FK\n        int ProductID FK\n    }\n\n    FLOOR ||--o{ ZONE : \"\"\n    ZONE ||--o{ AISLE : \"\"\n    AISLE ||--o{ SHELF : \"\"\n    SHELF ||--o{ SLOT : \"\"\n    SLOT ||--o{ PRODUCT_SLOT : \"\"\n"
+}

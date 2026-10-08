@@ -1,0 +1,12 @@
+{
+  "name": "Felo Slides",
+  "tagline": "Generate PPT/slides from prompts, images, and files with Felo",
+  "description": "Felo Slides creates presentation decks from prompts or uploaded local files using the Felo PPT Task API. It supports images, PDFs, documents, themes, task resume, polling, and final ppt_url output.",
+  "category": "productivity",
+  "tags": ["felo", "slides", "ppt", "presentation", "file-upload", "image", "api", "claude-code"],
+  "version": "1.0.1",
+  "license": "MIT",
+  "pricing": "free",
+  "support_url": "https://github.com/Felo-Inc/felo-skills/issues",
+  "homepage": "https://github.com/Felo-Inc/felo-skills"
+}
