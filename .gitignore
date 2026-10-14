@@ -14,9 +14,12 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 
-# Environments
+# Environments & secrets
 .env
+.env.local
+.env.*.local
 .venv
 env/
 venv/
@@ -38,9 +41,22 @@ htmlcov/
 Thumbs.db
 Desktop.ini
 
-# Web runtime uploads & outputs (avoid leaking test files or personal documents)
+# Database & SQLite files
+*.db
+*.sqlite
+*.sqlite3
+
+# Log files
+*.log
+
+# Heavy precompiled binaries (download on demand to prevent bloating repo history)
+*.jar
+tools/plantuml.jar
+
+# Web runtime uploads, outputs & slide previews
 .web_uploads/
 .web_outputs/
+preview_slides/
 
 # Scratch & temporary artifacts
 scratch/
@@ -52,9 +68,24 @@ scratch/
 test_out_assets/
 tools/archive/
 
-# Personal & User Capstone documents (exclude thesis, defense slides, private files)
+# Project deliverables (Specific capstones, private reports, custom client scripts)
+tools/deliverables/
+
+# Personal & Capstone documents & spreadsheets
 docs/
+excel_assets/
 *.docx
 *.pptx
 *.pdf
 *.xlsx
+*.xls
+*.csv
+.agent_scratchpad.md
+
+# Generated diagram test outputs (Preserve core theme illustrations/ and offline runner engine)
+diagram_assets/*
+!diagram_assets/illustrations/
+!diagram_assets/illustrations/**
+!diagram_assets/runner/
+!diagram_assets/runner/**
+diagram_assets/runner/__tmp_*

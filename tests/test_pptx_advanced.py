@@ -24,9 +24,13 @@ from pptx_writer import (
     init_presentation,
     add_split_diagram_slide,
     add_dual_diagram_slide,
+    add_mockup_slide,
+    add_split_mockup_slide,
     add_metrics_summary_slide,
     write_pptx_from_spec,
     safe_save_pptx,
+    _resolve_asset_path,
+    THEMES,
 )
 from pptx_reader import read_pptx
 from pptx_engine import (
@@ -263,6 +267,78 @@ class TestAdvancedPowerPointLayouts(unittest.TestCase):
         self.assertEqual(res_preview.returncode, 0, f"pptx-preview failed: {res_preview.stderr}")
         expected_png = os.path.join(preview_dir, "slide_01_preview.png")
         self.assertTrue(os.path.isfile(expected_png), f"Preview PNG not found at: {expected_png}")
+
+    def test_new_themes_available(self):
+        """Validates that cyber_tech_dark and minimalist_nordic are registered in THEMES."""
+        self.assertIn("cyber_tech_dark", THEMES)
+        self.assertIn("minimalist_nordic", THEMES)
+
+        cyber = THEMES["cyber_tech_dark"]
+        self.assertEqual(cyber["bg_color"][0], 8)
+        self.assertEqual(cyber["bg_color"][1], 12)
+        self.assertEqual(cyber["bg_color"][2], 20)
+
+        nordic = THEMES["minimalist_nordic"]
+        self.assertEqual(nordic["bg_color"][0], 250)
+        self.assertEqual(nordic["bg_color"][1], 250)
+        self.assertEqual(nordic["bg_color"][2], 249)
+
+    def test_illustration_asset_resolution(self):
+        """Validates _resolve_asset_path alias mapping to diagram_assets/illustrations/."""
+        resolved_cloud = _resolve_asset_path("cloud")
+        self.assertTrue(os.path.isfile(resolved_cloud), f"Cloud asset not found: {resolved_cloud}")
+        self.assertTrue(resolved_cloud.endswith("cloud_architecture.png"))
+
+        resolved_analytics = _resolve_asset_path("analytics")
+        self.assertTrue(os.path.isfile(resolved_analytics), f"Analytics asset not found: {resolved_analytics}")
+        self.assertTrue(resolved_analytics.endswith("data_analytics.png"))
+
+    def test_add_mockup_slides(self):
+        """Validates native vector DrawingML device mockup slide generation."""
+        prs = init_presentation()
+
+        # Browser Mockup slide
+        slide_b = add_mockup_slide(
+            prs=prs,
+            title="Desktop Cloud Management Dashboard",
+            image_path="cloud",
+            mockup_type="browser",
+            url="https://cloud.antigravity.io",
+            caption="Figure: Web Management Console",
+            theme_name="cyber_tech_dark",
+        )
+        self.assertIsNotNone(slide_b)
+        self.assertGreater(len(slide_b.shapes), 3)
+
+        # Mobile Mockup slide
+        slide_m = add_mockup_slide(
+            prs=prs,
+            title="Mobile Field Inspector App",
+            image_path="security_shield",
+            mockup_type="mobile",
+            caption="Figure: Smartphone Security App",
+            theme_name="minimalist_nordic",
+        )
+        self.assertIsNotNone(slide_m)
+        self.assertGreater(len(slide_m.shapes), 3)
+
+        # Split Mockup slide
+        slide_split = add_split_mockup_slide(
+            prs=prs,
+            title="Next-Gen Analytics Engine",
+            bullets=[
+                ("Real-time ingestion", "Handles 50k events per second"),
+                ("Instant visualization", "Dynamic charting with WebGL"),
+            ],
+            image_path="data_analytics",
+            mockup_type="browser",
+            theme_name="cyber_tech_dark",
+        )
+        self.assertIsNotNone(slide_split)
+
+        out_path = os.path.join(self.dpath, "test_mockups_deck.pptx")
+        saved = safe_save_pptx(prs, out_path)
+        self.assertTrue(os.path.isfile(saved))
 
 
 if __name__ == "__main__":

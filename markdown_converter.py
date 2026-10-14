@@ -38,6 +38,11 @@ try:
 except (ImportError, ValueError):
     from docx_math import add_math_to_paragraph
 
+try:
+    from .docx_lists import ListContextTracker, apply_list_formatting
+except (ImportError, ValueError):
+    from docx_lists import ListContextTracker, apply_list_formatting
+
 def _hex_to_rgb(hex_str: str) -> RGBColor:
     cleaned = hex_str.lstrip("#")
     if len(cleaned) == 6:
@@ -547,6 +552,7 @@ def decoupled_to_docx(
     in_signature_block = False
     table_buffer: List[List[str]] = []
     col_alignments: List[WD_ALIGN_PARAGRAPH] = []
+    list_tracker = ListContextTracker(doc)
 
     def flush_table():
         nonlocal in_table, table_buffer, col_alignments
@@ -599,20 +605,39 @@ def decoupled_to_docx(
                         tcPr.append(parse_xml(f'<w:vAlign {NS_W} w:val="center"/>'))
 
                     cell.text = ""
-                    cp = cell.paragraphs[0] if cell.paragraphs else cell.add_paragraph()
-                    _add_formatted_runs(cp, val)
-                    cp.paragraph_format.space_before = Pt(2.5)
-                    cp.paragraph_format.space_after = Pt(2.5)
-                    cp.paragraph_format.line_spacing = 1.15
-                    if c_idx < len(col_alignments):
-                        cp.alignment = col_alignments[c_idx]
+                    # Handle multiple lines or list items inside table cells
+                    cell_lines = re.split(r"<br\s*/?>|\n", str(val))
+                    cell_lines = [cl for cl in cell_lines if cl.strip()]
+
+                    if not cell_lines:
+                        cp = cell.paragraphs[0] if cell.paragraphs else cell.add_paragraph()
+                        cp.paragraph_format.space_before = Pt(2.0)
+                        cp.paragraph_format.space_after = Pt(2.0)
                     else:
-                        cp.alignment = WD_ALIGN_PARAGRAPH.CENTER if c_idx == 0 else WD_ALIGN_PARAGRAPH.LEFT
-                    for cr in cp.runs:
-                        cr.font.name = font_family
-                        cr.font.size = Pt(10)
-                        if r_idx == 0:
-                            cr.bold = True
+                        cell_list_tracker = ListContextTracker(doc)
+                        for l_idx, c_line in enumerate(cell_lines):
+                            cp = cell.paragraphs[0] if (l_idx == 0 and cell.paragraphs) else cell.add_paragraph()
+                            c_item = cell_list_tracker.parse_markdown_line(c_line)
+                            if c_item:
+                                _add_formatted_runs(cp, c_item.text)
+                                num_id = cell_list_tracker.get_num_id_for_item(c_item)
+                                apply_list_formatting(cp, c_item.item_type, c_item.level, num_id, c_item.is_checked)
+                            else:
+                                cell_list_tracker.reset_all_lists()
+                                _add_formatted_runs(cp, c_line)
+                                cp.paragraph_format.space_before = Pt(2.0)
+                                cp.paragraph_format.space_after = Pt(2.0)
+                                cp.paragraph_format.line_spacing = 1.15
+
+                            if c_idx < len(col_alignments):
+                                cp.alignment = col_alignments[c_idx]
+                            else:
+                                cp.alignment = WD_ALIGN_PARAGRAPH.CENTER if c_idx == 0 else WD_ALIGN_PARAGRAPH.LEFT
+                            for cr in cp.runs:
+                                cr.font.name = font_family
+                                cr.font.size = Pt(10)
+                                if r_idx == 0:
+                                    cr.bold = True
 
         table_buffer.clear()
         col_alignments.clear()
@@ -669,6 +694,7 @@ def decoupled_to_docx(
         # Handle Images
         img_match = re.search(r"!\[(.*?)\]\((.*?)\)", s_line)
         if img_match:
+            list_tracker.reset_all_lists()
             img_rel_path = img_match.group(2).strip()
             full_img_path = os.path.join(base_dir, img_rel_path)
             if os.path.isfile(full_img_path):
@@ -679,6 +705,7 @@ def decoupled_to_docx(
 
         # Table & Figure Captions
         if s_line.startswith("*Table ") or s_line.startswith("*Figure "):
+            list_tracker.reset_all_lists()
             caption_text = s_line.strip("*")
             p_cap = doc.add_paragraph()
             p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -693,6 +720,7 @@ def decoupled_to_docx(
         # TOC lines with dot leaders
         m_toc = TOC_LINE_REGEX.match(s_line)
         if m_toc:
+            list_tracker.reset_all_lists()
             title_p = m_toc.group(1).strip()
             page_p = m_toc.group(2).strip()
             p_toc = doc.add_paragraph()
@@ -701,49 +729,56 @@ def decoupled_to_docx(
 
         # Horizontal Rule (Divider)
         if s_line == "---":
+            list_tracker.reset_all_lists()
             continue
 
         # Headings
         if s_line.startswith("# "):
+            list_tracker.reset_all_lists()
             h = doc.add_heading(s_line[2:].strip(), level=1)
             h.paragraph_format.space_before = Pt(14)
             h.paragraph_format.space_after = Pt(6)
             h.paragraph_format.keep_with_next = True
         elif s_line.startswith("## "):
+            list_tracker.reset_all_lists()
             h = doc.add_heading(s_line[3:].strip(), level=2)
             h.paragraph_format.space_before = Pt(12)
             h.paragraph_format.space_after = Pt(4)
             h.paragraph_format.keep_with_next = True
         elif s_line.startswith("### "):
+            list_tracker.reset_all_lists()
             h = doc.add_heading(s_line[4:].strip(), level=3)
             h.paragraph_format.space_before = Pt(8)
             h.paragraph_format.space_after = Pt(3)
             h.paragraph_format.keep_with_next = True
         elif s_line.startswith("#### "):
+            list_tracker.reset_all_lists()
             h = doc.add_heading(s_line[5:].strip(), level=4)
             h.paragraph_format.space_before = Pt(6)
             h.paragraph_format.space_after = Pt(2)
             h.paragraph_format.keep_with_next = True
-        elif s_line.startswith("- ") or s_line.startswith("* "):
-            p = doc.add_paragraph(style="List Bullet")
-            _add_formatted_runs(p, s_line[2:].strip())
-            p.paragraph_format.line_spacing = 1.15
-            p.paragraph_format.space_before = Pt(1.5)
-            p.paragraph_format.space_after = Pt(1.5)
-            if len(s_line) > 75:
-                p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        elif re.match(r"^\d+\.\s+", s_line):
-            text_val = re.sub(r"^\d+\.\s+", "", s_line)
-            p = doc.add_paragraph(style="List Number")
-            _add_formatted_runs(p, text_val)
-            p.paragraph_format.line_spacing = 1.15
-            p.paragraph_format.space_before = Pt(2)
-            p.paragraph_format.space_after = Pt(2)
-            if len(s_line) > 75:
-                p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
         else:
+            # Check for list items (Ordered, Bullet, Checkbox with multi-level indentation)
+            list_item = list_tracker.parse_markdown_line(line)
+            if list_item:
+                p = doc.add_paragraph()
+                if "$" in list_item.text:
+                    add_math_to_paragraph(p, list_item.text)
+                else:
+                    _add_formatted_runs(p, list_item.text)
+                num_id = list_tracker.get_num_id_for_item(list_item)
+                apply_list_formatting(p, list_item.item_type, list_item.level, num_id, list_item.is_checked)
+                if len(s_line) > 75:
+                    p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+                continue
+
+            # Plain paragraph: reset list tracker (Zero auto-numbering on plain text)
+            list_tracker.reset_all_lists()
             p = doc.add_paragraph()
-            _add_formatted_runs(p, s_line)
+            if "$" in s_line:
+                add_math_to_paragraph(p, s_line)
+            else:
+                _add_formatted_runs(p, s_line)
             p.paragraph_format.line_spacing = 1.15
             p.paragraph_format.space_before = Pt(0)
             p.paragraph_format.space_after = Pt(4)

@@ -41,6 +41,8 @@ from pptx.enum.shapes import MSO_SHAPE
 # Constants & Color Palettes
 # ---------------------------------------------------------------------------
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 SLIDE_WIDTH_IN = 13.333
 SLIDE_HEIGHT_IN = 7.5
 
@@ -68,6 +70,30 @@ THEMES: Dict[str, Dict[str, Any]] = {
         "card_border": RGBColor(51, 65, 85),        # #334155
         "font_heading": "Arial",
         "font_body": "Arial",
+    },
+    "cyber_tech_dark": {
+        "bg_color": RGBColor(8, 12, 20),           # #080c14 Dark Navy Slate
+        "title_color": RGBColor(56, 189, 248),      # #38bdf8 Cyan Neon
+        "subtitle_color": RGBColor(148, 163, 184),  # #94a3b8 Slate-400
+        "text_color": RGBColor(226, 232, 240),      # #e2e8f0 Slate-200
+        "accent_color": RGBColor(14, 165, 233),     # #0ea5e9 Cyan-500
+        "accent_light": RGBColor(15, 23, 42),       # #0f172a
+        "card_bg": RGBColor(15, 23, 42),            # #0f172a
+        "card_border": RGBColor(30, 41, 59),        # #1e293b
+        "font_heading": "Segoe UI",
+        "font_body": "Segoe UI",
+    },
+    "minimalist_nordic": {
+        "bg_color": RGBColor(250, 250, 249),        # #fafaf9 Warm Stone
+        "title_color": RGBColor(0, 0, 0),           # Pure Black (PPTX_INV_10)
+        "subtitle_color": RGBColor(0, 0, 0),        # Pure Black (PPTX_INV_10)
+        "text_color": RGBColor(0, 0, 0),            # Pure Black (PPTX_INV_10)
+        "accent_color": RGBColor(13, 148, 136),     # #0d9488 Nordic Teal
+        "accent_light": RGBColor(240, 253, 250),    # #f0fdfa Teal-50
+        "card_bg": RGBColor(255, 255, 255),         # #ffffff
+        "card_border": RGBColor(229, 231, 235),     # #e5e7eb
+        "font_heading": "Segoe UI",
+        "font_body": "Segoe UI",
     },
     "academic_light": {
         "bg_color": RGBColor(255, 255, 255),        # #ffffff
@@ -98,6 +124,59 @@ THEMES: Dict[str, Dict[str, Any]] = {
 
 def get_theme(theme_name: str) -> Dict[str, Any]:
     return THEMES.get(theme_name, THEMES["corporate_blue"])
+
+
+# ---------------------------------------------------------------------------
+# Vector Illustrations & Asset Resolver
+# ---------------------------------------------------------------------------
+
+ILLUSTRATION_ALIASES: Dict[str, str] = {
+    "cloud": "cloud_architecture.png",
+    "cloud_architecture": "cloud_architecture.png",
+    "cloud_architecture.png": "cloud_architecture.png",
+    "data": "data_analytics.png",
+    "analytics": "data_analytics.png",
+    "data_analytics": "data_analytics.png",
+    "data_analytics.png": "data_analytics.png",
+    "security": "security_shield.png",
+    "shield": "security_shield.png",
+    "security_shield": "security_shield.png",
+    "security_shield.png": "security_shield.png",
+    "team": "team_collaboration.png",
+    "collaboration": "team_collaboration.png",
+    "team_collaboration": "team_collaboration.png",
+    "team_collaboration.png": "team_collaboration.png",
+    "workflow": "workflow_automation.png",
+    "automation": "workflow_automation.png",
+    "workflow_automation": "workflow_automation.png",
+    "workflow_automation.png": "workflow_automation.png",
+}
+
+
+def _resolve_asset_path(image_path: Optional[str]) -> str:
+    """
+    Resolves an image path or illustration keyword alias to an absolute filesystem path.
+    Supports aliases like 'cloud', 'analytics', 'workflow_automation', etc.
+    """
+    if not image_path:
+        return ""
+    if os.path.isfile(image_path):
+        return os.path.abspath(image_path)
+
+    clean_name = os.path.basename(image_path).strip().lower()
+    target_filename = ILLUSTRATION_ALIASES.get(clean_name, clean_name)
+
+    search_candidates = [
+        os.path.join(BASE_DIR, "diagram_assets", "illustrations", target_filename),
+        os.path.join(BASE_DIR, "diagram_assets", target_filename),
+        os.path.join("diagram_assets", "illustrations", target_filename),
+        os.path.join("diagram_assets", target_filename),
+        os.path.join(BASE_DIR, target_filename),
+    ]
+    for c in search_candidates:
+        if os.path.isfile(c):
+            return os.path.abspath(c)
+    return image_path
 
 
 # ---------------------------------------------------------------------------
@@ -875,6 +954,352 @@ def add_two_column_slide(
     return slide
 
 
+def _render_device_mockup(
+    slide: Any,
+    image_path: str,
+    box_left: float,
+    box_top: float,
+    box_width: float,
+    box_height: float,
+    mockup_type: str = "browser",
+    url: Optional[str] = None,
+    theme: Optional[Dict[str, Any]] = None,
+) -> Any:
+    """
+    Renders an OpenXML Native DrawingML Device Mockup Frame:
+    - 'browser' (desktop): macOS style browser window with traffic lights, URL bar, and fitted viewport.
+    - 'mobile' (smartphone): Smartphone chassis with dynamic island, screen bezel, and home indicator.
+    Conforms to PPTX_INV_02 (Aspect-ratio locking within viewport).
+    """
+    if theme is None:
+        theme = get_theme("corporate_blue")
+
+    resolved_img = _resolve_asset_path(image_path)
+    is_img_valid = bool(resolved_img and os.path.isfile(resolved_img))
+    m_type = mockup_type.lower().strip() if mockup_type else "browser"
+
+    if m_type in ("mobile", "phone", "smartphone", "iphone", "android"):
+        # 1. Smartphone chassis layout (~1:2.05 aspect ratio)
+        phone_w = min(box_width * 0.75, box_height * 0.49, 3.2)
+        phone_h = phone_w * 2.05
+        if phone_h > box_height:
+            phone_h = box_height
+            phone_w = phone_h / 2.05
+
+        phone_x = box_left + (box_width - phone_w) / 2.0
+        phone_y = box_top + (box_height - phone_h) / 2.0
+
+        # Outer Chassis
+        chassis = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE,
+            Inches(phone_x), Inches(phone_y), Inches(phone_w), Inches(phone_h)
+        )
+        chassis.fill.solid()
+        chassis.fill.fore_color.rgb = RGBColor(15, 23, 42)
+        chassis.line.color.rgb = RGBColor(71, 85, 105)
+        chassis.line.width = Pt(2.0)
+
+        # Inner Screen Area
+        bezel_margin = 0.08
+        screen_x = phone_x + bezel_margin
+        screen_y = phone_y + bezel_margin
+        screen_w = phone_w - (bezel_margin * 2)
+        screen_h = phone_h - (bezel_margin * 2)
+
+        screen_bg = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE,
+            Inches(screen_x), Inches(screen_y), Inches(screen_w), Inches(screen_h)
+        )
+        screen_bg.fill.solid()
+        is_dark = theme.get("bg_color") in (RGBColor(15, 23, 42), RGBColor(8, 12, 20))
+        screen_bg.fill.fore_color.rgb = RGBColor(15, 23, 42) if is_dark else RGBColor(255, 255, 255)
+        screen_bg.line.color.rgb = RGBColor(51, 65, 85) if is_dark else RGBColor(226, 232, 240)
+        screen_bg.line.width = Pt(0.8)
+
+        # Screen Content Viewport (below island, above home bar)
+        vp_top = screen_y + 0.28
+        vp_bottom = screen_y + screen_h - 0.22
+        vp_h = max(0.5, vp_bottom - vp_top)
+        vp_w = screen_w - 0.08
+        vp_x = screen_x + 0.04
+
+        if is_img_valid:
+            ix, iy, iw, ih = _calculate_image_fit(resolved_img, vp_x, vp_top, vp_w, vp_h)
+            slide.shapes.add_picture(resolved_img, Inches(ix), Inches(iy), width=Inches(iw), height=Inches(ih))
+
+        # Dynamic Island pill on top
+        island_w = min(screen_w * 0.40, 0.85)
+        island_h = 0.16
+        island_x = phone_x + (phone_w - island_w) / 2.0
+        island_y = screen_y + 0.07
+        island = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE,
+            Inches(island_x), Inches(island_y), Inches(island_w), Inches(island_h)
+        )
+        island.fill.solid()
+        island.fill.fore_color.rgb = RGBColor(0, 0, 0)
+        island.line.color.rgb = RGBColor(0, 0, 0)
+
+        # Home Indicator at bottom
+        home_w = min(screen_w * 0.45, 1.05)
+        home_h = 0.04
+        home_x = phone_x + (phone_w - home_w) / 2.0
+        home_y = screen_y + screen_h - 0.10
+        home_bar = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE,
+            Inches(home_x), Inches(home_y), Inches(home_w), Inches(home_h)
+        )
+        home_bar.fill.solid()
+        home_bar.fill.fore_color.rgb = RGBColor(148, 163, 184)
+        home_bar.line.color.rgb = RGBColor(148, 163, 184)
+
+        return chassis
+
+    else:
+        # 2. Desktop macOS Browser Window Mockup
+        frame_x = box_left
+        frame_y = box_top
+        frame_w = box_width
+        frame_h = box_height
+
+        header_h = 0.40
+        is_dark = theme.get("bg_color") in (RGBColor(15, 23, 42), RGBColor(8, 12, 20))
+
+        # Outer Frame
+        outer = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE,
+            Inches(frame_x), Inches(frame_y), Inches(frame_w), Inches(frame_h)
+        )
+        outer.fill.solid()
+        outer_bg = RGBColor(30, 41, 59) if is_dark else RGBColor(241, 245, 249)
+        outer_border = RGBColor(51, 65, 85) if is_dark else RGBColor(203, 213, 225)
+        outer.fill.fore_color.rgb = outer_bg
+        outer.line.color.rgb = outer_border
+        outer.line.width = Pt(1.2)
+
+        # Traffic Lights (Close, Min, Max)
+        dot_y = frame_y + 0.14
+        dot_r = 0.11
+        dot_gap = 0.07
+        start_x = frame_x + 0.18
+
+        colors = [
+            RGBColor(239, 68, 68),   # Red
+            RGBColor(245, 158, 11),  # Yellow
+            RGBColor(16, 185, 129),  # Green
+        ]
+        for idx, clr in enumerate(colors):
+            dot = slide.shapes.add_shape(
+                MSO_SHAPE.OVAL,
+                Inches(start_x + idx * (dot_r + dot_gap)), Inches(dot_y), Inches(dot_r), Inches(dot_r)
+            )
+            dot.fill.solid()
+            dot.fill.fore_color.rgb = clr
+            dot.line.color.rgb = clr
+
+        # URL Address Bar
+        url_text = url or "https://antigravity.studio"
+        addr_w = min(frame_w * 0.52, 6.0)
+        addr_h = 0.22
+        addr_x = frame_x + (frame_w - addr_w) / 2.0
+        addr_y = frame_y + 0.09
+
+        addr_box = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE,
+            Inches(addr_x), Inches(addr_y), Inches(addr_w), Inches(addr_h)
+        )
+        addr_box.fill.solid()
+        addr_bg = RGBColor(15, 23, 42) if is_dark else RGBColor(255, 255, 255)
+        addr_border = RGBColor(51, 65, 85) if is_dark else RGBColor(226, 232, 240)
+        addr_box.fill.fore_color.rgb = addr_bg
+        addr_box.line.color.rgb = addr_border
+        addr_box.line.width = Pt(0.8)
+
+        tf_addr = addr_box.text_frame
+        tf_addr.word_wrap = False
+        tf_addr.margin_left = Inches(0.12)
+        tf_addr.margin_right = Inches(0.12)
+        tf_addr.margin_top = Inches(0.01)
+        tf_addr.margin_bottom = Inches(0.01)
+        p_addr = tf_addr.paragraphs[0]
+        p_addr.alignment = PP_ALIGN.CENTER
+        set_paragraph_text_clean(
+            p_addr, url_text, font_size_pt=9.5, is_bold=False,
+            color=RGBColor(148, 163, 184) if is_dark else RGBColor(100, 116, 139),
+            font_name="Calibri"
+        )
+
+        # Viewport for content image
+        vp_top = frame_y + header_h
+        vp_h = frame_h - header_h - 0.06
+        vp_w = frame_w - 0.12
+        vp_x = frame_x + 0.06
+
+        vp_bg = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE,
+            Inches(vp_x), Inches(vp_top), Inches(vp_w), Inches(vp_h)
+        )
+        vp_bg.fill.solid()
+        vp_bg_color = RGBColor(15, 23, 42) if is_dark else RGBColor(255, 255, 255)
+        vp_bg.fill.fore_color.rgb = vp_bg_color
+        vp_bg.line.color.rgb = vp_bg_color
+
+        if is_img_valid:
+            ix, iy, iw, ih = _calculate_image_fit(resolved_img, vp_x + 0.04, vp_top + 0.04, vp_w - 0.08, vp_h - 0.08)
+            slide.shapes.add_picture(resolved_img, Inches(ix), Inches(iy), width=Inches(iw), height=Inches(ih))
+
+        return outer
+
+
+def add_mockup_slide(
+    prs: PresentationType,
+    title: str,
+    image_path: str,
+    mockup_type: str = "browser",
+    url: Optional[str] = None,
+    caption: Optional[str] = None,
+    subtitle: Optional[str] = None,
+    banner: Optional[str] = None,
+    theme_name: str = "corporate_blue",
+    target_slide: Optional[Any] = None,
+) -> Any:
+    """Creates a presentation slide showcasing an application in a native vector device mockup."""
+    theme = get_theme(theme_name)
+    slide = _prepare_slide(prs, theme, target_slide=target_slide)
+    top_y = _add_slide_header(slide, title, subtitle, theme, banner=banner)
+
+    resolved_path = _resolve_asset_path(image_path)
+    if not os.path.isfile(resolved_path):
+        err_box = slide.shapes.add_textbox(Inches(1.0), Inches(top_y + 0.5), Inches(11.3), Inches(3.0))
+        p = err_box.text_frame.paragraphs[0]
+        p.text = f"[Mockup Image Not Found: {image_path}]"
+        p.font.color.rgb = RGBColor(220, 38, 38)
+        p.font.bold = True
+        return slide
+
+    box_left = 1.0
+    box_top = top_y + 0.12
+    box_width = 11.333
+    box_height = 4.8 if caption else 5.1
+    box_height = min(box_height, 7.1 - box_top)
+
+    _render_device_mockup(
+        slide, resolved_path, box_left, box_top, box_width, box_height,
+        mockup_type=mockup_type, url=url, theme=theme
+    )
+
+    if caption:
+        cap_box = slide.shapes.add_textbox(
+            Inches(0.8),
+            Inches(min(6.92, box_top + box_height + 0.06)),
+            Inches(11.733),
+            Inches(0.35),
+        )
+        tf = cap_box.text_frame
+        tf.word_wrap = True
+        p_cap = tf.paragraphs[0]
+        p_cap.alignment = PP_ALIGN.CENTER
+        set_paragraph_text_clean(
+            p_cap, caption, font_size_pt=11.5, is_italic=True,
+            color=theme.get("subtitle_color", RGBColor(0, 0, 0)),
+            font_name=theme["font_body"]
+        )
+
+    return slide
+
+
+def add_split_mockup_slide(
+    prs: PresentationType,
+    title: str,
+    bullets: List[Any],
+    image_path: str,
+    mockup_type: str = "browser",
+    url: Optional[str] = None,
+    caption: Optional[str] = None,
+    subtitle: Optional[str] = None,
+    banner: Optional[str] = None,
+    theme_name: str = "corporate_blue",
+    card_width_ratio: float = 0.45,
+    bullet_font_size: float = 15.5,
+    target_slide: Optional[Any] = None,
+) -> Any:
+    """Creates a Split-Screen slide with feature bullets on the left and a device mockup on the right."""
+    theme = get_theme(theme_name)
+    slide = _prepare_slide(prs, theme, target_slide=target_slide)
+    top_y = _add_slide_header(slide, title, subtitle, theme, banner=banner)
+
+    # Geometry Layout
+    left_x = 0.8
+    content_top = top_y + 0.08
+    available_w = 11.733
+    available_h = max(3.5, 7.0 - content_top)
+    gap_x = 0.35
+
+    ratio = max(0.3, min(card_width_ratio, 0.7))
+    card_w = (available_w - gap_x) * ratio
+    panel_w = available_w - gap_x - card_w
+    panel_x = left_x + card_w + gap_x
+
+    # 1. Left Card Container
+    card = slide.shapes.add_shape(
+        MSO_SHAPE.ROUNDED_RECTANGLE,
+        Inches(left_x), Inches(content_top), Inches(card_w), Inches(available_h)
+    )
+    card.fill.solid()
+    card.fill.fore_color.rgb = theme["card_bg"]
+    card.line.color.rgb = theme["card_border"]
+    card.line.width = Pt(1.2)
+
+    tf = card.text_frame
+    tf.word_wrap = True
+    tf.vertical_anchor = MSO_ANCHOR.TOP
+    tf.margin_left = Inches(0.28)
+    tf.margin_right = Inches(0.28)
+    tf.margin_top = Inches(0.28)
+    tf.margin_bottom = Inches(0.20)
+    tf.clear()
+
+    first = True
+    for itm in bullets:
+        p = tf.paragraphs[0] if first else tf.add_paragraph()
+        first = False
+        _format_bullet_paragraph(p, itm, theme, font_size_pt=bullet_font_size)
+
+    # 2. Right Mockup Panel
+    resolved_path = _resolve_asset_path(image_path)
+    if not os.path.isfile(resolved_path):
+        err_box = slide.shapes.add_textbox(Inches(panel_x), Inches(content_top + 0.5), Inches(panel_w), Inches(2.0))
+        p = err_box.text_frame.paragraphs[0]
+        p.text = f"[Mockup Not Found: {image_path}]"
+        p.font.color.rgb = RGBColor(220, 38, 38)
+        p.font.bold = True
+        return slide
+
+    cap_h = 0.35 if caption else 0.0
+    mockup_h = max(1.0, available_h - cap_h)
+
+    _render_device_mockup(
+        slide, resolved_path, panel_x, content_top, panel_w, mockup_h,
+        mockup_type=mockup_type, url=url, theme=theme
+    )
+
+    if caption:
+        cap_box = slide.shapes.add_textbox(
+            Inches(panel_x), Inches(content_top + mockup_h + 0.04), Inches(panel_w), Inches(0.35)
+        )
+        tf_c = cap_box.text_frame
+        tf_c.word_wrap = True
+        p_c = tf_c.paragraphs[0]
+        p_c.alignment = PP_ALIGN.CENTER
+        set_paragraph_text_clean(
+            p_c, caption, font_size_pt=11.5, is_italic=True,
+            color=theme.get("subtitle_color", RGBColor(0, 0, 0)),
+            font_name=theme["font_body"]
+        )
+
+    return slide
+
+
 def add_diagram_slide(
     prs: PresentationType,
     title: str,
@@ -883,17 +1308,35 @@ def add_diagram_slide(
     subtitle: Optional[str] = None,
     banner: Optional[str] = None,
     theme_name: str = "corporate_blue",
+    mockup: Optional[str] = None,
+    url: Optional[str] = None,
     target_slide: Optional[Any] = None,
 ) -> Any:
     """
     Creates a Technical Diagram presentation slide.
     Enforces Aspect-Ratio Locking and Mathematical Centering (PPTX_INV_02, PPTX_INV_05).
+    Supports optional vector mockup framing via `mockup="browser"` or `mockup="mobile"`.
     """
+    if mockup:
+        return add_mockup_slide(
+            prs=prs,
+            title=title,
+            image_path=image_path,
+            mockup_type=mockup,
+            url=url,
+            caption=caption,
+            subtitle=subtitle,
+            banner=banner,
+            theme_name=theme_name,
+            target_slide=target_slide,
+        )
+
     theme = get_theme(theme_name)
     slide = _prepare_slide(prs, theme, target_slide=target_slide)
     top_y = _add_slide_header(slide, title, subtitle, theme, banner=banner)
 
-    if not os.path.isfile(image_path):
+    resolved_path = _resolve_asset_path(image_path)
+    if not os.path.isfile(resolved_path):
         err_box = slide.shapes.add_textbox(Inches(1.0), Inches(top_y + 0.5), Inches(11.3), Inches(3.0))
         p = err_box.text_frame.paragraphs[0]
         p.text = f"[Diagram Image Not Found: {image_path}]"
@@ -912,7 +1355,7 @@ def add_diagram_slide(
     orig_w, orig_h = 1000, 600
     if Image is not None:
         try:
-            with Image.open(image_path) as im:
+            with Image.open(resolved_path) as im:
                 orig_w, orig_h = im.size
         except Exception:
             pass
@@ -931,7 +1374,7 @@ def add_diagram_slide(
     final_y = box_top + (box_height - final_h) / 2.0
 
     slide.shapes.add_picture(
-        image_path,
+        resolved_path,
         Inches(final_x),
         Inches(final_y),
         width=Inches(final_w),
@@ -969,13 +1412,33 @@ def add_split_diagram_slide(
     theme_name: str = "corporate_blue",
     card_width_ratio: float = 0.50,
     bullet_font_size: float = 15.5,
+    mockup: Optional[str] = None,
+    url: Optional[str] = None,
     target_slide: Optional[Any] = None,
 ) -> Any:
     """
     Creates a Split-Screen Technical Slide:
     - Left side: High-contrast Card with bold semantic prefix bullets.
     - Right side: Aspect-ratio locked Technical Diagram with centered caption underneath.
+    Supports optional vector mockup framing via `mockup="browser"` or `mockup="mobile"`.
     """
+    if mockup:
+        return add_split_mockup_slide(
+            prs=prs,
+            title=title,
+            bullets=bullets,
+            image_path=image_path,
+            mockup_type=mockup,
+            url=url,
+            caption=caption,
+            subtitle=subtitle,
+            banner=banner,
+            theme_name=theme_name,
+            card_width_ratio=card_width_ratio,
+            bullet_font_size=bullet_font_size,
+            target_slide=target_slide,
+        )
+
     theme = get_theme(theme_name)
     slide = _prepare_slide(prs, theme, target_slide=target_slide)
     top_y = _add_slide_header(slide, title, subtitle, theme, banner=banner)
@@ -1018,7 +1481,8 @@ def add_split_diagram_slide(
         _format_bullet_paragraph(p, itm, theme, font_size_pt=bullet_font_size)
 
     # 2. Right Diagram Panel
-    if not os.path.isfile(image_path):
+    resolved_path = _resolve_asset_path(image_path)
+    if not os.path.isfile(resolved_path):
         err_box = slide.shapes.add_textbox(Inches(panel_x), Inches(content_top + 0.5), Inches(panel_w), Inches(2.0))
         p = err_box.text_frame.paragraphs[0]
         p.text = f"[Image Not Found: {os.path.basename(image_path)}]"
@@ -1029,8 +1493,8 @@ def add_split_diagram_slide(
     cap_h = 0.38 if caption else 0.0
     img_box_h = max(1.0, available_h - cap_h)
 
-    ix, iy, iw, ih = _calculate_image_fit(image_path, panel_x, content_top, panel_w, img_box_h)
-    slide.shapes.add_picture(image_path, Inches(ix), Inches(iy), width=Inches(iw), height=Inches(ih))
+    ix, iy, iw, ih = _calculate_image_fit(resolved_path, panel_x, content_top, panel_w, img_box_h)
+    slide.shapes.add_picture(resolved_path, Inches(ix), Inches(iy), width=Inches(iw), height=Inches(ih))
 
     if caption:
         cap_box = slide.shapes.add_textbox(
@@ -1112,7 +1576,7 @@ def add_dual_diagram_slide(
         _format_bullet_paragraph(p, itm, theme, font_size_pt=bullet_font_size)
 
     # 2. Right Dual-Diagram Panel
-    items = [(img1_path, cap1), (img2_path, cap2)]
+    items = [(_resolve_asset_path(img1_path), cap1), (_resolve_asset_path(img2_path), cap2)]
 
     if orientation == "horizontal":
         sub_gap = 0.20
@@ -1671,11 +2135,27 @@ def write_pptx_from_spec(
                 theme_name=applied_theme,
                 target_slide=target_slide,
             )
-        elif stype == "diagram":
+        elif stype in ("diagram", "illustration"):
             slide_obj = add_diagram_slide(
                 prs,
                 title=title,
-                image_path=s.get("image_path", ""),
+                image_path=s.get("image_path") or s.get("illustration") or s.get("path", ""),
+                caption=s.get("caption"),
+                subtitle=subtitle,
+                banner=banner,
+                theme_name=applied_theme,
+                mockup=s.get("mockup"),
+                url=s.get("url"),
+                target_slide=target_slide,
+            )
+        elif stype in ("mockup", "mockup_browser", "mockup_mobile", "browser_mockup", "mobile_mockup"):
+            mtype = s.get("mockup", "mobile" if ("mobile" in stype or "phone" in stype) else "browser")
+            slide_obj = add_mockup_slide(
+                prs,
+                title=title,
+                image_path=s.get("image_path") or s.get("illustration") or s.get("path", ""),
+                mockup_type=mtype,
+                url=s.get("url"),
                 caption=s.get("caption"),
                 subtitle=subtitle,
                 banner=banner,
@@ -1687,12 +2167,31 @@ def write_pptx_from_spec(
                 prs,
                 title=title,
                 bullets=s.get("bullets", []),
-                image_path=s.get("image_path", ""),
+                image_path=s.get("image_path") or s.get("illustration") or s.get("path", ""),
                 caption=s.get("caption"),
                 subtitle=subtitle,
                 banner=banner,
                 theme_name=applied_theme,
                 card_width_ratio=float(s.get("card_width_ratio", 0.50)),
+                bullet_font_size=float(s.get("bullet_font_size", 16.0)),
+                mockup=s.get("mockup"),
+                url=s.get("url"),
+                target_slide=target_slide,
+            )
+        elif stype in ("split_mockup", "split_card_mockup"):
+            mtype = s.get("mockup", "mobile" if ("mobile" in stype or "phone" in stype) else "browser")
+            slide_obj = add_split_mockup_slide(
+                prs,
+                title=title,
+                bullets=s.get("bullets", []),
+                image_path=s.get("image_path") or s.get("illustration") or s.get("path", ""),
+                mockup_type=mtype,
+                url=s.get("url"),
+                caption=s.get("caption"),
+                subtitle=subtitle,
+                banner=banner,
+                theme_name=applied_theme,
+                card_width_ratio=float(s.get("card_width_ratio", 0.45)),
                 bullet_font_size=float(s.get("bullet_font_size", 16.0)),
                 target_slide=target_slide,
             )

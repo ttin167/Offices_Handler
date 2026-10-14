@@ -52,6 +52,11 @@ try:
 except (ImportError, ValueError):
     from docx_math import add_math_to_paragraph
 
+try:
+    from .docx_lists import ListContextTracker, apply_list_formatting, ensure_numbering_definitions
+except (ImportError, ValueError):
+    from docx_lists import ListContextTracker, apply_list_formatting, ensure_numbering_definitions
+
 __all__ = [
     "write_docx",
     "write_docx_from_json_file",
@@ -264,8 +269,13 @@ def _set_row_flags(tr_elem, is_header: bool = False, cant_split: bool = True) ->
 # Element Writers (Paragraph, Image, Table, Section)
 # ---------------------------------------------------------------------------
 
-def _write_paragraph(doc: DocumentType, para_data: dict[str, Any], anchor_para=None) -> Any:
-    """Writes a styled paragraph with run-level formatting and LaTeX math expressions."""
+def _write_paragraph(
+    doc: DocumentType,
+    para_data: dict[str, Any],
+    anchor_para=None,
+    list_tracker: Optional[ListContextTracker] = None,
+) -> Any:
+    """Writes a styled paragraph with run-level formatting, LaTeX math expressions, and OpenXML lists."""
     style_name = para_data.get("style_name", "Normal")
     style = _resolve_style(doc, style_name)
     if anchor_para is not None:
@@ -274,6 +284,38 @@ def _write_paragraph(doc: DocumentType, para_data: dict[str, Any], anchor_para=N
         para = doc.add_paragraph(style=style)
 
     _apply_paragraph_format(para, para_data)
+
+    # Determine list properties
+    list_type = para_data.get("list_type")
+    if not list_type:
+        if style_name == "List Number":
+            list_type = "ordered"
+        elif style_name == "List Bullet":
+            list_type = "bullet"
+
+    if list_type:
+        level = int(para_data.get("list_level") or para_data.get("level") or 0)
+        is_checked = bool(para_data.get("is_checked", False))
+        if list_tracker is None:
+            list_tracker = ListContextTracker(doc)
+
+        if para_data.get("list_restart", False):
+            list_tracker.reset_ordered_list()
+
+        num_id = para_data.get("num_id")
+        if num_id is None:
+            if list_type == "ordered":
+                if list_tracker.active_ordered_num_id is None or para_data.get("list_restart", False):
+                    num_id = list_tracker.allocate_ordered_num_id()
+                    list_tracker.active_ordered_num_id = num_id
+                else:
+                    num_id = list_tracker.active_ordered_num_id
+            elif list_type == "bullet":
+                num_id = list_tracker.get_bullet_num_id()
+
+        apply_list_formatting(para, list_type, level, num_id, is_checked)
+    elif list_tracker is not None and not para_data.get("is_empty", False):
+        list_tracker.reset_all_lists()
 
     runs = para_data.get("runs", [])
     if runs:
@@ -374,7 +416,7 @@ def _embed_image_element(doc: DocumentType, img_data: dict[str, Any], anchor_par
     and graceful fallback placeholder card.
     """
     stream_or_path, err = _resolve_image_stream(img_data)
-    alt = img_data.get("alt_text") or img_data.get("caption") or img_data.get("image_name") or "Image"
+    alt = img_data.get("alt") or img_data.get("alt_text") or img_data.get("caption") or img_data.get("image_name") or "Image"
 
     if err or not stream_or_path:
         _write_fallback_card(doc, alt, err or "Unknown image loading error")
@@ -468,19 +510,28 @@ def _write_table(doc: DocumentType, table_data: dict[str, Any], anchor_para=None
     - Last Paragraph Rule (ERR_DOCX_001).
     - Customizable header fills, zebra striping, and cell padding.
     """
+    raw_rows = table_data.get("rows")
     cells_flat = table_data.get("cells", [])
-    
-    # Calculate dimensions
-    num_rows = table_data.get("rows")
-    num_cols = table_data.get("cols")
-
-    if not num_rows:
+    if isinstance(raw_rows, list):
+        cells_flat = []
+        for r_item in raw_rows:
+            if isinstance(r_item, dict) and "cells" in r_item:
+                cells_flat.append(r_item["cells"])
+            elif isinstance(r_item, list):
+                cells_flat.append(r_item)
+            else:
+                cells_flat.append([r_item])
         num_rows = len(cells_flat)
-    if not num_cols:
-        # Determine maximum column span
+    elif isinstance(raw_rows, int):
+        num_rows = raw_rows
+    else:
+        num_rows = len(cells_flat)
+
+    num_cols = table_data.get("cols")
+    if not isinstance(num_cols, int) or num_cols <= 0:
         max_col_found = 0
         for r_cells in cells_flat:
-            row_span_sum = sum(c.get("colspan", 1) for c in r_cells)
+            row_span_sum = sum(c.get("colspan", 1) if isinstance(c, dict) else 1 for c in r_cells)
             max_col_found = max(max_col_found, row_span_sum, len(r_cells))
         num_cols = max(1, max_col_found)
 
@@ -556,11 +607,39 @@ def _write_table(doc: DocumentType, table_data: dict[str, Any], anchor_para=None
             # Populate cell content
             paragraphs_data = cell_data.get("paragraphs", [])
             if paragraphs_data:
+                cell_tracker = ListContextTracker(doc)
                 for para_data in paragraphs_data:
                     style_name = para_data.get("style_name", "Normal")
                     style = _resolve_style(doc, style_name)
                     p = target_cell.add_paragraph(style=style)
                     _apply_paragraph_format(p, para_data)
+
+                    # List formatting for cell paragraphs
+                    list_type = para_data.get("list_type")
+                    if not list_type:
+                        if style_name == "List Number":
+                            list_type = "ordered"
+                        elif style_name == "List Bullet":
+                            list_type = "bullet"
+
+                    if list_type:
+                        level = int(para_data.get("list_level") or para_data.get("level") or 0)
+                        is_checked = bool(para_data.get("is_checked", False))
+                        if para_data.get("list_restart", False):
+                            cell_tracker.reset_ordered_list()
+                        num_id = para_data.get("num_id")
+                        if num_id is None:
+                            if list_type == "ordered":
+                                if cell_tracker.active_ordered_num_id is None or para_data.get("list_restart", False):
+                                    num_id = cell_tracker.allocate_ordered_num_id()
+                                    cell_tracker.active_ordered_num_id = num_id
+                                else:
+                                    num_id = cell_tracker.active_ordered_num_id
+                            elif list_type == "bullet":
+                                num_id = cell_tracker.get_bullet_num_id()
+                        apply_list_formatting(p, list_type, level, num_id, is_checked)
+                    elif not para_data.get("is_empty", False):
+                        cell_tracker.reset_all_lists()
 
                     for run_data in para_data.get("runs", []):
                         text = str(run_data.get("text", ""))
@@ -597,24 +676,39 @@ def _write_table(doc: DocumentType, table_data: dict[str, Any], anchor_para=None
                                 run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
                                 run.bold = True
             elif cell_data.get("text") is not None:
-                p = target_cell.add_paragraph()
-                p.alignment = _ALIGN_MAP.get(str(cell_data.get("alignment", "LEFT")).upper(), WD_ALIGN_PARAGRAPH.LEFT)
                 raw_cell_txt = str(cell_data["text"])
-                if "$" in raw_cell_txt:
-                    add_math_to_paragraph(
-                        p,
-                        raw_cell_txt,
-                        base_font_size_pt=10.0,
-                        color_rgb=RGBColor(0xFF, 0xFF, 0xFF) if (is_header_row and fill_color in ("#1F4E78", "#2C3E50", "#000080", "#333399")) else None,
-                        bold=True if (is_header_row and fill_color in ("#1F4E78", "#2C3E50", "#000080", "#333399")) else bool(cell_data.get("font_bold"))
-                    )
+                cell_lines = re.split(r"<br\s*/?>|\n", raw_cell_txt)
+                cell_lines = [cl for cl in cell_lines if cl.strip()]
+                if not cell_lines:
+                    p = target_cell.add_paragraph()
                 else:
-                    run = p.add_run(raw_cell_txt)
-                    if is_header_row and fill_color in ("#1F4E78", "#2C3E50", "#000080", "#333399"):
-                        run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
-                        run.bold = True
-                    elif cell_data.get("font_bold"):
-                        run.bold = True
+                    cell_tracker = ListContextTracker(doc)
+                    for l_idx, c_line in enumerate(cell_lines):
+                        p = target_cell.add_paragraph()
+                        p.alignment = _ALIGN_MAP.get(str(cell_data.get("alignment", "LEFT")).upper(), WD_ALIGN_PARAGRAPH.LEFT)
+                        c_item = cell_tracker.parse_markdown_line(c_line)
+                        if c_item:
+                            num_id = cell_tracker.get_num_id_for_item(c_item)
+                            apply_list_formatting(p, c_item.item_type, c_item.level, num_id, c_item.is_checked)
+                            c_line = c_item.text
+                        else:
+                            cell_tracker.reset_all_lists()
+
+                        if "$" in c_line:
+                            add_math_to_paragraph(
+                                p,
+                                c_line,
+                                base_font_size_pt=10.0,
+                                color_rgb=RGBColor(0xFF, 0xFF, 0xFF) if (is_header_row and fill_color in ("#1F4E78", "#2C3E50", "#000080", "#333399")) else None,
+                                bold=True if (is_header_row and fill_color in ("#1F4E78", "#2C3E50", "#000080", "#333399")) else bool(cell_data.get("font_bold"))
+                            )
+                        else:
+                            run = p.add_run(c_line)
+                            if is_header_row and fill_color in ("#1F4E78", "#2C3E50", "#000080", "#333399"):
+                                run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+                                run.bold = True
+                            elif cell_data.get("font_bold"):
+                                run.bold = True
 
             # Ensure ERR_DOCX_001
             _ensure_cell_has_paragraph(tc)
@@ -822,6 +916,7 @@ def patch_docx_template(
     output_path: str,
     text_replacements: dict[str, str] | None = None,
     block_replacements: dict[str, Any] | None = None,
+    replacements: dict[str, Any] | None = None,
 ) -> str:
     """
     In-Place Template Patching:
@@ -837,6 +932,7 @@ def patch_docx_template(
                             - {"type": "image", "path": ..., "caption": ...}
                             - {"type": "paragraph", "text": ..., "runs": ...}
                             - list of element specs
+        replacements:       Optional unified dict supporting both text and block replacements.
 
     Returns:
         Absolute path to the saved output file.
@@ -845,8 +941,14 @@ def patch_docx_template(
         raise FileNotFoundError(f"Template DOCX not found: {template_path}")
 
     doc = Document(template_path)
-    text_rep = text_replacements or {}
-    block_rep = block_replacements or {}
+    text_rep = dict(text_replacements or {})
+    block_rep = dict(block_replacements or {})
+    if replacements:
+        for k, v in replacements.items():
+            if isinstance(v, (dict, list)):
+                block_rep[k] = v
+            else:
+                text_rep[k] = str(v)
 
     # 1. Text Replacements in Paragraphs
     if text_rep:
@@ -977,16 +1079,55 @@ def write_docx(
         if sd.get("margin_right_cm") is not None:
             sec.right_margin = Cm(sd["margin_right_cm"])
 
+        # Header configuration
+        header_text = sd.get("header_text")
+        if header_text:
+            header_p = sec.header.paragraphs[0] if sec.header.paragraphs else sec.header.add_paragraph()
+            header_p.text = str(header_text)
+            header_p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            if header_p.runs:
+                header_p.runs[0].font.name = "Segoe UI"
+                header_p.runs[0].font.size = Pt(8.5)
+                header_p.runs[0].font.color.rgb = RGBColor(0x94, 0xA3, 0xB8)
+
+        # Dynamic page number in footer
+        if sd.get("footer_page_number", False):
+            footer = sec.footer
+            footer_p = footer.paragraphs[0] if footer.paragraphs else footer.add_paragraph()
+            footer_p.text = ""
+            footer_p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            fldSimple = OxmlElement("w:fldSimple")
+            fldSimple.set(qn("w:instr"), "PAGE")
+            r = OxmlElement("w:r")
+            rPr = OxmlElement("w:rPr")
+            rFonts = OxmlElement("w:rFonts")
+            rFonts.set(qn("w:ascii"), "Times New Roman")
+            rFonts.set(qn("w:hAnsi"), "Times New Roman")
+            rPr.append(rFonts)
+            sz = OxmlElement("w:sz")
+            sz.set(qn("w:val"), "20")
+            rPr.append(sz)
+            t = OxmlElement("w:t")
+            t.text = "1"
+            r.append(rPr)
+            r.append(t)
+            fldSimple.append(r)
+            footer_p._p.append(fldSimple)
+
     # Write body elements in sequential stream
+    list_tracker = ListContextTracker(doc)
     for element in snapshot.get("body", []):
         elem_type = element.get("type")
         if elem_type == "paragraph":
-            _write_paragraph(doc, element)
+            _write_paragraph(doc, element, list_tracker=list_tracker)
         elif elem_type == "table":
+            list_tracker.reset_all_lists()
             _write_table(doc, element)
         elif elem_type == "image":
+            list_tracker.reset_all_lists()
             _embed_image_element(doc, element)
         elif elem_type == "section_break":
+            list_tracker.reset_all_lists()
             _apply_section_break(doc, element)
 
     out_dir = os.path.dirname(os.path.abspath(output_path))

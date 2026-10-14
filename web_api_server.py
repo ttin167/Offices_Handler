@@ -39,18 +39,22 @@ try:
     from .converter_engine import convert_universal
     from .docx_to_pptx import convert_docx_to_pptx, convert_pdf_to_pptx
     from .pptx_writer import THEMES, write_pptx_from_spec
-    from .docx_writer import patch_docx_template
+    from .docx_writer import patch_docx_template, write_docx
     from .xlsx_writer import mutate_template_excel
     from .xlsx_validator import validate_excel_sheet
     from .xlsx_reader import read_xlsx
+    from .db_manager import record_history, get_recent_history, delete_history_item, clear_history
+    from .docx_math import parse_inline_math, add_math_to_paragraph
 except (ImportError, ValueError):
     from converter_engine import convert_universal  # type: ignore
     from docx_to_pptx import convert_docx_to_pptx, convert_pdf_to_pptx  # type: ignore
     from pptx_writer import THEMES, write_pptx_from_spec  # type: ignore
-    from docx_writer import patch_docx_template  # type: ignore
+    from docx_writer import patch_docx_template, write_docx  # type: ignore
     from xlsx_writer import mutate_template_excel  # type: ignore
     from xlsx_validator import validate_excel_sheet  # type: ignore
     from xlsx_reader import read_xlsx  # type: ignore
+    from db_manager import record_history, get_recent_history, delete_history_item, clear_history  # type: ignore
+    from docx_math import parse_inline_math, add_math_to_paragraph  # type: ignore
 
 PORT = int(os.environ.get("PORT", 8000))
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -173,7 +177,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
     def _send_cors_headers(self) -> None:
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
 
     def do_OPTIONS(self) -> None:
@@ -239,6 +243,10 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     "output_dir": OUTPUT_DIR,
                 })
 
+            elif path == "/api/history":
+                items = get_recent_history(limit=50)
+                self._send_json({"items": items, "total": len(items)})
+
             elif path.startswith("/api/download/"):
                 filename = urllib.parse.unquote(path[len("/api/download/"):])
                 self._serve_file(filename, as_attachment=True)
@@ -255,6 +263,29 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
         except Exception as exc:
             import traceback
             traceback.print_exc()
+            self._send_json({"error": f"Internal server error: {str(exc)}"}, status=500)
+
+    def do_DELETE(self) -> None:
+        try:
+            parsed_url = urllib.parse.urlparse(self.path)
+            path = parsed_url.path
+
+            if path.startswith("/api/history/"):
+                id_str = path[len("/api/history/"):]
+                if id_str.isdigit():
+                    ok = delete_history_item(int(id_str))
+                    self._send_json({"success": ok})
+                    return
+                self._send_json({"error": "Invalid history ID"}, status=400)
+                return
+
+            elif path == "/api/history":
+                ok = clear_history()
+                self._send_json({"success": ok})
+                return
+
+            self._send_json({"error": f"Endpoint not found: {path}"}, status=404)
+        except Exception as exc:
             self._send_json({"error": f"Internal server error: {str(exc)}"}, status=500)
 
     def do_POST(self) -> None:
@@ -308,6 +339,11 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
                 out_name = os.path.basename(res)
                 quoted_out = urllib.parse.quote(out_name)
+                try:
+                    record_history("convert", os.path.basename(src), out_name, res)
+                except Exception:
+                    pass
+
                 self._send_json({
                     "success": True,
                     "result_path": res,
@@ -359,6 +395,11 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
                 out_name = os.path.basename(final_pptx)
                 spec_name = os.path.basename(final_spec)
+                try:
+                    record_history("docx_to_pptx", os.path.basename(src), out_name, final_pptx)
+                except Exception:
+                    pass
+
                 self._send_json({
                     "success": True,
                     "pptx_path": final_pptx,
@@ -415,6 +456,11 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
                 out_name = os.path.basename(final_pptx)
                 spec_name = os.path.basename(final_spec)
+                try:
+                    record_history("pdf_to_pptx", os.path.basename(src), out_name, final_pptx)
+                except Exception:
+                    pass
+
                 self._send_json({
                     "success": True,
                     "pptx_path": final_pptx,
@@ -486,6 +532,11 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
                 out_name = os.path.basename(out_png)
                 quoted_name = urllib.parse.quote(out_name)
+                try:
+                    record_history("diagram_render", f"{engine}_diagram", out_name, out_png)
+                except Exception:
+                    pass
+
                 self._send_json({
                     "success": True,
                     "image_path": out_png,
@@ -744,6 +795,78 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     })
                 except Exception as ex:
                     self._send_json({"success": False, "error": str(ex)}, status=500)
+
+            # Endpoint 12: Math & LaTeX to DOCX Export
+            elif path == "/api/math/export":
+                payload = self._read_body_json()
+                latex_text = payload.get("latex", "").strip()
+                doc_title = payload.get("title", "Công Thức Toán Học").strip()
+                if not latex_text:
+                    self._send_json({"success": False, "error": "Thiếu nội dung công thức toán LaTeX (latex field)"}, status=400)
+                    return
+
+                t0 = time.time()
+                ts = int(time.time())
+                out_name = f"Math_Export_{ts}.docx"
+                out_path = os.path.join(OUTPUT_DIR, out_name)
+
+                doc_ast = {
+                    "title": doc_title,
+                    "body": [
+                        {
+                            "type": "paragraph",
+                            "style_name": "Heading 1",
+                            "runs": [{"text": doc_title, "bold": True, "font_size": 16.0}]
+                        },
+                        {
+                            "type": "paragraph",
+                            "style_name": "Normal",
+                            "runs": [{"text": "Biểu thức toán học được trích xuất tự động qua Native OMML & OpenXML Math Engine:"}]
+                        }
+                    ]
+                }
+                for line in latex_text.splitlines():
+                    s = line.strip()
+                    if s:
+                        doc_ast["body"].append({
+                            "type": "paragraph",
+                            "text": s
+                        })
+
+                write_docx(doc_ast, out_path)
+                elap = round(time.time() - t0, 3)
+                quoted_out = urllib.parse.quote(out_name)
+                try:
+                    record_history("math_export", doc_title, out_name, out_path)
+                except Exception:
+                    pass
+
+                self._send_json({
+                    "success": True,
+                    "filename": out_name,
+                    "output_file": out_name,
+                    "download_url": f"/api/download/{quoted_out}",
+                    "elapsed": elap
+                })
+
+            # Endpoint 13: Parse Math LaTeX Tokens
+            elif path == "/api/math/parse":
+                payload = self._read_body_json()
+                latex_text = payload.get("latex", "")
+                tokens = parse_inline_math(latex_text)
+                self._send_json({
+                    "success": True,
+                    "tokens": [
+                        {
+                            "text": t.text,
+                            "is_italic": t.is_italic,
+                            "is_bold": t.is_bold,
+                            "is_subscript": t.is_subscript,
+                            "is_superscript": t.is_superscript,
+                            "scale_size": t.scale_size
+                        } for t in tokens
+                    ]
+                })
 
             else:
                 self._send_json({"error": f"POST endpoint not found: {path}"}, status=404)

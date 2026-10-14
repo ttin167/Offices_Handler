@@ -40,6 +40,10 @@ import os
 import sys
 import time
 
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
 if sys.platform == "win32":
     try:
         if hasattr(sys.stdout, "reconfigure"):
@@ -55,7 +59,10 @@ if sys.platform == "win32":
 # ---------------------------------------------------------------------------
 
 def cmd_docx_read(args: argparse.Namespace) -> int:
-    from .docx_reader import read_docx_to_json
+    try:
+        from core.docx.reader import read_docx_to_json
+    except (ImportError, ValueError):
+        from docx_reader import read_docx_to_json
 
     src = os.path.abspath(args.file)
     if not os.path.isfile(src):
@@ -82,7 +89,10 @@ def cmd_docx_read(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 def cmd_docx_write(args: argparse.Namespace) -> int:
-    from .docx_writer import write_docx_from_json_file
+    try:
+        from core.docx.writer import write_docx_from_json_file
+    except (ImportError, ValueError):
+        from docx_writer import write_docx_from_json_file
 
     json_path = os.path.abspath(args.snapshot)
     if not os.path.isfile(json_path):
@@ -114,7 +124,10 @@ def cmd_docx_write(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 def cmd_docx_inject(args: argparse.Namespace) -> int:
-    from .docx_writer import inject_content_into_docx
+    try:
+        from core.docx.writer import inject_content_into_docx
+    except (ImportError, ValueError):
+        from docx_writer import inject_content_into_docx
 
     src = os.path.abspath(args.file)
     if not os.path.isfile(src):
@@ -149,7 +162,10 @@ def cmd_docx_inject(args: argparse.Namespace) -> int:
 
 def cmd_docx_patch(args: argparse.Namespace) -> int:
     try:
-        from .docx_writer import patch_docx_template
+        try:
+            from core.docx.writer import patch_docx_template
+        except (ImportError, ValueError):
+            from docx_writer import patch_docx_template
     except (ImportError, ValueError):
         from docx_writer import patch_docx_template  # type: ignore
 
@@ -190,7 +206,10 @@ def cmd_docx_patch(args: argparse.Namespace) -> int:
 def cmd_docx_page_numbers(args: argparse.Namespace) -> int:
     import docx
     try:
-        from .docx_advanced_engine import inject_dynamic_page_numbers, safe_save_docx
+        try:
+            from core.docx.advanced_engine import inject_dynamic_page_numbers, safe_save_docx
+        except (ImportError, ValueError):
+            from docx_advanced_engine import inject_dynamic_page_numbers, safe_save_docx
     except (ImportError, ValueError):
         from docx_advanced_engine import inject_dynamic_page_numbers, safe_save_docx  # type: ignore
 
@@ -218,7 +237,10 @@ def cmd_docx_page_numbers(args: argparse.Namespace) -> int:
 def cmd_docx_caption_fix(args: argparse.Namespace) -> int:
     import docx
     try:
-        from .docx_advanced_engine import format_figure_captions, safe_save_docx
+        try:
+            from core.docx.advanced_engine import format_figure_captions, safe_save_docx
+        except (ImportError, ValueError):
+            from docx_advanced_engine import format_figure_captions, safe_save_docx
     except (ImportError, ValueError):
         from docx_advanced_engine import format_figure_captions, safe_save_docx  # type: ignore
 
@@ -246,7 +268,10 @@ def cmd_docx_caption_fix(args: argparse.Namespace) -> int:
 def cmd_docx_sanitize_icons(args: argparse.Namespace) -> int:
     import docx
     try:
-        from .docx_advanced_engine import sanitize_emojis_and_symbols, safe_save_docx
+        try:
+            from core.docx.advanced_engine import sanitize_emojis_and_symbols, safe_save_docx
+        except (ImportError, ValueError):
+            from docx_advanced_engine import sanitize_emojis_and_symbols, safe_save_docx
     except (ImportError, ValueError):
         from docx_advanced_engine import sanitize_emojis_and_symbols, safe_save_docx  # type: ignore
 
@@ -274,7 +299,10 @@ def cmd_docx_sanitize_icons(args: argparse.Namespace) -> int:
 def cmd_docx_translate(args: argparse.Namespace) -> int:
     import docx
     try:
-        from .docx_advanced_engine import translate_vn_to_en_protected, safe_save_docx
+        try:
+            from core.docx.advanced_engine import translate_vn_to_en_protected, safe_save_docx
+        except (ImportError, ValueError):
+            from docx_advanced_engine import translate_vn_to_en_protected, safe_save_docx
     except (ImportError, ValueError):
         from docx_advanced_engine import translate_vn_to_en_protected, safe_save_docx  # type: ignore
 
@@ -316,7 +344,10 @@ def cmd_docx_translate(args: argparse.Namespace) -> int:
 
 def cmd_mermaid_render(args: argparse.Namespace) -> int:
     try:
-        from .mermaid_renderer import render_mermaid_to_png
+        try:
+            from core.diagrams.legacy.mermaid import render_mermaid_to_png
+        except (ImportError, ValueError):
+            from mermaid_renderer import render_mermaid_to_png
     except (ImportError, ValueError):
         from mermaid_renderer import render_mermaid_to_png  # type: ignore
 
@@ -368,7 +399,10 @@ def cmd_mermaid_render(args: argparse.Namespace) -> int:
 
 def cmd_plantuml_render(args: argparse.Namespace) -> int:
     try:
-        from .plantuml_renderer import render_plantuml_to_png
+        try:
+            from core.diagrams.legacy.plantuml import render_plantuml_to_png
+        except (ImportError, ValueError):
+            from plantuml_renderer import render_plantuml_to_png
     except (ImportError, ValueError):
         from plantuml_renderer import render_plantuml_to_png  # type: ignore
 
@@ -439,7 +473,7 @@ def cmd_diagram_render(args: argparse.Namespace) -> int:
     try:
         if engine in ("mxgraph", "drawio"):
             try:
-                from .mxgraph_engine import render_diagram
+                from core.diagrams.mxgraph import render_diagram
             except (ImportError, ValueError):
                 from mxgraph_engine import render_diagram  # type: ignore
             if args.scale is not None:
@@ -447,7 +481,7 @@ def cmd_diagram_render(args: argparse.Namespace) -> int:
             result = render_diagram(spec, base_dir=base_dir)
         elif engine == "canvas":
             try:
-                from .spec_diagram_engine import PrecisionDiagram
+                from core.diagrams.legacy.canvas import PrecisionDiagram
             except (ImportError, ValueError):
                 from spec_diagram_engine import PrecisionDiagram  # type: ignore
             scale = args.scale if args.scale is not None else spec.get("scale", 3)
@@ -455,13 +489,13 @@ def cmd_diagram_render(args: argparse.Namespace) -> int:
             result = diag.render_to_png(out_png, scale=scale)
         elif engine == "mermaid":
             try:
-                from .mermaid_renderer import render_mermaid_to_png
+                from core.diagrams.legacy.mermaid import render_mermaid_to_png
             except (ImportError, ValueError):
                 from mermaid_renderer import render_mermaid_to_png  # type: ignore
             result = render_mermaid_to_png(spec, base_dir=base_dir)
         elif engine == "plantuml":
             try:
-                from .plantuml_renderer import render_plantuml_to_png
+                from core.diagrams.legacy.plantuml import render_plantuml_to_png
             except (ImportError, ValueError):
                 from plantuml_renderer import render_plantuml_to_png  # type: ignore
             result = render_plantuml_to_png(spec, base_dir=base_dir)
@@ -485,7 +519,7 @@ def cmd_diagram_render(args: argparse.Namespace) -> int:
             docx_target = os.path.abspath(os.path.join(base_dir, docx_target))
         if os.path.exists(docx_target):
             try:
-                from .docx_writer import inject_diagram_into_docx
+                from core.docx.writer import inject_diagram_into_docx
             except (ImportError, ValueError):
                 from docx_writer import inject_diagram_into_docx  # type: ignore
             inject_diagram_into_docx(
@@ -511,7 +545,10 @@ def cmd_diagram_render(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 def cmd_spec_render(args: argparse.Namespace) -> int:
-    from .spec_diagram_engine import PrecisionDiagram
+    try:
+        from core.diagrams.legacy.canvas import PrecisionDiagram
+    except (ImportError, ValueError):
+        from spec_diagram_engine import PrecisionDiagram
 
     spec_path = os.path.abspath(args.spec)
     if not os.path.isfile(spec_path):
@@ -545,7 +582,10 @@ def cmd_spec_render(args: argparse.Namespace) -> int:
 
 def cmd_diagram_editor(args: argparse.Namespace) -> int:
     try:
-        from .diagram_editor import DiagramEditorApp
+        try:
+            from core.diagrams.editor import DiagramEditorApp
+        except (ImportError, ValueError):
+            from diagram_editor import DiagramEditorApp
     except (ImportError, ValueError):
         from diagram_editor import DiagramEditorApp  # type: ignore
     app = DiagramEditorApp(spec_path=args.spec)
@@ -625,7 +665,10 @@ def cmd_docx_diff(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 def cmd_xlsx_read(args: argparse.Namespace) -> int:
-    from .xlsx_reader import read_xlsx_to_json
+    try:
+        from core.xlsx.reader import read_xlsx_to_json
+    except (ImportError, ValueError):
+        from xlsx_reader import read_xlsx_to_json
 
     src = os.path.abspath(args.file)
     if not os.path.isfile(src):
@@ -661,7 +704,10 @@ def cmd_xlsx_read(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 def cmd_xlsx_write(args: argparse.Namespace) -> int:
-    from .xlsx_writer import write_xlsx_from_json_file
+    try:
+        from core.xlsx.writer import write_xlsx_from_json_file
+    except (ImportError, ValueError):
+        from xlsx_writer import write_xlsx_from_json_file
 
     json_path = os.path.abspath(args.snapshot)
     if not os.path.isfile(json_path):
@@ -697,7 +743,10 @@ def cmd_xlsx_write(args: argparse.Namespace) -> int:
 
 def cmd_xlsx_mutate(args: argparse.Namespace) -> int:
     try:
-        from .xlsx_writer import mutate_template_excel
+        try:
+            from core.xlsx.writer import mutate_template_excel
+        except (ImportError, ValueError):
+            from xlsx_writer import mutate_template_excel
     except (ImportError, ValueError):
         from xlsx_writer import mutate_template_excel  # type: ignore
 
@@ -728,7 +777,7 @@ def cmd_xlsx_mutate(args: argparse.Namespace) -> int:
 
     if getattr(args, "validate", False):
         try:
-            from .xlsx_validator import validate_excel_sheet
+            from core.xlsx.validator import validate_excel_sheet
         except (ImportError, ValueError):
             from xlsx_validator import validate_excel_sheet  # type: ignore
 
@@ -755,7 +804,10 @@ def cmd_xlsx_mutate(args: argparse.Namespace) -> int:
 
 def cmd_xlsx_validate(args: argparse.Namespace) -> int:
     try:
-        from .xlsx_validator import validate_excel_sheet
+        try:
+            from core.xlsx.validator import validate_excel_sheet
+        except (ImportError, ValueError):
+            from xlsx_validator import validate_excel_sheet
     except (ImportError, ValueError):
         from xlsx_validator import validate_excel_sheet  # type: ignore
 
@@ -833,7 +885,10 @@ def cmd_pptx_create(args: argparse.Namespace) -> int:
 
 def cmd_pptx_from_md(args: argparse.Namespace) -> int:
     try:
-        from .pptx_engine import compile_markdown_file_to_pptx
+        try:
+            from core.pptx.engine import compile_markdown_file_to_pptx
+        except (ImportError, ValueError):
+            from pptx_engine import compile_markdown_file_to_pptx
     except (ImportError, ValueError):
         from pptx_engine import compile_markdown_file_to_pptx  # type: ignore
 
@@ -865,7 +920,10 @@ def cmd_pptx_from_md(args: argparse.Namespace) -> int:
 
 def cmd_docx_to_pptx(args: argparse.Namespace) -> int:
     try:
-        from .docx_to_pptx import convert_docx_to_pptx
+        try:
+            from core.pptx.docx_to_pptx import convert_docx_to_pptx
+        except (ImportError, ValueError):
+            from docx_to_pptx import convert_docx_to_pptx
     except (ImportError, ValueError):
         from docx_to_pptx import convert_docx_to_pptx  # type: ignore
 
@@ -895,7 +953,10 @@ def cmd_docx_to_pptx(args: argparse.Namespace) -> int:
 
 def cmd_pdf_to_pptx(args: argparse.Namespace) -> int:
     try:
-        from .docx_to_pptx import convert_pdf_to_pptx
+        try:
+            from core.pptx.docx_to_pptx import convert_pdf_to_pptx
+        except (ImportError, ValueError):
+            from docx_to_pptx import convert_pdf_to_pptx
     except (ImportError, ValueError):
         from docx_to_pptx import convert_pdf_to_pptx  # type: ignore
 
@@ -926,7 +987,10 @@ def cmd_pdf_to_pptx(args: argparse.Namespace) -> int:
 
 def cmd_pptx_insert_diagram(args: argparse.Namespace) -> int:
     try:
-        from .pptx_engine import insert_diagram_into_pptx
+        try:
+            from core.pptx.engine import insert_diagram_into_pptx
+        except (ImportError, ValueError):
+            from pptx_engine import insert_diagram_into_pptx
     except (ImportError, ValueError):
         from pptx_engine import insert_diagram_into_pptx  # type: ignore
 
@@ -964,7 +1028,10 @@ def cmd_pptx_insert_diagram(args: argparse.Namespace) -> int:
 
 def cmd_pptx_inspect(args: argparse.Namespace) -> int:
     try:
-        from .pptx_reader import read_pptx_to_json, read_pptx
+        try:
+            from core.pptx.reader import read_pptx_to_json, read_pptx
+        except (ImportError, ValueError):
+            from pptx_reader import read_pptx_to_json, read_pptx
     except (ImportError, ValueError):
         from pptx_reader import read_pptx_to_json, read_pptx  # type: ignore
 
@@ -1414,6 +1481,15 @@ def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
     return args.func(args)
+
+
+def main_spec_render() -> int:
+    parser = argparse.ArgumentParser(description="Render Precision Technical Diagram from spec JSON to PNG")
+    parser.add_argument("spec", help="Path to diagram spec JSON file")
+    parser.add_argument("-o", "--output", default=None, help="Output PNG path")
+    parser.add_argument("--scale", type=float, default=3.0, help="Resolution scale factor (default: 3.0)")
+    args = parser.parse_args()
+    return cmd_spec_render(args)
 
 
 if __name__ == "__main__":

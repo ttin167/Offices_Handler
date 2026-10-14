@@ -1,7 +1,7 @@
 {
-  "theme": "default",
+  "theme": "base",
   "themeVariables": {
-    "fontFamily": "Arial, Calibri, sans-serif",
+    "fontFamily": "Inter, Arial, Calibri, sans-serif",
     "fontSize": "13px",
     "primaryColor": "#D6E4F0",
     "primaryBorderColor": "#003087",
@@ -21,6 +21,16 @@
     "signalColor": "#001A40",
     "signalTextColor": "#001A40"
   },
-  "background": "white",
-  "width": 2048
+  "sequence": {
+    "actorFontSize": 14,
+    "messageFontSize": 13,
+    "noteFontSize": 12,
+    "actorMargin": 60,
+    "messageMargin": 42,
+    "boxMargin": 12,
+    "boxTextMargin": 8,
+    "mirrorActors": false,
+    "useMaxWidth": false
+  },
+  "background": "white"
 }
