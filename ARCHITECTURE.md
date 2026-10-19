@@ -1,8 +1,8 @@
 # Architecture Guide — Antigravity Universal Office Studio
 
-> **Phiên bản**: 4.0.0 (Target Layered Modular Architecture v4.0)  
+> **Phiên bản**: 4.2.0 (Target Layered Modular Architecture v4.2)  
 > **Tiêu chuẩn**: Zero-Regression, 100% Backward Compatibility, Strict Layer Isolation, Clean-Room MIT Compliance  
-> **Test Suite**: 193 Automated Tests (100% Pass Rate)
+> **Test Suite**: 220 Automated Tests (100% Pass Rate)
 
 ---
 
@@ -61,8 +61,8 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
     - `vietnamese_sanitizer.py`: Chuẩn hóa typographic tiếng Việt (Unicode NFC, khoảng trắng dấu câu, En-dash `–`).
     - `charts.py`: Kết xuất vector SVG và PNG phân giải cao cho 5 loại biểu đồ, giới hạn lề in ấn $\le 14\text{cm}$.
   - `core/pptx/`:
-    - `engine.py` / `writer.py`: Đọc, biên dịch slide Widescreen 16:9 (`PPTX_INV_01`), typography thuần đen `#000000` (`PPTX_INV_10`), run-level formatting (`PPTX_INV_09`).
-    - `docx_to_pptx.py`: Bộ chuyển đổi thông minh từ Word sang slide thuyết trình 16:9, tự động nhận diện bố cục doanh nghiệp.
+    - `engine.py` / `writer.py`: Đọc, biên dịch slide Widescreen 16:9 (`PPTX_INV_01`), typography thuần đen `#000000` (`PPTX_INV_10`), run-level formatting (`PPTX_INV_09`), Adaptive Card Sizing (tự co giãn chiều cao và vị trí thẻ theo số dòng text thực tế).
+    - `docx_to_pptx.py`: Bộ chuyển đổi thông minh từ Word sang slide thuyết trình 16:9, tự động nhận diện bố cục doanh nghiệp và co giãn đối xứng các khối nội dung.
     - `math.py`: Native DrawingML Math (`baseline="-25000"`, `baseline="30000"`, biến in nghiêng).
     - `charts.py`: Biểu đồ OpenXML Native (`<c:chart>`) nhúng gói bảng tính Excel ẩn cho phép "Edit Data" trực tiếp trên PowerPoint (`PPTX_INV_14`).
     - Business Layouts: Hỗ trợ 4 mẫu slide doanh nghiệp (KPI Summary Cards, Timeline Horizontal Roadmap, SWOT 2x2 Matrix, Process Chevron Steps).
@@ -74,8 +74,7 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
     - `engine.py`: Dispatcher ma trận 4 chiều (PDF ↔ DOCX ↔ MD ↔ PPTX) và Decoupled Markdown parser.
     - `ocr_pipeline.py`: Pipeline bóc tách PDF/ảnh scan tiếng Việt (`vie+eng`), bộ lọc mộc đỏ HSV (`ERR_CONV_005`), nắn thẳng ảnh scan tự động (`deskew`).
     - `pdf_renderer.py`: Bộ chuyển đổi PDF phổ quát (`UniversalPdfRenderer`) với chuỗi ưu tiên: Win32 COM ➔ LibreOffice Headless ➔ PyMuPDF.
-  - `core/pdf/`:
-    - `toolkit.py`: Everyday PDF Toolkit (ghép tệp `merge`, cắt trang `split`, xoay chiều `rotate`, đóng dấu bản quyền `watermark`, nén giảm dung lượng `compress`).
+    - `pdf_toolkit.py`: Phân hệ PDF Pro Studio & iLovePDF Killer Features (True Redaction `ERR_PDF_001`, AES-256 Encryption, Dấu giáp lai đa trang overlap 8% `ERR_PDF_002`, Chuẩn hóa A4 vector `ERR_PDF_003`, Bóc bảng sang Excel `ERR_XLSX_007`, Tổ chức trang trực quan kèm chèn trang trắng A4, Chuyển đổi 2 chiều Ảnh ↔ PDF, Ký tên điện tử & đóng dấu bù góc xoay `page.derotation_matrix`, Làm phẳng 2 chế độ Vector Bake & Strict Raster kèm dọn sạch metadata ẩn `doc.scrub`).
   - `core/env_doctor/`:
     - `run_doctor.py`: Tự động quét kiểm tra 12 thành phần môi trường (Python, LibreOffice, Tesseract, Chromium, PlantUML, font chữ) và xuất báo cáo JSON / Terminal kèm mã lệnh khắc phục 1-click.
   - `core/diagrams/`:
@@ -85,9 +84,9 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
     - `legacy/`: Các renderer kế thừa (`canvas`, `plantuml`, `mermaid`).
 
 ### 2.2. `server/` — Tầng Giao Thức & Cung Cấp Dịch Vụ (Web API, MCP, SSE)
-- `app.py`: REST API Server nhẹ nhàng dựa trên `http.server`, phục vụ Web Studio cổng `8000`. Cung cấp endpoints cho conversion, history, mail merge, ocr, diff, math, và static assets.
+- `app.py`: REST API Server nhẹ nhàng dựa trên `http.server`, phục vụ Web Studio cổng `8000`. Cung cấp endpoints cho conversion, history, mail merge, ocr, diff, math, và static assets. Bổ sung trọn bộ PDF Pro Endpoints: `POST /api/pdf/pages/preview`, `POST /api/pdf/tools`, `POST /api/pdf/images-to-pdf`, `POST /api/pdf/export-images-zip`, `POST /api/pdf/sign`, `POST /api/pdf/sanitize`.
 - `mcp_server.py`: Model Context Protocol Server (STDIO JSON-RPC 2.0) tương thích với Claude Desktop, Cursor, và Antigravity IDE. Đăng ký 11 tools chuẩn:
-  - `env_doctor`, `doc_convert`, `doc_inspect`, `doc_insert_diagram`, `docx_patch`, `docx_apply_preset`, `docx_sanitize_vietnamese`, `pptx_synthesize`, `diagram_render`, `doc_mail_merge`, `doc_redline_diff`, `doc_ocr_scan`.
+  - `env_doctor`, `doc_convert`, `doc_inspect`, `doc_insert_diagram`, `docx_patch`, `docx_apply_preset`, `docx_sanitize_vietnamese`, `pptx_synthesize`, `diagram_render`, `doc_mail_merge`, `doc_redline_diff`, `doc_ocr_scan`, `pdf_quick_tools`.
 - `job_manager.py`: Server-Sent Events (SSE) background task manager và job queue, cho phép theo dõi tiến trình OCR, mail merge, và render theo thời gian thực.
 - `db.py`: Zero-config SQLite database (`history.db`) lưu trữ lịch sử chuyển đổi và tải tệp.
 
@@ -98,7 +97,7 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
 - `docx-mail-merge`: Trộn thư hàng loạt Word + Excel/JSON.
 - `docx-apply-preset`, `docx-sanitize-vietnamese`: Chuẩn hóa thể thức hành chính & chính tả.
 - `pptx-build`, `pptx-inspect`, `pptx-preview`, `pptx-insert-diagram`, `docx-to-pptx`, `pdf-to-pptx`: Quản lý thuyết trình PowerPoint.
-- `pdf-tools`: Công cụ ghép, tách, xoay, đóng dấu mờ PDF.
+- `pdf-tools`: Bộ 16 công cụ PDF Pro Studio (`merge`, `split`, `rotate`, `clean`, `watermark`, `compress`, `redact`, `protect`, `normalize-a4`, `giap-lai`, `extract-tables`, `images-to-pdf`, `export-images-zip`, `sign`, `flatten`, `reorganize`).
 - `ocr-scan`: Bóc tách tài liệu scan và loại bỏ dấu mộc đỏ.
 - `diagram-render`, `plantuml-render`, `mermaid-render`, `spec-render`, `diagram-editor`: Sơ đồ kỹ thuật.
 - `qa-audit`: Master QA diagnostic and repair pipeline (`tools/unified_qa_diagnostic.py`).

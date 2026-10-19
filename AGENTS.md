@@ -44,6 +44,12 @@ When user requests you to perform document tasks or draw diagrams, run these com
 | **Vietnamese OCR & Scan Recovery** | `python ai_tools_cli.py ocr-scan <scan.pdf> -o <out.md> [--lang vie+eng]` |
 | **Build 16:9 Presentation from Spec** | `python ai_tools_cli.py pptx-build <spec.json> -o <deck.pptx> [--template <tpl.pptx>]` |
 | **Export Slide PNG Previews for QA** | `python ai_tools_cli.py pptx-preview <deck.pptx> -o <preview_dir> [--slides 1,5,11]` |
+| **PDF Pro Studio Suite (16 Actions)** | `python ai_tools_cli.py pdf-tools {images-to-pdf,export-images-zip,sign,flatten,reorganize,redact,protect,giap-lai,...}` |
+| **Images to PDF** | `python ai_tools_cli.py pdf-tools images-to-pdf --inputs <img1> <img2> -o <out.pdf>` |
+| **PDF to 300 DPI Images ZIP** | `python ai_tools_cli.py pdf-tools export-images-zip -i <doc.pdf> -o <bundle.zip> --dpi 300` |
+| **Sign PDF with Stamp/Signature** | `python ai_tools_cli.py pdf-tools sign -i <doc.pdf> -o <signed.pdf> --stamp <sig.png> --page 1` |
+| **Flatten & Sanitize PDF** | `python ai_tools_cli.py pdf-tools flatten -i <doc.pdf> -o <flat.pdf> [--strict]` |
+| **Reorganize Pages with Blank Insertion** | `python ai_tools_cli.py pdf-tools reorganize -i <doc.pdf> -o <reorg.pdf> --plan "1,blank,2"` |
 | **Launch Desktop GUI** | `python main.py` |
 
 ---
@@ -56,6 +62,7 @@ When executing tasks programmatically via Python, MCP, or CLI, dispatch accordin
 |---|---|---|---|---|
 | **System Diagnostics** | Environment | `env_doctor()` | `ai_tools_cli.py doctor` | `core.env_doctor.run_doctor` |
 | **Convert Doc (Lossless)** | PDF / DOCX / MD / HTML | `doc_convert(...)` | `ai_tools_cli.py convert` | `core.converter.engine.convert_universal` |
+| **PDF Pro Suite & Security** | PDF / Images / Stamp | `pdf_quick_tools(...)` | `ai_tools_cli.py pdf-tools` | `core.converter.pdf_toolkit` |
 | **Inspect Document AST** | DOCX / PPTX / XLSX | `doc_inspect(...)` | `ai_tools_cli.py docx-read` / `pptx-inspect` | `core.docx.reader`, `core.pptx.reader` |
 | **Legal Redline Diff (Track Changes)** | DOCX v1 + DOCX v2 | `doc_redline_diff(...)` | `ai_tools_cli.py docx-diff` | `core.docx.diff_engine.compare_docx_documents` |
 | **Vietnamese OCR & Scan Recovery** | Scanned PDF / Image | `doc_ocr_scan(...)` | `ai_tools_cli.py ocr-scan` | `core.converter.ocr_pipeline.VietnameseOcrPipeline` |

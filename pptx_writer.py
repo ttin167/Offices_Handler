@@ -621,6 +621,15 @@ def _add_slide_header(
     )
 
     if banner:
+        # Deduplicate banner if descriptive part is identical to title
+        if title:
+            clean_b = re.sub(r"^(?:PHẦN|CHƯƠNG|PART|CHAPTER)\s+\d+\s*[:\.]?\s*", "", banner, flags=re.IGNORECASE).strip()
+            clean_t = re.sub(r"^(?:(?:[0-9]+|[IVXLCDM]+)\.\s*)", "", title).strip()
+            if clean_b and clean_t and (clean_b.lower() == clean_t.lower() or clean_t.lower() in clean_b.lower() or clean_b.lower() in clean_t.lower()):
+                tag_match = re.match(r"^((?:PHẦN|CHƯƠNG|PART|CHAPTER)\s+\d+)", banner, flags=re.IGNORECASE)
+                banner = tag_match.group(1).upper() if tag_match else None
+
+    if banner:
         if has_branding:
             # Banner positioned cleanly to the right of logo
             tb_banner = slide.shapes.add_textbox(Inches(2.0), Inches(0.12), Inches(9.5), Inches(0.6))
@@ -855,18 +864,64 @@ def add_content_slide(
     use_card: bool = True,
     target_slide: Optional[Any] = None,
 ) -> Any:
-    """Creates a Content Slide with hierarchical multi-level bullets in a styled card."""
+    """Creates a Content Slide with hierarchical multi-level bullets in an adaptively sized, centered card."""
     theme = get_theme(theme_name)
     slide = _prepare_slide(prs, theme, target_slide=target_slide)
     top_y = _add_slide_header(slide, title, subtitle, theme, banner=banner)
 
     content_top = top_y + 0.08
-    available_h = max(3.5, 7.0 - content_top)
+    max_available_h = max(3.5, 7.0 - content_top)
+
+    b_count = len(bullets)
+    total_chars = 0
+    estimated_lines = 0
+    for b in bullets:
+        b_text = str(b.get("text", b) if isinstance(b, dict) else (b[1] if isinstance(b, (tuple, list)) and len(b) > 1 else b))
+        total_chars += len(b_text)
+        # 11.7in card width holds ~80-90 characters per line at 16-19pt
+        lines_for_bullet = max(1, (len(b_text) + 75) // 80)
+        estimated_lines += lines_for_bullet
+
+    # Dynamic 2-Tier font sizing & vertical spacing calculation
+    effective_font_size = bullet_font_size
+    space_after_pt = 8.0
+    if bullet_font_size in (16.5, 17.0) and bullets:
+        if b_count <= 2 and total_chars < 220:
+            effective_font_size = 19.5
+            space_after_pt = 18.0
+        elif b_count <= 3 and total_chars < 350:
+            effective_font_size = 18.0
+            space_after_pt = 14.0
+        elif b_count <= 5 and total_chars < 500:
+            effective_font_size = 16.5
+            space_after_pt = 10.0
+        elif b_count <= 7:
+            effective_font_size = 15.0
+            space_after_pt = 6.0
+        else:
+            effective_font_size = 13.5
+            space_after_pt = 4.0
+
+    # Calculate proportional card height and center it symmetrically!
+    line_h_in = (effective_font_size * 1.35) / 72.0
+    space_after_in = (space_after_pt * max(0, b_count - 1)) / 72.0
+    card_padding_in = 0.8
+    needed_content_h = (estimated_lines * line_h_in) + space_after_in + card_padding_in
 
     if use_card:
+        # Adaptive Card Height: if content needs less height, shrink card and center vertically for perfect symmetry
+        if b_count <= 4 and needed_content_h < (max_available_h * 0.78):
+            card_h = max(2.3, min(max_available_h, needed_content_h + 0.4))
+            card_top = content_top + (max_available_h - card_h) / 2.0
+            v_anchor = MSO_ANCHOR.MIDDLE
+        else:
+            card_h = max_available_h
+            card_top = content_top
+            v_anchor = MSO_ANCHOR.TOP
+
         card = slide.shapes.add_shape(
             MSO_SHAPE.ROUNDED_RECTANGLE,
-            Inches(0.8), Inches(content_top), Inches(11.733), Inches(available_h)
+            Inches(0.8), Inches(card_top), Inches(11.733), Inches(card_h)
         )
         card.fill.solid()
         card.fill.fore_color.rgb = theme["card_bg"]
@@ -875,41 +930,23 @@ def add_content_slide(
 
         tf = card.text_frame
         tf.word_wrap = True
-        tf.vertical_anchor = MSO_ANCHOR.TOP
-        tf.margin_left = Inches(0.3)
-        tf.margin_right = Inches(0.3)
-        tf.margin_top = Inches(0.3)
-        tf.margin_bottom = Inches(0.2)
+        tf.vertical_anchor = v_anchor
+        tf.margin_left = Inches(0.4)
+        tf.margin_right = Inches(0.4)
+        tf.margin_top = Inches(0.25)
+        tf.margin_bottom = Inches(0.25)
         tf.clear()
     else:
-        tx_box = slide.shapes.add_textbox(Inches(0.8), Inches(content_top), Inches(11.733), Inches(available_h))
+        tx_box = slide.shapes.add_textbox(Inches(0.8), Inches(content_top), Inches(11.733), Inches(max_available_h))
         tf = tx_box.text_frame
         tf.word_wrap = True
-
-    # Dynamic 2-Tier font sizing calculation if bullet_font_size is default (16.5 or 17.0)
-    effective_font_size = bullet_font_size
-    if bullet_font_size in (16.5, 17.0) and bullets:
-        b_count = len(bullets)
-        total_chars = sum(
-            len(str(b.get("text", b) if isinstance(b, dict) else (b[1] if isinstance(b, (tuple, list)) and len(b) > 1 else b)))
-            for b in bullets
-        )
-        if b_count <= 3 and total_chars < 220:
-            effective_font_size = 18.0
-        elif b_count <= 5 and total_chars < 450:
-            effective_font_size = 16.5
-        elif b_count <= 7:
-            effective_font_size = 15.0
-        else:
-            effective_font_size = 13.5
 
     first = True
     for item in bullets:
         p = tf.paragraphs[0] if first else tf.add_paragraph()
         first = False
         _format_bullet_paragraph(p, item, theme, font_size_pt=effective_font_size)
-        if len(bullets) >= 6:
-            p.space_after = Pt(6)
+        p.space_after = Pt(space_after_pt)
 
     return slide
 
@@ -929,15 +966,25 @@ def add_two_column_slide(
     slide = _prepare_slide(prs, theme, target_slide=target_slide)
     top_y = _add_slide_header(slide, title, subtitle, theme, banner=banner)
 
-    col_w = Inches(5.6)
-    col_h = Inches(max(3.5, 7.0 - top_y - 0.2))
+    max_items = max(len(left_bullets), len(right_bullets))
+    avail_h = max(3.5, 7.0 - top_y - 0.2)
+    if max_items <= 3:
+        needed_h = max(2.5, min(avail_h, max_items * 0.85 + 1.0))
+        card_y = top_y + (avail_h - needed_h) / 2.0
+        final_h = Inches(needed_h)
+        v_anchor = MSO_ANCHOR.MIDDLE
+    else:
+        card_y = top_y
+        final_h = Inches(avail_h)
+        v_anchor = MSO_ANCHOR.TOP
 
     # Left & Right Columns
+    col_w = Inches(5.7)
     for idx, (col_x, items) in enumerate([
         (Inches(0.8), left_bullets),
         (Inches(6.8), right_bullets),
     ]):
-        card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, col_x, Inches(top_y), col_w, col_h)
+        card = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, col_x, Inches(card_y), col_w, final_h)
         card.fill.solid()
         card.fill.fore_color.rgb = theme["card_bg"]
         card.line.color.rgb = theme["card_border"]
@@ -945,9 +992,11 @@ def add_two_column_slide(
 
         tf = card.text_frame
         tf.word_wrap = True
+        tf.vertical_anchor = v_anchor
         tf.margin_left = Inches(0.4)
         tf.margin_right = Inches(0.4)
-        tf.margin_top = Inches(0.4)
+        tf.margin_top = Inches(0.3)
+        tf.margin_bottom = Inches(0.3)
 
         first = True
         for itm in items:

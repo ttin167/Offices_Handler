@@ -2599,10 +2599,10 @@ DocumentNode <|-- TableModel
 
       const prevData = await prevRes.json();
       pdfPages = (prevData.pages || []).map((p) => ({
-        pageNumber: p.page,
+        pageNumber: p.page || p.page_num,
         rotation: 0,
         deleted: false,
-        thumbnailUrl: p.thumbnail_url,
+        thumbnailUrl: p.thumbnail_url || p.preview_url,
       }));
 
       if (pdfProProgressFill) pdfProProgressFill.style.width = '100%';

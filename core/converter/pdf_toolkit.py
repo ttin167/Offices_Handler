@@ -9,13 +9,15 @@ Provides robust, high-performance PDF manipulation using PyMuPDF (fitz):
 5. compress_pdf: Garbage collection, deflation, and stream optimization.
 """
 
+import base64
 import io
 import math
 import os
 import re
+import zipfile
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from PIL import Image
+from PIL import Image, ImageOps
 
 try:
     import openpyxl
@@ -859,11 +861,13 @@ def render_pdf_thumbnails(
 
         thumbnails.append({
             "page_num": pno + 1,
+            "page": pno + 1,
             "width": round(page.rect.width, 1),
             "height": round(page.rect.height, 1),
             "rotation": page.rotation,
             "filename": fname,
             "preview_url": f"/api/preview/{fname}",
+            "thumbnail_url": f"/api/preview/{fname}",
             "file_path": out_file,
         })
 
@@ -878,10 +882,11 @@ def reorganize_pdf_pages(
 ) -> Dict[str, Any]:
     """
     Executes a visual page reorganization plan:
-    - pages_plan: List of dicts e.g. [{"page": 1, "rotation": 90}, {"page": 3, "rotation": 0}]
+    - pages_plan: List of dicts e.g. [{"page": 1, "rotation": 90}, {"is_blank": True}]
     - Pages not in the plan are omitted (deleted).
     - Rotations are applied per-page.
     - Order in pages_plan dictates output page sequence.
+    - Supports inserting standard blank A4 pages when is_blank is True.
     """
     src = os.path.abspath(pdf_path)
     if not os.path.isfile(src):
@@ -900,7 +905,13 @@ def reorganize_pdf_pages(
     new_doc = fitz.open()
 
     for item in pages_plan:
-        pno = int(item.get("page", 1)) - 1
+        if item.get("is_blank"):
+            w = float(item.get("width", 595.32))
+            h = float(item.get("height", 841.92))
+            new_doc.new_page(width=w, height=h)
+            continue
+
+        pno = int(item.get("page") if item.get("page") is not None else item.get("page_num", 1)) - 1
         if 0 <= pno < total_src_pages:
             new_doc.insert_pdf(src_doc, from_page=pno, to_page=pno)
             last_pno = len(new_doc) - 1
@@ -911,12 +922,343 @@ def reorganize_pdf_pages(
 
     src_doc.close()
     new_doc.save(dest, garbage=3, deflate=True)
+    out_pages = len(new_doc)
     new_doc.close()
 
     return {
         "success": True,
         "output_path": dest,
         "input_pages": total_src_pages,
-        "output_pages": len(pages_plan),
+        "output_pages": out_pages,
+        "pages_count": out_pages,
+    }
+
+
+def convert_images_to_pdf(
+    image_paths: List[str],
+    output_path: str,
+    page_size: str = "A4",
+    orientation: str = "auto",
+    margin_pt: float = 36.0,
+) -> Dict[str, Any]:
+    """
+    Assembles multiple raster images (.jpg, .jpeg, .png, .webp) into a single publication-grade PDF.
+    - Handles EXIF rotation automatically via ImageOps.exif_transpose.
+    - page_size: "A4" (595.32 x 841.92 pt), "Letter", or "fit_image"
+    - orientation: "auto" (picks landscape/portrait per image ratio), "portrait", or "landscape"
+    - margin_pt: padding around the image (default 36pt = 0.5 inch).
+    """
+    if not image_paths:
+        raise ValueError("Danh sách ảnh không được để trống")
+
+    dest = os.path.abspath(output_path)
+    out_dir = os.path.dirname(dest)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+
+    doc = fitz.open()
+    A4_W, A4_H = 595.32, 841.92
+    processed_count = 0
+
+    for img_p in image_paths:
+        img_abs = os.path.abspath(img_p)
+        if not os.path.isfile(img_abs):
+            continue
+
+        # Open with PIL to read dimensions and fix EXIF orientation
+        with Image.open(img_abs) as pil_img:
+            pil_img = ImageOps.exif_transpose(pil_img)
+            img_w, img_h = pil_img.size
+
+            buf = io.BytesIO()
+            fmt = "PNG" if pil_img.mode in ("RGBA", "LA", "P") else "JPEG"
+            if fmt == "JPEG" and pil_img.mode not in ("RGB", "L"):
+                pil_img = pil_img.convert("RGB")
+            pil_img.save(buf, format=fmt, quality=95)
+            img_bytes = buf.getvalue()
+
+        # Determine page dimension
+        if page_size.upper() == "FIT_IMAGE":
+            pw, ph = float(img_w), float(img_h)
+            target_rect = fitz.Rect(0, 0, pw, ph)
+        else:
+            is_landscape = False
+            if orientation == "landscape":
+                is_landscape = True
+            elif orientation == "portrait":
+                is_landscape = False
+            else:  # "auto"
+                is_landscape = img_w > img_h
+
+            pw = A4_H if is_landscape else A4_W
+            ph = A4_W if is_landscape else A4_H
+
+            # Calculate contained bounding box with margin
+            avail_w = max(10.0, pw - 2 * margin_pt)
+            avail_h = max(10.0, ph - 2 * margin_pt)
+
+            scale = min(avail_w / img_w, avail_h / img_h)
+            box_w = img_w * scale
+            box_h = img_h * scale
+
+            # Center on page
+            box_x = margin_pt + (avail_w - box_w) / 2.0
+            box_y = margin_pt + (avail_h - box_h) / 2.0
+            target_rect = fitz.Rect(box_x, box_y, box_x + box_w, box_y + box_h)
+
+        page = doc.new_page(width=pw, height=ph)
+        page.insert_image(target_rect, stream=img_bytes, keep_proportion=True)
+        processed_count += 1
+
+    if processed_count == 0:
+        doc.close()
+        raise FileNotFoundError("Không có tệp ảnh hợp lệ nào được tìm thấy")
+
+    doc.save(dest, garbage=3, deflate=True)
+    total_pages = len(doc)
+    doc.close()
+
+    return {
+        "success": True,
+        "output_path": dest,
+        "filename": os.path.basename(dest),
+        "total_images": processed_count,
+        "total_pages": total_pages,
+    }
+
+
+def export_pdf_to_images_zip(
+    pdf_path: str,
+    output_zip_path: str,
+    dpi: int = 300,
+    img_format: str = "png",
+) -> Dict[str, Any]:
+    """
+    Renders all pages of a PDF to high-resolution images and packages them into a clean ZIP archive.
+    """
+    src = os.path.abspath(pdf_path)
+    if not os.path.isfile(src):
+        raise FileNotFoundError(f"Source PDF not found: {src}")
+
+    dest = os.path.abspath(output_zip_path)
+    out_dir = os.path.dirname(dest)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+
+    doc = fitz.open(src)
+    total_pages = len(doc)
+    base_name = os.path.splitext(os.path.basename(src))[0]
+
+    matrix = fitz.Matrix(dpi / 72.0, dpi / 72.0)
+    fmt = img_format.lower()
+    if fmt not in ("png", "jpg", "jpeg"):
+        fmt = "png"
+
+    with zipfile.ZipFile(dest, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for pno in range(total_pages):
+            page = doc[pno]
+            pix = page.get_pixmap(matrix=matrix, alpha=False)
+            img_bytes = pix.tobytes(fmt)
+            arcname = f"{base_name}_trang_{pno+1:02d}.{fmt}"
+            zf.writestr(arcname, img_bytes)
+
+    doc.close()
+    return {
+        "success": True,
+        "output_zip": dest,
+        "filename": os.path.basename(dest),
+        "total_pages": total_pages,
+        "dpi": dpi,
+    }
+
+
+def sign_pdf_with_stamp(
+    pdf_path: str,
+    output_path: str,
+    signatures: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    Overlays electronic signatures and company seals onto specified PDF pages at exact coordinates.
+    - Handles rotation compensation (page.rotation != 0) via derotation_matrix.
+    - Accepts 'image_path' or 'image_base64' (data URL or raw base64).
+    - Coordinates can be passed as:
+      - x_pct, y_pct, w_pct, h_pct (0.0 to 1.0 of visual page dimensions)
+      - rect: [x0, y0, x1, y1] in points.
+    """
+    src = os.path.abspath(pdf_path)
+    if not os.path.isfile(src):
+        raise FileNotFoundError(f"Source PDF not found: {src}")
+
+    if not signatures:
+        raise ValueError("Danh sách chữ ký / con dấu không được để trống")
+
+    dest = os.path.abspath(output_path)
+    out_dir = os.path.dirname(dest)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+
+    doc = fitz.open(src)
+    total_pages = len(doc)
+    applied_count = 0
+
+    for sig in signatures:
+        pno = int(sig.get("page", 1)) - 1
+        if not (0 <= pno < total_pages):
+            continue
+
+        page = doc[pno]
+        vw = page.rect.width
+        vh = page.rect.height
+
+        # Determine visual rectangle
+        if "x_pct" in sig and "y_pct" in sig:
+            x_pct = float(sig.get("x_pct", 0.65))
+            y_pct = float(sig.get("y_pct", 0.75))
+            w_pct = float(sig.get("w_pct", 0.25))
+            h_pct = float(sig.get("h_pct", 0.15))
+            v_rect = fitz.Rect(x_pct * vw, y_pct * vh, (x_pct + w_pct) * vw, (y_pct + h_pct) * vh)
+        elif "rect" in sig and isinstance(sig["rect"], (list, tuple)) and len(sig["rect"]) == 4:
+            r = sig["rect"]
+            v_rect = fitz.Rect(float(r[0]), float(r[1]), float(r[2]), float(r[3]))
+        else:
+            v_rect = fitz.Rect(vw * 0.65, vh * 0.75, vw * 0.95, vh * 0.90)
+
+        # Coordinate transformation for page.rotation
+        rot = page.rotation
+        if rot != 0:
+            target_rect = v_rect * page.derotation_matrix
+            insert_rot = rot
+        else:
+            target_rect = v_rect
+            insert_rot = 0
+
+        # Retrieve image content
+        img_bytes = None
+        img_file = None
+
+        if sig.get("image_base64"):
+            b64_str = sig["image_base64"]
+            if "," in b64_str:
+                b64_str = b64_str.split(",", 1)[1]
+            try:
+                img_bytes = base64.b64decode(b64_str)
+            except Exception as e:
+                print(f"[WARN] Failed to decode base64 signature: {e}")
+        elif sig.get("image_path") or sig.get("image") or sig.get("path"):
+            cand = sig.get("image_path") or sig.get("image") or sig.get("path")
+            cand_p = os.path.abspath(cand)
+            if os.path.isfile(cand_p):
+                img_file = cand_p
+
+        if not img_bytes and not img_file:
+            continue
+
+        if img_bytes:
+            page.insert_image(target_rect, stream=img_bytes, rotate=insert_rot, keep_proportion=True, overlay=True)
+        else:
+            page.insert_image(target_rect, filename=img_file, rotate=insert_rot, keep_proportion=True, overlay=True)
+
+        applied_count += 1
+
+    doc.save(dest, garbage=3, deflate=True)
+    doc.close()
+
+    return {
+        "success": True,
+        "output_path": dest,
+        "filename": os.path.basename(dest),
+        "total_signatures_applied": applied_count,
+        "signatures_applied": applied_count,
+    }
+
+
+def flatten_and_sanitize_pdf(
+    pdf_path: str,
+    output_path: str,
+    flatten_vector: bool = True,
+    strict_raster: bool = False,
+    sanitize_metadata: bool = True,
+    raster_dpi: int = 200,
+) -> Dict[str, Any]:
+    """
+    Hardens a PDF against tampering:
+    1. flatten_vector: calls doc.bake(annots=True, widgets=True) to lock forms, fields & stamps into vector stream.
+    2. strict_raster: if True, rasterizes each page to high-res images and re-assembles into an un-editable static image PDF.
+    3. sanitize_metadata: strips title, author, producer, creation/mod dates, XMP XML, and scrubs attached/embedded files.
+    """
+    src = os.path.abspath(pdf_path)
+    if not os.path.isfile(src):
+        raise FileNotFoundError(f"Source PDF not found: {src}")
+
+    dest = os.path.abspath(output_path)
+    out_dir = os.path.dirname(dest)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+
+    if strict_raster:
+        # Strict Raster Flattening: Render each page to image and rebuild PDF
+        src_doc = fitz.open(src)
+        new_doc = fitz.open()
+        matrix = fitz.Matrix(raster_dpi / 72.0, raster_dpi / 72.0)
+
+        for pno in range(len(src_doc)):
+            page = src_doc[pno]
+            pw, ph = page.rect.width, page.rect.height
+            pix = page.get_pixmap(matrix=matrix, alpha=False)
+            img_bytes = pix.tobytes("png")
+
+            new_page = new_doc.new_page(width=pw, height=ph)
+            new_page.insert_image(fitz.Rect(0, 0, pw, ph), stream=img_bytes)
+
+        src_doc.close()
+
+        if sanitize_metadata:
+            new_doc.set_metadata({})
+            try:
+                new_doc.del_xml_metadata()
+            except Exception:
+                pass
+            new_doc.scrub(attached_files=True, clean_pages=True, embedded_files=True, metadata=True, xml_metadata=True)
+
+        new_doc.save(dest, garbage=4, deflate=True)
+        total_pages = len(new_doc)
+        new_doc.close()
+        return {
+            "success": True,
+            "output_path": dest,
+            "filename": os.path.basename(dest),
+            "mode": "strict_raster",
+            "total_pages": total_pages,
+            "sanitized": sanitize_metadata,
+        }
+
+    # Vector Flattening Mode
+    doc = fitz.open(src)
+
+    if flatten_vector:
+        try:
+            doc.bake(annots=True, widgets=True)
+        except Exception as e:
+            print(f"[WARN] doc.bake failed, falling back: {e}")
+
+    if sanitize_metadata:
+        doc.set_metadata({})
+        try:
+            doc.del_xml_metadata()
+        except Exception:
+            pass
+        doc.scrub(attached_files=True, clean_pages=True, embedded_files=True, metadata=True, xml_metadata=True)
+
+    doc.save(dest, garbage=4, deflate=True)
+    total_pages = len(doc)
+    doc.close()
+
+    return {
+        "success": True,
+        "output_path": dest,
+        "filename": os.path.basename(dest),
+        "mode": "vector_bake",
+        "total_pages": total_pages,
+        "sanitized": sanitize_metadata,
     }
 

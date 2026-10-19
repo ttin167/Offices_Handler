@@ -1,6 +1,6 @@
-# CHANGELOG — Lịch Sử Thay Đổi & Tiến Hóa Dự Án (v1.0 → v4.1.0)
+# CHANGELOG — Lịch Sử Thay Đổi & Tiến Hóa Dự Án (v1.0 → v4.2.0)
 
-Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân hệ kiến trúc mới, và các cải tiến công nghệ từ phiên bản cơ sở (v1.0 Baseline) cho đến phiên bản hoàn thiện hiện tại (**v4.1.0 Production Grade**) của bộ công cụ **`antigravity-doc-handler`**.
+Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân hệ kiến trúc mới, và các cải tiến công nghệ từ phiên bản cơ sở (v1.0 Baseline) cho đến phiên bản hoàn thiện hiện tại (**v4.2.0 Production Grade — iLovePDF Killer Features & Adaptive Layout Suite**) của bộ công cụ **`antigravity-doc-handler`**.
 
 ---
 
@@ -27,6 +27,33 @@ Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân h�
 ---
 
 ## 2. Chi Tiết Các Phiên Bản Phát Triển
+
+### Phiên Bản 4.2.0 (iLovePDF Killer Features & Adaptive Layout Enterprise Suite)
+- **Kéo-Thả Đổi Thứ Tự Trang Trực Quan & Chèn Trang Trắng A4 (Drag-and-Drop Page Reordering)**:
+  - `core/converter/pdf_toolkit.py` (`reorganize_pdf_pages`): Hỗ trợ cờ `is_blank=True` cho phép tạo trang trắng chuẩn A4 ($595.32 \times 841.92\text{ pt}$) tại bất kỳ vị trí nào trong tài liệu.
+  - Web Studio: Tích hợp HTML5 Drag-and-Drop (`draggable="true"`) cho phép nắm chuột kéo thả đổi chỗ các thẻ thumbnail 120 DPI; bổ sung nút `+ Chèn Trang Trắng` trên thanh công cụ Organizer.
+- **Chuyển Đổi Hai Chiều Ảnh ↔ PDF (Images to PDF & 300 DPI Export ZIP)**:
+  - `convert_images_to_pdf()`: Hợp nhất nhiều ảnh (.jpg, .jpeg, .png, .webp) thành tệp PDF chuẩn in ấn, tự động chuẩn hóa góc quay EXIF (`ImageOps.exif_transpose`), tự động tính toán margin và định hướng trang (Auto/Portrait/Landscape).
+  - `export_pdf_to_images_zip()`: Kết xuất toàn bộ các trang PDF thành ảnh PNG/JPG độ phân giải cao 300 DPI đóng gói trong tệp `.zip` nén chuẩn deflate.
+- **Ký Tên Điện Tử & Đóng Dấu Bù Góc Xoay (Sign & Annotate PDF)**:
+  - `sign_pdf_with_stamp()`: Chèn chữ ký số, ảnh con dấu PNG trong suốt lên trang chỉ định với tọa độ phần trăm (`x_pct`, `y_pct`, `w_pct`, `h_pct`) hoặc bounding box points.
+  - Thuật toán bù góc xoay: Tự động phát hiện trang có góc quay 90°, 180°, 270° (`page.rotation != 0`), áp dụng ma trận biến đổi ngược `v_rect * page.derotation_matrix` kết hợp cờ `rotate=page.rotation` chống lệch tọa độ chữ ký.
+- **Làm Phẳng Tài Liệu Hai Chế Độ & Triệt Tiêu Dấu Vết Metadata (Flatten & Sanitize PDF)**:
+  - `flatten_and_sanitize_pdf()`:
+    - **Vector Bake Mode** (`doc.bake(annots=True, widgets=True)`): Khóa cứng biểu mẫu AcroForm, chữ ký và chú thích vào luồng nội dung vector, giữ nguyên 100% độ sắc nét của chữ.
+    - **Strict Raster Flattening** (`page.get_pixmap(dpi=200)`): Chuyển hóa toàn bộ trang thành ảnh tĩnh bitmap, ngăn chặn tuyệt đối việc bóc tách hay trích xuất con dấu và chữ ký.
+    - **Metadata Purge** (`doc.scrub()`): Tẩy sạch tác giả, phần mềm tạo file, tiêu đề, ngày chỉnh sửa, XML XMP và các tệp đính kèm ẩn.
+- **Chuỗi Hành Động Liên Hoàn 1-Click (Workflow Chaining UX)**:
+  - Hiển thị thanh thao tác nhanh dưới kết quả cho phép người dùng chuyển tiếp tệp vừa tạo sang các công cụ khác (Nén ➔ Khóa AES-256 ➔ Đóng dấu giáp lai ➔ Xuất ảnh ZIP) mà không cần tải lại file từ đầu.
+- **Co Giãn Kích Thước Thẻ Slide Thông Minh (Adaptive PPTX Card Sizing)**:
+  - `core/pptx/writer.py` & `core/pptx/docx_to_pptx.py`:
+  - Giải quyết dứt điểm tình trạng thẻ slide ít chữ nhưng khung vẽ quá to gây mất đối xứng: tự động tính toán chiều cao thẻ `card_h` và dải phân bố dọc theo số dòng thực tế của nội dung (`est_lines`), co gọn khung và căn lề hài hòa.
+- **Mở Rộng Giao Thức CLI & REST API**:
+  - CLI: Mở rộng lệnh `python ai_tools_cli.py pdf-tools` với 5 hành động mới: `images-to-pdf`, `export-images-zip`, `sign`, `flatten`, `reorganize`.
+  - REST API: Bổ sung 4 endpoint chuyên biệt trong `server/app.py`: `POST /api/pdf/images-to-pdf`, `POST /api/pdf/export-images-zip`, `POST /api/pdf/sign`, `POST /api/pdf/sanitize`.
+- **Bộ Kiểm Thử Chất Lượng (Quality Gate Suite Expansion)**:
+  - Bổ sung `tests/test_pdf_ilovepdf_features.py` (5 tests).
+  - Nâng tổng số bài kiểm thử tự động toàn dự án lên **220 bài kiểm thử vượt qua 100% (220 passed, 0 failed, 3 warnings)**.
 
 ### Phiên Bản 4.1.0 (PDF Pro Studio & Visual Page Organizer Enterprise Suite)
 - **Nhóm Bảo Mật & Tuân Thủ Pháp Lý (True Redaction & AES-256 Encryption)**:

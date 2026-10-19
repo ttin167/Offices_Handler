@@ -40,7 +40,7 @@
 | `tools/patch_docx_staff_flow.py` | Nhúng sơ đồ quy trình nhân viên vào đúng cell bảng trong Word | `Report3_SRS.docx` + Staff Flow | Patched `Report3_SRS.docx` | **Active Production** |
 | `tools/patch_docx_table_diagram.py` | Nhúng sơ đồ cấu trúc bảng dữ liệu vào tài liệu đặc tả | `Report3_SRS.docx` + DB Schema | Patched `Report3_SRS.docx` | **Active Production** |
 | `tools/consolidate_and_clean_output.py` | Dọn dẹp tệp tin tạm và đồng bộ file output xuất xưởng | Target workspaces | Cleaned workspace directory | **Active Production** |
-| `pdf_toolkit.py` & `core/converter/pdf_toolkit.py` | Phân hệ PDF Pro Studio & Visual Organizer: True Redaction, AES-256 Encryption, Dấu giáp lai đa trang, Chuẩn hóa A4 & Bates, Trích xuất bảng sang Excel (ERR_XLSX_007 & ERR_XLSX_008), Render Thumbnail 120 DPI, Sắp xếp trang trực quan | `.pdf`, `.png` stamp, JSON spec | Redacted/Protected/Stamped `.pdf`, `.xlsx`, PNG thumbnails | **Active Production** |
+| `pdf_toolkit.py` & `core/converter/pdf_toolkit.py` | Phân hệ PDF Pro Studio & iLovePDF Killer Features: Kéo thả đổi thứ tự trang kèm chèn trang trắng A4, Chuyển đổi 2 chiều Ảnh ↔ PDF (auto EXIF & 300 DPI ZIP), Ký tên điện tử & đóng dấu bù góc xoay (`page.derotation_matrix`), Làm phẳng 2 chế độ (Vector Bake & Strict Raster) kèm dọn sạch metadata (`doc.scrub`), True Redaction, AES-256 Encryption, Dấu giáp lai đa trang, Chuẩn hóa A4 & Bates, Trích xuất bảng sang Excel (ERR_XLSX_007 & ERR_XLSX_008) | `.pdf`, `.png` stamp, `.jpg/.webp`, JSON spec | Redacted/Protected/Signed `.pdf`, `.xlsx`, `.zip` images, PNG thumbnails | **Active Production** |
 | `tools/archive/` (11 Files) | Thư mục lưu trữ các script thử nghiệm / inspect / verify cũ có MANIFEST | N/A | Lịch sử đối soát dự án | **Archived (Ignored)** |
 
 ---

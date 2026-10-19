@@ -471,10 +471,17 @@ def synthesize_slide_spec(
             if re.search(r"\bMỤC\s+LỤC\b", sec_title, re.IGNORECASE):
                 continue
 
+            # Deduplicate banner when sec_title matches or heavily overlaps ch_title
+            sec_banner = banner_text
+            t_norm = re.sub(r'^\d+[\.\s\-]*', '', sec_title).strip().lower()
+            c_norm = re.sub(r'^\d+[\.\s\-]*', '', ch_title).strip().lower()
+            if t_norm and c_norm and (t_norm == c_norm or t_norm in c_norm or c_norm in t_norm):
+                sec_banner = ch_label or f"PHẦN {ch_idx+1}"
+
             # Smart Semantic Classification for Business Layouts (v4.0)
             biz_layout = _detect_business_layout(sec_title, sec.get("elements", []))
             if biz_layout:
-                biz_layout["banner"] = banner_text
+                biz_layout["banner"] = sec_banner
                 biz_layout["title"] = sec_title
                 slides.append(biz_layout)
                 continue
@@ -504,7 +511,7 @@ def synthesize_slide_spec(
                             for chunk in b_chunks[:-1]:
                                 slides.append({
                                     "type": "content",
-                                    "banner": banner_text,
+                                    "banner": sec_banner,
                                     "title": sec_title,
                                     "bullets": chunk
                                 })
@@ -515,7 +522,7 @@ def synthesize_slide_spec(
                         for chunk in _flush_bullets(bullets, max_bullets_per_slide):
                             slides.append({
                                 "type": "content",
-                                "banner": banner_text,
+                                "banner": sec_banner,
                                 "title": sec_title,
                                 "bullets": chunk
                             })
@@ -523,7 +530,7 @@ def synthesize_slide_spec(
 
                     slides.append({
                         "type": "code",
-                        "banner": banner_text,
+                        "banner": sec_banner,
                         "title": sec_title,
                         "subtitle": "Sơ đồ kiến trúc phân tầng hệ thống",
                         "code": elem["code"],
@@ -540,7 +547,7 @@ def synthesize_slide_spec(
                         for chunk in _flush_bullets(bullets, max_bullets_per_slide):
                             slides.append({
                                 "type": "content",
-                                "banner": banner_text,
+                                "banner": sec_banner,
                                 "title": sec_title,
                                 "bullets": chunk
                             })
@@ -553,7 +560,7 @@ def synthesize_slide_spec(
                     if total_rows <= max_table_rows_per_slide:
                         slides.append({
                             "type": "table",
-                            "banner": banner_text,
+                            "banner": sec_banner,
                             "title": sec_title,
                             "subtitle": table_sub,
                             "headers": headers,
@@ -567,7 +574,7 @@ def synthesize_slide_spec(
                             total_pages = (total_rows + max_table_rows_per_slide - 1) // max_table_rows_per_slide
                             slides.append({
                                 "type": "table",
-                                "banner": banner_text,
+                                "banner": sec_banner,
                                 "title": f"{sec_title} (Bảng trang {page_num}/{total_pages})",
                                 "subtitle": f"{table_sub} ({page_start+1} - {min(page_start + len(page_rows), total_rows)}/{total_rows})",
                                 "headers": headers,
@@ -579,7 +586,7 @@ def synthesize_slide_spec(
                         for chunk in _flush_bullets(bullets, max_bullets_per_slide):
                             slides.append({
                                 "type": "content",
-                                "banner": banner_text,
+                                "banner": sec_banner,
                                 "title": sec_title,
                                 "bullets": chunk
                             })
@@ -587,7 +594,7 @@ def synthesize_slide_spec(
 
                     slides.append({
                         "type": "diagram",
-                        "banner": banner_text,
+                        "banner": sec_banner,
                         "title": sec_title,
                         "image_path": elem["path"],
                         "caption": elem.get("caption") or "Sơ đồ kiến trúc / Biểu đồ minh họa"
@@ -598,7 +605,7 @@ def synthesize_slide_spec(
                 for chunk in _flush_bullets(bullets, max_bullets_per_slide):
                     slides.append({
                         "type": "content",
-                        "banner": banner_text,
+                        "banner": sec_banner,
                         "title": sec_title,
                         "bullets": chunk
                     })

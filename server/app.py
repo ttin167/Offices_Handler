@@ -49,7 +49,8 @@ try:
     from core.converter.pdf_toolkit import (
         merge_pdfs, split_pdf, rotate_and_clean_pdf, stamp_watermark_pdf, compress_pdf,
         redact_sensitive_pdf, protect_pdf, normalize_and_number_pdf, stamp_giap_lai_pdf,
-        extract_pdf_tables_to_xlsx, render_pdf_thumbnails, reorganize_pdf_pages
+        extract_pdf_tables_to_xlsx, render_pdf_thumbnails, reorganize_pdf_pages,
+        convert_images_to_pdf, export_pdf_to_images_zip, sign_pdf_with_stamp, flatten_and_sanitize_pdf
     )
     from core.xlsx.writer import apply_worksheet_print_setup, UniversalExcelEngine
 except (ImportError, ValueError):
@@ -65,7 +66,8 @@ except (ImportError, ValueError):
     from pdf_toolkit import (  # type: ignore
         merge_pdfs, split_pdf, rotate_and_clean_pdf, stamp_watermark_pdf, compress_pdf,
         redact_sensitive_pdf, protect_pdf, normalize_and_number_pdf, stamp_giap_lai_pdf,
-        extract_pdf_tables_to_xlsx, render_pdf_thumbnails, reorganize_pdf_pages
+        extract_pdf_tables_to_xlsx, render_pdf_thumbnails, reorganize_pdf_pages,
+        convert_images_to_pdf, export_pdf_to_images_zip, sign_pdf_with_stamp, flatten_and_sanitize_pdf
     )
     from xlsx_writer import apply_worksheet_print_setup, UniversalExcelEngine  # type: ignore
 
@@ -213,6 +215,10 @@ def resolve_file_path(path_str: Optional[str]) -> Optional[str]:
     in_output = os.path.join(OUTPUT_DIR, os.path.basename(cleaned))
     if os.path.isfile(in_output):
         return os.path.abspath(in_output)
+    # 3b. Check inside OUTPUT_DIR/pdf_previews by basename
+    in_previews = os.path.join(OUTPUT_DIR, "pdf_previews", os.path.basename(cleaned))
+    if os.path.isfile(in_previews):
+        return os.path.abspath(in_previews)
     # 4. Check relative to BASE_DIR
     in_base = os.path.join(BASE_DIR, cleaned)
     if os.path.isfile(in_base):
@@ -1058,6 +1064,30 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     })
                     return
 
+                elif action in ("images_to_pdf", "images-to-pdf", "img2pdf"):
+                    raw_images = payload.get("images") or payload.get("inputs") or ([src] if src else [])
+                    resolved_images: List[str] = [rf for p in raw_images if (rf := resolve_file_path(p)) is not None]
+                    if not resolved_images:
+                        self._send_json({"success": False, "error": "No valid input image files specified for images_to_pdf"}, status=400)
+                        return
+                    out_name = payload.get("output_name", f"images_bundle_{int(time.time())}.pdf")
+                    out_file = os.path.join(OUTPUT_DIR, out_name)
+                    details = convert_images_to_pdf(
+                        resolved_images,
+                        out_file,
+                        page_size=payload.get("page_size", "A4"),
+                        orientation=payload.get("orientation", "auto"),
+                        margin_pt=float(payload.get("margin_pt", 36.0)),
+                    )
+                    self._send_json({
+                        "success": True,
+                        "action": "images_to_pdf",
+                        "filename": out_name,
+                        "download_url": f"/api/download/{urllib.parse.quote(out_name)}",
+                        "details": details
+                    })
+                    return
+
                 if not src:
                     self._send_json({"success": False, "error": f"Input PDF not found: {input_param}"}, status=400)
                     return
@@ -1262,6 +1292,70 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     })
                     return
 
+                elif action in ("export_images", "export_images_zip", "to_images", "pdf_to_images"):
+                    dpi = int(payload.get("dpi", 300))
+                    img_fmt = payload.get("format", "png")
+                    out_file = os.path.join(OUTPUT_DIR, f"{base_name}_images.zip")
+                    details = export_pdf_to_images_zip(src, out_file, dpi=dpi, img_format=img_fmt)
+                    out_name = os.path.basename(out_file)
+                    self._send_json({
+                        "success": True,
+                        "action": "export_images_zip",
+                        "filename": out_name,
+                        "download_url": f"/api/download/{urllib.parse.quote(out_name)}",
+                        "details": details
+                    })
+                    return
+
+                elif action in ("sign", "sign_pdf", "stamp_sign"):
+                    signatures = payload.get("signatures")
+                    if not signatures:
+                        sig_obj = {}
+                        if "image_base64" in payload:
+                            sig_obj["image_base64"] = payload["image_base64"]
+                        elif "image_path" in payload:
+                            sig_obj["image_path"] = resolve_file_path(payload["image_path"])
+                        sig_obj["page"] = int(payload.get("page", 1))
+                        sig_obj["x_pct"] = float(payload.get("x_pct", 0.65))
+                        sig_obj["y_pct"] = float(payload.get("y_pct", 0.75))
+                        sig_obj["w_pct"] = float(payload.get("w_pct", 0.25))
+                        sig_obj["h_pct"] = float(payload.get("h_pct", 0.15))
+                        signatures = [sig_obj]
+
+                    out_file = os.path.join(OUTPUT_DIR, f"{base_name}_signed.pdf")
+                    details = sign_pdf_with_stamp(src, out_file, signatures)
+                    out_name = os.path.basename(out_file)
+                    self._send_json({
+                        "success": True,
+                        "action": "sign_pdf",
+                        "filename": out_name,
+                        "download_url": f"/api/download/{urllib.parse.quote(out_name)}",
+                        "details": details
+                    })
+                    return
+
+                elif action in ("flatten", "sanitize", "flatten_and_sanitize", "flatten_pdf"):
+                    flatten_vector = bool(payload.get("flatten_vector", True))
+                    strict_raster = bool(payload.get("strict_raster", payload.get("strict", False)))
+                    sanitize_metadata = bool(payload.get("sanitize_metadata", True))
+                    out_file = os.path.join(OUTPUT_DIR, f"{base_name}_flattened.pdf")
+                    details = flatten_and_sanitize_pdf(
+                        src,
+                        out_file,
+                        flatten_vector=flatten_vector,
+                        strict_raster=strict_raster,
+                        sanitize_metadata=sanitize_metadata
+                    )
+                    out_name = os.path.basename(out_file)
+                    self._send_json({
+                        "success": True,
+                        "action": "flatten_and_sanitize",
+                        "filename": out_name,
+                        "download_url": f"/api/download/{urllib.parse.quote(out_name)}",
+                        "details": details
+                    })
+                    return
+
                 else:
                     self._send_json({"success": False, "error": f"Unknown pdf-tools action: '{action}'"}, status=400)
                     return
@@ -1281,6 +1375,114 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     "filename": os.path.basename(src),
                     "total_pages": len(thumbs),
                     "pages": thumbs
+                })
+                return
+
+            # Endpoint 15c: Dedicated Images to PDF Endpoint
+            elif path == "/api/pdf/images-to-pdf":
+                payload = self._read_body_json()
+                raw_images = payload.get("images") or payload.get("inputs") or []
+                resolved_images = [rf for p in raw_images if (rf := resolve_file_path(p)) is not None]
+                if not resolved_images:
+                    self._send_json({"success": False, "error": "No valid input images found"}, status=400)
+                    return
+                out_name = payload.get("output_name") or f"images_bundle_{int(time.time())}.pdf"
+                out_file = os.path.join(OUTPUT_DIR, out_name)
+                details = convert_images_to_pdf(
+                    resolved_images,
+                    out_file,
+                    page_size=payload.get("page_size", "A4"),
+                    orientation=payload.get("orientation", "auto"),
+                    margin_pt=float(payload.get("margin_pt", 36.0)),
+                )
+                self._send_json({
+                    "success": True,
+                    "filename": out_name,
+                    "download_url": f"/api/download/{urllib.parse.quote(out_name)}",
+                    "details": details,
+                })
+                return
+
+            # Endpoint 15d: Dedicated PDF to Images ZIP (300 DPI)
+            elif path == "/api/pdf/export-images-zip":
+                payload = self._read_body_json()
+                input_param = payload.get("input_path") or payload.get("filepath") or payload.get("file_path") or payload.get("filename")
+                src = resolve_file_path(input_param) if input_param else None
+                if not src:
+                    self._send_json({"success": False, "error": f"PDF file not found: {input_param}"}, status=400)
+                    return
+                base_name = os.path.splitext(os.path.basename(src))[0]
+                out_name = f"{base_name}_images.zip"
+                out_file = os.path.join(OUTPUT_DIR, out_name)
+                details = export_pdf_to_images_zip(src, out_file, dpi=int(payload.get("dpi", 300)), img_format=payload.get("format", "png"))
+                self._send_json({
+                    "success": True,
+                    "filename": out_name,
+                    "download_url": f"/api/download/{urllib.parse.quote(out_name)}",
+                    "details": details,
+                })
+                return
+
+            # Endpoint 15e: Dedicated Sign & Annotate PDF
+            elif path == "/api/pdf/sign":
+                payload = self._read_body_json()
+                input_param = payload.get("input_path") or payload.get("filepath") or payload.get("file_path") or payload.get("filename")
+                src = resolve_file_path(input_param) if input_param else None
+                if not src:
+                    self._send_json({"success": False, "error": f"PDF file not found: {input_param}"}, status=400)
+                    return
+                base_name = os.path.splitext(os.path.basename(src))[0]
+                signatures = payload.get("signatures")
+                if not signatures:
+                    sig_obj = {}
+                    if "image_base64" in payload:
+                        sig_obj["image_base64"] = payload["image_base64"]
+                    elif "image_path" in payload:
+                        sig_obj["image_path"] = resolve_file_path(payload["image_path"])
+                    sig_obj["page"] = int(payload.get("page", 1))
+                    sig_obj["x_pct"] = float(payload.get("x_pct", 0.65))
+                    sig_obj["y_pct"] = float(payload.get("y_pct", 0.75))
+                    sig_obj["w_pct"] = float(payload.get("w_pct", 0.25))
+                    sig_obj["h_pct"] = float(payload.get("h_pct", 0.15))
+                    signatures = [sig_obj]
+
+                out_name = f"{base_name}_signed.pdf"
+                out_file = os.path.join(OUTPUT_DIR, out_name)
+                details = sign_pdf_with_stamp(src, out_file, signatures)
+                self._send_json({
+                    "success": True,
+                    "filename": out_name,
+                    "download_url": f"/api/download/{urllib.parse.quote(out_name)}",
+                    "details": details,
+                })
+                return
+
+            # Endpoint 15f: Dedicated Flatten & Sanitize PDF
+            elif path == "/api/pdf/sanitize":
+                payload = self._read_body_json()
+                input_param = payload.get("input_path") or payload.get("filepath") or payload.get("file_path") or payload.get("filename")
+                src = resolve_file_path(input_param) if input_param else None
+                if not src:
+                    self._send_json({"success": False, "error": f"PDF file not found: {input_param}"}, status=400)
+                    return
+                base_name = os.path.splitext(os.path.basename(src))[0]
+                flatten_vector = bool(payload.get("flatten_vector", True))
+                strict_raster = bool(payload.get("strict_raster", payload.get("strict", False)))
+                sanitize_metadata = bool(payload.get("sanitize_metadata", True))
+                out_name = f"{base_name}_flattened.pdf"
+                out_file = os.path.join(OUTPUT_DIR, out_name)
+                details = flatten_and_sanitize_pdf(
+                    src,
+                    out_file,
+                    flatten_vector=flatten_vector,
+                    strict_raster=strict_raster,
+                    sanitize_metadata=sanitize_metadata
+                )
+                self._send_json({
+                    "success": True,
+                    "filename": out_name,
+                    "download_url": f"/api/download/{urllib.parse.quote(out_name)}",
+                    "details": details,
                 })
                 return
 
@@ -1612,12 +1814,15 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
         import re
         candidate_1 = os.path.join(OUTPUT_DIR, filename)
         candidate_2 = os.path.join(UPLOAD_DIR, filename)
+        candidate_3 = os.path.join(OUTPUT_DIR, "pdf_previews", filename)
 
         target_file = None
         if os.path.isfile(candidate_1):
             target_file = candidate_1
         elif os.path.isfile(candidate_2):
             target_file = candidate_2
+        elif os.path.isfile(candidate_3):
+            target_file = candidate_3
 
         if not target_file:
             self._send_json({"error": f"File not found: {filename}"}, status=404)

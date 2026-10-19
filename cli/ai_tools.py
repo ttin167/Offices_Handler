@@ -379,6 +379,11 @@ def cmd_pdf_tools(args: argparse.Namespace) -> int:
             normalize_and_number_pdf,
             stamp_giap_lai_pdf,
             extract_pdf_tables_to_xlsx,
+            reorganize_pdf_pages,
+            convert_images_to_pdf,
+            export_pdf_to_images_zip,
+            sign_pdf_with_stamp,
+            flatten_and_sanitize_pdf,
         )
     except (ImportError, ValueError):
         from pdf_toolkit import (  # type: ignore
@@ -392,6 +397,11 @@ def cmd_pdf_tools(args: argparse.Namespace) -> int:
             normalize_and_number_pdf,
             stamp_giap_lai_pdf,
             extract_pdf_tables_to_xlsx,
+            reorganize_pdf_pages,
+            convert_images_to_pdf,
+            export_pdf_to_images_zip,
+            sign_pdf_with_stamp,
+            flatten_and_sanitize_pdf,
         )
 
     action = args.action
@@ -520,6 +530,106 @@ def cmd_pdf_tools(args: argparse.Namespace) -> int:
             out = args.output or os.path.splitext(args.input)[0] + "_tables.xlsx"
             res = extract_pdf_tables_to_xlsx(args.input, out)
             print(f"[OK] Extracted {res['tables_extracted']} tables ({res['total_rows']} rows) to Excel: {res['output_path']}")
+            return 0
+
+        elif action in ("images-to-pdf", "images_to_pdf", "img2pdf"):
+            inputs = args.inputs or ([args.input] if args.input else [])
+            if not inputs:
+                print("[ERROR] 'images-to-pdf' requires at least one image input (--inputs img1.png img2.jpg)", file=sys.stderr)
+                return 1
+            out = args.output or "output_images.pdf"
+            res = convert_images_to_pdf(
+                inputs,
+                out,
+                page_size=getattr(args, "page_size", "A4"),
+                orientation=getattr(args, "orientation", "auto"),
+                margin_pt=float(getattr(args, "margin", 36.0)),
+            )
+            print(f"[OK] Converted {res['total_images']} images into PDF ({res['total_pages']} pages): {res['output_path']}")
+            return 0
+
+        elif action in ("export-images-zip", "export_images_zip", "to-images", "pdf2img"):
+            if not args.input:
+                print("[ERROR] 'export-images-zip' requires an input file (-i file.pdf)", file=sys.stderr)
+                return 1
+            out = args.output or os.path.splitext(args.input)[0] + "_images.zip"
+            res = export_pdf_to_images_zip(
+                args.input,
+                out,
+                dpi=int(getattr(args, "dpi", 300)),
+                img_format=getattr(args, "format", "png"),
+            )
+            print(f"[OK] Exported {res['total_pages']} pages ({res['dpi']} DPI) to ZIP: {res['output_zip']}")
+            return 0
+
+        elif action in ("sign", "sign-pdf", "sign_pdf"):
+            if not args.input:
+                print("[ERROR] 'sign' requires an input file (-i file.pdf)", file=sys.stderr)
+                return 1
+            stamp_file = getattr(args, "stamp", None) or getattr(args, "signature", None)
+            if not stamp_file or not os.path.isfile(stamp_file):
+                print("[ERROR] 'sign' requires a valid signature image (--stamp/--signature img.png)", file=sys.stderr)
+                return 1
+            out = args.output or os.path.splitext(args.input)[0] + "_signed.pdf"
+            page_num = int(getattr(args, "page", 1))
+            x_pct = float(getattr(args, "x_pct", 0.65))
+            y_pct = float(getattr(args, "y_pct", 0.75))
+            w_pct = float(getattr(args, "w_pct", 0.25))
+            h_pct = float(getattr(args, "h_pct", 0.15))
+            res = sign_pdf_with_stamp(
+                args.input,
+                out,
+                [{"page": page_num, "image_path": stamp_file, "x_pct": x_pct, "y_pct": y_pct, "w_pct": w_pct, "h_pct": h_pct}],
+            )
+            print(f"[OK] Applied signature/stamp to page {page_num}: {res['output_path']}")
+            return 0
+
+        elif action in ("flatten", "sanitize", "flatten-sanitize"):
+            if not args.input:
+                print("[ERROR] 'flatten' requires an input file (-i file.pdf)", file=sys.stderr)
+                return 1
+            out = args.output or os.path.splitext(args.input)[0] + "_flattened.pdf"
+            strict = getattr(args, "strict", False)
+            res = flatten_and_sanitize_pdf(
+                args.input,
+                out,
+                flatten_vector=True,
+                strict_raster=strict,
+                sanitize_metadata=True,
+            )
+            print(f"[OK] Flattened & sanitized PDF (mode: {res['mode']}): {res['output_path']}")
+            return 0
+
+        elif action == "reorganize":
+            if not args.input:
+                print("[ERROR] 'reorganize' requires an input file (-i file.pdf)", file=sys.stderr)
+                return 1
+            out = args.output or os.path.splitext(args.input)[0] + "_reorganized.pdf"
+            plan_str = getattr(args, "plan", None)
+            if plan_str:
+                import json
+                try:
+                    plan = json.loads(plan_str)
+                except Exception:
+                    # Parse simple list like 1,3,2 or 1:90,2:0
+                    plan = []
+                    for seg in plan_str.split(","):
+                        seg = seg.strip()
+                        if not seg:
+                            continue
+                        if seg.lower() == "blank":
+                            plan.append({"is_blank": True})
+                        elif ":" in seg:
+                            p, r = seg.split(":", 1)
+                            plan.append({"page": int(p), "rotation": int(r)})
+                        else:
+                            plan.append({"page": int(seg), "rotation": 0})
+            else:
+                print("[ERROR] 'reorganize' requires a plan (--plan '1,3,blank,2' or JSON)", file=sys.stderr)
+                return 1
+
+            res = reorganize_pdf_pages(args.input, out, plan)
+            print(f"[OK] Reorganized PDF ({res['output_pages']} output pages): {res['output_path']}")
             return 0
 
         else:
@@ -1909,11 +2019,11 @@ Examples:
     p_dsv.set_defaults(func=cmd_docx_sanitize_vietnamese)
 
     # --- pdf-tools (Everyday & Pro Toolkit) ---
-    p_pdft = sub.add_parser("pdf-tools", help="PDF Pro & Everyday Toolkit: merge, split, rotate, watermark, compress, redact, protect, normalize-a4, giap-lai, extract-tables")
-    p_pdft.add_argument("action", choices=["merge", "split", "rotate", "clean", "watermark", "compress", "redact", "protect", "normalize-a4", "giap-lai", "extract-tables"], help="Action to perform")
+    p_pdft = sub.add_parser("pdf-tools", help="PDF Pro & Everyday Toolkit: merge, split, rotate, watermark, compress, redact, protect, normalize-a4, giap-lai, extract-tables, images-to-pdf, export-images-zip, sign, flatten, reorganize")
+    p_pdft.add_argument("action", choices=["merge", "split", "rotate", "clean", "watermark", "compress", "redact", "protect", "normalize-a4", "giap-lai", "extract-tables", "images-to-pdf", "export-images-zip", "sign", "flatten", "reorganize"], help="Action to perform")
     p_pdft.add_argument("-i", "--input", default=None, help="Input PDF file path")
-    p_pdft.add_argument("--inputs", nargs="+", default=[], help="Multiple input PDF paths (for merge)")
-    p_pdft.add_argument("-o", "--output", default=None, help="Output PDF path, Excel path, or output directory")
+    p_pdft.add_argument("--inputs", nargs="+", default=[], help="Multiple input PDF/image paths (for merge or images-to-pdf)")
+    p_pdft.add_argument("-o", "--output", default=None, help="Output PDF path, Excel path, ZIP path, or directory")
     p_pdft.add_argument("--ranges", default=None, help="Page ranges for split (e.g. '1-3, 4-5')")
     p_pdft.add_argument("--angle", type=int, default=90, help="Rotation angle in degrees (90, 180, 270)")
     p_pdft.add_argument("--text", default="BẢN QUYỀN", help="Watermark text")
@@ -1926,10 +2036,22 @@ Examples:
     p_pdft.add_argument("--no-print", action="store_true", help="Disallow printing for protected PDF")
     p_pdft.add_argument("--allow-copy", action="store_true", help="Allow text copying for protected PDF")
     p_pdft.add_argument("--allow-modify", action="store_true", help="Allow modifications for protected PDF")
-    p_pdft.add_argument("--orientation", default="auto", choices=["auto", "portrait", "landscape"], help="Orientation for A4 normalization")
+    p_pdft.add_argument("--orientation", default="auto", choices=["auto", "portrait", "landscape"], help="Orientation for A4 normalization / images-to-pdf")
+    p_pdft.add_argument("--page-size", default="A4", help="Page size for images-to-pdf (default: A4)")
+    p_pdft.add_argument("--margin", type=float, default=36.0, help="Margin padding in points for images-to-pdf (default: 36)")
     p_pdft.add_argument("--bates-prefix", default=None, help="Prefix for Bates Numbering (e.g. 'HD-2026')")
-    p_pdft.add_argument("--stamp", default=None, help="Path to stamp image for Giáp Lai stamp")
+    p_pdft.add_argument("--stamp", default=None, help="Path to stamp or signature image")
+    p_pdft.add_argument("--signature", default=None, help="Alias for --stamp")
     p_pdft.add_argument("--side", default="right", choices=["right", "left"], help="Side for Giáp Lai stamp (right or left)")
+    p_pdft.add_argument("--page", type=int, default=1, help="Target page number (1-based) for sign/stamp")
+    p_pdft.add_argument("--x-pct", type=float, default=0.65, help="X coordinate percentage (0.0 to 1.0)")
+    p_pdft.add_argument("--y-pct", type=float, default=0.75, help="Y coordinate percentage (0.0 to 1.0)")
+    p_pdft.add_argument("--w-pct", type=float, default=0.25, help="Width percentage (0.0 to 1.0)")
+    p_pdft.add_argument("--h-pct", type=float, default=0.15, help="Height percentage (0.0 to 1.0)")
+    p_pdft.add_argument("--strict", action="store_true", help="Strict raster flattening (render pages to static images)")
+    p_pdft.add_argument("--dpi", type=int, default=300, help="Image export DPI (default: 300)")
+    p_pdft.add_argument("--format", default="png", choices=["png", "jpg", "jpeg"], help="Image export format")
+    p_pdft.add_argument("--plan", default=None, help="Reorganization plan string (e.g. '1,3,blank,2' or JSON)")
     p_pdft.set_defaults(func=cmd_pdf_tools)
 
     # --- docx-mail-merge (v4.0) ---
