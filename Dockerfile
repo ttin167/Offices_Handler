@@ -17,7 +17,6 @@ RUN npm ci || npm install
 # Build production bundle with optimized chunking and CSS minification
 COPY index.html vite.config.js* ./
 COPY src/ ./src/
-COPY public/ ./public/
 RUN npm run build
 
 # ------------------------------------------------------------------------------
