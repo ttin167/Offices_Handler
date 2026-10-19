@@ -12,6 +12,7 @@ import json
 import queue
 import threading
 import time
+import os
 import uuid
 from typing import Any, Callable, Dict, List, Optional
 
@@ -22,7 +23,12 @@ class JobManager:
     and multi-subscriber SSE event queues.
     """
 
-    def __init__(self, max_workers: int = 4):
+    def __init__(self, max_workers: Optional[int] = None):
+        if max_workers is None:
+            try:
+                max_workers = max(1, int(os.environ.get("MAX_JOB_WORKERS", 4)))
+            except (ValueError, TypeError):
+                max_workers = 4
         self._max_workers = max_workers
         self._executor = concurrent.futures.ThreadPoolExecutor(
             max_workers=max_workers,
@@ -158,5 +164,5 @@ class JobManager:
 
 
 # Global Singleton Instance
-global_job_manager = JobManager(max_workers=4)
+global_job_manager = JobManager()
 

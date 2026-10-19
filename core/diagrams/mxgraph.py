@@ -185,14 +185,24 @@ def map_cardinality_to_arrows(card_src: str, card_tgt: str) -> Tuple[str, str]:
 
 
 def _find_chromium_executable() -> Optional[str]:
-    """Locate Microsoft Edge or Google Chrome executable on Windows/system."""
+    """Locate Chromium, Microsoft Edge or Google Chrome executable on Windows/Linux/system."""
+    env_chromium = os.environ.get("CHROMIUM_PATH")
+    if env_chromium and os.path.isfile(env_chromium):
+        return env_chromium
     candidates = [
+        shutil.which("chromium"),
+        shutil.which("chromium-browser"),
+        shutil.which("google-chrome"),
+        shutil.which("google-chrome-stable"),
+        shutil.which("msedge"),
+        shutil.which("chrome"),
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
+        "/usr/bin/google-chrome",
         r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
         r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
         r"C:\Program Files\Google\Chrome\Application\chrome.exe",
         r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-        shutil.which("msedge"),
-        shutil.which("chrome"),
     ]
     for c in candidates:
         if c and os.path.isfile(c):
@@ -914,6 +924,8 @@ def render_mxgraph_to_png(
         cmd = [
             chromium_exe,
             "--headless",
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
             "--disable-gpu",
             "--hide-scrollbars",
             "--virtual-time-budget=6000",

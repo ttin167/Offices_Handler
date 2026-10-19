@@ -40,6 +40,7 @@
 | `tools/patch_docx_staff_flow.py` | Nhúng sơ đồ quy trình nhân viên vào đúng cell bảng trong Word | `Report3_SRS.docx` + Staff Flow | Patched `Report3_SRS.docx` | **Active Production** |
 | `tools/patch_docx_table_diagram.py` | Nhúng sơ đồ cấu trúc bảng dữ liệu vào tài liệu đặc tả | `Report3_SRS.docx` + DB Schema | Patched `Report3_SRS.docx` | **Active Production** |
 | `tools/consolidate_and_clean_output.py` | Dọn dẹp tệp tin tạm và đồng bộ file output xuất xưởng | Target workspaces | Cleaned workspace directory | **Active Production** |
+| `pdf_toolkit.py` & `core/converter/pdf_toolkit.py` | Phân hệ PDF Pro Studio & Visual Organizer: True Redaction, AES-256 Encryption, Dấu giáp lai đa trang, Chuẩn hóa A4 & Bates, Trích xuất bảng sang Excel (ERR_XLSX_007 & ERR_XLSX_008), Render Thumbnail 120 DPI, Sắp xếp trang trực quan | `.pdf`, `.png` stamp, JSON spec | Redacted/Protected/Stamped `.pdf`, `.xlsx`, PNG thumbnails | **Active Production** |
 | `tools/archive/` (11 Files) | Thư mục lưu trữ các script thử nghiệm / inspect / verify cũ có MANIFEST | N/A | Lịch sử đối soát dự án | **Archived (Ignored)** |
 
 ---
@@ -229,6 +230,33 @@ Toàn bộ các bài học, bẫy lỗi và kỹ thuật xử lý được đị
     "root_cause": "Tiến trình chạy nền của Office hoặc script bị crash giữa chừng để lại file khóa tạm (~$*.xlsx hoặc .~lock.*#).",
     "solution_pattern": "Bổ sung Context Manager tự động quét và thu gom sạch các file khóa tạm trước và sau khi thực thi tiến trình.",
     "target_tool": "tools/unified_qa_diagnostic.py"
+  },
+  {
+    "id": "ERR_PDF_001",
+    "domain": "PDF_SECURITY",
+    "title": "True Redaction Permanent Byte & Pixel Elimination",
+    "symptom": "Văn bản nhạy cảm bị che bằng hộp đen nhưng người nhận vẫn quét chuột bôi đen hoặc copy-paste lấy lại được nội dung bên dưới.",
+    "root_cause": "Chỉ vẽ hình chữ nhật đồ họa đè lên canvas mà không xóa bỏ chuỗi byte văn bản trong cây OpenXML/PDF AST hoặc không xóa pixel ảnh raster.",
+    "solution_pattern": "Sử dụng page.add_redact_annot() kết hợp page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_PIXELS) để triệt tiêu vĩnh viễn cả byte text và pixel ảnh bên dưới.",
+    "target_tool": "core/converter/pdf_toolkit.py, tests/test_pdf_pro_studio.py"
+  },
+  {
+    "id": "ERR_PDF_002",
+    "domain": "PDF_ADMIN",
+    "title": "Multi-Page Vietnamese Giáp Lai Stamp Overlap Slicing",
+    "symptom": "Khi in hợp đồng hoặc hồ sơ thầu, vết ghép con dấu giáp lai giữa các trang bị hở khoảng trắng hoặc thiếu chi tiết con dấu.",
+    "root_cause": "Cắt ảnh con dấu thành N phần rời rạc với ranh giới cắt thẳng tắp 0% overlap, khiến dung sai in ấn và mép cắt giấy để lộ khoảng trống.",
+    "solution_pattern": "Thuật toán cắt lát chia chiều rộng ảnh dấu cho N trang nhưng bổ sung 8% độ chồng lấn (overlap_pct=8.0) cho mỗi lát cắt liên tiếp, căn lề mép ngoài chuẩn xác.",
+    "target_tool": "core/converter/pdf_toolkit.py, tests/test_pdf_pro_studio.py"
+  },
+  {
+    "id": "ERR_PDF_003",
+    "domain": "PDF_CONVERSION",
+    "title": "Vector A4 Centering & Aspect-Ratio Preservation",
+    "symptom": "Chuẩn hóa tài liệu về A4 bị méo tỷ lệ (dãn ngang/dọc) hoặc bị mờ nhòe chữ do rasterize toàn bộ trang thành ảnh bitmap.",
+    "root_cause": "Dùng get_pixmap() chuyển trang thành ảnh rồi chèn lại vào trang A4 mới thay vì dùng kỹ thuật nhúng vector.",
+    "solution_pattern": "Sử dụng show_pdf_page() để nhúng luồng vector gốc vào trang A4 (595.28 x 841.89 pt), tính toán hệ số scale min(sw, sh) và căn giữa tọa độ (dx, dy).",
+    "target_tool": "core/converter/pdf_toolkit.py, tests/test_pdf_pro_studio.py"
   }
 ]
 ```

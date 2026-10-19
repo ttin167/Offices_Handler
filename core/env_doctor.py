@@ -61,12 +61,31 @@ class EnvironmentDoctor:
         jar_path = next((c for c in jar_candidates if c and os.path.isfile(c)), None)
         jar_size_mb = round(os.path.getsize(jar_path) / (1024 * 1024), 2) if jar_path else 0.0
 
+        # Check Graphviz dot binary (required for PlantUML Class, C4, UseCase, Activity diagrams)
+        dot_cmd = shutil.which("dot") or shutil.which("dot.exe")
+        has_dot = bool(dot_cmd)
+        dot_version = ""
+        if has_dot:
+            try:
+                proc = subprocess.run(
+                    [dot_cmd, "-V"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                    errors="replace"
+                )
+                dot_version = (proc.stderr or proc.stdout).strip()
+            except Exception:
+                dot_version = "Detected"
+
         status = "healthy" if (has_java and jar_path) else "degraded"
         issues = []
         if not has_java:
             issues.append("Java Runtime (JRE >= 8) not found in PATH.")
         if not jar_path:
             issues.append("plantuml.jar not found in tools/plantuml.jar.")
+        if not has_dot:
+            issues.append("Graphviz 'dot' executable not detected. Non-sequence PlantUML diagrams require Graphviz.")
 
         return {
             "status": status,
@@ -76,12 +95,19 @@ class EnvironmentDoctor:
             "has_jar": bool(jar_path),
             "jar_path": jar_path,
             "jar_size_mb": jar_size_mb,
+            "has_dot": has_dot,
+            "dot_cmd": dot_cmd,
+            "dot_version": dot_version,
             "issues": issues,
         }
 
     def check_chromium(self) -> Dict[str, Any]:
         """Check Microsoft Edge or Google Chrome for headless rendering."""
         candidates = []
+        env_chromium = os.environ.get("CHROMIUM_PATH")
+        if env_chromium:
+            candidates.append(env_chromium)
+
         if sys.platform == "win32":
             candidates.extend([
                 r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
@@ -104,6 +130,8 @@ class EnvironmentDoctor:
                 shutil.which("google-chrome-stable"),
                 shutil.which("chromium"),
                 shutil.which("chromium-browser"),
+                "/usr/bin/chromium",
+                "/usr/bin/chromium-browser",
             ])
 
         found_path = next((c for c in candidates if c and os.path.isfile(c)), None)

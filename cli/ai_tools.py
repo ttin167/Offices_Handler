@@ -374,6 +374,11 @@ def cmd_pdf_tools(args: argparse.Namespace) -> int:
             rotate_and_clean_pdf,
             stamp_watermark_pdf,
             compress_pdf,
+            redact_sensitive_pdf,
+            protect_pdf,
+            normalize_and_number_pdf,
+            stamp_giap_lai_pdf,
+            extract_pdf_tables_to_xlsx,
         )
     except (ImportError, ValueError):
         from pdf_toolkit import (  # type: ignore
@@ -382,6 +387,11 @@ def cmd_pdf_tools(args: argparse.Namespace) -> int:
             rotate_and_clean_pdf,
             stamp_watermark_pdf,
             compress_pdf,
+            redact_sensitive_pdf,
+            protect_pdf,
+            normalize_and_number_pdf,
+            stamp_giap_lai_pdf,
+            extract_pdf_tables_to_xlsx,
         )
 
     action = args.action
@@ -436,6 +446,80 @@ def cmd_pdf_tools(args: argparse.Namespace) -> int:
             out = args.output or args.input
             res = compress_pdf(args.input, out)
             print(f"[OK] Compressed PDF ({res['reduction_pct']}% reduction): {res['output_path']}")
+            return 0
+
+        elif action == "redact":
+            if not args.input:
+                print("[ERROR] 'redact' requires an input file (-i file.pdf)", file=sys.stderr)
+                return 1
+            out = args.output or os.path.splitext(args.input)[0] + "_redacted.pdf"
+            pats = [p.strip() for p in args.patterns.split(",")] if getattr(args, "patterns", None) else None
+            trms = [t.strip() for t in args.terms.split(",")] if getattr(args, "terms", None) else None
+            res = redact_sensitive_pdf(args.input, out, patterns=pats, custom_terms=trms)
+            print(f"[OK] Redacted sensitive data ({res['total_redactions']} redactions on {res['pages_affected_count']} pages): {res['output_path']}")
+            return 0
+
+        elif action == "protect":
+            if not args.input:
+                print("[ERROR] 'protect' requires an input file (-i file.pdf)", file=sys.stderr)
+                return 1
+            out = args.output or os.path.splitext(args.input)[0] + "_protected.pdf"
+            u_pwd = getattr(args, "user_pwd", None)
+            o_pwd = getattr(args, "owner_pwd", None)
+            allow_print = not getattr(args, "no_print", False)
+            allow_copy = getattr(args, "allow_copy", False)
+            allow_modify = getattr(args, "allow_modify", False)
+            res = protect_pdf(
+                args.input,
+                out,
+                user_password=u_pwd,
+                owner_password=o_pwd,
+                allow_print=allow_print,
+                allow_copy=allow_copy,
+                allow_modify=allow_modify,
+            )
+            print(f"[OK] Protected PDF with AES-256 encryption: {res['output_path']}")
+            return 0
+
+        elif action in ("normalize-a4", "normalize_a4"):
+            if not args.input:
+                print("[ERROR] 'normalize-a4' requires an input file (-i file.pdf)", file=sys.stderr)
+                return 1
+            out = args.output or os.path.splitext(args.input)[0] + "_a4.pdf"
+            res = normalize_and_number_pdf(
+                args.input,
+                out,
+                orientation=getattr(args, "orientation", "auto"),
+                bates_prefix=getattr(args, "bates_prefix", None),
+            )
+            print(f"[OK] Normalized PDF pages to standard A4 (total {res['total_pages']} pages): {res['output_path']}")
+            return 0
+
+        elif action in ("giap-lai", "giap_lai"):
+            if not args.input:
+                print("[ERROR] 'giap-lai' requires an input file (-i file.pdf)", file=sys.stderr)
+                return 1
+            stamp_file = getattr(args, "stamp", None)
+            if not stamp_file or not os.path.isfile(stamp_file):
+                print(f"[ERROR] 'giap-lai' requires a valid stamp image (--stamp image.png)", file=sys.stderr)
+                return 1
+            out = args.output or os.path.splitext(args.input)[0] + "_giap_lai.pdf"
+            res = stamp_giap_lai_pdf(
+                args.input,
+                out,
+                stamp_file,
+                side=getattr(args, "side", "right"),
+            )
+            print(f"[OK] Applied Giáp Lai stamp across {res['stamp_slices']} pages: {res['output_path']}")
+            return 0
+
+        elif action in ("extract-tables", "extract_tables"):
+            if not args.input:
+                print("[ERROR] 'extract-tables' requires an input file (-i file.pdf)", file=sys.stderr)
+                return 1
+            out = args.output or os.path.splitext(args.input)[0] + "_tables.xlsx"
+            res = extract_pdf_tables_to_xlsx(args.input, out)
+            print(f"[OK] Extracted {res['tables_extracted']} tables ({res['total_rows']} rows) to Excel: {res['output_path']}")
             return 0
 
         else:
@@ -1824,17 +1908,28 @@ Examples:
     p_dsv.add_argument("-o", "--output", default=None, help="Output .docx path")
     p_dsv.set_defaults(func=cmd_docx_sanitize_vietnamese)
 
-    # --- pdf-tools ---
-    p_pdft = sub.add_parser("pdf-tools", help="PDF Everyday Toolkit: merge, split, rotate, watermark, compress")
-    p_pdft.add_argument("action", choices=["merge", "split", "rotate", "clean", "watermark", "compress"], help="Action to perform")
+    # --- pdf-tools (Everyday & Pro Toolkit) ---
+    p_pdft = sub.add_parser("pdf-tools", help="PDF Pro & Everyday Toolkit: merge, split, rotate, watermark, compress, redact, protect, normalize-a4, giap-lai, extract-tables")
+    p_pdft.add_argument("action", choices=["merge", "split", "rotate", "clean", "watermark", "compress", "redact", "protect", "normalize-a4", "giap-lai", "extract-tables"], help="Action to perform")
     p_pdft.add_argument("-i", "--input", default=None, help="Input PDF file path")
     p_pdft.add_argument("--inputs", nargs="+", default=[], help="Multiple input PDF paths (for merge)")
-    p_pdft.add_argument("-o", "--output", default=None, help="Output PDF path or output directory")
+    p_pdft.add_argument("-o", "--output", default=None, help="Output PDF path, Excel path, or output directory")
     p_pdft.add_argument("--ranges", default=None, help="Page ranges for split (e.g. '1-3, 4-5')")
     p_pdft.add_argument("--angle", type=int, default=90, help="Rotation angle in degrees (90, 180, 270)")
     p_pdft.add_argument("--text", default="BẢN QUYỀN", help="Watermark text")
     p_pdft.add_argument("--opacity", type=float, default=0.25, help="Watermark opacity (0.0 - 1.0)")
     p_pdft.add_argument("--remove-blank", action="store_true", help="Remove blank pages when rotating or cleaning")
+    p_pdft.add_argument("--patterns", default="cccd,phone,email", help="Comma-separated sensitive patterns for redaction (e.g. 'cccd,phone,email,bank_card,salary')")
+    p_pdft.add_argument("--terms", default=None, help="Comma-separated custom keywords to redact")
+    p_pdft.add_argument("--user-pwd", default=None, help="User password required to open protected PDF")
+    p_pdft.add_argument("--owner-pwd", default=None, help="Owner password to manage protected PDF permissions")
+    p_pdft.add_argument("--no-print", action="store_true", help="Disallow printing for protected PDF")
+    p_pdft.add_argument("--allow-copy", action="store_true", help="Allow text copying for protected PDF")
+    p_pdft.add_argument("--allow-modify", action="store_true", help="Allow modifications for protected PDF")
+    p_pdft.add_argument("--orientation", default="auto", choices=["auto", "portrait", "landscape"], help="Orientation for A4 normalization")
+    p_pdft.add_argument("--bates-prefix", default=None, help="Prefix for Bates Numbering (e.g. 'HD-2026')")
+    p_pdft.add_argument("--stamp", default=None, help="Path to stamp image for Giáp Lai stamp")
+    p_pdft.add_argument("--side", default="right", choices=["right", "left"], help="Side for Giáp Lai stamp (right or left)")
     p_pdft.set_defaults(func=cmd_pdf_tools)
 
     # --- docx-mail-merge (v4.0) ---

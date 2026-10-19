@@ -236,14 +236,14 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "pdf_quick_tools",
-        "description": "Everyday PDF toolkit: merge multiple PDFs, split by pages/ranges, rotate, detect and remove blank pages, stamp diagonal watermark, and compress.",
+        "description": "Comprehensive PDF Toolkit: merge, split, rotate, remove blank pages, watermark, compress, permanent redact sensitive info (CCCD/phone/email/salary), protect with AES-256 password & permissions, normalize to standard A4 with Bates Numbering, apply Giáp Lai stamp across pages, and extract tables to Excel (.xlsx).",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "action": {
                     "type": "string",
-                    "description": "Action: 'merge', 'split', 'rotate', 'clean', 'watermark', 'compress'",
-                    "enum": ["merge", "split", "rotate", "clean", "watermark", "compress"]
+                    "description": "Action: 'merge', 'split', 'rotate', 'clean', 'watermark', 'compress', 'redact', 'protect', 'normalize_a4', 'giap_lai', 'extract_tables'",
+                    "enum": ["merge", "split", "rotate", "clean", "watermark", "compress", "redact", "protect", "normalize_a4", "giap_lai", "extract_tables"]
                 },
                 "input_path": {
                     "type": "string",
@@ -256,7 +256,7 @@ TOOL_DEFINITIONS = [
                 },
                 "output_path": {
                     "type": "string",
-                    "description": "Output PDF file path or output directory (for split)"
+                    "description": "Output PDF file path or output directory (for split) or Excel file path"
                 },
                 "ranges": {
                     "type": "string",
@@ -269,6 +269,32 @@ TOOL_DEFINITIONS = [
                 "angle": {
                     "type": "integer",
                     "description": "Rotation angle (90, 180, 270)"
+                },
+                "patterns": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Sensitive pattern categories for 'redact' (e.g. ['cccd', 'phone', 'email', 'bank_card', 'salary'])"
+                },
+                "custom_terms": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Custom keywords or phrases to redact"
+                },
+                "user_password": {
+                    "type": "string",
+                    "description": "User password to open PDF (for 'protect')"
+                },
+                "owner_password": {
+                    "type": "string",
+                    "description": "Owner password for full permissions (for 'protect')"
+                },
+                "stamp_image_path": {
+                    "type": "string",
+                    "description": "Path to round/oval stamp image file (for 'giap_lai')"
+                },
+                "bates_prefix": {
+                    "type": "string",
+                    "description": "Prefix for Bates numbering (e.g. 'HD-2026')"
                 }
             },
             "required": ["action"]
@@ -561,6 +587,11 @@ def execute_pdf_quick_tools(args: Dict[str, Any]) -> Dict[str, Any]:
             rotate_and_clean_pdf,
             stamp_watermark_pdf,
             compress_pdf,
+            redact_sensitive_pdf,
+            protect_pdf,
+            normalize_and_number_pdf,
+            stamp_giap_lai_pdf,
+            extract_pdf_tables_to_xlsx,
         )
     except (ImportError, ValueError):
         from pdf_toolkit import (  # type: ignore
@@ -569,6 +600,11 @@ def execute_pdf_quick_tools(args: Dict[str, Any]) -> Dict[str, Any]:
             rotate_and_clean_pdf,
             stamp_watermark_pdf,
             compress_pdf,
+            redact_sensitive_pdf,
+            protect_pdf,
+            normalize_and_number_pdf,
+            stamp_giap_lai_pdf,
+            extract_pdf_tables_to_xlsx,
         )
 
     action = args["action"]
@@ -609,6 +645,59 @@ def execute_pdf_quick_tools(args: Dict[str, Any]) -> Dict[str, Any]:
         if not inp:
             raise ValueError("'compress' requires 'input_path'")
         return compress_pdf(inp, out or inp)
+
+    elif action == "redact":
+        if not inp:
+            raise ValueError("'redact' requires 'input_path'")
+        return redact_sensitive_pdf(
+            inp,
+            out or os.path.splitext(inp)[0] + "_redacted.pdf",
+            patterns=args.get("patterns"),
+            custom_terms=args.get("custom_terms"),
+        )
+
+    elif action == "protect":
+        if not inp:
+            raise ValueError("'protect' requires 'input_path'")
+        return protect_pdf(
+            inp,
+            out or os.path.splitext(inp)[0] + "_protected.pdf",
+            user_password=args.get("user_password"),
+            owner_password=args.get("owner_password"),
+            allow_print=bool(args.get("allow_print", True)),
+            allow_copy=bool(args.get("allow_copy", False)),
+            allow_modify=bool(args.get("allow_modify", False)),
+        )
+
+    elif action in ("normalize_a4", "normalize-a4"):
+        if not inp:
+            raise ValueError("'normalize_a4' requires 'input_path'")
+        return normalize_and_number_pdf(
+            inp,
+            out or os.path.splitext(inp)[0] + "_a4.pdf",
+            bates_prefix=args.get("bates_prefix"),
+        )
+
+    elif action in ("giap_lai", "giap-lai"):
+        if not inp:
+            raise ValueError("'giap_lai' requires 'input_path'")
+        stamp = args.get("stamp_image_path")
+        if not stamp:
+            raise ValueError("'giap_lai' requires 'stamp_image_path'")
+        return stamp_giap_lai_pdf(
+            inp,
+            out or os.path.splitext(inp)[0] + "_giap_lai.pdf",
+            stamp,
+            side=args.get("side", "right"),
+        )
+
+    elif action in ("extract_tables", "extract-tables"):
+        if not inp:
+            raise ValueError("'extract_tables' requires 'input_path'")
+        return extract_pdf_tables_to_xlsx(
+            inp,
+            out or os.path.splitext(inp)[0] + "_tables.xlsx",
+        )
 
     else:
         raise ValueError(f"Unknown PDF action: {action}")

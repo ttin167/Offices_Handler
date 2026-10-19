@@ -600,6 +600,10 @@
             <span class="sub-tab-icon"><i data-lucide="shield-alert"></i></span>
             <span>Unified QA Audit</span>
           </button>
+          <button class="sub-tab-btn" data-doc-subtab="pdftools">
+            <span class="sub-tab-icon"><i data-lucide="file-cog"></i></span>
+            <span>PDF Pro Studio</span>
+          </button>
         </div>
 
         <!-- SUB-PANEL 1: Universal Converter -->
@@ -1016,6 +1020,305 @@
                 <div class="empty-illustration"><i data-lucide="shield-check"></i></div>
                 <div class="empty-title">Chưa Chạy Kiểm Định</div>
                 <p class="empty-desc">Tải lên tệp Word, Excel, PowerPoint hoặc Diagram để chạy kiểm định 35+ quy tắc chất lượng.</p>
+              </div>
+            </div>
+          </div>
+        <!-- SUB-PANEL 6: PDF Pro Studio & Visual Organizer -->
+        <div class="doc-subpanel" id="doc-subpanel-pdftools" style="display: none;">
+          <div class="studio-grid pdf-pro-studio-grid">
+            <!-- Left Column: Operations & Configuration -->
+            <div class="config-card glass-panel">
+              <h2 class="card-section-title">1. Tải Lên Tệp PDF Cần Xử Lý</h2>
+              <div class="drop-zone" id="pdf-pro-drop-zone">
+                <input type="file" id="pdf-pro-file-input" accept=".pdf" class="hidden-input" />
+                <div class="drop-zone-content">
+                  <div class="drop-icon"><i data-lucide="upload-cloud"></i></div>
+                  <div class="drop-text-primary">Kéo thả tệp PDF vào đây để phân tích &amp; biên tập</div>
+                  <div class="drop-text-sub">hoặc <button type="button" class="link-btn" id="btn-browse-pdf-pro">chọn tệp từ máy tính</button></div>
+                </div>
+                <div class="file-loaded-info" id="pdf-pro-file-info" style="display: none;">
+                  <span class="file-badge">PDF</span>
+                  <span class="file-name" id="pdf-pro-file-name">document.pdf</span>
+                  <span class="file-size" id="pdf-pro-file-size">0 KB</span>
+                  <button type="button" class="btn-remove-file" id="btn-remove-pdf-pro" title="Gỡ file"><i data-lucide="x"></i></button>
+                </div>
+              </div>
+
+              <!-- PDF Actions Selector Tabs -->
+              <h2 class="card-section-title" style="margin-top: 20px;">2. Chọn Tác Vụ PDF Pro</h2>
+              <div class="pdf-action-pills" id="pdf-action-pills">
+                <button type="button" class="pdf-action-pill active" data-action="reorganize">
+                  <i data-lucide="layout-grid"></i> Tổ Chức Trang
+                </button>
+                <button type="button" class="pdf-action-pill" data-action="redact">
+                  <i data-lucide="eye-off"></i> Bôi Đen Bảo Mật
+                </button>
+                <button type="button" class="pdf-action-pill" data-action="protect">
+                  <i data-lucide="lock"></i> Mã Hóa AES-256
+                </button>
+                <button type="button" class="pdf-action-pill" data-action="giap_lai">
+                  <i data-lucide="stamp"></i> Đóng Dấu Giáp Lai
+                </button>
+                <button type="button" class="pdf-action-pill" data-action="normalize_a4">
+                  <i data-lucide="file-check-2"></i> Chuẩn Hóa A4 &amp; Bates
+                </button>
+                <button type="button" class="pdf-action-pill" data-action="extract_tables">
+                  <i data-lucide="table"></i> Trích Xuất Excel
+                </button>
+              </div>
+
+              <!-- Action Card 1: Reorganize -->
+              <div class="pdf-action-card active" id="pdf-action-pane-reorganize">
+                <div class="action-card-header">
+                  <div class="action-card-title"><i data-lucide="layout-grid"></i> Biên Tập Trang Trực Quan</div>
+                  <div class="action-card-desc">Xoay 90°, 180°, 270° hoặc loại bỏ các trang không cần thiết trực tiếp từ lưới xem trước bên phải.</div>
+                </div>
+                <div class="action-stats-box" id="pdf-reorganize-summary">
+                  <span>Trang giữ lại: <strong id="pdf-stat-kept">0</strong></span>
+                  <span>Trang đã xoay: <strong id="pdf-stat-rotated">0</strong></span>
+                  <span>Trang bị xóa: <strong id="pdf-stat-deleted" style="color: #ef4444;">0</strong></span>
+                </div>
+                <div class="action-buttons-group">
+                  <button type="button" class="btn-primary glow-btn" id="btn-apply-reorganize" disabled>
+                    <span class="btn-icon"><i data-lucide="check"></i></span>
+                    <span>ÁP DỤNG TỔ CHỨC TRANG</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Action Card 2: True Redaction -->
+              <div class="pdf-action-card" id="pdf-action-pane-redact" style="display: none;">
+                <div class="action-card-header">
+                  <div class="action-card-title"><i data-lucide="shield-alert"></i> Bôi Đen Vĩnh Viễn &amp; Triệt Tiêu Dữ Liệu</div>
+                  <div class="action-card-desc">Xóa vĩnh viễn byte văn bản và pixel ảnh bên dưới (Zero OCR Leak). Chống mọi công cụ copy/paste.</div>
+                </div>
+                <div class="switches-container">
+                  <label class="switch-card">
+                    <input type="checkbox" id="redact-opt-cccd" checked />
+                    <div class="switch-content">
+                      <span class="switch-title">Căn Cước Công Dân (CCCD / CMND)</span>
+                      <span class="switch-desc">Chuỗi 9 hoặc 12 chữ số cá nhân</span>
+                    </div>
+                  </label>
+                  <label class="switch-card">
+                    <input type="checkbox" id="redact-opt-phone" checked />
+                    <div class="switch-content">
+                      <span class="switch-title">Số Điện Thoại (+84, 09x, 03x...)</span>
+                      <span class="switch-desc">Định dạng di động &amp; bàn chuẩn Việt Nam</span>
+                    </div>
+                  </label>
+                  <label class="switch-card">
+                    <input type="checkbox" id="redact-opt-email" checked />
+                    <div class="switch-content">
+                      <span class="switch-title">Địa Chỉ Email</span>
+                      <span class="switch-desc">Toàn bộ email cá nhân và tổ chức</span>
+                    </div>
+                  </label>
+                  <label class="switch-card">
+                    <input type="checkbox" id="redact-opt-bank" checked />
+                    <div class="switch-content">
+                      <span class="switch-title">Số Thẻ Ngân Hàng &amp; Tài Khoản</span>
+                      <span class="switch-desc">Dãy số thẻ tín dụng/ATM 16 số hoặc số TK</span>
+                    </div>
+                  </label>
+                  <label class="switch-card">
+                    <input type="checkbox" id="redact-opt-salary" />
+                    <div class="switch-content">
+                      <span class="switch-title">Thông Tin Lương &amp; Thu Nhập</span>
+                      <span class="switch-desc">Mức lương, phụ cấp, VNĐ / triệu / tỷ đồng</span>
+                    </div>
+                  </label>
+                </div>
+                <div class="form-group" style="margin-top: 10px;">
+                  <label class="form-label" for="redact-custom-terms">Từ khóa tùy chỉnh cần bôi đen (phân tách bằng dấu phẩy):</label>
+                  <input type="text" id="redact-custom-terms" class="form-input" placeholder="VD: Nguyễn Văn A, Mật, Tuyệt mật, Giá thầu..." />
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="redact-fill-color">Màu che phủ vùng bôi đen:</label>
+                  <select id="redact-fill-color" class="form-select">
+                    <option value="black" selected>Đen tuyền (Black Solid - Chuẩn pháp lý)</option>
+                    <option value="white">Trắng tinh (White Out - Giữ thẩm mỹ văn bản)</option>
+                  </select>
+                </div>
+                <div class="action-buttons-group">
+                  <button type="button" class="btn-primary glow-btn" id="btn-apply-redact" disabled>
+                    <span class="btn-icon"><i data-lucide="eye-off"></i></span>
+                    <span>BÔI ĐEN &amp; TRIỆT TIÊU DỮ LIỆU</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Action Card 3: Protect AES-256 -->
+              <div class="pdf-action-card" id="pdf-action-pane-protect" style="display: none;">
+                <div class="action-card-header">
+                  <div class="action-card-title"><i data-lucide="lock"></i> Mã Hóa Chuẩn Quân Đội AES-256</div>
+                  <div class="action-card-desc">Thiết lập mật khẩu mở file, mật khẩu quản trị và phân quyền in ấn / sao chép chi tiết.</div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="protect-user-pwd">Mật khẩu mở xem tài liệu (User Password):</label>
+                  <input type="password" id="protect-user-pwd" class="form-input" placeholder="Để trống nếu chỉ đặt quyền quản trị" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="protect-owner-pwd">Mật khẩu chủ sở hữu (Owner Password - Toàn quyền):</label>
+                  <input type="password" id="protect-owner-pwd" class="form-input" placeholder="Bắt buộc nếu muốn phân quyền chi tiết" />
+                </div>
+                <div class="switches-container">
+                  <label class="switch-card">
+                    <input type="checkbox" id="protect-allow-print" checked />
+                    <div class="switch-content">
+                      <span class="switch-title">Cho phép In Ấn Tài Liệu (Allow Print)</span>
+                      <span class="switch-desc">Người xem có thể in tài liệu ra giấy</span>
+                    </div>
+                  </label>
+                  <label class="switch-card">
+                    <input type="checkbox" id="protect-allow-copy" />
+                    <div class="switch-content">
+                      <span class="switch-title">Cho phép Sao Chép Văn Bản (Allow Copy)</span>
+                      <span class="switch-desc">Bật/tắt khả năng bôi đen copy nội dung text</span>
+                    </div>
+                  </label>
+                  <label class="switch-card">
+                    <input type="checkbox" id="protect-allow-modify" />
+                    <div class="switch-content">
+                      <span class="switch-title">Cho phép Chỉnh Sửa &amp; Chú Thích (Allow Modify)</span>
+                      <span class="switch-desc">Cho phép thêm ghi chú, form hoặc sửa nội dung</span>
+                    </div>
+                  </label>
+                </div>
+                <div class="action-buttons-group">
+                  <button type="button" class="btn-primary glow-btn" id="btn-apply-protect" disabled>
+                    <span class="btn-icon"><i data-lucide="shield-check"></i></span>
+                    <span>MÃ HÓA AES-256 PDF</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Action Card 4: Giap Lai Stamp -->
+              <div class="pdf-action-card" id="pdf-action-pane-giap_lai" style="display: none;">
+                <div class="action-card-header">
+                  <div class="action-card-title"><i data-lucide="stamp"></i> Đóng Dấu Giáp Lai Đa Trang</div>
+                  <div class="action-card-desc">Cắt ảnh con dấu công ty thành N lát mỏng với độ chồng lấn 8%, đóng dọc mép trang chuẩn hồ sơ thầu.</div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Tải lên ảnh con dấu tròn / vuông (.png, .jpg):</label>
+                  <div class="drop-zone drop-zone-sm" id="giaplai-stamp-drop-zone">
+                    <input type="file" id="giaplai-stamp-file-input" accept="image/png,image/jpeg,image/webp" class="hidden-input" />
+                    <div class="drop-zone-content">
+                      <div class="drop-icon"><i data-lucide="image"></i></div>
+                      <div class="drop-text-primary">Chọn ảnh con dấu (Khuyên dùng PNG trong suốt)</div>
+                    </div>
+                    <div class="file-loaded-info" id="giaplai-stamp-file-info" style="display: none;">
+                      <span class="file-badge">STAMP</span>
+                      <span class="file-name" id="giaplai-stamp-file-name">stamp.png</span>
+                      <button type="button" class="btn-remove-file" id="btn-remove-giaplai-stamp"><i data-lucide="x"></i></button>
+                    </div>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="giaplai-side">Vị trí mép trang đóng dấu:</label>
+                  <select id="giaplai-side" class="form-select">
+                    <option value="right" selected>Mép phải (Right Edge - Chuẩn hợp đồng &amp; hồ sơ thầu)</option>
+                    <option value="left">Mép trái (Left Edge)</option>
+                  </select>
+                </div>
+                <div class="action-buttons-group">
+                  <button type="button" class="btn-primary glow-btn" id="btn-apply-giaplai" disabled>
+                    <span class="btn-icon"><i data-lucide="stamp"></i></span>
+                    <span>CẮT LÁT &amp; ĐÓNG DẤU GIÁP LAI</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Action Card 5: Normalize A4 & Bates -->
+              <div class="pdf-action-card" id="pdf-action-pane-normalize_a4" style="display: none;">
+                <div class="action-card-header">
+                  <div class="action-card-title"><i data-lucide="file-check-2"></i> Chuẩn Hóa Khổ A4 &amp; Đánh Số Bates</div>
+                  <div class="action-card-desc">Cân chỉnh toàn bộ trang về chuẩn A4 (595.28 × 841.89 pt) bảo toàn vector sắc nét, kết hợp đánh số pháp lý.</div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="norm-orientation">Định hướng trang:</label>
+                  <select id="norm-orientation" class="form-select">
+                    <option value="auto" selected>Tự động phát hiện (Auto Keep Proportion)</option>
+                    <option value="portrait">Bắt buộc Dọc (Portrait)</option>
+                    <option value="landscape">Bắt buộc Ngang (Landscape)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="norm-bates-prefix">Tiền tố số Bates (Tùy chọn):</label>
+                  <input type="text" id="norm-bates-prefix" class="form-input" placeholder="VD: HĐ-2026/ hoặc BATES-" />
+                  <span class="help-text">Ví dụ kết quả: HĐ-2026/000001 (font Unicode hỗ trợ tiếng Việt)</span>
+                </div>
+                <div class="action-buttons-group">
+                  <button type="button" class="btn-primary glow-btn" id="btn-apply-normalize" disabled>
+                    <span class="btn-icon"><i data-lucide="file-check-2"></i></span>
+                    <span>CHUẨN HÓA A4 &amp; ĐÁNH SỐ PHÁP LÝ</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Action Card 6: Extract Tables to Excel -->
+              <div class="pdf-action-card" id="pdf-action-pane-extract_tables" style="display: none;">
+                <div class="action-card-header">
+                  <div class="action-card-title"><i data-lucide="table"></i> Trích Xuất Bảng Biểu Sang Excel Trực Tiếp</div>
+                  <div class="action-card-desc">Sử dụng C++ PyMuPDF table detection, tự động tạo bảng Excel chuẩn doanh nghiệp với tiêu đề Navy và định dạng chống mất số 0 (ERR_XLSX_007).</div>
+                </div>
+                <div class="info-alert-box" style="margin-bottom: 16px;">
+                  <i data-lucide="info"></i>
+                  <span>Bảo toàn số CCCD, Mã số thuế, Số tài khoản ở dạng chuỗi nguyên vẹn (không bị Excel tự đổi thành số khoa học E+). Khổ in A4 ngang chuẩn ERR_XLSX_008.</span>
+                </div>
+                <div class="action-buttons-group">
+                  <button type="button" class="btn-primary glow-btn" id="btn-apply-extract-tables" disabled>
+                    <span class="btn-icon"><i data-lucide="sheet"></i></span>
+                    <span>BÓC TÁCH BẢNG BIỂU ➔ EXCEL (.XLSX)</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Progress bar -->
+              <div class="progress-container" id="pdf-pro-progress-container" style="display: none;">
+                <div class="progress-bar-bg"><div class="progress-bar-fill" id="pdf-pro-progress-fill"></div></div>
+                <div class="progress-status-text" id="pdf-pro-progress-status">Đang xử lý tệp PDF...</div>
+              </div>
+            </div>
+
+            <!-- Right Column: Visual Page Organizer & Result Box -->
+            <div class="preview-card glass-panel pdf-organizer-panel">
+              <div class="organizer-header">
+                <div>
+                  <h2 class="card-section-title" style="margin-bottom: 2px;">Trình Biên Tập Trang Trực Quan</h2>
+                  <div class="organizer-subtitle">Xem trước, xoay góc [↻ 90°], hoặc bấm [🗑️] để xóa trang</div>
+                </div>
+                <div class="organizer-toolbar" id="pdf-organizer-toolbar" style="display: none;">
+                  <button type="button" class="btn-sm-ghost" id="btn-rotate-all-pages" title="Xoay toàn bộ trang 90°">
+                    <i data-lucide="rotate-cw"></i> Xoay Tất Cả
+                  </button>
+                  <button type="button" class="btn-sm-ghost" id="btn-reset-all-pages" title="Khôi phục trạng thái ban đầu">
+                    <i data-lucide="refresh-ccw"></i> Đặt Lại
+                  </button>
+                  <span class="organizer-page-counter" id="pdf-page-count-badge">0 trang</span>
+                </div>
+              </div>
+
+              <!-- Thumbnail Gallery Grid -->
+              <div class="pdf-thumbnail-grid" id="pdf-thumbnail-grid">
+                <div class="empty-state-deck" id="pdf-pro-empty-state">
+                  <div class="empty-illustration"><i data-lucide="layout-grid"></i></div>
+                  <div class="empty-title">Chưa Tải Tài Liệu PDF</div>
+                  <p class="empty-desc">Tải lên tệp PDF ở khung bên trái để mở rộng lưới trang trực quan, xoay góc và lựa chọn tác vụ chuyên nghiệp.</p>
+                </div>
+              </div>
+
+              <!-- Result Box -->
+              <div class="doc-result-box" id="pdf-pro-result-box" style="display: none; margin-top: 20px;">
+                <div class="result-badge-success" id="pdf-pro-badge-status"><i data-lucide="check-circle-2"></i> Xử Lý Thành Công!</div>
+                <div class="result-details">
+                  <div class="result-row"><span class="lbl">Tác vụ đã thực hiện:</span> <strong id="pdf-pro-res-action">-</strong></div>
+                  <div class="result-row"><span class="lbl">Tệp kết quả:</span> <span id="pdf-pro-result-filename">-</span></div>
+                  <div class="result-row" id="pdf-pro-extra-detail-row" style="display: none;"><span class="lbl">Chi tiết:</span> <span id="pdf-pro-extra-detail">-</span></div>
+                </div>
+                <div class="result-actions">
+                  <a href="#" class="btn-primary" id="btn-download-pdf-pro" download><i data-lucide="download"></i> Tải Tệp Về Máy</a>
+                </div>
               </div>
             </div>
           </div>

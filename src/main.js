@@ -2371,6 +2371,540 @@ DocumentNode <|-- TableModel
     });
   }
 
+  // -------------------------------------------------------------------------
+  // SUB-TAB 6: PDF PRO STUDIO & VISUAL PAGE ORGANIZER CONTROLLER
+  // -------------------------------------------------------------------------
+  let pdfProFile = null;
+  let pdfProServerPath = null;
+  let pdfPages = []; // [{ pageNumber: 1, rotation: 0, deleted: false, thumbnailUrl: '' }]
+  let giapLaiStampFile = null;
+  let giapLaiStampServerPath = null;
+
+  const pdfProDropZone = document.getElementById('pdf-pro-drop-zone');
+  const pdfProFileInput = document.getElementById('pdf-pro-file-input');
+  const btnBrowsePdfPro = document.getElementById('btn-browse-pdf-pro');
+  const pdfProFileInfo = document.getElementById('pdf-pro-file-info');
+  const pdfProFileName = document.getElementById('pdf-pro-file-name');
+  const pdfProFileSize = document.getElementById('pdf-pro-file-size');
+  const btnRemovePdfPro = document.getElementById('btn-remove-pdf-pro');
+
+  const pdfActionPills = document.querySelectorAll('.pdf-action-pill');
+  const pdfActionPanes = document.querySelectorAll('.pdf-action-card');
+
+  const pdfThumbnailGrid = document.getElementById('pdf-thumbnail-grid');
+  const pdfProEmptyState = document.getElementById('pdf-pro-empty-state');
+  const pdfOrganizerToolbar = document.getElementById('pdf-organizer-toolbar');
+  const btnRotateAllPages = document.getElementById('btn-rotate-all-pages');
+  const btnResetAllPages = document.getElementById('btn-reset-all-pages');
+  const pdfPageCountBadge = document.getElementById('pdf-page-count-badge');
+
+  const pdfStatKept = document.getElementById('pdf-stat-kept');
+  const pdfStatRotated = document.getElementById('pdf-stat-rotated');
+  const pdfStatDeleted = document.getElementById('pdf-stat-deleted');
+
+  const btnApplyReorganize = document.getElementById('btn-apply-reorganize');
+  const btnApplyRedact = document.getElementById('btn-apply-redact');
+  const btnApplyProtect = document.getElementById('btn-apply-protect');
+  const btnApplyGiaplai = document.getElementById('btn-apply-giaplai');
+  const btnApplyNormalize = document.getElementById('btn-apply-normalize');
+  const btnApplyExtractTables = document.getElementById('btn-apply-extract-tables');
+
+  const pdfProProgress = document.getElementById('pdf-pro-progress-container');
+  const pdfProProgressFill = document.getElementById('pdf-pro-progress-fill');
+  const pdfProProgressStatus = document.getElementById('pdf-pro-progress-status');
+  const pdfProResultBox = document.getElementById('pdf-pro-result-box');
+  const pdfProBadgeStatus = document.getElementById('pdf-pro-badge-status');
+  const pdfProResAction = document.getElementById('pdf-pro-res-action');
+  const pdfProResultFilename = document.getElementById('pdf-pro-result-filename');
+  const pdfProExtraDetailRow = document.getElementById('pdf-pro-extra-detail-row');
+  const pdfProExtraDetail = document.getElementById('pdf-pro-extra-detail');
+  const btnDownloadPdfPro = document.getElementById('btn-download-pdf-pro');
+
+  // Giap lai stamp upload elements
+  const giaplaiStampDropZone = document.getElementById('giaplai-stamp-drop-zone');
+  const giaplaiStampFileInput = document.getElementById('giaplai-stamp-file-input');
+  const giaplaiStampFileInfo = document.getElementById('giaplai-stamp-file-info');
+  const giaplaiStampFileName = document.getElementById('giaplai-stamp-file-name');
+  const btnRemoveGiaplaiStamp = document.getElementById('btn-remove-giaplai-stamp');
+
+  // Action Pills Navigation
+  pdfActionPills.forEach((pill) => {
+    pill.addEventListener('click', () => {
+      const action = pill.getAttribute('data-action');
+      pdfActionPills.forEach((p) => p.classList.remove('active'));
+      pill.classList.add('active');
+
+      pdfActionPanes.forEach((pane) => {
+        if (pane.id === `pdf-action-pane-${action}`) {
+          pane.style.display = 'block';
+          pane.classList.add('active');
+        } else {
+          pane.style.display = 'none';
+          pane.classList.remove('active');
+        }
+      });
+      refreshLucideIcons();
+    });
+  });
+
+  function updatePdfOrganizeStats() {
+    const kept = pdfPages.filter((p) => !p.deleted).length;
+    const rotated = pdfPages.filter((p) => !p.deleted && p.rotation !== 0).length;
+    const deleted = pdfPages.filter((p) => p.deleted).length;
+
+    if (pdfStatKept) pdfStatKept.textContent = kept;
+    if (pdfStatRotated) pdfStatRotated.textContent = rotated;
+    if (pdfStatDeleted) pdfStatDeleted.textContent = deleted;
+    if (pdfPageCountBadge) pdfPageCountBadge.textContent = `${pdfPages.length} trang`;
+
+    if (btnApplyReorganize) btnApplyReorganize.disabled = kept === 0;
+  }
+
+  function setPdfToolButtonsEnabled(enabled) {
+    if (btnApplyReorganize) btnApplyReorganize.disabled = !enabled;
+    if (btnApplyRedact) btnApplyRedact.disabled = !enabled;
+    if (btnApplyProtect) btnApplyProtect.disabled = !enabled;
+    if (btnApplyNormalize) btnApplyNormalize.disabled = !enabled;
+    if (btnApplyExtractTables) btnApplyExtractTables.disabled = !enabled;
+    if (btnApplyGiaplai) btnApplyGiaplai.disabled = !(enabled && giapLaiStampServerPath);
+  }
+
+  function renderPdfThumbnails() {
+    if (!pdfThumbnailGrid) return;
+
+    if (pdfPages.length === 0) {
+      if (pdfProEmptyState) pdfProEmptyState.style.display = 'flex';
+      if (pdfOrganizerToolbar) pdfOrganizerToolbar.style.display = 'none';
+      return;
+    }
+
+    if (pdfProEmptyState) pdfProEmptyState.style.display = 'none';
+    if (pdfOrganizerToolbar) pdfOrganizerToolbar.style.display = 'flex';
+
+    // Remove existing cards
+    const existingCards = pdfThumbnailGrid.querySelectorAll('.pdf-page-card');
+    existingCards.forEach((c) => c.remove());
+
+    pdfPages.forEach((pageObj) => {
+      const card = document.createElement('div');
+      card.className = `pdf-page-card ${pageObj.deleted ? 'is-deleted' : ''}`;
+      card.setAttribute('data-page', pageObj.pageNumber);
+
+      card.innerHTML = `
+        <div class="page-card-header">
+          <span class="page-idx-badge">Trang ${pageObj.pageNumber}</span>
+          ${pageObj.rotation !== 0 ? `<span class="page-rot-badge">+${pageObj.rotation}°</span>` : ''}
+        </div>
+        <div class="page-thumbnail-wrap">
+          <img src="${pageObj.thumbnailUrl}" class="page-thumb-img" style="transform: rotate(${pageObj.rotation}deg);" alt="Trang ${pageObj.pageNumber}" />
+        </div>
+        <div class="page-card-actions">
+          <button type="button" class="page-action-btn rotate-btn" title="Xoay 90°"><i data-lucide="rotate-cw"></i></button>
+          <button type="button" class="page-action-btn delete-btn" title="${pageObj.deleted ? 'Khôi phục trang' : 'Xóa trang'}"><i data-lucide="${pageObj.deleted ? 'undo-2' : 'trash-2'}"></i></button>
+        </div>
+      `;
+
+      // Event listeners for individual card
+      const rotateBtn = card.querySelector('.rotate-btn');
+      const deleteBtn = card.querySelector('.delete-btn');
+      const thumbImg = card.querySelector('.page-thumb-img');
+      const cardHeader = card.querySelector('.page-card-header');
+
+      rotateBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        pageObj.rotation = (pageObj.rotation + 90) % 360;
+        thumbImg.style.transform = `rotate(${pageObj.rotation}deg)`;
+
+        let rotBadge = cardHeader.querySelector('.page-rot-badge');
+        if (pageObj.rotation !== 0) {
+          if (!rotBadge) {
+            rotBadge = document.createElement('span');
+            rotBadge.className = 'page-rot-badge';
+            cardHeader.appendChild(rotBadge);
+          }
+          rotBadge.textContent = `+${pageObj.rotation}°`;
+        } else if (rotBadge) {
+          rotBadge.remove();
+        }
+        updatePdfOrganizeStats();
+      });
+
+      deleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        pageObj.deleted = !pageObj.deleted;
+        card.classList.toggle('is-deleted', pageObj.deleted);
+        deleteBtn.title = pageObj.deleted ? 'Khôi phục trang' : 'Xóa trang';
+        deleteBtn.innerHTML = `<i data-lucide="${pageObj.deleted ? 'undo-2' : 'trash-2'}"></i>`;
+        refreshLucideIcons();
+        updatePdfOrganizeStats();
+      });
+
+      pdfThumbnailGrid.appendChild(card);
+    });
+
+    updatePdfOrganizeStats();
+    refreshLucideIcons();
+  }
+
+  // Batch actions
+  if (btnRotateAllPages) {
+    btnRotateAllPages.addEventListener('click', () => {
+      pdfPages.forEach((p) => {
+        if (!p.deleted) p.rotation = (p.rotation + 90) % 360;
+      });
+      renderPdfThumbnails();
+    });
+  }
+
+  if (btnResetAllPages) {
+    btnResetAllPages.addEventListener('click', () => {
+      pdfPages.forEach((p) => {
+        p.rotation = 0;
+        p.deleted = false;
+      });
+      renderPdfThumbnails();
+    });
+  }
+
+  // Load and render PDF file
+  async function loadPdfProFile(file) {
+    pdfProFile = file;
+    if (pdfProFileName) pdfProFileName.textContent = file.name;
+    if (pdfProFileSize) pdfProFileSize.textContent = formatBytes(file.size);
+    const content = pdfProDropZone.querySelector('.drop-zone-content');
+    if (content) content.style.display = 'none';
+    if (pdfProFileInfo) pdfProFileInfo.style.display = 'flex';
+
+    if (pdfProProgress) pdfProProgress.style.display = 'block';
+    if (pdfProProgressFill) pdfProProgressFill.style.width = '35%';
+    if (pdfProProgressStatus) pdfProProgressStatus.textContent = 'Đang tải lên và dựng ảnh xem trước từng trang...';
+
+    try {
+      const upRes = await uploadFileToServer(file);
+      pdfProServerPath = upRes.filepath || upRes.file_path;
+
+      if (pdfProProgressFill) pdfProProgressFill.style.width = '65%';
+      if (pdfProProgressStatus) pdfProProgressStatus.textContent = 'Đang kết xuất ảnh nét 120 DPI (PyMuPDF)...';
+
+      const prevRes = await fetch('/api/pdf/pages/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file_path: pdfProServerPath }),
+      });
+
+      if (!prevRes.ok) {
+        const err = await prevRes.json().catch(() => ({}));
+        throw new Error(err.error || 'Không thể tạo ảnh xem trước');
+      }
+
+      const prevData = await prevRes.json();
+      pdfPages = (prevData.pages || []).map((p) => ({
+        pageNumber: p.page,
+        rotation: 0,
+        deleted: false,
+        thumbnailUrl: p.thumbnail_url,
+      }));
+
+      if (pdfProProgressFill) pdfProProgressFill.style.width = '100%';
+      if (pdfProProgressStatus) pdfProProgressStatus.textContent = 'Sẵn sàng!';
+
+      renderPdfThumbnails();
+      setPdfToolButtonsEnabled(true);
+      showToast(`Đã nạp ${pdfPages.length} trang PDF thành công!`, 'success');
+    } catch (err) {
+      showToast(`Lỗi xử lý PDF: ${err.message}`, 'error', 6000);
+      setPdfToolButtonsEnabled(false);
+    } finally {
+      setTimeout(() => {
+        if (pdfProProgress) pdfProProgress.style.display = 'none';
+      }, 1200);
+    }
+  }
+
+  if (pdfProDropZone && pdfProFileInput) {
+    pdfProDropZone.addEventListener('click', () => pdfProFileInput.click());
+    if (btnBrowsePdfPro) {
+      btnBrowsePdfPro.addEventListener('click', (e) => {
+        e.stopPropagation();
+        pdfProFileInput.click();
+      });
+    }
+
+    pdfProFileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        loadPdfProFile(e.target.files[0]);
+      }
+    });
+
+    // Drag and drop support
+    pdfProDropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      pdfProDropZone.classList.add('drag-over');
+    });
+    pdfProDropZone.addEventListener('dragleave', () => {
+      pdfProDropZone.classList.remove('drag-over');
+    });
+    pdfProDropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      pdfProDropZone.classList.remove('drag-over');
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        const file = e.dataTransfer.files[0];
+        if (file.name.toLowerCase().endsWith('.pdf')) {
+          loadPdfProFile(file);
+        } else {
+          showToast('Vui lòng chọn tệp có định dạng .pdf', 'warning');
+        }
+      }
+    });
+
+    if (btnRemovePdfPro) {
+      btnRemovePdfPro.addEventListener('click', (e) => {
+        e.stopPropagation();
+        pdfProFile = null;
+        pdfProServerPath = null;
+        pdfPages = [];
+        pdfProFileInput.value = '';
+        if (pdfProFileInfo) pdfProFileInfo.style.display = 'none';
+        const content = pdfProDropZone.querySelector('.drop-zone-content');
+        if (content) content.style.display = 'block';
+        renderPdfThumbnails();
+        setPdfToolButtonsEnabled(false);
+        if (pdfProResultBox) pdfProResultBox.style.display = 'none';
+      });
+    }
+  }
+
+  // Giáp Lai Stamp Dropzone Handling
+  if (giaplaiStampDropZone && giaplaiStampFileInput) {
+    giaplaiStampDropZone.addEventListener('click', () => giaplaiStampFileInput.click());
+    giaplaiStampFileInput.addEventListener('change', async (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        giapLaiStampFile = e.target.files[0];
+        if (giaplaiStampFileName) giaplaiStampFileName.textContent = giapLaiStampFile.name;
+        const c = giaplaiStampDropZone.querySelector('.drop-zone-content');
+        if (c) c.style.display = 'none';
+        if (giaplaiStampFileInfo) giaplaiStampFileInfo.style.display = 'flex';
+
+        try {
+          const up = await uploadFileToServer(giapLaiStampFile);
+          giapLaiStampServerPath = up.filepath || up.file_path;
+          if (btnApplyGiaplai) btnApplyGiaplai.disabled = !pdfProServerPath;
+          showToast('Tải lên ảnh con dấu thành công!', 'success');
+        } catch (err) {
+          showToast(`Lỗi tải con dấu: ${err.message}`, 'error');
+        }
+      }
+    });
+
+    if (btnRemoveGiaplaiStamp) {
+      btnRemoveGiaplaiStamp.addEventListener('click', (e) => {
+        e.stopPropagation();
+        giapLaiStampFile = null;
+        giapLaiStampServerPath = null;
+        giaplaiStampFileInput.value = '';
+        if (giaplaiStampFileInfo) giaplaiStampFileInfo.style.display = 'none';
+        const c = giaplaiStampDropZone.querySelector('.drop-zone-content');
+        if (c) c.style.display = 'block';
+        if (btnApplyGiaplai) btnApplyGiaplai.disabled = true;
+      });
+    }
+  }
+
+  // Unified PDF Pro Action Dispatcher
+  async function executePdfProAction(action, payload, actionTitle, triggerBtn) {
+    if (!pdfProServerPath) {
+      showToast('Vui lòng tải lên tệp PDF trước!', 'warning');
+      return;
+    }
+
+    if (triggerBtn) triggerBtn.disabled = true;
+    if (pdfProProgress) pdfProProgress.style.display = 'block';
+    if (pdfProProgressFill) pdfProProgressFill.style.width = '30%';
+    if (pdfProProgressStatus) pdfProProgressStatus.textContent = `Đang thực hiện ${actionTitle}...`;
+
+    try {
+      const bodyData = {
+        file_path: pdfProServerPath,
+        action: action,
+        ...payload,
+      };
+
+      if (pdfProProgressFill) pdfProProgressFill.style.width = '65%';
+
+      const res = await fetch('/api/pdf/tools', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyData),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || `${actionTitle} thất bại`);
+      }
+
+      const data = await res.json();
+      if (pdfProProgressFill) pdfProProgressFill.style.width = '100%';
+      if (pdfProProgressStatus) pdfProProgressStatus.textContent = 'Hoàn tất!';
+
+      const outName = data.output_file || data.filename || 'result.pdf';
+      const dlUrl = data.download_url || `/api/download/${outName}`;
+
+      if (pdfProResAction) pdfProResAction.textContent = actionTitle;
+      if (pdfProResultFilename) pdfProResultFilename.textContent = outName;
+      if (btnDownloadPdfPro) btnDownloadPdfPro.setAttribute('href', dlUrl);
+
+      if (data.detail && pdfProExtraDetailRow && pdfProExtraDetail) {
+        pdfProExtraDetailRow.style.display = 'flex';
+        pdfProExtraDetail.textContent = data.detail;
+      } else if (pdfProExtraDetailRow) {
+        pdfProExtraDetailRow.style.display = 'none';
+      }
+
+      if (pdfProResultBox) pdfProResultBox.style.display = 'block';
+      refreshLucideIcons();
+      showToast(`${actionTitle} hoàn tất!`, 'success');
+    } catch (err) {
+      showToast(`Lỗi: ${err.message}`, 'error', 6000);
+    } finally {
+      if (triggerBtn) triggerBtn.disabled = false;
+      setTimeout(() => {
+        if (pdfProProgress) pdfProProgress.style.display = 'none';
+      }, 1500);
+    }
+  }
+
+  // 1. Action Reorganize
+  if (btnApplyReorganize) {
+    btnApplyReorganize.addEventListener('click', () => {
+      const pagesPlan = pdfPages
+        .filter((p) => !p.deleted)
+        .map((p) => ({ page: p.pageNumber, rotate: p.rotation }));
+
+      if (pagesPlan.length === 0) {
+        showToast('Vui lòng giữ lại ít nhất 1 trang!', 'warning');
+        return;
+      }
+
+      executePdfProAction('reorganize', { pages_plan: pagesPlan }, 'Tổ chức & sắp xếp trang', btnApplyReorganize);
+    });
+  }
+
+  // 2. Action True Redaction
+  if (btnApplyRedact) {
+    btnApplyRedact.addEventListener('click', () => {
+      const patterns = [];
+      if (document.getElementById('redact-opt-cccd')?.checked) patterns.push('cccd');
+      if (document.getElementById('redact-opt-phone')?.checked) patterns.push('phone');
+      if (document.getElementById('redact-opt-email')?.checked) patterns.push('email');
+      if (document.getElementById('redact-opt-bank')?.checked) patterns.push('bank_card');
+      if (document.getElementById('redact-opt-salary')?.checked) patterns.push('salary');
+
+      const termsInput = document.getElementById('redact-custom-terms');
+      const customTerms = termsInput && termsInput.value.trim()
+        ? termsInput.value.split(',').map((s) => s.trim()).filter(Boolean)
+        : [];
+
+      const fillColor = document.getElementById('redact-fill-color')?.value || 'black';
+
+      if (patterns.length === 0 && customTerms.length === 0) {
+        showToast('Vui lòng chọn ít nhất 1 danh mục mẫu hoặc nhập từ khóa cần bôi đen!', 'warning');
+        return;
+      }
+
+      executePdfProAction(
+        'redact',
+        {
+          patterns: patterns,
+          custom_terms: customTerms,
+          fill_color: fillColor,
+        },
+        'Bôi đen bảo mật True Redaction',
+        btnApplyRedact
+      );
+    });
+  }
+
+  // 3. Action Protect AES-256
+  if (btnApplyProtect) {
+    btnApplyProtect.addEventListener('click', () => {
+      const userPwd = document.getElementById('protect-user-pwd')?.value || '';
+      const ownerPwd = document.getElementById('protect-owner-pwd')?.value || '';
+      const allowPrint = document.getElementById('protect-allow-print')?.checked ?? true;
+      const allowCopy = document.getElementById('protect-allow-copy')?.checked ?? false;
+      const allowModify = document.getElementById('protect-allow-modify')?.checked ?? false;
+
+      if (!userPwd && !ownerPwd) {
+        showToast('Vui lòng nhập ít nhất Mật khẩu mở file hoặc Mật khẩu chủ quyền!', 'warning');
+        return;
+      }
+
+      executePdfProAction(
+        'protect',
+        {
+          user_pwd: userPwd,
+          owner_pwd: ownerPwd,
+          allow_print: allowPrint,
+          allow_copy: allowCopy,
+          allow_modify: allowModify,
+        },
+        'Mã hóa AES-256 PDF',
+        btnApplyProtect
+      );
+    });
+  }
+
+  // 4. Action Giáp Lai Stamp
+  if (btnApplyGiaplai) {
+    btnApplyGiaplai.addEventListener('click', () => {
+      if (!giapLaiStampServerPath) {
+        showToast('Vui lòng tải lên ảnh con dấu mộc đỏ!', 'warning');
+        return;
+      }
+
+      const side = document.getElementById('giaplai-side')?.value || 'right';
+
+      executePdfProAction(
+        'giap_lai',
+        {
+          stamp_file_path: giapLaiStampServerPath,
+          side: side,
+        },
+        'Đóng dấu giáp lai đa trang',
+        btnApplyGiaplai
+      );
+    });
+  }
+
+  // 5. Action Normalize A4 & Bates
+  if (btnApplyNormalize) {
+    btnApplyNormalize.addEventListener('click', () => {
+      const orientation = document.getElementById('norm-orientation')?.value || 'auto';
+      const batesPrefix = document.getElementById('norm-bates-prefix')?.value || '';
+
+      executePdfProAction(
+        'normalize_a4',
+        {
+          orientation: orientation,
+          bates_prefix: batesPrefix,
+        },
+        'Chuẩn hóa A4 & Đánh số Bates',
+        btnApplyNormalize
+      );
+    });
+  }
+
+  // 6. Action Extract Tables to Excel
+  if (btnApplyExtractTables) {
+    btnApplyExtractTables.addEventListener('click', () => {
+      executePdfProAction(
+        'extract_tables',
+        {},
+        'Bóc tách bảng biểu sang Excel',
+        btnApplyExtractTables
+      );
+    });
+  }
+
   // =========================================================================
   // 8. TAB 3: DIAGRAM STUDIO CONTROLLER
   // =========================================================================

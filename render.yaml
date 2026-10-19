@@ -1,0 +1,26 @@
+# ==============================================================================
+# render.yaml — Infrastructure-as-Code Blueprint for Render.com Cloud Deployment
+# Universal Office & Presentation Studio (512MB RAM Free Tier Optimized)
+# ==============================================================================
+
+services:
+  - type: web
+    name: offices-handler
+    runtime: docker
+    plan: free
+    region: singapore # Closest low-latency region for Southeast Asia & Vietnam
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: MAX_JOB_WORKERS
+        value: "1" # Serializes memory-intensive tasks to strictly enforce < 512MB RAM cap
+      - key: JAVA_TOOL_OPTIONS
+        value: "-Xmx192m -DPLANTUML_LIMIT_SIZE=16384 -Dfile.encoding=UTF-8"
+      - key: CHROMIUM_PATH
+        value: /usr/bin/chromium
+      - key: PYTHONUNBUFFERED
+        value: "1"

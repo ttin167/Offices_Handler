@@ -157,14 +157,24 @@ class Edge:
 
 
 def _find_chromium_executable() -> str | None:
-    """Locate Microsoft Edge, Google Chrome, or Puppeteer Chromium for headless rendering."""
+    """Locate Chromium, Microsoft Edge, Google Chrome, or Puppeteer for headless rendering."""
+    env_chromium = os.environ.get("CHROMIUM_PATH")
+    if env_chromium and os.path.isfile(env_chromium):
+        return env_chromium
     candidates = [
+        shutil.which("chromium"),
+        shutil.which("chromium-browser"),
+        shutil.which("google-chrome"),
+        shutil.which("google-chrome-stable"),
+        shutil.which("msedge"),
+        shutil.which("chrome"),
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
+        "/usr/bin/google-chrome",
         r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
         r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
         r"C:\Program Files\Google\Chrome\Application\chrome.exe",
         r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-        shutil.which("msedge"),
-        shutil.which("chrome"),
     ]
     for c in candidates:
         if c and os.path.isfile(c):
@@ -1091,6 +1101,8 @@ class PrecisionDiagram:
         cmd = [
             chromium_exe,
             "--headless",
+            "--no-sandbox",
+            "--disable-dev-shm-usage",
             "--disable-gpu",
             "--hide-scrollbars",
             f"--force-device-scale-factor={scale}",

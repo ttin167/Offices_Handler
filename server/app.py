@@ -46,7 +46,11 @@ try:
     from .db import record_history, get_recent_history, delete_history_item, clear_history
     from core.docx.math import parse_inline_math, add_math_to_paragraph
     from core.docx.presets import apply_preset_to_document, load_preset, list_available_presets, build_administrative_header
-    from core.converter.pdf_toolkit import merge_pdfs, split_pdf, rotate_and_clean_pdf, stamp_watermark_pdf, compress_pdf
+    from core.converter.pdf_toolkit import (
+        merge_pdfs, split_pdf, rotate_and_clean_pdf, stamp_watermark_pdf, compress_pdf,
+        redact_sensitive_pdf, protect_pdf, normalize_and_number_pdf, stamp_giap_lai_pdf,
+        extract_pdf_tables_to_xlsx, render_pdf_thumbnails, reorganize_pdf_pages
+    )
     from core.xlsx.writer import apply_worksheet_print_setup, UniversalExcelEngine
 except (ImportError, ValueError):
     from converter_engine import convert_universal  # type: ignore
@@ -58,7 +62,11 @@ except (ImportError, ValueError):
     from db_manager import record_history, get_recent_history, delete_history_item, clear_history  # type: ignore
     from docx_math import parse_inline_math, add_math_to_paragraph  # type: ignore
     from docx_presets import apply_preset_to_document, load_preset, list_available_presets, build_administrative_header  # type: ignore
-    from pdf_toolkit import merge_pdfs, split_pdf, rotate_and_clean_pdf, stamp_watermark_pdf, compress_pdf  # type: ignore
+    from pdf_toolkit import (  # type: ignore
+        merge_pdfs, split_pdf, rotate_and_clean_pdf, stamp_watermark_pdf, compress_pdf,
+        redact_sensitive_pdf, protect_pdf, normalize_and_number_pdf, stamp_giap_lai_pdf,
+        extract_pdf_tables_to_xlsx, render_pdf_thumbnails, reorganize_pdf_pages
+    )
     from xlsx_writer import apply_worksheet_print_setup, UniversalExcelEngine  # type: ignore
 
 try:
@@ -68,13 +76,41 @@ except (ImportError, ValueError):
     from job_manager import global_job_manager  # type: ignore
     from env_doctor import run_doctor  # type: ignore
 
+HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", 8000))
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DIST_DIR = os.path.join(BASE_DIR, "dist")
 UPLOAD_DIR = os.path.join(BASE_DIR, ".web_uploads")
 OUTPUT_DIR = os.path.join(BASE_DIR, ".web_outputs")
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+
+def cleanup_old_temp_files(max_age_seconds: int = 7200) -> int:
+    """
+    Purges temporary files in UPLOAD_DIR and OUTPUT_DIR older than max_age_seconds (default 2h).
+    Protects Ephemeral Container Disk on memory-constrained cloud environments (Render Free 512MB).
+    """
+    now = time.time()
+    removed_count = 0
+    for target_dir in (UPLOAD_DIR, OUTPUT_DIR):
+        if not os.path.isdir(target_dir):
+            continue
+        try:
+            for fname in os.listdir(target_dir):
+                fpath = os.path.join(target_dir, fname)
+                if os.path.isfile(fpath):
+                    try:
+                        mtime = os.path.getmtime(fpath)
+                        if now - mtime > max_age_seconds:
+                            os.remove(fpath)
+                            removed_count += 1
+                    except OSError:
+                        pass
+        except OSError:
+            pass
+    return removed_count
 
 
 def export_pptx_slides(pptx_path: str, output_dir: str, slides_arg: Any = "all") -> list[dict[str, Any]]:
@@ -244,6 +280,13 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                         "universal-convert",
                         "env-doctor",
                         "sse-job-queue",
+                        "pdf-tools",
+                        "pdf-redact",
+                        "pdf-protect",
+                        "pdf-giap-lai",
+                        "pdf-normalize-a4",
+                        "pdf-table-extract",
+                        "pdf-organizer",
                     ],
                     "themes": list(THEMES.keys()),
                     "formats": [".docx", ".pptx", ".pdf", ".md", ".xlsx"],
@@ -992,7 +1035,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     "details": preset_res
                 })
 
-            # Endpoint 15: PDF Everyday Toolkit (merge, split, rotate, clean, watermark, compress)
+            # Endpoint 15: PDF Pro & Everyday Toolkit
             elif path == "/api/pdf/tools":
                 payload = self._read_body_json()
                 action = payload.get("action", "").lower().strip()
@@ -1074,9 +1117,172 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     })
                     return
 
+                elif action == "redact":
+                    patterns = payload.get("patterns")
+                    custom_terms = payload.get("custom_terms") or payload.get("terms")
+                    if isinstance(custom_terms, str):
+                        custom_terms = [t.strip() for t in custom_terms.split(",") if t.strip()]
+                    rect_list = payload.get("rect_list") or payload.get("rects")
+                    out_file = os.path.join(OUTPUT_DIR, f"{base_name}_redacted.pdf")
+                    details = redact_sensitive_pdf(src, out_file, patterns=patterns, custom_terms=custom_terms, rect_list=rect_list)
+                    out_name = os.path.basename(out_file)
+                    self._send_json({
+                        "success": True,
+                        "action": "redact",
+                        "filename": out_name,
+                        "download_url": f"/api/download/{urllib.parse.quote(out_name)}",
+                        "details": details
+                    })
+                    return
+
+                elif action == "protect":
+                    u_pwd = payload.get("user_password") or payload.get("user_pwd")
+                    o_pwd = payload.get("owner_password") or payload.get("owner_pwd")
+                    allow_print = bool(payload.get("allow_print", True))
+                    allow_copy = bool(payload.get("allow_copy", False))
+                    allow_modify = bool(payload.get("allow_modify", False))
+                    allow_annotate = bool(payload.get("allow_annotate", False))
+                    out_file = os.path.join(OUTPUT_DIR, f"{base_name}_protected.pdf")
+                    details = protect_pdf(
+                        src,
+                        out_file,
+                        user_password=u_pwd,
+                        owner_password=o_pwd,
+                        allow_print=allow_print,
+                        allow_copy=allow_copy,
+                        allow_modify=allow_modify,
+                        allow_annotate=allow_annotate,
+                    )
+                    out_name = os.path.basename(out_file)
+                    self._send_json({
+                        "success": True,
+                        "action": "protect",
+                        "filename": out_name,
+                        "download_url": f"/api/download/{urllib.parse.quote(out_name)}",
+                        "details": details
+                    })
+                    return
+
+                elif action in ("normalize_a4", "normalize", "bates"):
+                    orientation = payload.get("orientation", "auto")
+                    margin = float(payload.get("margin", 24.0))
+                    bates_prefix = payload.get("bates_prefix") or payload.get("bates")
+                    bates_pattern = payload.get("bates_pattern", "{prefix} | Trang {page:02d}/{total:02d}")
+                    start_number = int(payload.get("start_number", 1))
+                    position = payload.get("position", "bottom-right")
+                    out_file = os.path.join(OUTPUT_DIR, f"{base_name}_normalized_a4.pdf")
+                    details = normalize_and_number_pdf(
+                        src,
+                        out_file,
+                        orientation=orientation,
+                        margin=margin,
+                        bates_prefix=bates_prefix,
+                        bates_pattern=bates_pattern,
+                        start_number=start_number,
+                        position=position,
+                    )
+                    out_name = os.path.basename(out_file)
+                    self._send_json({
+                        "success": True,
+                        "action": "normalize_a4",
+                        "filename": out_name,
+                        "download_url": f"/api/download/{urllib.parse.quote(out_name)}",
+                        "details": details
+                    })
+                    return
+
+                elif action in ("giap_lai", "giap-lai"):
+                    stamp_param = payload.get("stamp_image_path") or payload.get("stamp_path") or payload.get("stamp_filename") or payload.get("stamp_file")
+                    stamp_src = resolve_file_path(stamp_param) if stamp_param else None
+                    if not stamp_src:
+                        self._send_json({"success": False, "error": f"Stamp image file not found: {stamp_param}"}, status=400)
+                        return
+                    side = payload.get("side", "right")
+                    stamp_diameter = float(payload.get("stamp_diameter", 120.0))
+                    overlap_pct = float(payload.get("overlap_pct", 8.0))
+                    out_file = os.path.join(OUTPUT_DIR, f"{base_name}_giap_lai.pdf")
+                    details = stamp_giap_lai_pdf(
+                        src,
+                        out_file,
+                        stamp_src,
+                        side=side,
+                        stamp_diameter=stamp_diameter,
+                        overlap_pct=overlap_pct,
+                    )
+                    out_name = os.path.basename(out_file)
+                    self._send_json({
+                        "success": True,
+                        "action": "giap_lai",
+                        "filename": out_name,
+                        "download_url": f"/api/download/{urllib.parse.quote(out_name)}",
+                        "details": details
+                    })
+                    return
+
+                elif action in ("extract_tables", "table_extract", "tables_to_xlsx"):
+                    out_file = os.path.join(OUTPUT_DIR, f"{base_name}_tables.xlsx")
+                    details = extract_pdf_tables_to_xlsx(src, out_file)
+                    out_name = os.path.basename(out_file)
+                    self._send_json({
+                        "success": True,
+                        "action": "extract_tables",
+                        "filename": out_name,
+                        "download_url": f"/api/download/{urllib.parse.quote(out_name)}",
+                        "details": details
+                    })
+                    return
+
+                elif action in ("reorganize", "reorder"):
+                    pages_plan = payload.get("pages_plan") or payload.get("plan") or []
+                    if not pages_plan:
+                        self._send_json({"success": False, "error": "pages_plan is required for reorganize"}, status=400)
+                        return
+                    out_file = os.path.join(OUTPUT_DIR, f"{base_name}_reorganized.pdf")
+                    details = reorganize_pdf_pages(src, out_file, pages_plan)
+                    out_name = os.path.basename(out_file)
+                    self._send_json({
+                        "success": True,
+                        "action": "reorganize",
+                        "filename": out_name,
+                        "download_url": f"/api/download/{urllib.parse.quote(out_name)}",
+                        "details": details
+                    })
+                    return
+
+                elif action in ("thumbnails", "preview_pages"):
+                    max_pages = int(payload.get("max_pages", 100))
+                    dpi = int(payload.get("dpi", 120))
+                    thumbs_dir = os.path.join(OUTPUT_DIR, "pdf_previews")
+                    thumbs = render_pdf_thumbnails(src, thumbs_dir, max_pages=max_pages, dpi=dpi)
+                    self._send_json({
+                        "success": True,
+                        "filename": os.path.basename(src),
+                        "total_pages": len(thumbs),
+                        "pages": thumbs
+                    })
+                    return
+
                 else:
                     self._send_json({"success": False, "error": f"Unknown pdf-tools action: '{action}'"}, status=400)
                     return
+
+            # Endpoint 15b: Dedicated PDF Page Thumbnails for Visual Page Organizer
+            elif path == "/api/pdf/pages/preview":
+                payload = self._read_body_json()
+                input_param = payload.get("input_path") or payload.get("filepath") or payload.get("file_path") or payload.get("filename")
+                src = resolve_file_path(input_param) if input_param else None
+                if not src:
+                    self._send_json({"success": False, "error": f"PDF file not found: {input_param}"}, status=400)
+                    return
+                thumbs_dir = os.path.join(OUTPUT_DIR, "pdf_previews")
+                thumbs = render_pdf_thumbnails(src, thumbs_dir, max_pages=int(payload.get("max_pages", 100)), dpi=int(payload.get("dpi", 120)))
+                self._send_json({
+                    "success": True,
+                    "filename": os.path.basename(src),
+                    "total_pages": len(thumbs),
+                    "pages": thumbs
+                })
+                return
 
             # Endpoint 16: Excel Print-Ready Page Setup (ERR_XLSX_008)
             elif path == "/api/xlsx/print-setup":
@@ -1324,6 +1530,11 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
         import base64
         import re
 
+        try:
+            cleanup_old_temp_files(max_age_seconds=7200)
+        except Exception:
+            pass
+
         if "multipart/form-data" in content_type:
             boundary = content_type.split("boundary=")[-1].strip()
             content_length = int(self.headers.get("Content-Length", 0))
@@ -1443,7 +1654,11 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(content)
 
     def _serve_static_file(self, rel_path: str) -> None:
-        """Safely streams static web frontend files (index.html, src/*, assets/*) from workspace."""
+        """
+        Safely streams static web frontend files (index.html, assets/*, etc.).
+        Prioritizes the production Vite build directory ('dist/'), then falls back
+        to the root workspace directory, and implements SPA fallback to dist/index.html.
+        """
         clean_rel = rel_path.lstrip("/").replace("\\", "/")
         if not clean_rel or clean_rel == "":
             clean_rel = "index.html"
@@ -1453,8 +1668,29 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
             self._send_json({"error": "Forbidden path traversal attempt"}, status=403)
             return
 
-        target_file = os.path.join(BASE_DIR, norm_rel)
-        if not os.path.isfile(target_file):
+        target_file = None
+
+        # 1. First priority: Production build in dist/
+        if os.path.isdir(DIST_DIR):
+            dist_candidate = os.path.join(DIST_DIR, norm_rel)
+            if os.path.isfile(dist_candidate):
+                target_file = dist_candidate
+            elif norm_rel == "index.html" and os.path.isfile(os.path.join(DIST_DIR, "index.html")):
+                target_file = os.path.join(DIST_DIR, "index.html")
+
+        # 2. Second priority: Root workspace (development files)
+        if not target_file:
+            base_candidate = os.path.join(BASE_DIR, norm_rel)
+            if os.path.isfile(base_candidate):
+                target_file = base_candidate
+
+        # 3. Third priority: Single Page Application (SPA) fallback to dist/index.html
+        if not target_file and os.path.isdir(DIST_DIR) and not norm_rel.startswith("api"):
+            spa_index = os.path.join(DIST_DIR, "index.html")
+            if os.path.isfile(spa_index):
+                target_file = spa_index
+
+        if not target_file or not os.path.isfile(target_file):
             self._send_json({"error": f"Static asset not found: {clean_rel}"}, status=404)
             return
 
@@ -1473,6 +1709,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
             ".woff": "font/woff",
             ".woff2": "font/woff2",
             ".ttf": "font/ttf",
+            ".webp": "image/webp",
         }
         mime = mime_types.get(ext, "application/octet-stream")
 
@@ -1645,10 +1882,11 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
         return global_job_manager.submit_job(action, p, _runner)
 
 
-def is_server_already_running(port: int) -> bool:
+def is_server_already_running(port: int = PORT, host: str = "127.0.0.1") -> bool:
     import urllib.request
     try:
-        req = urllib.request.Request(f"http://127.0.0.1:{port}/api/health", headers={"User-Agent": "Antigravity-Probe"})
+        check_host = "127.0.0.1" if host in ("0.0.0.0", "") else host
+        req = urllib.request.Request(f"http://{check_host}:{port}/api/health", headers={"User-Agent": "Antigravity-Probe"})
         with urllib.request.urlopen(req, timeout=1.5) as res:
             if res.status == 200:
                 return True
@@ -1657,22 +1895,31 @@ def is_server_already_running(port: int) -> bool:
     return False
 
 
-def run_server(port: int = PORT) -> None:
-    if is_server_already_running(port):
-        print(f"✅ [Office API Bridge] Server is already running on http://127.0.0.1:{port} (healthy).")
+def run_server(port: Optional[int] = None, host: Optional[str] = None) -> None:
+    if port is None:
+        port = int(os.environ.get("PORT", PORT))
+    if host is None:
+        host = os.environ.get("HOST", HOST)
+
+    check_host = "127.0.0.1" if host in ("0.0.0.0", "") else host
+    if is_server_already_running(port, check_host):
+        print(f"✅ [Office API Bridge] Server is already running on http://{check_host}:{port} (healthy).")
         try:
-            while is_server_already_running(port):
+            while is_server_already_running(port, check_host):
                 time.sleep(2)
         except KeyboardInterrupt:
             return
 
-    server_address = ("127.0.0.1", port)
+    server_address = (host, port)
     # Use ThreadingHTTPServer for non-blocking concurrent requests
     handler_class = getattr(http.server, "ThreadingHTTPServer", http.server.HTTPServer)
     httpd = handler_class(server_address, OfficeApiHandler)
-    print(f"🚀 [Office API Bridge] Running on http://127.0.0.1:{port} (pid {os.getpid()})")
+    display_host = "127.0.0.1" if host in ("0.0.0.0", "") else host
+    print(f"🚀 [Office API Bridge] Running on http://{display_host}:{port} (bound to {host}:{port}, pid {os.getpid()})")
     print(f"   Uploads directory: {UPLOAD_DIR}")
     print(f"   Outputs directory: {OUTPUT_DIR}")
+    if os.path.isdir(DIST_DIR):
+        print(f"   Static bundle: Serving compiled Vite assets from {DIST_DIR}")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
@@ -1681,5 +1928,6 @@ def run_server(port: int = PORT) -> None:
 
 
 if __name__ == "__main__":
-    port_arg = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else PORT
-    run_server(port_arg)
+    port_arg = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else int(os.environ.get("PORT", PORT))
+    host_arg = sys.argv[2] if len(sys.argv) > 2 else os.environ.get("HOST", HOST)
+    run_server(port_arg, host_arg)

@@ -1,0 +1,46 @@
+# .dockerignore — Antigravity Document Handler
+# Exclude dev files, large test caches, local venv, and local artifacts from Docker build context
+
+.git
+.github
+.agents
+.vscode
+.idea
+
+# Node & Frontend Build
+node_modules
+dist
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python & Virtual Environments
+venv
+.venv
+env
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache
+.coverage
+htmlcov
+
+# Temporary & Output Directories
+.web_uploads
+.web_outputs
+mail_merge_output
+diagram_assets/*.png
+diagram_assets/*.svg
+!diagram_assets/.gitkeep
+logs
+tmp
+temp
+scratch
+
+# Local Scratch & Working State
+.agent_scratchpad.md
+*.tmp
+*.bak
+~$*
+.~lock.*

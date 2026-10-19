@@ -1,13 +1,14 @@
-# CHANGELOG — Lịch Sử Thay Đổi & Tiến Hóa Dự Án (v1.0 → v4.0.0)
+# CHANGELOG — Lịch Sử Thay Đổi & Tiến Hóa Dự Án (v1.0 → v4.1.0)
 
-Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân hệ kiến trúc mới, và các cải tiến công nghệ từ phiên bản cơ sở (v1.0 Baseline) cho đến phiên bản hoàn thiện hiện tại (**v4.0.0 Production Grade**) của bộ công cụ **`antigravity-doc-handler`**.
+Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân hệ kiến trúc mới, và các cải tiến công nghệ từ phiên bản cơ sở (v1.0 Baseline) cho đến phiên bản hoàn thiện hiện tại (**v4.1.0 Production Grade**) của bộ công cụ **`antigravity-doc-handler`**.
 
 ---
 
 ## 1. Bảng So Sánh Toàn Diện (Feature Comparison Matrix)
 
-| Phân hệ / Tiêu chí kỹ thuật | Phiên bản cũ (v1.0 Baseline) | Phiên bản hiện tại (v4.0 Production Grade) | Lợi ích & Độ tin cậy thực tế |
+| Phân hệ / Tiêu chí kỹ thuật | Phiên bản cũ (v1.0 Baseline) | Phiên bản hiện tại (v4.1.0 Production Grade) | Lợi ích & Độ tin cậy thực tế |
 |---|---|---|---|
+| **Bảo Mật & Xử Lý PDF (PDF Pro Studio)** | Chỉ có 5 công cụ cơ bản (merge, split, rotate, watermark, compress) | **Bộ Công Cụ PDF Pro Studio & Visual Organizer**: True Redaction xóa vĩnh viễn byte/pixel (`ERR_PDF_001`); Mã hóa AES-256 phân quyền in/copy/modify; Đóng dấu giáp lai đa trang $N$-lát cắt overlap 8% (`ERR_PDF_002`); Chuẩn hóa A4 vector centering & số Bates Unicode (`ERR_PDF_003`); Trích xuất bảng sang Excel giữ số 0 đầu (`ERR_XLSX_007`) & khổ in A4 ngang (`ERR_XLSX_008`); Trình biên tập trang trực quan (xoay 90°, xóa trang, thumbnail 120 DPI) | Biến phân hệ PDF thành vũ khí cấp Stirling-PDF / Adobe Acrobat Pro; giải quyết trọn vẹn yêu cầu bảo mật thông tin tài chính/hồ sơ thầu và chuẩn hóa hợp đồng doanh nghiệp Việt Nam |
 | **Danh Sách & Đánh Số Word (Lists & Numbering)** | Dùng style `List Number` tĩnh của Word khiến số bị đếm tích lũy liên tục không reset; bullet không phân cấp; không hỗ trợ checkbox | **Native OpenXML Numbering Engine (`docx_lists.py`)**: Cấp phát `numId` động tự động reset về 1 (`startOverride=1`); Smart Continuation duy trì chuỗi số cha khi có sub-items xen kẽ; phân cấp 3 tầng (1->a->i, •->○->■); hỗ trợ checkbox (`☐`, `☑`); tương thích cả trong Table cells | Khi mở tài liệu trên Microsoft Word, nhấn Enter tự động sinh số tiếp theo; danh sách mới tự động bắt đầu từ 1; tuyệt đối không sinh số bừa bãi cho text thường |
 | **Lưu Trữ Lịch Sử Tệp (History & Storage)** | Không có; chuyển đổi xong phải lưu thủ công | **Zero-Config SQLite Storage (`db_manager.py`)**: Tự động lưu ngầm lịch sử chuyển đổi vào `.web_outputs/studio_history.db`, tích hợp Drawer trượt trên Web Studio | 1-click tải lại tệp cũ hoặc xóa lịch sử; zero phụ thuộc bên ngoài; bảo vệ hoàn toàn file cá nhân trên Git |
 | **Soạn Thảo Toán Học Trực Quan (Math Studio)** | Không có giao diện; chỉ chạy script CLI | **Interactive Math Studio & Equation Lab**: Palette chèn ký hiệu nhanh, mẫu công thức chuẩn kỹ thuật, Live Preview thời gian thực, 1-click xuất tệp Word DOCX | Soạn thảo công thức LaTeX trực quan trên trình duyệt và xuất sang Word chuẩn OMML với định dạng chuyên nghiệp |
@@ -21,11 +22,39 @@ Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân h�
 | **Sơ đồ Kỹ thuật (Diagram Suite)** | Chỉ có sơ đồ cơ bản qua Chromium headless | **Hệ sinh thái Đa Engine**: Hỗ trợ 4 loại công nghệ: Draw.io Native mxGraph (`mxgraph_engine.py`), PlantUML cục bộ (`plantuml.jar` với chuẩn C4 nội bộ), Mermaid pastel phẳng, và Canvas Screen Flow tương tác | Xuất vector SVG và PNG siêu nét 300+ DPI, hỗ trợ kéo thả chỉnh sửa 2 chiều qua `diagram_editor.py` |
 | **Quản lý Định dạng (Decoupled Styling)** | Code và Style bị trộn lẫn, khó thay đổi giao diện | Tách rời hoàn toàn Nội dung (`.md`) và Kiểu dáng (`.style.yaml`); tự động trích xuất metadata phong cách từ DOCX mẫu | Thay đổi toàn bộ phông chữ, màu sắc, lề trang chỉ bằng việc chỉnh sửa file YAML mà không cần sửa code |
 | **Giao diện & CLI Dispatcher** | Các script chạy phân mảnh | `ai_tools_cli.py` hợp nhất toàn bộ lệnh: `docx-tools`, `pptx-build`, `pptx-preview`, `diagram-render`, `convert`, `inspect-doc` + Desktop GUI Tkinter (`main.py`) | Thân thiện cho cả người dùng cuối (chạy app desktop) và AI Coding Agent (gọi CLI dạng declarative JSON) |
-| **Kiểm định Chất Lượng (Quality Assurance)** | 16 bài test sơ khai (bị lỗi hardcode đường dẫn trên máy khác) | **108 Automated Test Suites (100% Pass Rate)**: Bộ test toàn diện bao quát OpenXML Lists, Invariants, DrawingML, SQLite CRUD, Web API, và Microsoft Word COM Automation | Bảo đảm tính ổn định tuyệt đối trong môi trường CI/CD và máy tính cá nhân |
+| **Kiểm định Chất Lượng (Quality Assurance)** | 16 bài test sơ khai (bị lỗi hardcode đường dẫn trên máy khác) | **215+ Automated Test Suites (100% Pass Rate)**: Toàn diện từ OpenXML, DrawingML, SQLite, Web REST/SSE, MCP Tools, đến PDF Pro Studio & Visual Organizer | Bảo đảm tính ổn định tuyệt đối trong môi trường CI/CD và máy tính cá nhân |
 
 ---
 
 ## 2. Chi Tiết Các Phiên Bản Phát Triển
+
+### Phiên Bản 4.1.0 (PDF Pro Studio & Visual Page Organizer Enterprise Suite)
+- **Nhóm Bảo Mật & Tuân Thủ Pháp Lý (True Redaction & AES-256 Encryption)**:
+  - `core/converter/pdf_toolkit.py` & root facade `pdf_toolkit.py`:
+    - `redact_sensitive_pdf()`: Áp dụng `page.add_redact_annot()` kết hợp `page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_PIXELS)` triệt tiêu vĩnh viễn byte văn bản trong AST và pixel ảnh raster bên dưới (**`ERR_PDF_001`**).
+    - Bộ Regex tự động: Căn cước công dân (`cccd`), Số điện thoại VN (`phone`), Email (`email`), Thẻ tín dụng/ATM (`bank_card`), Mức lương & Thu nhập (`salary`), kèm từ khóa tùy chỉnh và tùy chọn màu che phủ (đen/trắng).
+    - `protect_pdf()`: Mã hóa chuẩn quân đội AES-256 (`fitz.PDF_ENCRYPT_AES_256`), phân tách Mật khẩu xem (`user_password`) và Mật khẩu quản trị (`owner_password`), hỗ trợ phân quyền in ấn (`allow_print`), sao chép văn bản (`allow_copy`), và chỉnh sửa (`allow_modify`).
+- **Nhóm Hành Chính & Kế Toán Việt Nam (Dấu Giáp Lai Đa Trang & Chuẩn Hóa A4 Bates)**:
+  - `stamp_giap_lai_pdf()`: Tự động phân rã ảnh con dấu tròn/vuông thành $N$ lát cắt dọc tương ứng với $N$ trang văn bản, bổ sung độ chồng lấn 8% (**`ERR_PDF_002`**) chống khe hở khi in ấn, căn lề mép ngoài (mép phải chuẩn hợp đồng hoặc mép trái).
+  - `normalize_and_number_pdf()`: Vector Embedding qua `show_pdf_page()` căn giữa chuẩn A4 ($595.28 \times 841.89\text{ pt}$) bảo toàn độ nét vector 100% (**`ERR_PDF_003`**), tự động nhận diện hướng trang (Auto/Portrait/Landscape), kết hợp đóng số pháp lý Bates định dạng Unicode tiếng Việt.
+- **Nhóm Bóc Tách Bảng Biểu Trực Tiếp Sang Excel (`extract_pdf_tables_to_xlsx`)**:
+  - Tận dụng thuật toán C++ `page.find_tables()` có sẵn trong PyMuPDF để phát hiện cấu trúc bảng biểu.
+  - Sinh bảng tính `.xlsx` chuẩn doanh nghiệp với phong cách Navy Header `#0F294A`, dòng xen kẽ zebra, viền mảnh.
+  - Tuân thủ nghiêm ngặt **`ERR_XLSX_007`** (bảo toàn số 0 ở đầu mã CCCD, Mã số thuế, Số tài khoản ở dạng chuỗi `@`) và **`ERR_XLSX_008`** (khổ in A4 ngang `fitToPage = True`).
+- **Trình Biên Tập Trang Trực Quan Trên Web Studio (Visual Page Organizer)**:
+  - `index.html`, `src/index.css`, `src/main.js`:
+    - Tích hợp Sub-tab 6 **PDF Pro Studio** vào Document Hub.
+    - Lưới xem trước Thumbnail 120 DPI (`/api/pdf/pages/preview`).
+    - Nút xoay 90° tức thời `[↻]` với phản hồi hoạt họa CSS transform mượt mà.
+    - Nút xóa trang `[🗑️]` với hiệu ứng mờ bán trong suốt, viền đỏ, và huy hiệu "ĐÃ XÓA".
+    - Bộ 6 thẻ thao tác chuyển đổi tức thời qua Action Pills.
+- **Mở Rộng Giao Thức (REST API, CLI & MCP)**:
+  - REST API: `POST /api/pdf/pages/preview` và `POST /api/pdf/tools` (hỗ trợ `reorganize`, `redact`, `protect`, `giap_lai`, `normalize_a4`, `extract_tables`).
+  - CLI: Mở rộng lệnh `python ai_tools_cli.py pdf-tools` với đầy đủ các đối số mới.
+  - MCP Server: Mở rộng công cụ `pdf_quick_tools` trong `server/mcp_server.py`.
+- **Bộ Kiểm Thử Chất Lượng (Quality Gate)**:
+  - Bổ sung `tests/test_pdf_pro_studio.py` (4 tests) và `tests/test_pdf_advanced_toolkit.py` (6 tests).
+  - Toàn bộ test suite đạt **215 bài kiểm thử vượt qua 100% (215 passed, 0 failed, 3 warnings)**.
 
 ### Phiên Bản 4.0.0 (Phase 4 — Enterprise Unified QA Diagnostic, System Integrity & Final Integration)
 - **Động Cơ Chẩn Đoán & Sửa Chữa Hợp Nhất (Enterprise Unified QA Diagnostic & Self-Repair)**:
