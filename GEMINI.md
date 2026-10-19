@@ -37,6 +37,7 @@ Khi bắt đầu làm bất kỳ tác vụ nào thuộc domain dưới đây, **
 | Document converter, PDF export | `rule_decoupled_document_converter.md` |
 | Excel Template, openpyxl, Spreadsheet Data Injection, Matrix UX | `rule_excel_template_preservation_and_ux.md` |
 | Docx/Excel QA, unified_qa_diagnostic, OpenXML, DrawingML, Table borders | `rule_enterprise_document_and_spreadsheet_qa.md` |
+| Version bump, release mới, cập nhật phiên bản, package.json, changelog | `rule_version_synchronization_and_release_invariants.md` |
 | `/learn` invoked, writing new Rule, writing new Skill | `rule_learning_and_skill_authoring.md` |
 | git commit, git push | `rule_git_workflow.md` |
 
@@ -150,6 +151,7 @@ Khi bắt đầu làm bất kỳ tác vụ nào thuộc domain dưới đây, **
 | `ERR_DOCX_005` | **Printable Margin Overflow** | Khóa tỉ lệ ảnh; chiều rộng hình ảnh $\le$ `page_width - left_margin - right_margin`. |
 | `ERR_DIAG_002` | **Zero-Template 60-30-10** | Vẽ không có mẫu: 60% nền trung tính, 30% thẻ slate/trắng, 10% màu nhấn. Khoảng cách $\ge$ 40px. |
 | `ERR_CONV_004` | **Zombie Lock Files Cleanup** | Tự động quét và thu gom sạch file rác `.~lock.*` và `~$*` trước/sau khi chạy. |
+| `ERR_VER_001` | **Version Desync Invariant** | Luôn đồng bộ 100% version giữa Terminal/BE/Manifest và Frontend/index.html qua tools/bump_version.py + npm run build. |
 | `CLI Exit` | **CI/CD Exit Codes** | `0` = Clean 100%; `1` = Warning (Aesthetic); `2` = Critical (Corrupt XML / Break). |
 
 ---

@@ -415,6 +415,13 @@ DocumentNode <|-- TableModel
       const res = await fetch('/api/health');
       if (res.ok) {
         state.apiConnected = true;
+        const data = await res.json().catch(() => ({}));
+        if (data.version) {
+          const brandSubtitle = document.querySelector('.brand-subtitle');
+          if (brandSubtitle) {
+            brandSubtitle.textContent = `Office Studio v${data.version}`;
+          }
+        }
         if (badge) {
           badge.className = 'badge-status';
           if (label) label.textContent = 'API Bridge Sẵn Sàng (:8000)';

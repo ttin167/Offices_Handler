@@ -34,6 +34,8 @@ if sys.platform == "win32":
     except Exception:
         pass
 
+APP_VERSION = "4.2.0"
+
 # Import core handlers
 try:
     from core.converter.engine import convert_universal
@@ -264,7 +266,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                 self._send_json({
                     "status": "online",
                     "healthy": True,
-                    "version": "4.0.0",
+                    "version": APP_VERSION,
                     "service": "Antigravity Office & Presentation Studio",
                     "timestamp": time.time(),
                 })
@@ -272,7 +274,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
             elif path == "/api/info":
                 self._send_json({
                     "name": "Antigravity Office Studio",
-                    "version": "4.0.0",
+                    "version": APP_VERSION,
                     "capabilities": [
                         "docx-patch",
                         "xlsx-mutate",

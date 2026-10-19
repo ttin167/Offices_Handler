@@ -343,6 +343,9 @@ def run_doctor() -> Dict[str, Any]:
     return EnvironmentDoctor().run_diagnostics()
 
 
+DOCTOR_VERSION = "4.2.0"
+
+
 def format_doctor_report(report: Dict[str, Any]) -> str:
     """Format diagnostic report into human-readable terminal output string."""
     status_tag = "[HEALTHY]" if report["status"] == "healthy" else (
@@ -351,7 +354,7 @@ def format_doctor_report(report: Dict[str, Any]) -> str:
     lines = [
         "",
         "=" * 65,
-        f" {status_tag} ANTIGRAVITY OFFICE ENVIRONMENT DOCTOR (v4.0)",
+        f" {status_tag} ANTIGRAVITY OFFICE ENVIRONMENT DOCTOR (v4.2.0)",
         "=" * 65,
         f"OS Platform    : {report['platform']} (Python {report['python_version']})",
         f"Overall Status : {report['status'].upper()} ({report['elapsed_sec']}s)",
