@@ -6,7 +6,7 @@ Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân h�
 
 ## 1. Bảng So Sánh Toàn Diện (Feature Comparison Matrix)
 
-| Phân hệ / Tiêu chí kỹ thuật | Phiên bản cũ (v1.0 Baseline) | Phiên bản hiện tại (v3.4 Production Grade) | Lợi ích & Độ tin cậy thực tế |
+| Phân hệ / Tiêu chí kỹ thuật | Phiên bản cũ (v1.0 Baseline) | Phiên bản hiện tại (v4.0 Production Grade) | Lợi ích & Độ tin cậy thực tế |
 |---|---|---|---|
 | **Danh Sách & Đánh Số Word (Lists & Numbering)** | Dùng style `List Number` tĩnh của Word khiến số bị đếm tích lũy liên tục không reset; bullet không phân cấp; không hỗ trợ checkbox | **Native OpenXML Numbering Engine (`docx_lists.py`)**: Cấp phát `numId` động tự động reset về 1 (`startOverride=1`); Smart Continuation duy trì chuỗi số cha khi có sub-items xen kẽ; phân cấp 3 tầng (1->a->i, •->○->■); hỗ trợ checkbox (`☐`, `☑`); tương thích cả trong Table cells | Khi mở tài liệu trên Microsoft Word, nhấn Enter tự động sinh số tiếp theo; danh sách mới tự động bắt đầu từ 1; tuyệt đối không sinh số bừa bãi cho text thường |
 | **Lưu Trữ Lịch Sử Tệp (History & Storage)** | Không có; chuyển đổi xong phải lưu thủ công | **Zero-Config SQLite Storage (`db_manager.py`)**: Tự động lưu ngầm lịch sử chuyển đổi vào `.web_outputs/studio_history.db`, tích hợp Drawer trượt trên Web Studio | 1-click tải lại tệp cũ hoặc xóa lịch sử; zero phụ thuộc bên ngoài; bảo vệ hoàn toàn file cá nhân trên Git |

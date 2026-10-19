@@ -58,7 +58,7 @@ except (ImportError, ValueError):
 
 MCP_PROTOCOL_VERSION = "2024-11-05"
 SERVER_NAME = "antigravity-doc-handler"
-SERVER_VERSION = "3.4.0"
+SERVER_VERSION = "4.0.0"
 
 TOOL_DEFINITIONS = [
     {

@@ -185,7 +185,7 @@ def resolve_file_path(path_str: Optional[str]) -> Optional[str]:
 
 
 class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
-    server_version = "AntigravityOfficeStudio/3.4"
+    server_version = "AntigravityOfficeStudio/4.0"
 
     def _send_cors_headers(self) -> None:
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -222,7 +222,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                 self._send_json({
                     "status": "online",
                     "healthy": True,
-                    "version": "3.4.0",
+                    "version": "4.0.0",
                     "service": "Antigravity Office & Presentation Studio",
                     "timestamp": time.time(),
                 })
@@ -230,7 +230,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
             elif path == "/api/info":
                 self._send_json({
                     "name": "Antigravity Office Studio",
-                    "version": "3.4.0",
+                    "version": "4.0.0",
                     "capabilities": [
                         "docx-patch",
                         "xlsx-mutate",

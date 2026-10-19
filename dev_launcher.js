@@ -3,25 +3,39 @@
  * Spawns both the Python Web API Bridge (port 8000) and the Vite Web App (port 5173).
  */
 
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
 import process from 'process';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+let pkgVersion = '4.0.0';
+try {
+  const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+  if (pkg && pkg.version) {
+    pkgVersion = pkg.version;
+  }
+} catch {
+  // Use fallback if package.json read fails
+}
+
 console.log('\x1b[36m%s\x1b[0m', '═══════════════════════════════════════════════════════════════════════════');
-console.log('\x1b[1m\x1b[34m%s\x1b[0m', '  🚀 Antigravity Universal Office & Presentation Web Studio (v3.2)');
+console.log('\x1b[1m\x1b[34m%s\x1b[0m', `  🚀 Antigravity Universal Office & Presentation Web Studio (v${pkgVersion})`);
 console.log('\x1b[36m%s\x1b[0m', '═══════════════════════════════════════════════════════════════════════════');
 console.log('\x1b[90m%s\x1b[0m', '  Starting local development services...');
 
 let isShuttingDown = false;
 let apiProcess = null;
 
-// 1. Spawn Python Web API Server with auto-restart on exit
+// 1. Spawn Python Web API Server with auto-restart on exit (shell: false prevents Node DEP0190)
 const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
 
 function startApiServer() {
   if (isShuttingDown) return;
   apiProcess = spawn(pythonCmd, ['web_api_server.py', '8000'], {
     stdio: 'inherit',
-    shell: true,
   });
 
   apiProcess.on('error', (err) => {
@@ -38,9 +52,8 @@ function startApiServer() {
 
 startApiServer();
 
-// 2. Spawn Vite Dev Server
-const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-const viteProcess = spawn(npxCmd, ['vite'], {
+// 2. Spawn Vite Dev Server (string command prevents Node DEP0190)
+const viteProcess = spawn('npx vite', {
   stdio: 'inherit',
   shell: true,
 });

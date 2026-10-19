@@ -1,6 +1,6 @@
 # HƯỚNG DẪN KIẾN TRÚC TOÀN DIỆN VÀ PIPELINE XỬ LÝ TÀI LIỆU
 ## Antigravity Universal Office Studio & Precision Diagram Engine
-> **Phiên bản tài liệu**: 3.4.0 (Enterprise Architecture Standard)  
+> **Phiên bản tài liệu**: 4.0.0 (Enterprise Architecture Standard)  
 > **Tác giả**: Đội ngũ Kỹ thuật Antigravity  
 > **Mục tiêu**: Làm rõ toàn bộ tính năng giao diện, kiến trúc Client-Server, và chi tiết từng bước Backend xử lý để sinh tài liệu PDF và trình chiếu PowerPoint 16:9 Widescreen.
 
