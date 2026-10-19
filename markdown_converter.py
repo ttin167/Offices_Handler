@@ -356,6 +356,29 @@ def docx_to_decoupled(
         if tag == "p":
             p = docx.text.paragraph.Paragraph(child, doc)
             txt = p.text.strip()
+
+            # Check if this paragraph contains embedded images/drawings
+            blip_nodes = child.xpath(".//a:blip") or child.findall(".//{http://schemas.openxmlformats.org/drawingml/2006/main}blip")
+            if not blip_nodes:
+                blip_nodes = child.findall(".//{urn:schemas-microsoft-com:vml}imagedata")
+
+            p_images = []
+            for b in blip_nodes:
+                r_id = (
+                    b.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}embed")
+                    or b.get("{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id")
+                    or b.get(qn("r:id"))
+                    or b.get(qn("r:embed"))
+                )
+                if r_id and r_id in img_map:
+                    p_images.append(img_map[r_id])
+
+            if p_images:
+                for img_rel in p_images:
+                    md_lines.append(f"\n![Image]({img_rel})\n")
+                if not txt:
+                    continue
+
             if not txt:
                 continue
 
@@ -432,6 +455,289 @@ def docx_to_decoupled(
         progress_callback(100.0, f"Hoàn tất bóc tách: {os.path.basename(md_path)} & {os.path.basename(style_yaml_path)}")
 
     return True, md_path, style_yaml_path
+
+
+# ==============================================================================
+# Helper: Diagram Rendering & Embedding for Markdown Code Blocks
+# ==============================================================================
+def _render_and_embed_mermaid_diagram(
+    doc: DocumentType,
+    code: str,
+    assets_dir: str,
+    font_family: str
+) -> bool:
+    """Render Mermaid code block into high-res PNG and embed into Word document."""
+    try:
+        try:
+            from core.diagrams.legacy.mermaid_renderer import render_mermaid_to_png, calculate_aspect_dimensions
+        except (ImportError, ValueError):
+            from legacy_engines.mermaid_renderer import render_mermaid_to_png, calculate_aspect_dimensions
+
+        import hashlib
+        code_hash = hashlib.md5(code.encode("utf-8")).hexdigest()[:10]
+        out_png = os.path.join(assets_dir, f"diag_mermaid_{code_hash}.png")
+
+        if not (os.path.isfile(out_png) and os.path.getsize(out_png) > 0):
+            res = render_mermaid_to_png({
+                "mermaid_code": code,
+                "output_path": out_png,
+                "scale": 2,
+            })
+            if not res or not res.get("success"):
+                return False
+
+        if os.path.isfile(out_png):
+            from PIL import Image
+            with Image.open(out_png) as im:
+                w_px, h_px = im.size
+            w_cm, h_cm = calculate_aspect_dimensions(w_px, h_px, max_w_cm=14.0, max_h_cm=18.0)
+
+            p_img = doc.add_paragraph()
+            p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_img.paragraph_format.space_before = Pt(8)
+            p_img.paragraph_format.space_after = Pt(2)
+            r_img = p_img.add_run()
+            r_img.add_picture(out_png, width=Inches(w_cm / 2.54))
+
+            # Extract title if present in code
+            t_match = re.search(r'title\s+["\']?([^"\']+)["\']?', code, re.IGNORECASE)
+            cap_text = f"Sơ đồ Mermaid: {t_match.group(1).strip()}" if t_match else "Sơ đồ Mermaid"
+
+            p_cap = doc.add_paragraph()
+            p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            r_cap = p_cap.add_run(cap_text)
+            r_cap.font.name = font_family
+            r_cap.font.size = Pt(9.5)
+            r_cap.italic = True
+            p_cap.paragraph_format.space_before = Pt(2)
+            p_cap.paragraph_format.space_after = Pt(8)
+            return True
+    except Exception as exc:
+        print(f"[WARN] Failed to render Mermaid diagram: {exc}", file=sys.stderr)
+        return False
+    return False
+
+
+def _render_and_embed_plantuml_diagram(
+    doc: DocumentType,
+    code: str,
+    assets_dir: str,
+    font_family: str
+) -> bool:
+    """Render PlantUML code block into high-res PNG and embed into Word document."""
+    try:
+        try:
+            from legacy_engines.plantuml_renderer import render_plantuml_to_png, calculate_aspect_dimensions
+        except (ImportError, ValueError):
+            from plantuml_renderer import render_plantuml_to_png, calculate_aspect_dimensions
+
+        import hashlib
+        code_hash = hashlib.md5(code.encode("utf-8")).hexdigest()[:10]
+        out_png = os.path.join(assets_dir, f"diag_plantuml_{code_hash}.png")
+
+        puml_code = code.strip()
+        if not puml_code.startswith("@startuml"):
+            puml_code = f"@startuml\n{puml_code}\n@enduml"
+
+        if not (os.path.isfile(out_png) and os.path.getsize(out_png) > 0):
+            res = render_plantuml_to_png({
+                "plantuml_code": puml_code,
+                "output_path": out_png,
+                "scale": 2,
+            })
+            if not res or not res.get("success"):
+                return False
+
+        if os.path.isfile(out_png):
+            from PIL import Image
+            with Image.open(out_png) as im:
+                w_px, h_px = im.size
+            w_cm, h_cm = calculate_aspect_dimensions(w_px, h_px, max_w_cm=14.0, max_h_cm=18.0)
+
+            p_img = doc.add_paragraph()
+            p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_img.paragraph_format.space_before = Pt(8)
+            p_img.paragraph_format.space_after = Pt(2)
+            r_img = p_img.add_run()
+            r_img.add_picture(out_png, width=Inches(w_cm / 2.54))
+
+            t_match = re.search(r'title\s+([^\n]+)', code, re.IGNORECASE)
+            cap_text = f"Sơ đồ PlantUML: {t_match.group(1).strip()}" if t_match else "Sơ đồ PlantUML"
+
+            p_cap = doc.add_paragraph()
+            p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            r_cap = p_cap.add_run(cap_text)
+            r_cap.font.name = font_family
+            r_cap.font.size = Pt(9.5)
+            r_cap.italic = True
+            p_cap.paragraph_format.space_before = Pt(2)
+            p_cap.paragraph_format.space_after = Pt(8)
+            return True
+    except Exception as exc:
+        print(f"[WARN] Failed to render PlantUML diagram: {exc}", file=sys.stderr)
+        return False
+    return False
+
+
+def _render_and_embed_mxgraph_diagram(
+    doc: DocumentType,
+    code: str,
+    assets_dir: str,
+    font_family: str
+) -> bool:
+    """Render Draw.io / mxGraph code block into high-res PNG and embed into Word document."""
+    try:
+        try:
+            from core.diagrams.mxgraph import render_mxgraph_to_png
+        except (ImportError, ValueError):
+            from mxgraph_engine import render_mxgraph_to_png
+
+        import hashlib
+        code_hash = hashlib.md5(code.encode("utf-8")).hexdigest()[:10]
+        out_png = os.path.join(assets_dir, f"diag_drawio_{code_hash}.png")
+
+        if not (os.path.isfile(out_png) and os.path.getsize(out_png) > 0):
+            res_png = render_mxgraph_to_png(code, out_png, scale=2)
+            actual_png = res_png.get("png_path") if isinstance(res_png, dict) else (res_png if isinstance(res_png, str) else out_png)
+            if not actual_png or not os.path.isfile(actual_png):
+                return False
+            out_png = actual_png
+
+        if os.path.isfile(out_png):
+            from PIL import Image
+            with Image.open(out_png) as im:
+                w_px, h_px = im.size
+            max_w_cm = 14.0
+            max_h_cm = 18.0
+            if w_px > 0 and h_px > 0:
+                scaled_h = (h_px / w_px) * max_w_cm
+                if scaled_h <= max_h_cm:
+                    w_cm, h_cm = max_w_cm, scaled_h
+                else:
+                    h_cm = max_h_cm
+                    w_cm = min((w_px / h_px) * max_h_cm, max_w_cm)
+            else:
+                w_cm, h_cm = max_w_cm, max_h_cm
+
+            p_img = doc.add_paragraph()
+            p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_img.paragraph_format.space_before = Pt(8)
+            p_img.paragraph_format.space_after = Pt(2)
+            r_img = p_img.add_run()
+            r_img.add_picture(out_png, width=Inches(w_cm / 2.54))
+
+            p_cap = doc.add_paragraph()
+            p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            r_cap = p_cap.add_run("Sơ đồ Draw.io")
+            r_cap.font.name = font_family
+            r_cap.font.size = Pt(9.5)
+            r_cap.italic = True
+            p_cap.paragraph_format.space_before = Pt(2)
+            p_cap.paragraph_format.space_after = Pt(8)
+            return True
+    except Exception as exc:
+        print(f"[WARN] Failed to render Draw.io diagram: {exc}", file=sys.stderr)
+        return False
+    return False
+
+
+def _flush_fenced_code_block(
+    doc: DocumentType,
+    lang: str,
+    lines: List[str],
+    assets_dir: str,
+    font_family: str
+) -> None:
+    """Flush collected lines of a fenced code block, rendering diagrams if matched."""
+    content = "\n".join(lines).strip()
+    if not content:
+        return
+
+    clean_lang = (lang or "").strip().lower()
+    rendered = False
+
+    # Try unified diagram bridge first (Canvas, Mermaid, PlantUML, Draw.io)
+    try:
+        from core.diagrams.bridge import render_diagram_code_to_png, calculate_aspect_dimensions
+    except (ImportError, ValueError):
+        try:
+            from diagram_bridge import render_diagram_code_to_png, calculate_aspect_dimensions
+        except (ImportError, ValueError):
+            render_diagram_code_to_png = None
+            calculate_aspect_dimensions = None
+
+    if render_diagram_code_to_png and clean_lang in (
+        "mermaid", "mmd", "plantuml", "puml", "drawio", "mxgraph", "xml",
+        "canvas", "spec", "diagram-spec", "diagram", "json"
+    ):
+        diag_res = render_diagram_code_to_png(content, clean_lang, base_dir=assets_dir)
+        if diag_res and diag_res.get("png_path") and os.path.isfile(diag_res["png_path"]):
+            out_png = diag_res["png_path"]
+            w_px, h_px = diag_res["dimensions_px"]
+            w_cm, h_cm = calculate_aspect_dimensions(w_px, h_px, max_w_cm=14.0, max_h_cm=18.0) if calculate_aspect_dimensions else (14.0, 10.0)
+
+            p_img = doc.add_paragraph()
+            p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            p_img.paragraph_format.space_before = Pt(8)
+            p_img.paragraph_format.space_after = Pt(2)
+            r_img = p_img.add_run()
+            r_img.add_picture(out_png, width=Inches(w_cm / 2.54))
+
+            engine_label = diag_res.get("engine", clean_lang).capitalize()
+            title = diag_res.get("title")
+            cap_text = f"Sơ đồ {engine_label}: {title}" if title else f"Sơ đồ {engine_label}"
+
+            p_cap = doc.add_paragraph()
+            p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            r_cap = p_cap.add_run(cap_text)
+            r_cap.font.name = font_family
+            r_cap.font.size = Pt(9.5)
+            r_cap.italic = True
+            p_cap.paragraph_format.space_before = Pt(2)
+            p_cap.paragraph_format.space_after = Pt(8)
+            rendered = True
+
+    # Fallback to legacy individual handlers if bridge didn't handle it
+    if not rendered:
+        if clean_lang in ("mermaid", "mmd"):
+            rendered = _render_and_embed_mermaid_diagram(doc, content, assets_dir, font_family)
+        elif clean_lang in ("plantuml", "puml"):
+            rendered = _render_and_embed_plantuml_diagram(doc, content, assets_dir, font_family)
+        elif clean_lang in ("drawio", "mxgraph"):
+            rendered = _render_and_embed_mxgraph_diagram(doc, content, assets_dir, font_family)
+        elif clean_lang in ("chart", "charts", "chart-spec", "chart_spec"):
+            try:
+                import json
+                try:
+                    from core.docx.charts import add_chart_to_doc
+                except (ImportError, ValueError):
+                    from docx_charts import add_chart_to_doc  # type: ignore
+
+                spec_dict = None
+                try:
+                    spec_dict = json.loads(content)
+                except Exception:
+                    try:
+                        spec_dict = yaml.safe_load(content)
+                    except Exception:
+                        pass
+
+                if isinstance(spec_dict, dict):
+                    add_chart_to_doc(doc, spec_dict)
+                    rendered = True
+            except Exception as chart_err:
+                print(f"[WARN] Failed to render chart block: {chart_err}", file=sys.stderr)
+
+    if not rendered:
+        # Standard code block rendering
+        for line in lines:
+            p_code = doc.add_paragraph()
+            r_code = p_code.add_run(line)
+            r_code.font.name = "Consolas"
+            r_code.font.size = Pt(9.5)
+            p_code.paragraph_format.space_before = Pt(1)
+            p_code.paragraph_format.space_after = Pt(1)
+            p_code.paragraph_format.left_indent = Inches(0.2)
 
 
 # ==============================================================================
@@ -544,11 +850,18 @@ def decoupled_to_docx(
             h_st.font.color.rgb = h_color
 
     base_dir = os.path.dirname(os.path.abspath(md_path))
+    docx_dir = os.path.dirname(os.path.abspath(docx_path))
+    docx_stem = os.path.splitext(os.path.basename(docx_path))[0]
+    assets_dir = os.path.join(docx_dir, f"{docx_stem}_assets")
+    os.makedirs(assets_dir, exist_ok=True)
+
     lines = body.split("\n")
     total_lines = len(lines)
 
     in_table = False
     in_code_block = False
+    code_block_lang = ""
+    code_block_lines: List[str] = []
     in_signature_block = False
     table_buffer: List[List[str]] = []
     col_alignments: List[WD_ALIGN_PARAGRAPH] = []
@@ -654,16 +967,19 @@ def decoupled_to_docx(
         if s_line.startswith("```"):
             if in_table:
                 flush_table()
-            in_code_block = not in_code_block
+            if not in_code_block:
+                in_code_block = True
+                code_block_lang = s_line.lstrip("`").strip().lower()
+                code_block_lines = []
+            else:
+                in_code_block = False
+                _flush_fenced_code_block(doc, code_block_lang, code_block_lines, assets_dir, font_family)
+                code_block_lang = ""
+                code_block_lines = []
             continue
 
         if in_code_block:
-            p_code = doc.add_paragraph()
-            r_code = p_code.add_run(line.rstrip("\r\n"))
-            r_code.font.name = "Consolas"
-            r_code.font.size = Pt(9.5)
-            p_code.paragraph_format.space_before = Pt(1)
-            p_code.paragraph_format.space_after = Pt(1)
+            code_block_lines.append(line.rstrip("\r\n"))
             continue
 
         # Handle Tables (only when not in code block and has meaningful cells)
@@ -691,16 +1007,62 @@ def decoupled_to_docx(
         if not s_line:
             continue
 
-        # Handle Images
+        # Handle Images & Diagrams
         img_match = re.search(r"!\[(.*?)\]\((.*?)\)", s_line)
         if img_match:
             list_tracker.reset_all_lists()
+            caption_text = img_match.group(1).strip()
             img_rel_path = img_match.group(2).strip()
             full_img_path = os.path.join(base_dir, img_rel_path)
-            if os.path.isfile(full_img_path):
+
+            try:
+                from core.diagrams.bridge import render_diagram_file_to_png, calculate_aspect_dimensions
+            except (ImportError, ValueError):
+                try:
+                    from diagram_bridge import render_diagram_file_to_png, calculate_aspect_dimensions
+                except (ImportError, ValueError):
+                    render_diagram_file_to_png = None
+                    calculate_aspect_dimensions = None
+
+            diag_res = render_diagram_file_to_png(full_img_path, base_dir=base_dir) if render_diagram_file_to_png else None
+            if diag_res and diag_res.get("png_path") and os.path.isfile(diag_res["png_path"]):
+                png_path = diag_res["png_path"]
+                w_px, h_px = diag_res["dimensions_px"]
+                w_cm, h_cm = calculate_aspect_dimensions(w_px, h_px, max_w_cm=14.0, max_h_cm=18.0) if calculate_aspect_dimensions else (14.0, 10.0)
+
                 p_img = doc.add_paragraph()
                 p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p_img.paragraph_format.space_before = Pt(8)
+                p_img.paragraph_format.space_after = Pt(2)
+                p_img.add_run().add_picture(png_path, width=Inches(w_cm / 2.54))
+
+                final_cap = caption_text or (diag_res.get("title") if diag_res.get("engine") != "image" else "")
+                if final_cap:
+                    p_cap = doc.add_paragraph()
+                    p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    r_cap = p_cap.add_run(final_cap)
+                    r_cap.font.name = font_family
+                    r_cap.font.size = Pt(9.5)
+                    r_cap.italic = True
+                    p_cap.paragraph_format.space_before = Pt(2)
+                    p_cap.paragraph_format.space_after = Pt(8)
+                continue
+            elif os.path.isfile(full_img_path):
+                # Direct fallback for standard image file
+                p_img = doc.add_paragraph()
+                p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                p_img.paragraph_format.space_before = Pt(8)
+                p_img.paragraph_format.space_after = Pt(2)
                 p_img.add_run().add_picture(full_img_path, width=Inches(5.5))
+                if caption_text:
+                    p_cap = doc.add_paragraph()
+                    p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    r_cap = p_cap.add_run(caption_text)
+                    r_cap.font.name = font_family
+                    r_cap.font.size = Pt(9.5)
+                    r_cap.italic = True
+                    p_cap.paragraph_format.space_before = Pt(2)
+                    p_cap.paragraph_format.space_after = Pt(8)
                 continue
 
         # Table & Figure Captions
@@ -805,6 +1167,9 @@ def decoupled_to_docx(
 
     if in_table:
         flush_table()
+
+    if in_code_block and code_block_lines:
+        _flush_fenced_code_block(doc, code_block_lang, code_block_lines, assets_dir, font_family)
 
     doc.save(docx_path)
     if progress_callback:
@@ -1096,6 +1461,8 @@ def _md_to_html_printable(md_text: str, base_dir: str) -> str:
     ]
 
     in_code_block = False
+    code_block_lang = ""
+    code_block_lines: list[str] = []
     in_table = False
     in_ul = False
     in_ol = False
@@ -1122,16 +1489,50 @@ def _md_to_html_printable(md_text: str, base_dir: str) -> str:
                 html_lines.append("</tbody></table>")
                 in_table = False
             if in_code_block:
-                html_lines.append("</code></pre>")
+                code_content = "\n".join(code_block_lines).strip()
+                code_lang = (code_block_lang or "").strip().lower()
+                diag_res = None
+                if code_lang in (
+                    "mermaid", "mmd", "plantuml", "puml", "drawio", "mxgraph", "xml",
+                    "canvas", "spec", "diagram-spec", "diagram", "json"
+                ):
+                    try:
+                        from core.diagrams.bridge import render_diagram_code_to_png
+                    except (ImportError, ValueError):
+                        try:
+                            from diagram_bridge import render_diagram_code_to_png
+                        except (ImportError, ValueError):
+                            render_diagram_code_to_png = None
+
+                    if render_diagram_code_to_png:
+                        diag_res = render_diagram_code_to_png(code_content, code_lang, base_dir=base_dir)
+
+                if diag_res and diag_res.get("png_path") and os.path.isfile(diag_res["png_path"]):
+                    diag_png = diag_res["png_path"]
+                    img_uri = f"file:///{diag_png.replace(os.sep, '/')}"
+                    cap_text = diag_res.get("title") or f"Sơ đồ {code_lang.capitalize()}"
+                    html_lines.append('<div class="diagram-figure" style="text-align: center; margin: 16px auto;">')
+                    html_lines.append(f'  <img src="{img_uri}" alt="{html_lib.escape(cap_text)}" style="max-width: 100%; height: auto; display: block; margin: 0 auto; border-radius: 4px;" />')
+                    html_lines.append(f'  <p style="font-size: 9.5pt; font-style: italic; color: #64748b; margin-top: 6px;">{html_lib.escape(cap_text)}</p>')
+                    html_lines.append('</div>')
+                else:
+                    html_lines.append("<pre><code>")
+                    for cl in code_block_lines:
+                        html_lines.append(html_lib.escape(cl))
+                    html_lines.append("</code></pre>")
+
                 in_code_block = False
+                code_block_lines = []
+                code_block_lang = ""
             else:
-                html_lines.append("<pre><code>")
                 in_code_block = True
+                code_block_lang = line[3:].strip()
+                code_block_lines = []
             i += 1
             continue
 
         if in_code_block:
-            html_lines.append(html_lib.escape(line))
+            code_block_lines.append(line)
             i += 1
             continue
 
@@ -1211,10 +1612,28 @@ def _md_to_html_printable(md_text: str, base_dir: str) -> str:
             m = re.match(r"^!\[(.*?)\]\((.*?)\)$", stripped)
             if m:
                 alt, img_url = m.group(1), m.group(2)
-                if not os.path.isabs(img_url):
-                    img_url = os.path.normpath(os.path.join(base_dir, img_url))
-                img_uri = f"file:///{img_url.replace(os.sep, '/')}"
-                html_lines.append(f'<img src="{img_uri}" alt="{html_lib.escape(alt)}" />')
+                try:
+                    from core.diagrams.bridge import render_diagram_file_to_png
+                except (ImportError, ValueError):
+                    try:
+                        from diagram_bridge import render_diagram_file_to_png
+                    except (ImportError, ValueError):
+                        render_diagram_file_to_png = None
+
+                diag_file_res = render_diagram_file_to_png(img_url, base_dir=base_dir) if render_diagram_file_to_png else None
+                if diag_file_res and diag_file_res.get("png_path") and os.path.isfile(diag_file_res["png_path"]):
+                    resolved_img = diag_file_res["png_path"]
+                    alt = alt or (diag_file_res.get("title") if diag_file_res.get("engine") != "image" else "")
+                else:
+                    resolved_img = img_url if os.path.isabs(img_url) else os.path.normpath(os.path.join(base_dir, img_url))
+
+                img_uri = f"file:///{resolved_img.replace(os.sep, '/')}"
+                html_lines.append('<div class="diagram-figure" style="text-align: center; margin: 16px auto;">')
+                html_lines.append(f'  <img src="{img_uri}" alt="{html_lib.escape(alt)}" style="max-width: 100%; height: auto; display: block; margin: 0 auto; border-radius: 4px;" />')
+                if alt:
+                    html_lines.append(f'  <p style="font-size: 9.5pt; font-style: italic; color: #64748b; margin-top: 6px;">{html_lib.escape(alt)}</p>')
+                html_lines.append('</div>')
+
         else:
             html_lines.extend(close_lists())
             text = stripped
@@ -1318,23 +1737,49 @@ def docx_to_pdf(
     if not pdf_path:
         pdf_path = os.path.splitext(docx_path)[0] + ".pdf"
 
-    # Tier 1: Microsoft Edge Headless Print to PDF (Vector 300+ DPI, 100% reliable on Windows)
-    edge_exe = _find_edge_path()
-    if edge_exe:
-        ok_edge, res_edge = _docx_to_pdf_via_edge(docx_path, pdf_path, progress_callback)
-        if ok_edge and os.path.isfile(pdf_path) and os.path.getsize(pdf_path) > 0:
-            return True, pdf_path
+    # Tier 1: Microsoft Word COM Automation (Pixel-perfect 100% vector fidelity on Windows)
+    if sys.platform == "win32":
+        try:
+            if progress_callback:
+                progress_callback(50.0, "Đang xuất bản PDF qua Microsoft Word COM...")
+            import pythoncom
+            pythoncom.CoInitialize()
+            import win32com.client as win32
+            word = win32.Dispatch("Word.Application")
+            word.Visible = False
+            word.DisplayAlerts = 0
 
-    # Tier 2: LibreOffice Headless
-    soffice_path = r"C:\Program Files\LibreOffice\program\soffice.com"
-    if os.path.isfile(soffice_path):
+            abs_docx = os.path.abspath(docx_path)
+            abs_pdf = os.path.abspath(pdf_path)
+
+            doc = word.Documents.Open(abs_docx, ReadOnly=True)
+            doc.SaveAs2(abs_pdf, FileFormat=17)
+            doc.Close(SaveChanges=False)
+            word.Quit()
+            pythoncom.CoUninitialize()
+
+            if os.path.isfile(abs_pdf) and os.path.getsize(abs_pdf) > 0:
+                if progress_callback:
+                    progress_callback(100.0, f"Hoàn tất xuất PDF (Word COM): {os.path.basename(abs_pdf)}")
+                return True, abs_pdf
+        except Exception as exc:
+            pass
+
+    # Tier 2: LibreOffice Headless (Cross-platform on Linux/Docker/Windows)
+    soffice_candidates = [
+        r"C:\Program Files\LibreOffice\program\soffice.com",
+        r"C:\Program Files\LibreOffice\program\soffice.exe",
+        shutil.which("soffice"),
+        shutil.which("libreoffice"),
+    ]
+    soffice_path = next((c for c in soffice_candidates if c and os.path.isfile(c)), None)
+    if soffice_path:
         try:
             if progress_callback:
                 progress_callback(50.0, "Chuyển sang LibreOffice export PDF...")
             abs_docx = os.path.abspath(docx_path)
             out_dir = os.path.dirname(os.path.abspath(pdf_path))
             import subprocess
-            import shutil
             cmd = [soffice_path, "--headless", "--nologo", "--convert-to", "pdf", "--outdir", out_dir, abs_docx]
             subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             expected_out = os.path.join(out_dir, os.path.splitext(os.path.basename(docx_path))[0] + ".pdf")
@@ -1347,34 +1792,14 @@ def docx_to_pdf(
         except Exception:
             pass
 
-    # Tier 3: Word COM (with CoInitialize)
-    try:
-        if progress_callback:
-            progress_callback(60.0, "Đang thử Word COM...")
-        import pythoncom
-        pythoncom.CoInitialize()
-        import win32com.client as win32
-        word = win32.Dispatch("Word.Application")
-        word.Visible = False
-        word.DisplayAlerts = 0
-
-        abs_docx = os.path.abspath(docx_path)
-        abs_pdf = os.path.abspath(pdf_path)
-
-        doc = word.Documents.Open(abs_docx, ReadOnly=True)
-        doc.SaveAs2(abs_pdf, FileFormat=17)
-        doc.Close(SaveChanges=False)
-        word.Quit()
-        pythoncom.CoUninitialize()
-
-        if os.path.isfile(abs_pdf) and os.path.getsize(abs_pdf) > 0:
-            if progress_callback:
-                progress_callback(100.0, f"Hoàn tất xuất PDF: {os.path.basename(pdf_path)}")
+    # Tier 3: Microsoft Edge Headless Print to PDF (Vector fallback)
+    edge_exe = _find_edge_path()
+    if edge_exe:
+        ok_edge, res_edge = _docx_to_pdf_via_edge(docx_path, pdf_path, progress_callback)
+        if ok_edge and os.path.isfile(pdf_path) and os.path.getsize(pdf_path) > 0:
             return True, pdf_path
-    except Exception:
-        pass
 
-    return False, "Không thể xuất PDF: Cần Microsoft Edge, LibreOffice hoặc Word để chuyển đổi DOCX sang PDF."
+    return False, "Không thể xuất PDF: Cần Microsoft Word, LibreOffice hoặc Microsoft Edge để chuyển đổi DOCX sang PDF."
 
 
 def markdown_to_pdf(

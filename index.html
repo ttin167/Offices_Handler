@@ -22,7 +22,7 @@
           <div class="logo-icon"><i data-lucide="sparkles"></i></div>
           <div class="brand-text">
             <span class="brand-title">ANTIGRAVITY</span>
-            <span class="brand-subtitle">Office Studio v3.2</span>
+            <span class="brand-subtitle">Office Studio v4.0</span>
           </div>
         </div>
         <div class="badge-status" id="server-status-badge">
@@ -568,105 +568,455 @@
       <section class="tab-panel" id="panel-documents">
         <div class="panel-hero">
           <div class="hero-content">
-            <h1 class="hero-title">Universal Document Conversion Hub</h1>
-            <p class="hero-desc">Bộ chuyển đổi đa chiều PDF ↔ Word ↔ Markdown ↔ PPTX giữ nguyên 100% bố cục bảng biểu,
-              công thức và nhúng Style Meta CSS/YAML.</p>
+            <h1 class="hero-title">Universal Document Conversion &amp; Processing Hub</h1>
+            <p class="hero-desc">Bộ công cụ xử lý tài liệu chuẩn xuất bản: Chuyển đổi đa chiều (PDF/Word/MD/PPTX/Excel), Trộn thư hàng loạt (Batch Mail Merge), So sánh pháp lý (Redline Diff Track Changes), OCR bóc tách văn bản scan và Kiểm định chuẩn QA 35+ quy tắc.</p>
+          </div>
+          <div class="hero-meta">
+            <span class="meta-tag"><i data-lucide="layers"></i> 5 Chuyên Phân Hệ Document Hub</span>
+            <span class="meta-tag"><i data-lucide="shield-check"></i> OpenXML Table Invariants</span>
+            <span class="meta-tag"><i data-lucide="git-commit"></i> Native Track Changes &amp; Diff</span>
           </div>
         </div>
 
-        <div class="studio-grid">
-          <div class="config-card glass-panel">
-            <h2 class="card-section-title">1. Tải Lên Tài Liệu Cần Chuyển Đổi</h2>
-            <div class="drop-zone" id="doc-drop-zone">
-              <input type="file" id="doc-file-input" accept=".pdf,.docx,.md,.xlsx" class="hidden-input" />
-              <div class="drop-zone-content">
-                <div class="drop-icon"><i data-lucide="upload-cloud"></i></div>
-                <div class="drop-text-primary">Kéo thả tệp PDF, DOCX, MD, XLSX vào đây</div>
-                <div class="drop-text-sub">hoặc <button type="button" class="link-btn" id="btn-browse-doc-file">chọn tệp
-                    từ máy tính</button></div>
+        <!-- Sub Navigation Tabs for Document Hub -->
+        <div class="sub-tabs-container" id="doc-subtabs-nav">
+          <button class="sub-tab-btn active" data-doc-subtab="converter">
+            <span class="sub-tab-icon"><i data-lucide="refresh-cw"></i></span>
+            <span>Universal Converter</span>
+          </button>
+          <button class="sub-tab-btn" data-doc-subtab="mailmerge">
+            <span class="sub-tab-icon"><i data-lucide="mail"></i></span>
+            <span>Batch Mail Merge</span>
+          </button>
+          <button class="sub-tab-btn" data-doc-subtab="diff">
+            <span class="sub-tab-icon"><i data-lucide="git-compare"></i></span>
+            <span>Legal Redline Diff</span>
+          </button>
+          <button class="sub-tab-btn" data-doc-subtab="ocr">
+            <span class="sub-tab-icon"><i data-lucide="scan-line"></i></span>
+            <span>Vietnamese OCR</span>
+          </button>
+          <button class="sub-tab-btn" data-doc-subtab="qa">
+            <span class="sub-tab-icon"><i data-lucide="shield-alert"></i></span>
+            <span>Unified QA Audit</span>
+          </button>
+        </div>
+
+        <!-- SUB-PANEL 1: Universal Converter -->
+        <div class="doc-subpanel active" id="doc-subpanel-converter">
+          <div class="studio-grid">
+            <div class="config-card glass-panel">
+              <h2 class="card-section-title">1. Tải Lên Tài Liệu Cần Chuyển Đổi</h2>
+              <div class="drop-zone" id="doc-drop-zone">
+                <input type="file" id="doc-file-input" accept=".pdf,.docx,.md,.xlsx" class="hidden-input" />
+                <div class="drop-zone-content">
+                  <div class="drop-icon"><i data-lucide="upload-cloud"></i></div>
+                  <div class="drop-text-primary">Kéo thả tệp PDF, DOCX, MD, XLSX vào đây</div>
+                  <div class="drop-text-sub">hoặc <button type="button" class="link-btn" id="btn-browse-doc-file">chọn tệp từ máy tính</button></div>
+                </div>
+                <div class="file-loaded-info" id="doc-file-info" style="display: none;">
+                  <span class="file-badge" id="doc-file-ext">PDF</span>
+                  <span class="file-name" id="doc-file-name">document.pdf</span>
+                  <span class="file-size" id="doc-file-size">0 KB</span>
+                  <button type="button" class="btn-remove-file" id="btn-remove-doc-file" title="Gỡ file"><i data-lucide="x"></i></button>
+                </div>
               </div>
-              <div class="file-loaded-info" id="doc-file-info" style="display: none;">
-                <span class="file-badge" id="doc-file-ext">PDF</span>
-                <span class="file-name" id="doc-file-name">document.pdf</span>
-                <span class="file-size" id="doc-file-size">0 KB</span>
-                <button type="button" class="btn-remove-file" id="btn-remove-doc-file" title="Gỡ file"><i data-lucide="x"></i></button>
+
+              <h2 class="card-section-title">2. Chọn Định Dạng Đích</h2>
+              <div class="conversion-matrix-grid">
+                <label class="matrix-card active" data-target=".docx">
+                  <input type="radio" name="target-format" value=".docx" checked class="hidden-radio" />
+                  <div class="matrix-icon"><i data-lucide="file-text"></i></div>
+                  <div class="matrix-info">
+                    <div class="matrix-name">Word (.docx)</div>
+                    <div class="matrix-desc">OpenXML chuẩn, chống vỡ bảng cantSplit</div>
+                  </div>
+                </label>
+
+                <label class="matrix-card" data-target=".md">
+                  <input type="radio" name="target-format" value=".md" class="hidden-radio" />
+                  <div class="matrix-icon"><i data-lucide="file-code"></i></div>
+                  <div class="matrix-info">
+                    <div class="matrix-name">Markdown (.md)</div>
+                    <div class="matrix-desc">Decoupled styling kèm Style YAML header</div>
+                  </div>
+                </label>
+
+                <label class="matrix-card" data-target=".pdf">
+                  <input type="radio" name="target-format" value=".pdf" class="hidden-radio" />
+                  <div class="matrix-icon"><i data-lucide="file-check"></i></div>
+                  <div class="matrix-info">
+                    <div class="matrix-name">PDF (.pdf)</div>
+                    <div class="matrix-desc">Xuất bản tài liệu PDF vector chất lượng cao</div>
+                  </div>
+                </label>
+
+                <label class="matrix-card" data-target=".pptx">
+                  <input type="radio" name="target-format" value=".pptx" class="hidden-radio" />
+                  <div class="matrix-icon"><i data-lucide="presentation"></i></div>
+                  <div class="matrix-info">
+                    <div class="matrix-name">PowerPoint (.pptx)</div>
+                    <div class="matrix-desc">Tự động tổng hợp slide 16:9 Widescreen</div>
+                  </div>
+                </label>
+
+                <label class="matrix-card" data-target=".xlsx">
+                  <input type="radio" name="target-format" value=".xlsx" class="hidden-radio" />
+                  <div class="matrix-icon"><i data-lucide="table"></i></div>
+                  <div class="matrix-info">
+                    <div class="matrix-name">Excel (.xlsx)</div>
+                    <div class="matrix-desc">Bảng tính cấu trúc dữ liệu nguyên bản</div>
+                  </div>
+                </label>
+              </div>
+
+              <div class="action-buttons-group">
+                <button type="button" class="btn-primary glow-btn" id="btn-convert-doc" disabled>
+                  <span class="btn-icon"><i data-lucide="refresh-cw"></i></span>
+                  <span>TIẾN HÀNH CHUYỂN ĐỔI</span>
+                </button>
+              </div>
+
+              <div class="progress-container" id="doc-progress-container" style="display: none;">
+                <div class="progress-bar-bg">
+                  <div class="progress-bar-fill" id="doc-progress-fill"></div>
+                </div>
+                <div class="progress-status-text" id="doc-progress-status">Đang xử lý tài liệu...</div>
               </div>
             </div>
 
-            <h2 class="card-section-title">2. Chọn Định Dạng Đích</h2>
-            <div class="conversion-matrix-grid">
-              <label class="matrix-card active" data-target=".docx">
-                <input type="radio" name="target-format" value=".docx" checked class="hidden-radio" />
-                <div class="matrix-icon"><i data-lucide="file-text"></i></div>
-                <div class="matrix-info">
-                  <div class="matrix-name">Word (.docx)</div>
-                  <div class="matrix-desc">OpenXML chuẩn, chống vỡ bảng cantSplit</div>
+            <div class="preview-card glass-panel">
+              <h2 class="card-section-title">Kết Quả Chuyển Đổi</h2>
+              <div class="doc-result-box" id="doc-result-box" style="display: none;">
+                <div class="result-badge-success"><i data-lucide="check-circle-2"></i> Chuyển đổi thành công!</div>
+                <div class="result-details">
+                  <div class="result-row"><span class="lbl">Tệp kết quả:</span> <strong id="doc-result-filename">-</strong></div>
+                  <div class="result-row"><span class="lbl">Thời gian:</span> <span id="doc-result-time">-</span></div>
                 </div>
-              </label>
-
-              <label class="matrix-card" data-target=".md">
-                <input type="radio" name="target-format" value=".md" class="hidden-radio" />
-                <div class="matrix-icon"><i data-lucide="file-code"></i></div>
-                <div class="matrix-info">
-                  <div class="matrix-name">Markdown (.md)</div>
-                  <div class="matrix-desc">Decoupled styling kèm Style YAML header</div>
+                <div class="result-actions">
+                  <a href="#" class="btn-primary" id="btn-download-converted" download><i data-lucide="download"></i> Tải Tệp Về</a>
                 </div>
-              </label>
-
-              <label class="matrix-card" data-target=".pdf">
-                <input type="radio" name="target-format" value=".pdf" class="hidden-radio" />
-                <div class="matrix-icon"><i data-lucide="file-check"></i></div>
-                <div class="matrix-info">
-                  <div class="matrix-name">PDF (.pdf)</div>
-                  <div class="matrix-desc">Xuất bản tài liệu PDF vector chất lượng cao</div>
-                </div>
-              </label>
-
-              <label class="matrix-card" data-target=".pptx">
-                <input type="radio" name="target-format" value=".pptx" class="hidden-radio" />
-                <div class="matrix-icon"><i data-lucide="presentation"></i></div>
-                <div class="matrix-info">
-                  <div class="matrix-name">PowerPoint (.pptx)</div>
-                  <div class="matrix-desc">Tự động tổng hợp slide 16:9 Widescreen</div>
-                </div>
-              </label>
-            </div>
-
-            <div class="action-buttons-group">
-              <button type="button" class="btn-primary glow-btn" id="btn-convert-doc" disabled>
-                <span class="btn-icon"><i data-lucide="refresh-cw"></i></span>
-                <span>TIẾN HÀNH CHUYỂN ĐỔI</span>
-              </button>
-            </div>
-
-            <div class="progress-container" id="doc-progress-container" style="display: none;">
-              <div class="progress-bar-bg">
-                <div class="progress-bar-fill" id="doc-progress-fill"></div>
               </div>
-              <div class="progress-status-text" id="doc-progress-status">Đang xử lý tài liệu...</div>
+
+              <div class="empty-state-deck" id="doc-empty-state">
+                <div class="empty-illustration"><i data-lucide="file-text"></i></div>
+                <div class="empty-title">Chưa Có Tệp Đầu Ra</div>
+                <p class="empty-desc">Chọn tệp nguồn và định dạng đích cần chuyển đổi để xem kết quả và tải file tại đây.</p>
+              </div>
             </div>
           </div>
+        </div>
 
-          <!-- Document Results & Preview -->
-          <div class="preview-card glass-panel">
-            <h2 class="card-section-title">Kết Quả Chuyển Đổi</h2>
-            <div class="doc-result-box" id="doc-result-box" style="display: none;">
-              <div class="result-badge-success"><i data-lucide="check-circle-2"></i> Chuyển đổi thành công!</div>
-              <div class="result-details">
-                <div class="result-row"><span class="lbl">Tệp kết quả:</span> <strong
-                    id="doc-result-filename">-</strong></div>
-                <div class="result-row"><span class="lbl">Thời gian:</span> <span id="doc-result-time">-</span></div>
+        <!-- SUB-PANEL 2: Batch Mail Merge (Edge Case 3: Dual Dropzones) -->
+        <div class="doc-subpanel" id="doc-subpanel-mailmerge" style="display: none;">
+          <div class="studio-grid">
+            <div class="config-card glass-panel">
+              <h2 class="card-section-title">1. Chọn Bộ Tệp Trộn Thư (Template &amp; Dataset)</h2>
+              <div class="dual-dropzone-grid">
+                <!-- Dropzone A: Word Template -->
+                <div>
+                  <div class="dropzone-label"><i data-lucide="file-text"></i> Tệp Mẫu Word (.docx)</div>
+                  <div class="drop-zone" id="mm-tpl-drop-zone">
+                    <input type="file" id="mm-tpl-file-input" accept=".docx" class="hidden-input" />
+                    <div class="drop-zone-content">
+                      <div class="drop-icon"><i data-lucide="upload-cloud"></i></div>
+                      <div class="drop-text-primary">Kéo thả Template .docx</div>
+                      <div class="drop-text-sub">hoặc <button type="button" class="link-btn" id="btn-browse-mm-tpl">chọn file</button></div>
+                    </div>
+                    <div class="file-loaded-info" id="mm-tpl-file-info" style="display: none;">
+                      <span class="file-badge">DOCX</span>
+                      <span class="file-name" id="mm-tpl-file-name">template.docx</span>
+                      <span class="file-size" id="mm-tpl-file-size">0 KB</span>
+                      <button type="button" class="btn-remove-file" id="btn-remove-mm-tpl"><i data-lucide="x"></i></button>
+                    </div>
+                  </div>
+                  <div class="dropzone-help">Chứa các biến token dạng {{CustomerName}}, {{Date}}</div>
+                </div>
+
+                <!-- Dropzone B: Data Source -->
+                <div>
+                  <div class="dropzone-label"><i data-lucide="table"></i> Dữ Liệu Nguồn (.xlsx, .csv, .json)</div>
+                  <div class="drop-zone" id="mm-data-drop-zone">
+                    <input type="file" id="mm-data-file-input" accept=".xlsx,.xlsm,.csv,.json" class="hidden-input" />
+                    <div class="drop-zone-content">
+                      <div class="drop-icon"><i data-lucide="database"></i></div>
+                      <div class="drop-text-primary">Kéo thả Dataset</div>
+                      <div class="drop-text-sub">hoặc <button type="button" class="link-btn" id="btn-browse-mm-data">chọn file</button></div>
+                    </div>
+                    <div class="file-loaded-info" id="mm-data-file-info" style="display: none;">
+                      <span class="file-badge" id="mm-data-ext">XLSX</span>
+                      <span class="file-name" id="mm-data-file-name">dataset.xlsx</span>
+                      <span class="file-size" id="mm-data-file-size">0 KB</span>
+                      <button type="button" class="btn-remove-file" id="btn-remove-mm-data"><i data-lucide="x"></i></button>
+                    </div>
+                  </div>
+                  <div class="dropzone-help">Bảng tính hoặc mảng JSON chứa các dòng dữ liệu</div>
+                </div>
               </div>
-              <div class="result-actions">
-                <a href="#" class="btn-primary" id="btn-download-converted" download><i data-lucide="download"></i> Tải Tệp Về</a>
+
+              <!-- Tokens Inspected Card -->
+              <div class="form-group" id="mm-tokens-card" style="display: none;">
+                <label class="form-label"><i data-lucide="tag"></i> Biến Token Phát Hiện Trong Template:</label>
+                <div class="tokens-badge-container" id="mm-tokens-list"></div>
+              </div>
+
+              <h2 class="card-section-title">2. Thiết Lập Đầu Ra</h2>
+              <div class="form-group">
+                <label class="form-label" for="mm-pattern-input">Mẫu Tên Tệp Xuất Ra:</label>
+                <input type="text" id="mm-pattern-input" class="theme-select" value="Thu_Moi_{{HoTen}}.docx" placeholder="VD: HopDong_{{ID}}.docx" />
+              </div>
+              <div class="form-group">
+                <label class="form-label"><input type="checkbox" id="mm-zip-toggle" checked /> Đóng gói tất cả tài liệu vào tệp ZIP tải về</label>
+              </div>
+
+              <div class="action-buttons-group">
+                <button type="button" class="btn-primary glow-btn" id="btn-run-mail-merge" disabled>
+                  <span class="btn-icon"><i data-lucide="mail"></i></span>
+                  <span>TIẾN HÀNH TRỘN THƯ HÀNG LOẠT</span>
+                </button>
+              </div>
+
+              <div class="progress-container" id="mm-progress-container" style="display: none;">
+                <div class="progress-bar-bg"><div class="progress-bar-fill" id="mm-progress-fill"></div></div>
+                <div class="progress-status-text" id="mm-progress-status">Đang xử lý trộn thư...</div>
               </div>
             </div>
 
-            <div class="empty-state-deck" id="doc-empty-state">
-              <div class="empty-illustration"><i data-lucide="file-text"></i></div>
-              <div class="empty-title">Chưa Có Tệp Đầu Ra</div>
-              <p class="empty-desc">Chọn tệp nguồn và định dạng đích cần chuyển đổi để xem kết quả và tải file tại đây.
-              </p>
+            <div class="preview-card glass-panel">
+              <h2 class="card-section-title">Kết Quả Trộn Thư</h2>
+              <div class="doc-result-box" id="mm-result-box" style="display: none;">
+                <div class="result-badge-success"><i data-lucide="check-circle-2"></i> Trộn thư thành công!</div>
+                <div class="result-details">
+                  <div class="result-row"><span class="lbl">Tổng số tài liệu sinh ra:</span> <strong id="mm-result-count">0</strong></div>
+                  <div class="result-row"><span class="lbl">Tệp tải về:</span> <strong id="mm-result-filename">-</strong></div>
+                </div>
+                <div class="result-actions">
+                  <a href="#" class="btn-primary" id="btn-download-mm-zip" download><i data-lucide="download"></i> Tải Gói ZIP Về</a>
+                </div>
+              </div>
+              <div class="empty-state-deck" id="mm-empty-state">
+                <div class="empty-illustration"><i data-lucide="mail"></i></div>
+                <div class="empty-title">Chưa Trộn Thư</div>
+                <p class="empty-desc">Tải lên template .docx và dataset .xlsx để tạo hàng loạt tài liệu tự động.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-PANEL 3: Legal Redline Diff (Edge Case 3: Dual Dropzones) -->
+        <div class="doc-subpanel" id="doc-subpanel-diff" style="display: none;">
+          <div class="studio-grid">
+            <div class="config-card glass-panel">
+              <h2 class="card-section-title">1. Chọn 2 Bản Văn Bản Cần So Sánh Đối Chiếu</h2>
+              <div class="dual-dropzone-grid">
+                <!-- Dropzone A: Original v1 -->
+                <div>
+                  <div class="dropzone-label"><i data-lucide="file"></i> Văn Bản Gốc (Base v1.docx)</div>
+                  <div class="drop-zone" id="diff-v1-drop-zone">
+                    <input type="file" id="diff-v1-file-input" accept=".docx" class="hidden-input" />
+                    <div class="drop-zone-content">
+                      <div class="drop-icon"><i data-lucide="file-minus"></i></div>
+                      <div class="drop-text-primary">Kéo thả Bản Gốc v1</div>
+                      <div class="drop-text-sub">hoặc <button type="button" class="link-btn" id="btn-browse-diff-v1">chọn file</button></div>
+                    </div>
+                    <div class="file-loaded-info" id="diff-v1-file-info" style="display: none;">
+                      <span class="file-badge">V1</span>
+                      <span class="file-name" id="diff-v1-file-name">document_v1.docx</span>
+                      <span class="file-size" id="diff-v1-file-size">0 KB</span>
+                      <button type="button" class="btn-remove-file" id="btn-remove-diff-v1"><i data-lucide="x"></i></button>
+                    </div>
+                  </div>
+                  <div class="dropzone-help">Phiên bản gốc ban đầu trước khi sửa</div>
+                </div>
+
+                <!-- Dropzone B: Revised v2 -->
+                <div>
+                  <div class="dropzone-label"><i data-lucide="file-check"></i> Văn Bản Sửa Đổi (Revised v2.docx)</div>
+                  <div class="drop-zone" id="diff-v2-drop-zone">
+                    <input type="file" id="diff-v2-file-input" accept=".docx" class="hidden-input" />
+                    <div class="drop-zone-content">
+                      <div class="drop-icon"><i data-lucide="file-plus"></i></div>
+                      <div class="drop-text-primary">Kéo thả Bản Sửa Đổi v2</div>
+                      <div class="drop-text-sub">hoặc <button type="button" class="link-btn" id="btn-browse-diff-v2">chọn file</button></div>
+                    </div>
+                    <div class="file-loaded-info" id="diff-v2-file-info" style="display: none;">
+                      <span class="file-badge">V2</span>
+                      <span class="file-name" id="diff-v2-file-name">document_v2.docx</span>
+                      <span class="file-size" id="diff-v2-file-size">0 KB</span>
+                      <button type="button" class="btn-remove-file" id="btn-remove-diff-v2"><i data-lucide="x"></i></button>
+                    </div>
+                  </div>
+                  <div class="dropzone-help">Phiên bản mới cần phát hiện sửa đổi</div>
+                </div>
+              </div>
+
+              <h2 class="card-section-title">2. Cấu Hình Soát Xét Pháp Lý</h2>
+              <div class="form-group">
+                <label class="form-label" for="diff-author-input">Tên Tác Giả Ghi Nhận (Reviewer):</label>
+                <input type="text" id="diff-author-input" class="theme-select" value="Antigravity Legal AI" />
+              </div>
+
+              <div class="action-buttons-group">
+                <button type="button" class="btn-primary glow-btn" id="btn-run-doc-diff" disabled>
+                  <span class="btn-icon"><i data-lucide="git-compare"></i></span>
+                  <span>SO SÁNH PHÁP LÝ &amp; XUẤT TRACK CHANGES</span>
+                </button>
+              </div>
+
+              <div class="progress-container" id="diff-progress-container" style="display: none;">
+                <div class="progress-bar-bg"><div class="progress-bar-fill" id="diff-progress-fill"></div></div>
+                <div class="progress-status-text" id="diff-progress-status">Đang đối chiếu từng đoạn văn...</div>
+              </div>
+            </div>
+
+            <div class="preview-card glass-panel">
+              <h2 class="card-section-title">Kết Quả So Sánh Pháp Lý</h2>
+              <div class="doc-result-box" id="diff-result-box" style="display: none;">
+                <div class="result-badge-success"><i data-lucide="check-circle-2"></i> So sánh hoàn tất!</div>
+                <div class="result-details">
+                  <div class="result-row"><span class="lbl">Thêm mới (Insertions):</span> <strong id="diff-res-insertions" style="color: #10b981;">0</strong></div>
+                  <div class="result-row"><span class="lbl">Xóa bỏ (Deletions):</span> <strong id="diff-res-deletions" style="color: #ef4444;">0</strong></div>
+                  <div class="result-row"><span class="lbl">Đoạn văn chỉnh sửa:</span> <strong id="diff-res-mod-paras">0</strong></div>
+                  <div class="result-row"><span class="lbl">Tệp kết quả:</span> <strong id="diff-result-filename">-</strong></div>
+                </div>
+                <div class="result-actions">
+                  <a href="#" class="btn-primary" id="btn-download-diff" download><i data-lucide="download"></i> Tải Văn Bản Redline (.docx)</a>
+                </div>
+              </div>
+              <div class="empty-state-deck" id="diff-empty-state">
+                <div class="empty-illustration"><i data-lucide="git-compare"></i></div>
+                <div class="empty-title">Chưa So Sánh</div>
+                <p class="empty-desc">Tải lên Bản gốc v1 và Bản sửa đổi v2 để xuất văn bản Word chuẩn Track Changes.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-PANEL 4: Vietnamese OCR -->
+        <div class="doc-subpanel" id="doc-subpanel-ocr" style="display: none;">
+          <div class="studio-grid">
+            <div class="config-card glass-panel">
+              <h2 class="card-section-title">1. Chọn Tệp Scan Hoặc Hình Ảnh Văn Bản</h2>
+              <div class="drop-zone" id="ocr-drop-zone">
+                <input type="file" id="ocr-file-input" accept=".pdf,.png,.jpg,.jpeg,.tiff" class="hidden-input" />
+                <div class="drop-zone-content">
+                  <div class="drop-icon"><i data-lucide="scan-line"></i></div>
+                  <div class="drop-text-primary">Kéo thả tệp PDF quét scan hoặc ảnh vào đây</div>
+                  <div class="drop-text-sub">hoặc <button type="button" class="link-btn" id="btn-browse-ocr">chọn file</button></div>
+                </div>
+                <div class="file-loaded-info" id="ocr-file-info" style="display: none;">
+                  <span class="file-badge" id="ocr-file-ext">PDF</span>
+                  <span class="file-name" id="ocr-file-name">scan.pdf</span>
+                  <span class="file-size" id="ocr-file-size">0 KB</span>
+                  <button type="button" class="btn-remove-file" id="btn-remove-ocr"><i data-lucide="x"></i></button>
+                </div>
+              </div>
+
+              <h2 class="card-section-title">2. Cấu Hình Khôi Phục &amp; Lọc Dấu Đỏ</h2>
+              <div class="form-group">
+                <label class="form-label"><input type="checkbox" id="ocr-filter-stamp" checked /> Lọc Mộc Đỏ &amp; Dấu Giáp Lai (HSV Red Stamp Filter - ERR_CONV_005)</label>
+              </div>
+              <div class="form-group">
+                <label class="form-label"><input type="checkbox" id="ocr-deskew" checked /> Tự động nắn thẳng trang bị nghiêng (Deskew Transformation)</label>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="ocr-format-select">Định Dạng Đầu Ra:</label>
+                <select id="ocr-format-select" class="theme-select">
+                  <option value="md">Markdown (.md) — Decoupled AST</option>
+                  <option value="docx">Word (.docx) — Bố cục gốc</option>
+                </select>
+              </div>
+
+              <div class="action-buttons-group">
+                <button type="button" class="btn-primary glow-btn" id="btn-run-ocr" disabled>
+                  <span class="btn-icon"><i data-lucide="scan-line"></i></span>
+                  <span>BÓC TÁCH VĂN BẢN SCAN</span>
+                </button>
+              </div>
+
+              <div class="progress-container" id="ocr-progress-container" style="display: none;">
+                <div class="progress-bar-bg"><div class="progress-bar-fill" id="ocr-progress-fill"></div></div>
+                <div class="progress-status-text" id="ocr-progress-status">Đang tiền xử lý ảnh và nhận dạng...</div>
+              </div>
+            </div>
+
+            <div class="preview-card glass-panel">
+              <h2 class="card-section-title">Kết Quả Nhận Dạng OCR</h2>
+              <div class="doc-result-box" id="ocr-result-box" style="display: none;">
+                <div class="result-badge-success"><i data-lucide="check-circle-2"></i> Bóc tách thành công!</div>
+                <div class="result-details">
+                  <div class="result-row"><span class="lbl">Số trang xử lý:</span> <strong id="ocr-res-pages">0</strong></div>
+                  <div class="result-row"><span class="lbl">Tệp kết quả:</span> <strong id="ocr-result-filename">-</strong></div>
+                </div>
+                <div class="result-actions">
+                  <a href="#" class="btn-primary" id="btn-download-ocr" download><i data-lucide="download"></i> Tải Tệp Về</a>
+                </div>
+              </div>
+              <div class="empty-state-deck" id="ocr-empty-state">
+                <div class="empty-illustration"><i data-lucide="scan-line"></i></div>
+                <div class="empty-title">Chưa Bóc Tách</div>
+                <p class="empty-desc">Tải lên tệp scan có dấu mộc đỏ để trích xuất văn bản tiếng Việt sạch sẽ.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-PANEL 5: Unified QA Audit -->
+        <div class="doc-subpanel" id="doc-subpanel-qa" style="display: none;">
+          <div class="studio-grid">
+            <div class="config-card glass-panel">
+              <h2 class="card-section-title">1. Chọn Tệp Cần Kiểm Định QA &amp; Sửa Lỗi Tự Động</h2>
+              <div class="drop-zone" id="qa-drop-zone">
+                <input type="file" id="qa-file-input" accept=".docx,.xlsx,.pptx,.drawio" class="hidden-input" />
+                <div class="drop-zone-content">
+                  <div class="drop-icon"><i data-lucide="shield-alert"></i></div>
+                  <div class="drop-text-primary">Kéo thả DOCX, XLSX, PPTX, DRAWIO vào đây</div>
+                  <div class="drop-text-sub">hoặc <button type="button" class="link-btn" id="btn-browse-qa">chọn file</button></div>
+                </div>
+                <div class="file-loaded-info" id="qa-file-info" style="display: none;">
+                  <span class="file-badge" id="qa-file-ext">DOCX</span>
+                  <span class="file-name" id="qa-file-name">document.docx</span>
+                  <span class="file-size" id="qa-file-size">0 KB</span>
+                  <button type="button" class="btn-remove-file" id="btn-remove-qa"><i data-lucide="x"></i></button>
+                </div>
+              </div>
+
+              <h2 class="card-section-title">2. Chế Độ Kiểm Chuẩn</h2>
+              <div class="form-group">
+                <label class="form-label"><input type="checkbox" id="qa-repair-toggle" checked /> Tự động sửa lỗi an toàn (Non-destructive Safe Repair)</label>
+              </div>
+
+              <div class="action-buttons-group">
+                <button type="button" class="btn-primary glow-btn" id="btn-run-qa-audit" disabled>
+                  <span class="btn-icon"><i data-lucide="shield-check"></i></span>
+                  <span>CHẠY KIỂM ĐỊNH QA 35+ QUY CHUẨN</span>
+                </button>
+              </div>
+
+              <div class="progress-container" id="qa-progress-container" style="display: none;">
+                <div class="progress-bar-bg"><div class="progress-bar-fill" id="qa-progress-fill"></div></div>
+                <div class="progress-status-text" id="qa-progress-status">Đang kiểm định static &amp; semantic AST...</div>
+              </div>
+            </div>
+
+            <div class="preview-card glass-panel">
+              <h2 class="card-section-title">Báo Cáo Kiểm Định QA</h2>
+              <div class="doc-result-box" id="qa-result-box" style="display: none;">
+                <div class="result-badge-success" id="qa-badge-status"><i data-lucide="check-circle-2"></i> Đạt chuẩn 100%!</div>
+                <div class="result-details">
+                  <div class="result-row"><span class="lbl">Lỗi nghiêm trọng (Critical):</span> <strong id="qa-res-critical" style="color: #ef4444;">0</strong></div>
+                  <div class="result-row"><span class="lbl">Cảnh báo thẩm mỹ (Warning):</span> <strong id="qa-res-warning" style="color: #f59e0b;">0</strong></div>
+                  <div class="result-row"><span class="lbl">Hành động sửa đã áp dụng:</span> <span id="qa-res-repaired">-</span></div>
+                </div>
+                <div class="result-actions" id="qa-download-container" style="display: none;">
+                  <a href="#" class="btn-primary" id="btn-download-qa-repaired" download><i data-lucide="download"></i> Tải Tệp Đã Sửa</a>
+                </div>
+              </div>
+              <div class="empty-state-deck" id="qa-empty-state">
+                <div class="empty-illustration"><i data-lucide="shield-check"></i></div>
+                <div class="empty-title">Chưa Chạy Kiểm Định</div>
+                <p class="empty-desc">Tải lên tệp Word, Excel, PowerPoint hoặc Diagram để chạy kiểm định 35+ quy tắc chất lượng.</p>
+              </div>
             </div>
           </div>
         </div>
@@ -690,17 +1040,57 @@
               <button class="engine-btn active" data-engine="mermaid">Mermaid.js</button>
               <button class="engine-btn" data-engine="plantuml">PlantUML</button>
               <button class="engine-btn" data-engine="drawio">Draw.io (XML)</button>
+              <button class="engine-btn" data-engine="canvas">SVG Canvas</button>
             </div>
 
             <div class="form-group" style="margin-top: 12px;">
               <div class="code-editor-header">
                 <span class="editor-label">Mã Nguồn Sơ Đồ</span>
                 <div class="preset-links">
-                  <button type="button" class="preset-btn" id="btn-sample-sequence">Mẫu Sequence</button>
-                  <button type="button" class="preset-btn" id="btn-sample-c4">Mẫu C4 Context</button>
-                  <button type="button" class="preset-btn" id="btn-sample-erd">Mẫu ERD</button>
+                  <select id="diagram-preset-select" class="preset-select" title="Chọn mẫu sơ đồ chuẩn kỹ thuật">
+                    <option value="" disabled selected>-- Chọn Mẫu Sơ Đồ Kỹ Thuật --</option>
+                    <optgroup label="Sơ Đồ Giao Diện & Tọa Độ">
+                      <option value="canvas_flow">Screen Flow (SVG Canvas Pixel-Perfect)</option>
+                    </optgroup>
+                    <optgroup label="Quy Trình & Tiến Trình">
+                      <option value="mermaid_flowchart">Flowchart / BPMN (Rẽ nhánh điều kiện)</option>
+                      <option value="mermaid_sequence">Sequence Diagram (API & Message)</option>
+                      <option value="plantuml_swimlane">Activity Swimlane (Phân làn trách nhiệm)</option>
+                      <option value="mermaid_state">State Machine (Vòng đời trạng thái)</option>
+                    </optgroup>
+                    <optgroup label="Kiến Trúc & Phân Tích Hệ Thống">
+                      <option value="plantuml_c4">C4 Model Architecture (Chuẩn quốc tế)</option>
+                      <option value="plantuml_usecase">Use Case Diagram (Actor & Use Case UML)</option>
+                      <option value="plantuml_class">Class Diagram (OOP & Kế thừa)</option>
+                      <option value="drawio_overview">Draw.io Architecture Hub & Spoke</option>
+                    </optgroup>
+                    <optgroup label="Cơ Sở Dữ Liệu & Tính Năng">
+                      <option value="mermaid_erd">Crow's Foot ERD (Phân hệ DB)</option>
+                      <option value="mermaid_mindmap">Mind Map (Phân rã tính năng)</option>
+                    </optgroup>
+                  </select>
+                  <button type="button" class="preset-btn" id="btn-sample-sequence">Seq</button>
+                  <button type="button" class="preset-btn" id="btn-sample-c4">C4</button>
+                  <button type="button" class="preset-btn" id="btn-sample-erd">ERD</button>
+                  <button type="button" class="preset-btn" id="btn-sample-canvas">Canvas</button>
                 </div>
               </div>
+
+              <!-- Symbol Toolstrip / Palette -->
+              <div class="symbol-toolstrip" id="symbol-toolstrip">
+                <span class="toolstrip-label">Ký hiệu chuẩn:</span>
+                <div class="toolstrip-items">
+                  <button type="button" class="toolstrip-btn" data-symbol="actor" title="Chèn Actor (Người dùng / Tác nhân UML)"><i data-lucide="user"></i> Actor</button>
+                  <button type="button" class="toolstrip-btn" data-symbol="database" title="Chèn Database Cylinder (Kho dữ liệu 3D)"><i data-lucide="database"></i> DB</button>
+                  <button type="button" class="toolstrip-btn" data-symbol="decision" title="Chèn Decision Diamond (Khối điều kiện 45°)"><i data-lucide="help-circle"></i> Decision</button>
+                  <button type="button" class="toolstrip-btn" data-symbol="cloud" title="Chèn Cloud (Hệ thống ngoài / Đám mây)"><i data-lucide="cloud"></i> Cloud</button>
+                  <button type="button" class="toolstrip-btn" data-symbol="terminator" title="Chèn Terminator (Bắt đầu / Kết thúc)"><i data-lucide="play"></i> Start/End</button>
+                  <button type="button" class="toolstrip-btn" data-symbol="queue" title="Chèn Queue / Bus (Hàng đợi tin nhắn)"><i data-lucide="layers"></i> Queue</button>
+                  <button type="button" class="toolstrip-btn" data-symbol="component" title="Chèn Component (Mô-đun thành phần)"><i data-lucide="box"></i> Component</button>
+                  <button type="button" class="toolstrip-btn" data-symbol="document" title="Chèn Document (Báo cáo / Chứng từ)"><i data-lucide="file-text"></i> Doc</button>
+                </div>
+              </div>
+
               <textarea id="diagram-code-input" class="code-textarea" rows="14" spellcheck="false"></textarea>
             </div>
 
@@ -721,12 +1111,11 @@
                   <button type="button" class="zoom-btn" id="btn-zoom-out" title="Thu nhỏ (Zoom -)"><i data-lucide="zoom-out"></i></button>
                   <span class="zoom-level-badge" id="zoom-level-badge">100%</span>
                   <button type="button" class="zoom-btn" id="btn-zoom-in" title="Phóng to (Zoom +)"><i data-lucide="zoom-in"></i></button>
-                  <button type="button" class="zoom-btn" id="btn-zoom-fit" title="Khớp khung màn hình (Fit)"><i data-lucide="maximize"></i> Khớp màn
-                    hình</button>
+                  <button type="button" class="zoom-btn" id="btn-zoom-fit" title="Khớp khung màn hình (Fit)"><i data-lucide="maximize-2"></i> <span>Khớp Khung</span></button>
                   <button type="button" class="zoom-btn active" id="btn-zoom-100"
-                    title="Kích thước gốc 100% (1:1 Actual size - Cuộn ngang nét căng)">100% Gốc</button>
+                    title="Kích thước gốc 100% (1:1 Actual size - Cuộn ngang nét căng)"><span>100% Gốc</span></button>
                   <button type="button" class="zoom-btn" id="btn-zoom-open"
-                    title="Mở ảnh toàn màn hình trong tab mới"><i data-lucide="external-link"></i> Tab mới</button>
+                    title="Mở ảnh toàn màn hình trong tab mới"><i data-lucide="external-link"></i> <span>Tab Mới</span></button>
                 </div>
               </div>
               <div class="preview-actions" id="diagram-download-actions" style="display: none;">

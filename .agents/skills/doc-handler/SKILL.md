@@ -114,6 +114,9 @@ When drafting or updating any diagram `.json` specification, you MUST follow the
 
 | Action | Command Line |
 |---|---|
+| **Zero-Setup Env Doctor** | `python ai_tools_cli.py doctor [--json]` |
+| **Model Context Protocol (MCP)** | `python mcp_server.py` |
+| **Web Studio API & SSE Stream** | `python web_api_server.py 8000` |
 | **Render Spec Diagram** | `python spec_diagram_engine.py --spec <spec.json> --out <output.png> --scale 3` |
 | **Convert PDF $\to$ DOCX** | `python -m ai_tools_cli convert <input.pdf> -o <output.docx>` |
 | **Decouple DOCX $\to$ MD** | `python -m ai_tools_cli convert <doc.docx> -t md` |

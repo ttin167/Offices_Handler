@@ -34,8 +34,22 @@ if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8")
 
 _CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-_RUNNER_DIR = os.path.join(_CURRENT_DIR, "diagram_assets", "runner")
-_RUNNER_HTML = os.path.join(_RUNNER_DIR, "mxgraph_runner.html")
+
+def _find_runner_html() -> str:
+    candidates = [
+        os.path.join(_CURRENT_DIR, "diagram_assets", "runner", "mxgraph_runner.html"),
+        os.path.join(os.path.dirname(_CURRENT_DIR), "diagram_assets", "runner", "mxgraph_runner.html"),
+        os.path.join(os.path.dirname(os.path.dirname(_CURRENT_DIR)), "diagram_assets", "runner", "mxgraph_runner.html"),
+        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(_CURRENT_DIR))), "diagram_assets", "runner", "mxgraph_runner.html"),
+        os.path.join(os.getcwd(), "diagram_assets", "runner", "mxgraph_runner.html"),
+    ]
+    for c in candidates:
+        if os.path.isfile(c):
+            return os.path.abspath(c)
+    return candidates[0]
+
+_RUNNER_HTML = _find_runner_html()
+_RUNNER_DIR = os.path.dirname(_RUNNER_HTML)
 
 # ==============================================================================
 # DRAW.IO XML STYLE CONSTANTS (MX_INV_01..06)
@@ -75,6 +89,43 @@ EDGE_BASE_STYLE = (
     "edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;"
     "strokeColor=#475569;strokeWidth=1.6;"
 )
+
+STANDARD_MXGRAPH_SHAPES: Dict[str, str] = {
+    "actor": "shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#1E293B;strokeWidth=1.8;",
+    "usecase": "ellipse;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#0284C7;strokeWidth=1.8;fontSize=13;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;",
+    "database": "shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#F8FAFC;strokeColor=#2563EB;strokeWidth=1.8;fontSize=13;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;",
+    "decision": "rhombus;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#D97706;strokeWidth=1.8;fontSize=13;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;",
+    "cloud": "ellipse;shape=cloud;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#0284C7;strokeWidth=1.8;fontSize=13;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;",
+    "terminator": "rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#10B981;strokeWidth=1.8;fontSize=13;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;",
+    "data_io": "shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#F8FAFC;strokeColor=#475569;strokeWidth=1.8;fontSize=13;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;",
+    "queue": "shape=tape;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#7C3AED;strokeWidth=1.8;fontSize=13;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;",
+    "component": "shape=module;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#2563EB;strokeWidth=1.8;fontSize=13;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;",
+    "package": "shape=folder;fontStyle=1;tabWidth=110;tabHeight=30;tabPosition=left;html=1;boundedLbl=1;fillColor=#F8FAFC;strokeColor=#1E293B;strokeWidth=1.8;fontSize=13;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;",
+    "document": "shape=document;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#F8FAFC;strokeColor=#475569;strokeWidth=1.8;fontSize=13;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;",
+    "primary": "rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#2563EB;strokeWidth=2.5;fontSize=14;fontStyle=1;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;",
+    "standard": "rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#1E293B;strokeWidth=1.5;fontSize=13;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;",
+    "modal": "rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=#FFFFFF;strokeColor=#64748B;strokeWidth=1.5;fontSize=13;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;",
+    "toast": "rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=#FEF3C7;strokeColor=#D97706;strokeWidth=1.5;fontSize=12;fontFamily=Trebuchet MS,Verdana,Arial,sans-serif;",
+    "table": TABLE_STYLE,
+}
+
+DEFAULT_SHAPE_DIMENSIONS: Dict[str, Tuple[float, float]] = {
+    "actor": (60.0, 90.0),
+    "usecase": (160.0, 80.0),
+    "database": (120.0, 100.0),
+    "decision": (140.0, 90.0),
+    "cloud": (170.0, 100.0),
+    "terminator": (140.0, 60.0),
+    "data_io": (150.0, 70.0),
+    "queue": (150.0, 70.0),
+    "component": (160.0, 80.0),
+    "package": (180.0, 110.0),
+    "document": (140.0, 80.0),
+    "primary": (200.0, 90.0),
+    "standard": (200.0, 90.0),
+    "modal": (200.0, 90.0),
+    "toast": (180.0, 60.0),
+}
 
 
 # ==============================================================================
@@ -467,6 +518,322 @@ def build_mxgraph_model_xml(
     return ET.tostring(out_root, encoding="utf-8").decode("utf-8")
 
 
+def _layout_spec_nodes(nodes: List[Dict[str, Any]], edges: List[Dict[str, Any]]) -> None:
+    """Computes topological layered or grid coordinates for nodes without explicit positions."""
+    if not nodes:
+        return
+    if any(float(n.get("x", 0.0)) > 0 or float(n.get("y", 0.0)) > 0 for n in nodes):
+        return
+
+    node_map = {str(n.get("id", "")): n for n in nodes}
+    in_degree = {nid: 0 for nid in node_map}
+    adj: Dict[str, List[str]] = {nid: [] for nid in node_map}
+
+    for e in edges:
+        s, t = str(e.get("source", "")), str(e.get("target", ""))
+        if s in node_map and t in node_map:
+            adj[s].append(t)
+            in_degree[t] += 1
+
+    queue = [nid for nid, deg in in_degree.items() if deg == 0]
+    if not queue:
+        queue = [str(nodes[0].get("id", ""))]
+
+    layer_assigned: Dict[str, int] = {nid: 0 for nid in node_map}
+    visited = set()
+    while queue:
+        curr = queue.pop(0)
+        visited.add(curr)
+        for nxt in adj.get(curr, []):
+            layer_assigned[nxt] = max(layer_assigned[nxt], layer_assigned[curr] + 1)
+            if nxt not in visited:
+                queue.append(nxt)
+
+    layers: Dict[int, List[str]] = {}
+    for n in nodes:
+        nid = str(n.get("id", ""))
+        l = layer_assigned.get(nid, 0)
+        if l not in layers:
+            layers[l] = []
+        if nid not in layers[l]:
+            layers[l].append(nid)
+
+    # Grid fallback if all nodes ended up in layer 0
+    if len(layers.get(0, [])) == len(nodes) and len(nodes) > 3:
+        cols = 3
+        for idx, n in enumerate(nodes):
+            c = idx % cols
+            r = idx // cols
+            ntype = str(n.get("type", "standard")).lower()
+            def_w, def_h = DEFAULT_SHAPE_DIMENSIONS.get(ntype, (180.0, 80.0))
+            w = float(n.get("width") or def_w)
+            h = float(n.get("height") or def_h)
+            n["x"] = 80.0 + c * (240.0 + 50.0)
+            n["y"] = 80.0 + r * (120.0 + 50.0)
+            n["width"] = w
+            n["height"] = h
+        return
+
+    # Layered layout (left to right)
+    for l_idx in sorted(layers.keys()):
+        layer_nodes = layers[l_idx]
+        for row_idx, nid in enumerate(layer_nodes):
+            n = node_map[nid]
+            ntype = str(n.get("type", "standard")).lower()
+            def_w, def_h = DEFAULT_SHAPE_DIMENSIONS.get(ntype, (180.0, 80.0))
+            w = float(n.get("width") or def_w)
+            h = float(n.get("height") or def_h)
+            n["x"] = 80.0 + l_idx * 280.0
+            n["y"] = 80.0 + row_idx * 160.0
+            n["width"] = w
+            n["height"] = h
+
+
+def spec_to_mxgraph_xml(spec: Dict[str, Any]) -> str:
+    """
+    Converts a declarative diagram specification (nodes & edges) into pure native mxGraphModel XML.
+    Supports standard geometric shapes (Actor, Database, Decision, Cloud, Terminator, etc.),
+    relational tables with columns, and automatic orthogonal routing.
+    """
+    nodes = list(spec.get("nodes", []))
+    edges = list(spec.get("edges", []) or spec.get("connections", []))
+
+    _layout_spec_nodes(nodes, edges)
+
+    max_x = max([float(n.get("x", 0)) + float(n.get("width", 180)) for n in nodes] or [1200.0])
+    max_y = max([float(n.get("y", 0)) + float(n.get("height", 80)) for n in nodes] or [800.0])
+    canvas_w = max(1600, int(max_x + 160))
+    canvas_h = max(1000, int(max_y + 160))
+
+    out_root = ET.Element(
+        "mxGraphModel",
+        {
+            "dx": "1422",
+            "dy": "794",
+            "grid": "1",
+            "gridSize": "10",
+            "guides": "1",
+            "tooltips": "1",
+            "connect": "1",
+            "arrows": "1",
+            "fold": "1",
+            "page": "1",
+            "pageScale": "1",
+            "pageWidth": str(canvas_w),
+            "pageHeight": str(canvas_h),
+            "math": "0",
+            "shadow": "0",
+        },
+    )
+
+    root_tag = ET.SubElement(out_root, "root")
+    ET.SubElement(root_tag, "mxCell", {"id": "0"})
+    ET.SubElement(root_tag, "mxCell", {"id": "1", "parent": "0"})
+
+    node_map: Dict[str, Dict[str, Any]] = {}
+
+    for n in nodes:
+        nid = str(n.get("id", ""))
+        node_map[nid] = n
+        ntype = str(n.get("type", "standard")).lower()
+        label = str(n.get("label") or n.get("title") or nid)
+        x = float(n.get("x", 0.0))
+        y = float(n.get("y", 0.0))
+        cols = n.get("columns", [])
+
+        if cols:
+            total_h = 43.0 * (len(cols) + 1)
+            w = float(n.get("width", 278.0))
+            tcell = ET.SubElement(
+                root_tag,
+                "mxCell",
+                {
+                    "id": nid,
+                    "value": label,
+                    "style": TABLE_STYLE,
+                    "vertex": "1",
+                    "parent": "1",
+                },
+            )
+            ET.SubElement(
+                tcell,
+                "mxGeometry",
+                {
+                    "x": str(round(x, 1)),
+                    "y": str(round(y, 1)),
+                    "width": str(round(w, 1)),
+                    "height": str(round(total_h, 1)),
+                    "as": "geometry",
+                },
+            )
+            for i, col in enumerate(cols, 1):
+                col_name = col.get("name", "")
+                col_type = col.get("type", "string")
+                key_marker = "PK" if col.get("is_pk") else ("FK" if col.get("is_fk") else "")
+                rid = f"{nid}_row_{i}"
+                rcell = ET.SubElement(
+                    root_tag,
+                    "mxCell",
+                    {
+                        "id": rid,
+                        "style": ROW_STYLE,
+                        "vertex": "1",
+                        "parent": nid,
+                    },
+                )
+                ET.SubElement(
+                    rcell,
+                    "mxGeometry",
+                    {
+                        "y": str(43 * i),
+                        "width": str(round(w, 1)),
+                        "height": "43",
+                        "as": "geometry",
+                    },
+                )
+                c1 = ET.SubElement(
+                    root_tag,
+                    "mxCell",
+                    {
+                        "id": f"{rid}_c1",
+                        "value": col_type,
+                        "style": CELL_STYLE_TYPE,
+                        "vertex": "1",
+                        "parent": rid,
+                    },
+                )
+                ET.SubElement(c1, "mxGeometry", {"width": "82", "height": "43", "as": "geometry"})
+                c2 = ET.SubElement(
+                    root_tag,
+                    "mxCell",
+                    {
+                        "id": f"{rid}_c2",
+                        "value": col_name,
+                        "style": CELL_STYLE_NAME,
+                        "vertex": "1",
+                        "parent": rid,
+                    },
+                )
+                ET.SubElement(c2, "mxGeometry", {"x": "82", "width": str(max(40, int(w - 125))), "height": "43", "as": "geometry"})
+                c3 = ET.SubElement(
+                    root_tag,
+                    "mxCell",
+                    {
+                        "id": f"{rid}_c3",
+                        "value": key_marker,
+                        "style": CELL_STYLE_KEY,
+                        "vertex": "1",
+                        "parent": rid,
+                    },
+                )
+                ET.SubElement(c3, "mxGeometry", {"x": str(w - 43), "width": "43", "height": "43", "as": "geometry"})
+        else:
+            base_style = STANDARD_MXGRAPH_SHAPES.get(ntype, STANDARD_MXGRAPH_SHAPES["standard"])
+            def_w, def_h = DEFAULT_SHAPE_DIMENSIONS.get(ntype, (180.0, 80.0))
+            w = float(n.get("width") or def_w)
+            h = float(n.get("height") or def_h)
+
+            color = n.get("color")
+            if color:
+                if not color.startswith("#"):
+                    color = f"#{color}"
+                base_style += f"strokeColor={color};"
+
+            ncell = ET.SubElement(
+                root_tag,
+                "mxCell",
+                {
+                    "id": nid,
+                    "value": label,
+                    "style": base_style,
+                    "vertex": "1",
+                    "parent": "1",
+                },
+            )
+            ET.SubElement(
+                ncell,
+                "mxGeometry",
+                {
+                    "x": str(round(x, 1)),
+                    "y": str(round(y, 1)),
+                    "width": str(round(w, 1)),
+                    "height": str(round(h, 1)),
+                    "as": "geometry",
+                },
+            )
+
+    port_points = {
+        "top": ("0.5", "0"),
+        "bottom": ("0.5", "1"),
+        "left": ("0", "0.5"),
+        "right": ("1", "0.5"),
+    }
+
+    for idx, e in enumerate(edges, 1):
+        eid = e.get("id") or f"edge_{idx}"
+        src_id = str(e.get("source", ""))
+        tgt_id = str(e.get("target", ""))
+        lbl = str(e.get("label", ""))
+
+        src_node = node_map.get(src_id)
+        tgt_node = node_map.get(tgt_id)
+
+        edge_style = e.get("style") or EDGE_BASE_STYLE
+        if e.get("dashed"):
+            edge_style += "dashed=1;"
+        if e.get("color"):
+            edge_style += f"strokeColor={e['color']};"
+
+        exit_p = e.get("exit_port")
+        entry_p = e.get("entry_port")
+        if exit_p in port_points:
+            edge_style += f"exitX={port_points[exit_p][0]};exitY={port_points[exit_p][1]};"
+        if entry_p in port_points:
+            edge_style += f"entryX={port_points[entry_p][0]};entryY={port_points[entry_p][1]};"
+
+        if not exit_p and not entry_p and src_node and tgt_node:
+            sx = float(src_node.get("x", 0.0))
+            sy = float(src_node.get("y", 0.0))
+            sw = float(src_node.get("width", 180.0))
+            sh = float(src_node.get("height", 80.0))
+
+            tx = float(tgt_node.get("x", 0.0))
+            ty = float(tgt_node.get("y", 0.0))
+            tw = float(tgt_node.get("width", 180.0))
+            th = float(tgt_node.get("height", 80.0))
+
+            if tx >= sx + sw:
+                edge_style += "exitX=1;exitY=0.5;entryX=0;entryY=0.5;"
+            elif tx + tw <= sx:
+                edge_style += "exitX=0;exitY=0.5;entryX=1;entryY=0.5;"
+            elif ty >= sy + sh:
+                edge_style += "exitX=0.5;exitY=1;entryX=0.5;entryY=0;"
+            else:
+                edge_style += "exitX=0.5;exitY=0;entryX=0.5;entryY=1;"
+
+        if lbl:
+            lbl_w = min(160, max(36, int(len(lbl) * 7.5)))
+            edge_style += f"labelBackgroundColor=#ffffff;labelWidth={lbl_w};whiteSpace=wrap;html=1;"
+
+        ecell = ET.SubElement(
+            root_tag,
+            "mxCell",
+            {
+                "id": str(eid),
+                "value": lbl,
+                "edge": "1",
+                "parent": "1",
+                "source": src_id,
+                "target": tgt_id,
+                "style": edge_style,
+            },
+        )
+        ET.SubElement(ecell, "mxGeometry", {"relative": "1", "as": "geometry"})
+
+    ET.indent(out_root, space="  ")
+    return ET.tostring(out_root, encoding="utf-8").decode("utf-8")
+
+
 def extract_xml_diagram_bounds(xml_content: str) -> Tuple[int, int]:
     """Calculates max X and max Y extent from mxGraphModel geometry elements."""
     try:
@@ -676,37 +1043,43 @@ def render_diagram(
         xml_content = build_mxgraph_model_xml(entities, relationships)
 
     if not xml_content and "nodes" in spec:
-        # JSON Spec compatibility
-        entities = {}
-        for n in spec["nodes"]:
-            cols = [
-                ColumnInfo(
-                    name=c.get("name", ""),
-                    type=c.get("type", "string"),
-                    key="PK" if c.get("is_pk") else ("FK" if c.get("is_fk") else ""),
+        # Check if spec is pure legacy ERD with columns or general standard diagram
+        has_columns = any(n.get("columns") for n in spec["nodes"])
+        has_standard_shapes = any(str(n.get("type", "")).lower() in STANDARD_MXGRAPH_SHAPES for n in spec["nodes"])
+
+        if has_columns and not has_standard_shapes:
+            entities = {}
+            for n in spec["nodes"]:
+                cols = [
+                    ColumnInfo(
+                        name=c.get("name", ""),
+                        type=c.get("type", "string"),
+                        key="PK" if c.get("is_pk") else ("FK" if c.get("is_fk") else ""),
+                    )
+                    for c in n.get("columns", [])
+                ]
+                entities[n["id"]] = EntityInfo(
+                    name=n.get("label", n["id"]),
+                    columns=cols,
+                    x=float(n.get("x", 0.0)),
+                    y=float(n.get("y", 0.0)),
+                    width=float(n.get("width", 278.0)),
+                    height=float(n.get("height", 43.0 * (len(cols) + 1))),
                 )
-                for c in n.get("columns", [])
-            ]
-            entities[n["id"]] = EntityInfo(
-                name=n.get("label", n["id"]),
-                columns=cols,
-                x=float(n.get("x", 0.0)),
-                y=float(n.get("y", 0.0)),
-                width=float(n.get("width", 278.0)),
-                height=float(n.get("height", 43.0 * (len(cols) + 1))),
-            )
-        rels = []
-        for e in spec.get("edges", []):
-            rels.append(
-                RelationshipInfo(
-                    source=e["source"],
-                    target=e["target"],
-                    label=e.get("label", ""),
+            rels = []
+            for e in spec.get("edges", []):
+                rels.append(
+                    RelationshipInfo(
+                        source=e["source"],
+                        target=e["target"],
+                        label=e.get("label", ""),
+                    )
                 )
-            )
-        if not any(ent.x > 0 or ent.y > 0 for ent in entities.values()):
-            calculate_auto_layout(entities, rels)
-        xml_content = build_mxgraph_model_xml(entities, rels)
+            if not any(ent.x > 0 or ent.y > 0 for ent in entities.values()):
+                calculate_auto_layout(entities, rels)
+            xml_content = build_mxgraph_model_xml(entities, rels)
+        else:
+            xml_content = spec_to_mxgraph_xml(spec)
 
     if not xml_content:
         raise ValueError("Specification must contain 'mermaid_code', 'xml_content', 'xml_path', or 'nodes'.")

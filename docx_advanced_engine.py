@@ -351,3 +351,88 @@ def safe_save_docx(doc: docx.Document, target_path: str, fallback_suffix: str = 
         print(f"[WARN] Target file '{target_path}' is locked by another process (e.g., Microsoft Word).")
         print(f"[INFO] Successfully saved updated document to fallback path: '{fallback_path}'")
         return fallback_path
+
+
+# ==========================================
+# 7. VIETNAMESE TYPOGRAPHY SANITIZER (NĐ30)
+# ==========================================
+
+class VietnameseTypographySanitizer:
+    """
+    Production-grade text sanitizer conforming to Vietnamese Administrative Standards
+    (Nghị định 30/2020/NĐ-CP):
+    1. Unicode Normalization Form C (NFC) - eliminates broken composite diacritics.
+    2. Punctuation spacing (no space before , . ; : ! ? ; exactly one space after).
+    3. Bracket & quote snug spacing: ( text ) -> (text), “ quote ” -> “quote”.
+    4. En-dash normalization for date/page ranges (2020-2026 -> 2020 – 2026).
+    5. Clean multiple whitespace collapse.
+    """
+
+    @classmethod
+    def sanitize_string(cls, text: str) -> str:
+        if not text:
+            return text
+
+        import unicodedata
+        # 1. NFC Normalization
+        s = unicodedata.normalize("NFC", text)
+
+        # 2. Remove whitespace before punctuation marks
+        s = re.sub(r"[ \t]+([,.:;!?\)\]\}»”’])", r"\1", s)
+
+        # 3. Remove whitespace after opening brackets/quotes
+        s = re.sub(r"([\(\[\{«“‘])[ \t]+", r"\1", s)
+
+        # 4. Ensure space after punctuation (excluding decimals e.g. 3.14 or time 14:30 or URLs)
+        s = re.sub(r"([,;!?])(?=[^\s\d\),.:;!?\]\}»”’])", r"\1 ", s)
+        s = re.sub(r"(?<=[a-zA-Z\u00C0-\u1EF9])\.(?=[A-Z\u00C0-\u1EF9])", r". ", s)
+
+        # 5. En-dash (–) for year and numeric ranges: 2020 - 2026 -> 2020 – 2026
+        s = re.sub(r"(\b\d{1,4})\s*-\s*(\d{1,4}\b)", r"\1 – \2", s)
+
+        # 6. Collapse multiple non-newline spaces into a single space
+        s = re.sub(r"[ \t]{2,}", " ", s)
+
+        return s
+
+    @classmethod
+    def sanitize_paragraph(cls, paragraph) -> int:
+        modified_count = 0
+        for r in paragraph.runs:
+            if not r.text:
+                continue
+            cleaned = cls.sanitize_string(r.text)
+            if cleaned != r.text:
+                r.text = cleaned
+                modified_count += 1
+        return modified_count
+
+
+def sanitize_vietnamese_typography(doc: docx.Document) -> int:
+    """
+    Sanitizes all paragraphs and table cells in the document conforming to
+    Vietnamese Typography standards (NFC, punctuation spacing, En-dash ranges).
+    Returns the total count of sanitized runs.
+    """
+    total_modified = 0
+
+    # 1. Body paragraphs
+    for p in doc.paragraphs:
+        total_modified += VietnameseTypographySanitizer.sanitize_paragraph(p)
+
+    # 2. Table cells
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for p in cell.paragraphs:
+                    total_modified += VietnameseTypographySanitizer.sanitize_paragraph(p)
+
+    # 3. Headers and Footers
+    for sec in doc.sections:
+        for p in sec.header.paragraphs:
+            total_modified += VietnameseTypographySanitizer.sanitize_paragraph(p)
+        for p in sec.footer.paragraphs:
+            total_modified += VietnameseTypographySanitizer.sanitize_paragraph(p)
+
+    return total_modified
+

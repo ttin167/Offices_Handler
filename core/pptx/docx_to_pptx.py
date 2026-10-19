@@ -20,7 +20,7 @@ import os
 import re
 import sys
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 if sys.platform == "win32":
     try:
@@ -62,6 +62,8 @@ RE_TABLE_CAPTION = re.compile(
     re.IGNORECASE
 )
 
+BOX_CHARS = set("┌┐└┘├┤┬┴┼─│═║╔╗╚╝╠╣╦╩╬▲▼◄►")
+
 
 # ---------------------------------------------------------------------------
 # Extraction Helpers
@@ -102,9 +104,14 @@ def _is_heading(para: Paragraph) -> Tuple[bool, int]:
     if not text:
         return False, 0
 
+    # Pattern for Major Numbered Chapter like "1. TỔNG QUAN" or "Chương 1" or "Phần 1"
+    is_numbered_chapter = bool(re.match(r"^(?:(?:[0-9]+|[IVXLCDM]+)\.\s+[A-ZÀ-Ỹ]|(?:Chương|Phần|Chapter)\s+\d+)", text, re.IGNORECASE))
+
     if "heading 1" in style_name or "tiêu đề 1" in style_name:
         return True, 1
     if "heading 2" in style_name or "tiêu đề 2" in style_name:
+        if is_numbered_chapter:
+            return True, 1
         return True, 2
     if "heading 3" in style_name or "tiêu đề 3" in style_name:
         return True, 3
@@ -112,6 +119,8 @@ def _is_heading(para: Paragraph) -> Tuple[bool, int]:
         return True, 1
 
     # Fallback heuristic: check numbering pattern
+    if is_numbered_chapter and len(text) < 120:
+        return True, 1
     if RE_HEADING_1.match(text) and len(text) < 120:
         return True, 1
 
@@ -126,10 +135,24 @@ def _is_heading(para: Paragraph) -> Tuple[bool, int]:
 
 def _split_into_sentences(text: str) -> List[str]:
     """Splits a paragraph into clean sentences for bullet points."""
-    # Split by period, exclamation, or question mark followed by space or end
     raw = re.split(r"(?<=[.!?])\s+", text.strip())
     sentences = [s.strip() for s in raw if len(s.strip()) > 10]
     return sentences if sentences else [text.strip()]
+
+
+def _flush_bullets(bullets_list: List[str], max_per_slide: int = 5) -> List[List[str]]:
+    """Splits a list of bullets into chunks ensuring no lone 1-bullet orphan slides."""
+    if not bullets_list:
+        return []
+    if len(bullets_list) <= max_per_slide + 1:  # e.g. 6 bullets -> 1 slide
+        return [bullets_list]
+    chunks: List[List[str]] = []
+    for i in range(0, len(bullets_list), max_per_slide):
+        chunk = bullets_list[i : i + max_per_slide]
+        if len(chunk) == 1 and chunks:
+            chunk = [chunks[-1].pop()] + chunk
+        chunks.append(chunk)
+    return chunks
 
 
 # ---------------------------------------------------------------------------
@@ -156,6 +179,8 @@ def extract_docx_structure(docx_path: str, asset_dir: Optional[str] = None) -> D
     doc_props = doc.core_properties
     doc_title = doc_props.title or ""
     author = doc_props.author or ""
+    if author.lower() in ("python-docx", "none", "null", ""):
+        author = "Antigravity Office Studio"
 
     chapters: List[Dict[str, Any]] = []
     current_chapter: Dict[str, Any] = {
@@ -229,6 +254,17 @@ def extract_docx_structure(docx_path: str, asset_dir: Optional[str] = None) -> D
                         "elements": []
                     }
             else:
+                # ASCII diagram detection
+                if any(c in text for c in BOX_CHARS):
+                    if current_section["elements"] and current_section["elements"][-1]["type"] == "ascii_diagram":
+                        current_section["elements"][-1]["code"] += "\n" + text
+                    else:
+                        current_section["elements"].append({
+                            "type": "ascii_diagram",
+                            "code": text
+                        })
+                    continue
+
                 # Normal paragraph or bullet point
                 is_bullet = "list" in p.style.name.lower() or text.startswith(("•", "-", "*", "+"))
                 clean_text = re.sub(r"^[•\-\*\+]\s*", "", text).strip()
@@ -272,8 +308,106 @@ def extract_docx_structure(docx_path: str, asset_dir: Optional[str] = None) -> D
 
 
 # ---------------------------------------------------------------------------
-# Slide Spec Synthesizer (Spec-First Model)
+# Slide Spec Synthesizer & Semantic Classifier (v4.0)
 # ---------------------------------------------------------------------------
+
+def _detect_business_layout(sec_title: str, elements: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """
+    Analyzes section title and content elements to determine if a specialized
+    business layout (SWOT, Timeline, KPI Summary, Process) applies (v4.0).
+    """
+    title_lower = sec_title.lower()
+
+    # 1. SWOT Matrix Heuristic
+    if "swot" in title_lower or ("điểm mạnh" in title_lower and "điểm yếu" in title_lower):
+        quadrants = {"strengths": [], "weaknesses": [], "opportunities": [], "threats": []}
+        current_q = "strengths"
+        for el in elements:
+            txt = el.get("text", "").strip()
+            tl = txt.lower()
+            if "điểm mạnh" in tl or "strength" in tl:
+                current_q = "strengths"
+            elif "điểm yếu" in tl or "weakness" in tl:
+                current_q = "weaknesses"
+            elif "cơ hội" in tl or "opportunit" in tl:
+                current_q = "opportunities"
+            elif "thách thức" in tl or "threat" in tl:
+                current_q = "threats"
+
+            if ":" in txt:
+                _, val = txt.split(":", 1)
+                clean_t = val.strip()
+            else:
+                clean_t = re.sub(r"^[-•*]\s*", "", txt).strip()
+
+            if clean_t and not any(clean_t.lower().startswith(k) for k in ("điểm mạnh", "điểm yếu", "cơ hội", "thách thức", "strengths", "weaknesses", "opportunities", "threats")):
+                quadrants[current_q].append(clean_t)
+
+        if any(quadrants.values()):
+            return {"type": "swot", "swot": quadrants}
+
+    # 2. Timeline / Roadmap Heuristic
+    if any(k in title_lower for k in ("lộ trình", "roadmap", "timeline", "kế hoạch triển khai", "milestone")):
+        milestones = []
+        for el in elements:
+            txt = el.get("text", "")
+            m_match = re.match(r"^(Q\d[\/\-]?\d*|Giai đoạn \d+|Phase \d+|Tháng \d+|Năm \d{4}|\d{4})\s*[:\-–]\s*(.*)$", txt, re.IGNORECASE)
+            if m_match:
+                phase_part = m_match.group(1).strip()
+                desc_part = m_match.group(2).strip()
+                milestones.append({
+                    "phase": phase_part,
+                    "title": desc_part[:40] if len(desc_part) > 40 else desc_part,
+                    "tasks": [desc_part] if desc_part else ["Triển khai mục tiêu"]
+                })
+            else:
+                clean_t = re.sub(r"^[-•*]\s*", "", txt).strip()
+                if clean_t and milestones:
+                    milestones[-1]["tasks"].append(clean_t)
+        if len(milestones) >= 2:
+            return {"type": "timeline", "milestones": milestones}
+
+    # 3. KPI Summary Heuristic
+    if any(k in title_lower for k in ("kpi", "chỉ số", "metrics", "kết quả chính", "hiệu suất", "doanh thu")):
+        metrics = []
+        for el in elements:
+            txt = el.get("text", "")
+            kpi_match = re.search(r"([^:\n]+):\s*([0-9\.,]+\s*[%kMBkK\wđ\$₫]*)(?:\s*\(([^)]+)\))?", txt)
+            if kpi_match:
+                lbl = kpi_match.group(1).strip().lstrip("-•* ")
+                val = kpi_match.group(2).strip()
+                change = kpi_match.group(3) or ""
+                if any(c.isdigit() for c in val):
+                    metrics.append({
+                        "label": lbl,
+                        "value": val,
+                        "change": change,
+                        "desc": txt
+                    })
+        if len(metrics) >= 2:
+            return {"type": "kpi_summary", "metrics": metrics[:4]}
+
+    # 4. Sequential Process / Steps Heuristic
+    if any(k in title_lower for k in ("quy trình", "tiến trình", "các bước", "workflow", "process", "hướng dẫn")):
+        steps = []
+        for el in elements:
+            txt = el.get("text", "")
+            s_match = re.match(r"^(Bước \d+|Step \d+|Phase \d+|\d+\.)\s*[:\-–]?\s*(.*)$", txt, re.IGNORECASE)
+            if s_match:
+                step_title = s_match.group(2).strip()
+                steps.append({
+                    "title": step_title[:45] if len(step_title) > 45 else (step_title or f"Bước {len(steps)+1}"),
+                    "actions": []
+                })
+            else:
+                clean_t = re.sub(r"^[-•*]\s*", "", txt).strip()
+                if clean_t and steps:
+                    steps[-1]["actions"].append(clean_t)
+        if len(steps) >= 3:
+            return {"type": "process", "steps": steps[:6]}
+
+    return None
+
 
 def synthesize_slide_spec(
     doc_tree: Dict[str, Any],
@@ -297,12 +431,13 @@ def synthesize_slide_spec(
     })
 
     # Slide 2: Agenda / Table of Contents (Grid Cards 4x2 or 2x2)
-    chapter_list = doc_tree.get("chapters", [])
+    chapter_list = [ch for ch in doc_tree.get("chapters", []) if not re.search(r"\bMỤC\s+LỤC\b", ch["title"], re.IGNORECASE)]
     if chapter_list:
         agenda_cards = []
-        for idx, ch in enumerate(chapter_list[:8]):
+        for idx, ch in enumerate(chapter_list):
+            clean_title = re.sub(r"^(?:(?:[0-9]+|[IVXLCDM]+)\.\s*|(?:Chương|Phần|Chapter)\s+\d+[:\.]?\s*)", "", ch["title"]).strip()
             agenda_cards.append({
-                "title": f"Phần {idx+1}: {ch['title'][:42]}",
+                "title": f"Phần {idx+1}: {clean_title[:45]}",
                 "desc": f"Gồm {len(ch['subsections'])} nội dung chi tiết"
             })
         slides.append({
@@ -314,7 +449,9 @@ def synthesize_slide_spec(
 
     # Content Slides by Chapter
     for ch_idx, ch in enumerate(chapter_list):
-        ch_title = ch["title"]
+        ch_title = ch["title"].strip()
+        if re.search(r"\bMỤC\s+LỤC\b", ch_title, re.IGNORECASE):
+            continue
         ch_label = f"PHẦN {ch_idx+1}" if not re.match(r"^(Chương|Chapter|Phần)", ch_title, re.I) else ""
 
         # Chapter Divider Slide
@@ -330,42 +467,83 @@ def synthesize_slide_spec(
             banner_text = banner_text[:62] + "..."
 
         for sec in ch["subsections"]:
-            sec_title = sec["title"]
+            sec_title = sec["title"].strip()
+            if re.search(r"\bMỤC\s+LỤC\b", sec_title, re.IGNORECASE):
+                continue
+
+            # Smart Semantic Classification for Business Layouts (v4.0)
+            biz_layout = _detect_business_layout(sec_title, sec.get("elements", []))
+            if biz_layout:
+                biz_layout["banner"] = banner_text
+                biz_layout["title"] = sec_title
+                slides.append(biz_layout)
+                continue
+
             bullets: List[str] = []
 
             for elem in sec["elements"]:
                 etype = elem["type"]
 
                 if etype in ("bullet", "paragraph"):
-                    text = elem["text"]
-                    # If paragraph is long, split into key points
+                    text = elem["text"].strip()
+                    if not text:
+                        continue
+                    # If paragraph is long, split into key points without hard character truncation
                     if len(text) > 160:
                         sents = _split_into_sentences(text)
                         for s in sents:
                             if len(s) > 15:
-                                bullets.append(s[:180])
+                                bullets.append(s.strip())
                     else:
                         bullets.append(text)
 
-                    # Flush bullets if exceeding max_bullets_per_slide (PPTX_INV_04: Zero Overflow)
-                    if len(bullets) >= max_bullets_per_slide:
-                        slides.append({
-                            "type": "content",
-                            "banner": banner_text,
-                            "title": sec_title,
-                            "bullets": list(bullets)
-                        })
+                    # Flush bullets if exceeding threshold
+                    if len(bullets) >= max_bullets_per_slide + 1:
+                        b_chunks = _flush_bullets(bullets, max_bullets_per_slide)
+                        if len(b_chunks) > 1:
+                            for chunk in b_chunks[:-1]:
+                                slides.append({
+                                    "type": "content",
+                                    "banner": banner_text,
+                                    "title": sec_title,
+                                    "bullets": chunk
+                                })
+                            bullets = list(b_chunks[-1])
+
+                elif etype == "ascii_diagram":
+                    if bullets:
+                        for chunk in _flush_bullets(bullets, max_bullets_per_slide):
+                            slides.append({
+                                "type": "content",
+                                "banner": banner_text,
+                                "title": sec_title,
+                                "bullets": chunk
+                            })
                         bullets = []
 
+                    slides.append({
+                        "type": "code",
+                        "banner": banner_text,
+                        "title": sec_title,
+                        "subtitle": "Sơ đồ kiến trúc phân tầng hệ thống",
+                        "code": elem["code"],
+                        "language": "text"
+                    })
+
                 elif etype == "table":
-                    # Flush pending bullets first
-                    if bullets:
-                        slides.append({
-                            "type": "content",
-                            "banner": banner_text,
-                            "title": sec_title,
-                            "bullets": list(bullets)
-                        })
+                    table_sub = "Bảng tổng hợp số liệu"
+                    # If there was exactly 1 short bullet before table that ends with ':' or is brief,
+                    # fold it into table subtitle to prevent an orphan slide
+                    if len(bullets) == 1 and (bullets[0].endswith(":") or len(bullets[0]) < 90):
+                        table_sub = bullets.pop(0).rstrip(":")
+                    elif bullets:
+                        for chunk in _flush_bullets(bullets, max_bullets_per_slide):
+                            slides.append({
+                                "type": "content",
+                                "banner": banner_text,
+                                "title": sec_title,
+                                "bullets": chunk
+                            })
                         bullets = []
 
                     headers = elem.get("headers", [])
@@ -377,7 +555,7 @@ def synthesize_slide_spec(
                             "type": "table",
                             "banner": banner_text,
                             "title": sec_title,
-                            "subtitle": "Bảng tổng hợp số liệu",
+                            "subtitle": table_sub,
                             "headers": headers,
                             "rows": all_rows
                         })
@@ -391,20 +569,20 @@ def synthesize_slide_spec(
                                 "type": "table",
                                 "banner": banner_text,
                                 "title": f"{sec_title} (Bảng trang {page_num}/{total_pages})",
-                                "subtitle": f"Dữ liệu tiếp theo ({page_start+1} - {min(page_start + len(page_rows), total_rows)}/{total_rows})",
+                                "subtitle": f"{table_sub} ({page_start+1} - {min(page_start + len(page_rows), total_rows)}/{total_rows})",
                                 "headers": headers,
                                 "rows": page_rows
                             })
 
                 elif etype == "image":
-                    # Flush pending bullets first
                     if bullets:
-                        slides.append({
-                            "type": "content",
-                            "banner": banner_text,
-                            "title": sec_title,
-                            "bullets": list(bullets)
-                        })
+                        for chunk in _flush_bullets(bullets, max_bullets_per_slide):
+                            slides.append({
+                                "type": "content",
+                                "banner": banner_text,
+                                "title": sec_title,
+                                "bullets": chunk
+                            })
                         bullets = []
 
                     slides.append({
@@ -417,12 +595,13 @@ def synthesize_slide_spec(
 
             # Flush remaining bullets
             if bullets:
-                slides.append({
-                    "type": "content",
-                    "banner": banner_text,
-                    "title": sec_title,
-                    "bullets": list(bullets)
-                })
+                for chunk in _flush_bullets(bullets, max_bullets_per_slide):
+                    slides.append({
+                        "type": "content",
+                        "banner": banner_text,
+                        "title": sec_title,
+                        "bullets": chunk
+                    })
                 bullets = []
 
     # Final Slide: Summary & Q&A Conclusion
@@ -453,20 +632,27 @@ def convert_docx_to_pptx(
     spec_out: Optional[str] = None,
     theme: str = "thesis_blue",
     template_path: Optional[str] = None,
+    theme_name: Optional[str] = None,
+    progress_callback: Optional[Callable[[float, str], None]] = None,
 ) -> Tuple[str, str]:
     """
     Converts a Word (.docx) document to a 16:9 PowerPoint (.pptx) presentation.
 
     Args:
-        docx_path:      Path to source Word .docx file.
-        output_pptx:    Path for generated PowerPoint .pptx file.
-        spec_out:       Optional path to write the intermediate slide_spec.json.
-        theme:          Theme name ('thesis_blue', 'corporate_blue', 'modern_dark', 'academic_light').
-        template_path:  Optional base .pptx / .potx template for master slide inheritance.
+        docx_path:          Path to source Word .docx file.
+        output_pptx:        Path for generated PowerPoint .pptx file.
+        spec_out:           Optional path to write the intermediate slide_spec.json.
+        theme:              Theme name ('thesis_blue', 'corporate_blue', 'modern_dark', 'academic_light').
+        template_path:      Optional base .pptx / .potx template for master slide inheritance.
+        theme_name:         Optional alias for theme.
+        progress_callback:  Optional progress callback (pct, msg).
 
     Returns:
         Tuple of (path_to_pptx, path_to_spec_json).
     """
+    if theme_name:
+        theme = theme_name
+
     docx_path = os.path.abspath(docx_path)
     if not os.path.isfile(docx_path):
         raise FileNotFoundError(f"Source DOCX file not found: {docx_path}")
@@ -478,7 +664,11 @@ def convert_docx_to_pptx(
             spec_out=spec_out,
             theme=theme,
             template_path=template_path,
+            progress_callback=progress_callback,
         )
+
+    if progress_callback:
+        progress_callback(10.0, "Đang phân tích cấu trúc tài liệu Word...")
 
     base_dir = os.path.dirname(docx_path)
     base_name = os.path.splitext(os.path.basename(docx_path))[0]
@@ -496,6 +686,9 @@ def convert_docx_to_pptx(
     # 1. Parse Word AST
     doc_tree = extract_docx_structure(docx_path)
 
+    if progress_callback:
+        progress_callback(40.0, "Đang tổng hợp các slide thuyết trình...")
+
     # 2. Synthesize Slide Spec
     spec = synthesize_slide_spec(doc_tree, theme=theme)
 
@@ -504,6 +697,9 @@ def convert_docx_to_pptx(
     with open(spec_out, "w", encoding="utf-8") as f:
         json.dump(spec, f, ensure_ascii=False, indent=2)
 
+    if progress_callback:
+        progress_callback(70.0, "Đang kết xuất tệp PowerPoint...")
+
     # 4. Render PowerPoint
     final_pptx = write_pptx_from_spec(
         spec=spec,
@@ -511,6 +707,9 @@ def convert_docx_to_pptx(
         theme_name=theme,
         template_path=template_path
     )
+
+    if progress_callback:
+        progress_callback(100.0, "Hoàn tất chuyển đổi sang PowerPoint!")
 
     elapsed = time.time() - t0
     print(f"[OK] DOCX -> PPTX conversion completed in {elapsed:.2f}s")
@@ -528,25 +727,35 @@ def convert_pdf_to_pptx(
     theme: str = "thesis_blue",
     template_path: Optional[str] = None,
     page_range: Optional[str] = None,
+    theme_name: Optional[str] = None,
+    progress_callback: Optional[Callable[[float, str], None]] = None,
 ) -> Tuple[str, str]:
     """
     Converts a PDF document to a 16:9 PowerPoint presentation.
     Extracts high-fidelity structure, headings, tables, and images.
 
     Args:
-        pdf_path:       Path to source PDF file.
-        output_pptx:    Path for generated PowerPoint .pptx file.
-        spec_out:       Optional path to write intermediate slide_spec.json.
-        theme:          Visual theme ('thesis_blue', 'corporate_blue', 'modern_dark', 'academic_light').
-        template_path:  Optional base .pptx / .potx template.
-        page_range:     Optional page range filter (e.g. '1-10').
+        pdf_path:           Path to source PDF file.
+        output_pptx:        Path for generated PowerPoint .pptx file.
+        spec_out:           Optional path to write intermediate slide_spec.json.
+        theme:              Visual theme ('thesis_blue', 'corporate_blue', 'modern_dark', 'academic_light').
+        template_path:      Optional base .pptx / .potx template.
+        page_range:         Optional page range filter (e.g. '1-10').
+        theme_name:         Optional alias for theme.
+        progress_callback:  Optional progress callback.
 
     Returns:
         Tuple of (path_to_pptx, path_to_spec_json).
     """
+    if theme_name:
+        theme = theme_name
+
     pdf_path = os.path.abspath(pdf_path)
     if not os.path.isfile(pdf_path):
         raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+
+    if progress_callback:
+        progress_callback(10.0, "Đang bóc tách trang PDF...")
 
     base_dir = os.path.dirname(pdf_path)
     base_name = os.path.splitext(os.path.basename(pdf_path))[0]
@@ -569,6 +778,7 @@ def convert_pdf_to_pptx(
             spec_out=spec_out or os.path.join(base_dir, f"{base_name}_slide_spec.json"),
             theme=theme,
             template_path=template_path,
+            progress_callback=progress_callback,
         )
         elapsed = time.time() - t0
         print(f"[OK] PDF -> PPTX full-cycle conversion completed in {elapsed:.2f}s")

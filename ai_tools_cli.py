@@ -22,8 +22,10 @@ Subcommands:
   xlsx-write      — Write JSON snapshot → XLSX
   xlsx-mutate     — Mutate Excel template in-place (row/col expansion, style cloning, chart relink)
   xlsx-validate   — Validate Excel sheet against reference template across 12 Quality Gates (Invariant E6)
+  doctor          — Run Zero-Setup Environment Doctor diagnostic suite (v4.0)
 
-  python ai_tools_cli.py pptx-build spec.json -o deck.pptx --theme corporate_blue
+  python ai_tools_cli.py doctor
+  python ai_tools_cli.py doctor --json
   python ai_tools_cli.py pptx-preview deck.pptx -o ./preview_slides --slides 1,5,11,15
   python ai_tools_cli.py docx-to-pptx document.docx -o presentation.pptx --theme thesis_blue
   python ai_tools_cli.py diagram-render --spec spec.json -o out.png
@@ -35,6 +37,7 @@ Subcommands:
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import os
 import sys
@@ -289,6 +292,290 @@ def cmd_docx_sanitize_icons(args: argparse.Namespace) -> int:
         return 0
     except Exception as exc:
         print(f"[ERROR] {exc}", file=sys.stderr)
+        return 2
+
+
+# ---------------------------------------------------------------------------
+# docx-sanitize-vietnamese
+# ---------------------------------------------------------------------------
+
+def cmd_docx_sanitize_vietnamese(args: argparse.Namespace) -> int:
+    import docx
+    try:
+        from core.docx.advanced_engine import sanitize_vietnamese_typography, safe_save_docx
+    except (ImportError, ValueError):
+        from docx_advanced_engine import sanitize_vietnamese_typography, safe_save_docx  # type: ignore
+
+    src = os.path.abspath(args.file)
+    if not os.path.isfile(src):
+        print(f"[ERROR] Source DOCX not found: {src}", file=sys.stderr)
+        return 1
+
+    out_path = os.path.abspath(args.output) if args.output else src
+    try:
+        doc = docx.Document(src)
+        count = sanitize_vietnamese_typography(doc)
+        saved = safe_save_docx(doc, out_path)
+        print(f"[OK] Sanitized {count} text runs (Vietnamese NFC, spacing, En-dash) in: {saved}")
+        return 0
+    except Exception as exc:
+        print(f"[ERROR] {exc}", file=sys.stderr)
+        return 2
+
+
+# ---------------------------------------------------------------------------
+# docx-apply-preset
+# ---------------------------------------------------------------------------
+
+def cmd_docx_apply_preset(args: argparse.Namespace) -> int:
+    import docx
+    try:
+        from core.docx.presets import apply_preset_to_document, build_administrative_header
+        from core.docx.advanced_engine import safe_save_docx
+    except (ImportError, ValueError):
+        from docx_presets import apply_preset_to_document, build_administrative_header  # type: ignore
+        from docx_advanced_engine import safe_save_docx  # type: ignore
+
+    src = os.path.abspath(args.file)
+    if not os.path.isfile(src):
+        print(f"[ERROR] Source DOCX not found: {src}", file=sys.stderr)
+        return 1
+
+    out_path = os.path.abspath(args.output) if args.output else src
+    try:
+        doc = docx.Document(src)
+        apply_preset_to_document(doc, preset=args.preset)
+        if getattr(args, "add_header", False):
+            build_administrative_header(
+                doc,
+                agency_parent=getattr(args, "agency_parent", "BỘ THÔNG TIN VÀ TRUYỀN THÔNG"),
+                agency_name=getattr(args, "agency_name", "CỤC CÔNG NGHỆ THÔNG TIN"),
+                document_no=getattr(args, "doc_no", "Số: 01/QĐ-CNTT"),
+                location_date=getattr(args, "date", "Hà Nội, ngày 18 tháng 10 năm 2026"),
+                insert_at_top=True,
+            )
+        saved = safe_save_docx(doc, out_path)
+        print(f"[OK] Applied preset '{args.preset}' to: {saved}")
+        return 0
+    except Exception as exc:
+        print(f"[ERROR] {exc}", file=sys.stderr)
+        return 2
+
+
+# ---------------------------------------------------------------------------
+# pdf-tools
+# ---------------------------------------------------------------------------
+
+def cmd_pdf_tools(args: argparse.Namespace) -> int:
+    try:
+        from core.converter.pdf_toolkit import (
+            merge_pdfs,
+            split_pdf,
+            rotate_and_clean_pdf,
+            stamp_watermark_pdf,
+            compress_pdf,
+        )
+    except (ImportError, ValueError):
+        from pdf_toolkit import (  # type: ignore
+            merge_pdfs,
+            split_pdf,
+            rotate_and_clean_pdf,
+            stamp_watermark_pdf,
+            compress_pdf,
+        )
+
+    action = args.action
+    try:
+        if action == "merge":
+            inputs = args.inputs or ([args.input] if args.input else [])
+            if len(inputs) < 2:
+                print("[ERROR] 'merge' action requires at least 2 input files (--inputs file1.pdf file2.pdf)", file=sys.stderr)
+                return 1
+            out = args.output or "merged.pdf"
+            saved = merge_pdfs(inputs, out)
+            print(f"[OK] Merged {len(inputs)} PDFs into: {saved}")
+            return 0
+
+        elif action == "split":
+            if not args.input:
+                print("[ERROR] 'split' action requires an input file (-i file.pdf)", file=sys.stderr)
+                return 1
+            out_dir = args.output or "./split_output"
+            files = split_pdf(args.input, out_dir, page_ranges=args.ranges)
+            print(f"[OK] Split into {len(files)} files in: {out_dir}")
+            return 0
+
+        elif action in ("rotate", "clean"):
+            if not args.input:
+                print(f"[ERROR] '{action}' requires an input file (-i file.pdf)", file=sys.stderr)
+                return 1
+            out = args.output or args.input
+            res = rotate_and_clean_pdf(
+                args.input,
+                out,
+                rotation=getattr(args, "angle", 0) if action == "rotate" else 0,
+                remove_blank=getattr(args, "remove_blank", False) or action == "clean",
+            )
+            print(f"[OK] Processed PDF: {res}")
+            return 0
+
+        elif action == "watermark":
+            if not args.input:
+                print("[ERROR] 'watermark' requires an input file (-i file.pdf)", file=sys.stderr)
+                return 1
+            out = args.output or args.input
+            text = getattr(args, "text", "BẢN QUYỀN")
+            saved = stamp_watermark_pdf(args.input, out, watermark_text=text, opacity=getattr(args, "opacity", 0.25))
+            print(f"[OK] Applied watermark to: {saved}")
+            return 0
+
+        elif action == "compress":
+            if not args.input:
+                print("[ERROR] 'compress' requires an input file (-i file.pdf)", file=sys.stderr)
+                return 1
+            out = args.output or args.input
+            res = compress_pdf(args.input, out)
+            print(f"[OK] Compressed PDF ({res['reduction_pct']}% reduction): {res['output_path']}")
+            return 0
+
+        else:
+            print(f"[ERROR] Unknown action: {action}", file=sys.stderr)
+            return 1
+    except Exception as exc:
+        print(f"[ERROR] {exc}", file=sys.stderr)
+        return 2
+
+
+# ---------------------------------------------------------------------------
+# docx-mail-merge (v4.0)
+# ---------------------------------------------------------------------------
+
+def cmd_docx_mail_merge(args: argparse.Namespace) -> int:
+    try:
+        from core.docx.mail_merge import execute_mail_merge, inspect_template_tokens
+    except (ImportError, ValueError):
+        from docx_mail_merge import execute_mail_merge, inspect_template_tokens  # type: ignore
+
+    template_path = args.template
+    if not os.path.isfile(template_path):
+        print(f"[ERROR] Template file not found: {template_path}", file=sys.stderr)
+        return 1
+
+    if args.inspect:
+        tokens = inspect_template_tokens(template_path)
+        print(json.dumps({"template": template_path, "tokens": tokens}, indent=2, ensure_ascii=False))
+        return 0
+
+    if not args.data:
+        print("[ERROR] --data <file.xlsx|data.json> is required unless --inspect is specified", file=sys.stderr)
+        return 1
+
+    out_dir = args.output or "./mail_merge_output"
+    res = execute_mail_merge(
+        template_path=template_path,
+        data_source=args.data,
+        output_dir=out_dir,
+        filename_pattern=args.pattern,
+        zip_output=args.zip,
+    )
+    print(json.dumps(res, indent=2, ensure_ascii=False))
+    return 0 if res.get("success") else 1
+
+
+# ---------------------------------------------------------------------------
+# docx-diff (v4.0 Redline Track Changes)
+# ---------------------------------------------------------------------------
+
+def cmd_docx_diff(args: argparse.Namespace) -> int:
+    param_a = getattr(args, "doc_a", None) or getattr(args, "before", None)
+    param_b = getattr(args, "doc_b", None) or getattr(args, "after", None)
+
+    if not param_a or not param_b:
+        print("[ERROR] Both original (doc_a/before) and revised (doc_b/after) file paths are required.", file=sys.stderr)
+        return 1
+
+    doc_a = os.path.abspath(param_a)
+    doc_b = os.path.abspath(param_b)
+    if not os.path.isfile(doc_a):
+        print(f"[ERROR] Original file not found: {doc_a}", file=sys.stderr)
+        return 1
+    if not os.path.isfile(doc_b):
+        print(f"[ERROR] Revised file not found: {doc_b}", file=sys.stderr)
+        return 1
+
+    ext_a = os.path.splitext(doc_a)[1].lower()
+    ext_b = os.path.splitext(doc_b)[1].lower()
+
+    # JSON snapshot diff mode
+    if ext_a == ".json" and ext_b == ".json":
+        import difflib
+        with open(doc_a, "r", encoding="utf-8") as f:
+            snap_a = json.load(f)
+        with open(doc_b, "r", encoding="utf-8") as f:
+            snap_b = json.load(f)
+        lines_a = json.dumps(snap_a, indent=2, ensure_ascii=False).splitlines()
+        lines_b = json.dumps(snap_b, indent=2, ensure_ascii=False).splitlines()
+        diff = list(difflib.unified_diff(lines_a, lines_b, fromfile=doc_a, tofile=doc_b, lineterm=""))
+        out_content = "\n".join(diff)
+        if args.output:
+            with open(args.output, "w", encoding="utf-8") as f:
+                f.write(out_content)
+            print(f"[OK] Diff written to: {args.output}")
+        else:
+            print(out_content)
+        return 0
+
+    # DOCX Redline Diff mode
+    try:
+        from core.docx.diff_engine import compare_docx_documents
+    except (ImportError, ValueError):
+        from docx_diff_engine import compare_docx_documents  # type: ignore
+
+    out_path = args.output or os.path.splitext(doc_b)[0] + "_redline.docx"
+    author = getattr(args, "author", "AI Reviewer") or "AI Reviewer"
+
+    t0 = time.time()
+    try:
+        res = compare_docx_documents(doc_a, doc_b, out_path, author=author)
+        elapsed = time.time() - t0
+        res["elapsed_seconds"] = round(elapsed, 2)
+        print(json.dumps(res, indent=2, ensure_ascii=False))
+        return 0
+    except Exception as exc:
+        print(f"[ERROR] Redline diff failed: {exc}", file=sys.stderr)
+        return 2
+
+
+# ---------------------------------------------------------------------------
+# ocr-scan (v4.0 Vietnamese OCR Pipeline)
+# ---------------------------------------------------------------------------
+
+def cmd_ocr_scan(args: argparse.Namespace) -> int:
+    try:
+        from core.converter.ocr_pipeline import VietnameseOcrPipeline
+    except (ImportError, ValueError):
+        from ocr_pipeline import VietnameseOcrPipeline  # type: ignore
+
+    src = os.path.abspath(args.file)
+    if not os.path.isfile(src):
+        print(f"[ERROR] Input file not found: {src}", file=sys.stderr)
+        return 1
+
+    pipeline = VietnameseOcrPipeline(
+        lang=args.lang,
+        filter_red_stamp=not args.no_red_stamp,
+        deskew=not args.no_deskew,
+    )
+    t0 = time.time()
+    try:
+        res = pipeline.process_document(src, output_path=args.output)
+        elapsed = time.time() - t0
+        res["elapsed_seconds"] = round(elapsed, 2)
+        summary = {k: v for k, v in res.items() if k != "pages"}
+        print(json.dumps(summary, indent=2, ensure_ascii=False))
+        return 0
+    except Exception as exc:
+        print(f"[ERROR] OCR pipeline failed: {exc}", file=sys.stderr)
         return 2
 
 
@@ -842,7 +1129,7 @@ def cmd_xlsx_validate(args: argparse.Namespace) -> int:
 
 def cmd_pptx_create(args: argparse.Namespace) -> int:
     try:
-        from .pptx_writer import write_pptx_from_spec
+        from core.pptx.writer import write_pptx_from_spec
     except (ImportError, ValueError):
         from pptx_writer import write_pptx_from_spec  # type: ignore
 
@@ -1174,6 +1461,47 @@ def cmd_felo_generate(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# doctor
+# ---------------------------------------------------------------------------
+
+def cmd_doctor(args: argparse.Namespace) -> int:
+    try:
+        from core.env_doctor import run_doctor, format_doctor_report
+    except (ImportError, ValueError):
+        from env_doctor import run_doctor, format_doctor_report  # type: ignore
+
+    report = run_doctor()
+    if getattr(args, "json", False):
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+    else:
+        print(format_doctor_report(report))
+    return 0 if report.get("status") == "healthy" else 1
+
+
+# ---------------------------------------------------------------------------
+# qa-audit (Unified QA Diagnostic)
+# ---------------------------------------------------------------------------
+
+def cmd_qa_audit(args: argparse.Namespace) -> int:
+    try:
+        from tools.unified_qa_diagnostic import run_pipeline
+    except ImportError:
+        import importlib.util
+        spec_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools", "unified_qa_diagnostic.py")
+        if not os.path.exists(spec_path):
+            spec_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tools", "unified_qa_diagnostic.py")
+        spec = importlib.util.spec_from_file_location("unified_qa_diagnostic", spec_path)
+        if spec and spec.loader:
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            run_pipeline = getattr(mod, "run_pipeline")
+        else:
+            raise ImportError(f"Could not load unified_qa_diagnostic from {spec_path}")
+
+    return run_pipeline(args)
+
+
+# ---------------------------------------------------------------------------
 # Argument parser
 # ---------------------------------------------------------------------------
 
@@ -1340,12 +1668,15 @@ Examples:
     p_dt.add_argument("--tl", default="en", help="Target language (default: en)")
     p_dt.set_defaults(func=cmd_docx_translate)
 
-    # --- docx-diff ---
-    p_dd = sub.add_parser("docx-diff", help="Compare two JSON snapshots → diff report")
-    p_dd.add_argument("before", help="Path to 'before' .json snapshot")
-    p_dd.add_argument("after",  help="Path to 'after'  .json snapshot")
-    p_dd.add_argument("-o", "--output", default=None,
-                      help="Output diff report .json (prints to stdout if omitted)")
+    # --- docx-diff (v4.0 Legal Redline & Snapshot Diff) ---
+    p_dd = sub.add_parser(
+        "docx-diff",
+        help="Compare two Word documents (.docx) or JSON snapshots and generate diff report / track changes (ERR_DOCX_008)"
+    )
+    p_dd.add_argument("before", help="Path to original Word .docx document or 'before' JSON snapshot")
+    p_dd.add_argument("after", help="Path to revised Word .docx document or 'after' JSON snapshot")
+    p_dd.add_argument("-o", "--output", default=None, help="Output diff path (.docx or .json)")
+    p_dd.add_argument("--author", default="AI Reviewer", help="Reviewer author name for track changes")
     p_dd.set_defaults(func=cmd_docx_diff)
 
     # --- xlsx-read ---
@@ -1469,6 +1800,78 @@ Examples:
     p_fg.add_argument("--theme", default=None, help="Felo PPT theme ID")
     p_fg.add_argument("--task-id", default=None, help="Resume polling an existing task")
     p_fg.set_defaults(func=cmd_felo_generate)
+
+    # --- doctor ---
+    p_doc = sub.add_parser("doctor", help="Run Zero-Setup Environment Doctor diagnostic suite")
+    p_doc.add_argument("--json", action="store_true", help="Output machine-readable JSON format")
+    p_doc.set_defaults(func=cmd_doctor)
+
+    # --- docx-apply-preset ---
+    p_dap = sub.add_parser("docx-apply-preset", help="Apply document preset (nd30, academic_thesis, corporate_report) to DOCX")
+    p_dap.add_argument("file", help="Path to .docx file")
+    p_dap.add_argument("--preset", default="nd30", help="Preset name (default: nd30)")
+    p_dap.add_argument("--add-header", action="store_true", help="Insert administrative 2-column header (ND30)")
+    p_dap.add_argument("--agency-parent", default="BỘ THÔNG TIN VÀ TRUYỀN THÔNG", help="Parent agency name")
+    p_dap.add_argument("--agency-name", default="CỤC CÔNG NGHỆ THÔNG TIN", help="Agency name")
+    p_dap.add_argument("--doc-no", default="Số: 01/QĐ-CNTT", help="Document number")
+    p_dap.add_argument("--date", default="Hà Nội, ngày 18 tháng 10 năm 2026", help="Date & location string")
+    p_dap.add_argument("-o", "--output", default=None, help="Output .docx path")
+    p_dap.set_defaults(func=cmd_docx_apply_preset)
+
+    # --- docx-sanitize-vietnamese ---
+    p_dsv = sub.add_parser("docx-sanitize-vietnamese", help="Sanitize Vietnamese typography (Unicode NFC, punctuation spacing, En-dash) in DOCX")
+    p_dsv.add_argument("file", help="Path to .docx file")
+    p_dsv.add_argument("-o", "--output", default=None, help="Output .docx path")
+    p_dsv.set_defaults(func=cmd_docx_sanitize_vietnamese)
+
+    # --- pdf-tools ---
+    p_pdft = sub.add_parser("pdf-tools", help="PDF Everyday Toolkit: merge, split, rotate, watermark, compress")
+    p_pdft.add_argument("action", choices=["merge", "split", "rotate", "clean", "watermark", "compress"], help="Action to perform")
+    p_pdft.add_argument("-i", "--input", default=None, help="Input PDF file path")
+    p_pdft.add_argument("--inputs", nargs="+", default=[], help="Multiple input PDF paths (for merge)")
+    p_pdft.add_argument("-o", "--output", default=None, help="Output PDF path or output directory")
+    p_pdft.add_argument("--ranges", default=None, help="Page ranges for split (e.g. '1-3, 4-5')")
+    p_pdft.add_argument("--angle", type=int, default=90, help="Rotation angle in degrees (90, 180, 270)")
+    p_pdft.add_argument("--text", default="BẢN QUYỀN", help="Watermark text")
+    p_pdft.add_argument("--opacity", type=float, default=0.25, help="Watermark opacity (0.0 - 1.0)")
+    p_pdft.add_argument("--remove-blank", action="store_true", help="Remove blank pages when rotating or cleaning")
+    p_pdft.set_defaults(func=cmd_pdf_tools)
+
+    # --- docx-mail-merge (v4.0) ---
+    p_mm = sub.add_parser("docx-mail-merge", help="Batch Mail Merge Studio: Word template + Excel/JSON dataset ➔ batch DOCX / ZIP")
+    p_mm.add_argument("template", help="Path to Word .docx template with {{Token}} fields")
+    p_mm.add_argument("-d", "--data", default=None, help="Path to data source (.xlsx or .json)")
+    p_mm.add_argument("-o", "--output", default=None, help="Output directory path (default: ./mail_merge_output)")
+    p_mm.add_argument("--pattern", default=None, help="Filename pattern, e.g. 'HDLD_{{MaNV}}_{{HoTen}}.docx'")
+    p_mm.add_argument("--zip", default=None, help="Optional ZIP bundle output path, e.g. 'contracts.zip'")
+    p_mm.add_argument("--inspect", action="store_true", help="Inspect and list all {{Tokens}} in template without merging")
+    p_mm.set_defaults(func=cmd_docx_mail_merge)
+
+
+    # --- ocr-scan (v4.0) ---
+    p_ocr = sub.add_parser("ocr-scan", help="Vietnamese OCR Pipeline: extract text & tables from scanned PDFs/images (ERR_CONV_005)")
+    p_ocr.add_argument("file", help="Path to scanned PDF or image file (.png, .jpg, etc.)")
+    p_ocr.add_argument("-o", "--output", default=None, help="Output path (.md, .txt, or .docx)")
+    p_ocr.add_argument("--lang", default="vie+eng", help="OCR languages (default: vie+eng)")
+    p_ocr.add_argument("--no-red-stamp", action="store_true", help="Disable HSV red-stamp filter")
+    p_ocr.add_argument("--no-deskew", action="store_true", help="Disable automatic deskewing")
+    p_ocr.set_defaults(func=cmd_ocr_scan)
+
+    # --- qa-audit (v4.0) ---
+    p_qa = sub.add_parser("qa-audit", help="Run Enterprise Unified QA Diagnostic (DOCX, XLSX, PPTX, Draw.io, Scans)")
+    p_qa.add_argument("--xlsx", default=None, help="Path to Excel workbook (.xlsx)")
+    p_qa.add_argument("--docx", default=None, help="Path to Word document (.docx)")
+    p_qa.add_argument("--pptx", default=None, help="Path to PowerPoint presentation (.pptx)")
+    p_qa.add_argument("--diagram", default=None, help="Path to Draw.io / vector diagram (.drawio, .xml, .png)")
+    p_qa.add_argument("--all", default=None, help="Directory containing documents to recursively scan")
+    p_qa.add_argument("--mode", choices=["diagnose", "audit-fix"], default="diagnose",
+                      help="Operation mode: 'diagnose' (read-only audit) or 'audit-fix' (safe repair)")
+    p_qa.add_argument("--in-place", action="store_true",
+                      help="Allow in-place repair (creates a .bak file before modifying)")
+    p_qa.add_argument("--format", choices=["terminal", "json", "sarif"], default="terminal",
+                      help="Output report format")
+    p_qa.add_argument("-o", "--output", default=None, help="Optional output file path for the report/log")
+    p_qa.set_defaults(func=cmd_qa_audit)
 
     return parser
 

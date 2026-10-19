@@ -39,6 +39,11 @@ import {
   ZoomIn,
   Maximize,
   ExternalLink,
+  User,
+  Database,
+  HelpCircle,
+  Cloud,
+  Box,
 } from 'lucide';
 
 const studioIcons = {
@@ -81,6 +86,11 @@ const studioIcons = {
   ZoomIn,
   Maximize,
   ExternalLink,
+  User,
+  Database,
+  HelpCircle,
+  Cloud,
+  Box,
 };
 
 /**
@@ -119,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
     diagramCode: '',
   };
 
-  // Preset Diagram Templates
+  // Preset Diagram Templates (12 Standard Technical Types)
   const DIAGRAM_PRESETS = {
     mermaid_sequence: `sequenceDiagram
   autonumber
@@ -177,6 +187,173 @@ Rel(studio, pdf_reader, "Xuất bản PDF chất lượng cao")
     int row_count
     int col_count
   }`,
+
+    mermaid_flowchart: `flowchart TD
+  Start([Bắt Đầu Tiến Trình]) --> Step1[Nhận Yêu Cầu Xử Lý Tài Liệu]
+  Step1 --> Check{"Kiểm Tra Hợp Lệ?"}
+  Check -->|Hợp Lệ| Process[Tiến Hành Bóc Tách OpenXML AST]
+  Check -->|Không Hợp Lệ| Error[Thông Báo Lỗi Định Dạng]
+  Process --> DB[(Ghi Dữ Liệu Vào DB)]
+  DB --> Success([Hoàn Tất & Xuất Bản 300+ DPI])
+  Error --> EndFail([Kết Thúc Thất Bại])`,
+
+    plantuml_usecase: `@startuml
+left to right direction
+actor "Khách Hàng" as User
+actor "Quản Trị Viên" as Admin
+
+rectangle "Hệ Thống Office Studio" {
+  usecase "Tải Lên Tài Liệu" as UC1
+  usecase "Chuyển Đổi DOCX sang PPTX" as UC2
+  usecase "Kiểm Tra Lỗi QA 12 Cổng" as UC3
+  usecase "Cấu Hình Theme Trình Bày" as UC4
+  usecase "Quản Lý Người Dùng" as UC5
+}
+
+User --> UC1
+User --> UC2
+User --> UC3
+UC2 ..> UC4 : <<include>>
+Admin --> UC3
+Admin --> UC5
+@enduml`,
+
+    plantuml_swimlane: `@startuml
+|Người Dùng|
+start
+:Tải lên tệp Word/PDF;
+
+|Hệ Thống Web Studio|
+:Tiếp nhận và lưu trữ tạm thời;
+:Gửi yêu cầu phân tích tới API;
+
+|Bộ Máy Xử Lý Office Engine|
+:Phân tích cấu trúc bảng & styles;
+if (Bảng vượt quá lề in?) then (Có)
+  :Tự động căn chỉnh độ rộng cột;
+else (Không)
+  :Giữ nguyên bố cục;
+endif
+:Tạo tài liệu PPTX 16:9;
+
+|Hệ Thống Web Studio|
+:Trả về đường dẫn tải tệp;
+
+|Người Dùng|
+:Tải về và kiểm tra tài liệu;
+stop
+@enduml`,
+
+    mermaid_state: `stateDiagram-v2
+  [*] --> Draft : Tạo mới tài liệu
+  Draft --> InReview : Nộp bản thảo
+  InReview --> Approved : Duyệt hợp lệ
+  InReview --> Rejected : Yêu cầu sửa đổi
+  Rejected --> Draft : Chỉnh sửa nội dung
+  Approved --> Published : Xuất bản 300 DPI
+  Published --> Archived : Lưu trữ hệ thống
+  Archived --> [*]`,
+
+    plantuml_class: `@startuml
+class DocumentNode {
+  +String id
+  +int pageIndex
+  +render(): Image
+}
+
+class SlideModel {
+  +String title
+  +String themeName
+  +List<CardDef> cards
+  +buildPresentation(): void
+}
+
+class TableModel {
+  +int rowCount
+  +int colCount
+  +applyOpenXmlInvariants(): void
+}
+
+DocumentNode <|-- SlideModel
+DocumentNode <|-- TableModel
+@enduml`,
+
+    mermaid_mindmap: `mindmap
+  root((Office Studio))
+    Document Processing
+      PDF Lossless
+      DOCX Repair
+      Markdown AST
+    Technical Diagrams
+      Mermaid
+      PlantUML C4
+      Draw.io mxGraph
+      SVG Canvas Spec
+    Presentations
+      16:9 Widescreen
+      Thesis Themes
+      Auto-Card Layout`,
+
+    canvas_flow: JSON.stringify({
+      "canvas": { "width": 1400, "height": 770 },
+      "nodes": [
+        { "id": "user", "title": "Client Actor", "type": "actor", "x": 80, "y": 280, "width": 70, "height": 100, "icon": "user" },
+        { "id": "gateway", "title": "API Gateway", "type": "primary", "x": 260, "y": 290, "width": 180, "height": 80, "icon": "shield" },
+        { "id": "decision", "title": "Auth Valid?", "type": "decision", "x": 540, "y": 280, "width": 140, "height": 100 },
+        { "id": "cloud_svc", "title": "External Cloud AI", "type": "cloud", "x": 780, "y": 120, "width": 180, "height": 90, "icon": "cloud" },
+        { "id": "doc_worker", "title": "Document Worker", "type": "component", "x": 780, "y": 300, "width": 180, "height": 80, "icon": "server" },
+        { "id": "msg_queue", "title": "Async Task Queue", "type": "queue", "x": 780, "y": 480, "width": 180, "height": 70 },
+        { "id": "database", "title": "Primary Database", "type": "database", "x": 1080, "y": 300, "width": 140, "height": 90, "icon": "database" },
+        { "id": "finish", "title": "Completed", "type": "terminator", "x": 1080, "y": 490, "width": 140, "height": 60, "icon": "zap" }
+      ],
+      "edges": [
+        { "source": "user", "target": "gateway", "label": "Gửi Yêu Cầu", "exit_port": "right", "entry_port": "left" },
+        { "source": "gateway", "target": "decision", "label": "Xác Thực JWT", "exit_port": "right", "entry_port": "left" },
+        { "source": "decision", "target": "cloud_svc", "label": "AI Prompt", "exit_port": "top", "entry_port": "left" },
+        { "source": "decision", "target": "doc_worker", "label": "Hợp Lệ", "exit_port": "right", "entry_port": "left" },
+        { "source": "decision", "target": "msg_queue", "label": "Hàng Đợi Batch", "exit_port": "bottom", "entry_port": "left" },
+        { "source": "doc_worker", "target": "database", "label": "Ghi AST OpenXML", "exit_port": "right", "entry_port": "left" },
+        { "source": "msg_queue", "target": "finish", "label": "Hoàn Tất Xử Lý", "exit_port": "right", "entry_port": "left" }
+      ]
+    }, null, 2),
+
+    drawio_overview: `<mxfile host="Antigravity Studio" version="21.0.0">
+  <diagram id="arch" name="Enterprise Architecture">
+    <mxGraphModel dx="1400" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="800" background="#FFFFFF">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="actor1" value="End User" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#1E293B;strokeWidth=1.8;" vertex="1" parent="1">
+          <mxGeometry x="120" y="240" width="60" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="hub" value="Antigravity Gateway Hub" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0051E2;strokeColor=#003DB3;fontColor=#FFFFFF;fontStyle=1;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="320" y="250" width="220" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="dec1" value="Is Valid?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#D97706;strokeWidth=1.8;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="640" y="240" width="130" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="cloud1" value="External AI Cloud" style="ellipse;shape=cloud;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#0284C7;strokeWidth=1.8;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="900" y="110" width="180" height="95" as="geometry"/>
+        </mxCell>
+        <mxCell id="db1" value="PostgreSQL DB" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#F8FAFC;strokeColor=#2563EB;strokeWidth=1.8;fontSize=13;" vertex="1" parent="1">
+          <mxGeometry x="920" y="360" width="140" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="actor1" target="hub" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.8;strokeColor=#475569;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="hub" target="dec1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.8;strokeColor=#475569;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e3" value="AI Request" edge="1" parent="1" source="dec1" target="cloud1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.8;strokeColor=#0284C7;exitX=0.5;exitY=0;entryX=0;entryY=0.5;labelBackgroundColor=#ffffff;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e4" value="Store AST" edge="1" parent="1" source="dec1" target="db1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.8;strokeColor=#2563EB;exitX=0.5;exitY=1;entryX=0;entryY=0.5;labelBackgroundColor=#ffffff;">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>`,
   };
 
   // =========================================================================
@@ -1011,8 +1188,8 @@ Rel(studio, pdf_reader, "Xuất bản PDF chất lượng cao")
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             file_path: xlsxValServerPath,
-            target_sheet: targetSheetInput && targetSheetInput.value.trim() ? targetSheetInput.value.trim() : null,
-            ref_sheet: refSheetInput && refSheetInput.value.trim() ? refSheetInput.value.trim() : 'Example',
+            target_sheet: targetSheetInput && targetSheetInput.value.trim() ? targetSheetInput.value.trim().replace(/^['"]|['"]$/g, '') : null,
+            ref_sheet: refSheetInput && refSheetInput.value.trim() ? refSheetInput.value.trim().replace(/^['"]|['"]$/g, '') : 'Example',
           }),
         });
 
@@ -1596,6 +1773,605 @@ Rel(studio, pdf_reader, "Xuất bản PDF chất lượng cao")
   }
 
   // =========================================================================
+  // 7.1 DOCUMENT HUB SUB-TABS & EXTENDED CONTROLLERS (v4.0)
+  // =========================================================================
+  const docSubTabBtns = document.querySelectorAll('#doc-subtabs-nav .sub-tab-btn');
+  const docSubpanels = document.querySelectorAll('.doc-subpanel');
+  docSubTabBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const target = btn.getAttribute('data-doc-subtab');
+      docSubTabBtns.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      docSubpanels.forEach((p) => {
+        if (p.id === `doc-subpanel-${target}`) {
+          p.style.display = 'block';
+          p.classList.add('active');
+        } else {
+          p.style.display = 'none';
+          p.classList.remove('active');
+        }
+      });
+      refreshLucideIcons();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // SUB-TAB 2: BATCH MAIL MERGE CONTROLLER (Edge Case 3: Dual Dropzones)
+  // -------------------------------------------------------------------------
+  let mmTplFile = null;
+  let mmDataFile = null;
+
+  const mmTplDropZone = document.getElementById('mm-tpl-drop-zone');
+  const mmTplFileInput = document.getElementById('mm-tpl-file-input');
+  const btnBrowseMmTpl = document.getElementById('btn-browse-mm-tpl');
+  const mmTplFileInfo = document.getElementById('mm-tpl-file-info');
+  const mmTplFileName = document.getElementById('mm-tpl-file-name');
+  const mmTplFileSize = document.getElementById('mm-tpl-file-size');
+  const btnRemoveMmTpl = document.getElementById('btn-remove-mm-tpl');
+
+  const mmDataDropZone = document.getElementById('mm-data-drop-zone');
+  const mmDataFileInput = document.getElementById('mm-data-file-input');
+  const btnBrowseMmData = document.getElementById('btn-browse-mm-data');
+  const mmDataFileInfo = document.getElementById('mm-data-file-info');
+  const mmDataFileName = document.getElementById('mm-data-file-name');
+  const mmDataFileSize = document.getElementById('mm-data-file-size');
+  const mmDataExt = document.getElementById('mm-data-ext');
+  const btnRemoveMmData = document.getElementById('btn-remove-mm-data');
+
+  const mmTokensCard = document.getElementById('mm-tokens-card');
+  const mmTokensList = document.getElementById('mm-tokens-list');
+  const btnRunMailMerge = document.getElementById('btn-run-mail-merge');
+  const mmProgress = document.getElementById('mm-progress-container');
+  const mmProgressFill = document.getElementById('mm-progress-fill');
+  const mmProgressStatus = document.getElementById('mm-progress-status');
+  const mmResultBox = document.getElementById('mm-result-box');
+  const mmEmptyState = document.getElementById('mm-empty-state');
+  const mmResultCount = document.getElementById('mm-result-count');
+  const mmResultFilename = document.getElementById('mm-result-filename');
+  const btnDownloadMmZip = document.getElementById('btn-download-mm-zip');
+
+  function checkMmReady() {
+    if (btnRunMailMerge) {
+      btnRunMailMerge.disabled = !(mmTplFile && mmDataFile);
+    }
+  }
+
+  async function inspectMmTemplate(file) {
+    try {
+      const uploadRes = await uploadFileToServer(file);
+      const serverPath = uploadRes.filepath || uploadRes.file_path;
+      if (!serverPath) return;
+
+      const res = await fetch('/api/mail-merge/inspect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template: serverPath }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.tokens && data.tokens.length > 0 && mmTokensCard && mmTokensList) {
+          mmTokensList.innerHTML = data.tokens
+            .map((t) => `<span class="token-pill"><i data-lucide="tag"></i> {{${t}}}</span>`)
+            .join('');
+          mmTokensCard.style.display = 'block';
+          refreshLucideIcons();
+        }
+      }
+    } catch (_) {}
+  }
+
+  if (mmTplDropZone && mmTplFileInput) {
+    mmTplDropZone.addEventListener('click', () => mmTplFileInput.click());
+    if (btnBrowseMmTpl) btnBrowseMmTpl.addEventListener('click', (e) => { e.stopPropagation(); mmTplFileInput.click(); });
+    mmTplFileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        const f = e.target.files[0];
+        mmTplFile = f;
+        if (mmTplFileName) mmTplFileName.textContent = f.name;
+        if (mmTplFileSize) mmTplFileSize.textContent = formatBytes(f.size);
+        const content = mmTplDropZone.querySelector('.drop-zone-content');
+        if (content) content.style.display = 'none';
+        if (mmTplFileInfo) mmTplFileInfo.style.display = 'flex';
+        checkMmReady();
+        inspectMmTemplate(f);
+      }
+    });
+    if (btnRemoveMmTpl) {
+      btnRemoveMmTpl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        mmTplFile = null;
+        mmTplFileInput.value = '';
+        if (mmTplFileInfo) mmTplFileInfo.style.display = 'none';
+        const content = mmTplDropZone.querySelector('.drop-zone-content');
+        if (content) content.style.display = 'block';
+        if (mmTokensCard) mmTokensCard.style.display = 'none';
+        checkMmReady();
+      });
+    }
+  }
+
+  if (mmDataDropZone && mmDataFileInput) {
+    mmDataDropZone.addEventListener('click', () => mmDataFileInput.click());
+    if (btnBrowseMmData) btnBrowseMmData.addEventListener('click', (e) => { e.stopPropagation(); mmDataFileInput.click(); });
+    mmDataFileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        const f = e.target.files[0];
+        mmDataFile = f;
+        const ext = f.name.substring(f.name.lastIndexOf('.')).replace('.', '').toUpperCase();
+        if (mmDataFileName) mmDataFileName.textContent = f.name;
+        if (mmDataFileSize) mmDataFileSize.textContent = formatBytes(f.size);
+        if (mmDataExt) mmDataExt.textContent = ext;
+        const content = mmDataDropZone.querySelector('.drop-zone-content');
+        if (content) content.style.display = 'none';
+        if (mmDataFileInfo) mmDataFileInfo.style.display = 'flex';
+        checkMmReady();
+      }
+    });
+    if (btnRemoveMmData) {
+      btnRemoveMmData.addEventListener('click', (e) => {
+        e.stopPropagation();
+        mmDataFile = null;
+        mmDataFileInput.value = '';
+        if (mmDataFileInfo) mmDataFileInfo.style.display = 'none';
+        const content = mmDataDropZone.querySelector('.drop-zone-content');
+        if (content) content.style.display = 'block';
+        checkMmReady();
+      });
+    }
+  }
+
+  if (btnRunMailMerge) {
+    btnRunMailMerge.addEventListener('click', async () => {
+      if (!mmTplFile || !mmDataFile) return;
+      btnRunMailMerge.disabled = true;
+      if (mmProgress) mmProgress.style.display = 'block';
+      if (mmProgressFill) mmProgressFill.style.width = '30%';
+      if (mmProgressStatus) mmProgressStatus.textContent = 'Đang tải lên template và dataset...';
+
+      try {
+        const [upTpl, upData] = await Promise.all([
+          uploadFileToServer(mmTplFile),
+          uploadFileToServer(mmDataFile),
+        ]);
+        const tplPath = upTpl.filepath || upTpl.file_path;
+        const dataPath = upData.filepath || upData.file_path;
+
+        if (mmProgressFill) mmProgressFill.style.width = '65%';
+        if (mmProgressStatus) mmProgressStatus.textContent = 'Đang kết hợp dữ liệu và sinh tài liệu hàng loạt...';
+
+        const patInput = document.getElementById('mm-pattern-input');
+        const zipToggle = document.getElementById('mm-zip-toggle');
+        const pattern = patInput && patInput.value.trim() ? patInput.value.trim() : null;
+        const wantZip = zipToggle ? zipToggle.checked : true;
+
+        const res = await fetch('/api/mail-merge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            template: tplPath,
+            data: dataPath,
+            pattern: pattern,
+            zip: wantZip ? `mail_merge_${Date.now()}.zip` : null,
+          }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || 'Trộn thư thất bại');
+        }
+
+        const data = await res.json();
+        if (mmProgressFill) mmProgressFill.style.width = '100%';
+        if (mmProgressStatus) mmProgressStatus.textContent = 'Hoàn tất!';
+
+        if (mmResultCount) mmResultCount.textContent = data.count || data.total_generated || (data.files ? data.files.length : 'N/A');
+        const zName = data.zip_path ? data.zip_path.split(/[\\/]/).pop() : (data.download_url ? data.download_url.split('/').pop() : 'mail_merge.zip');
+        if (mmResultFilename) mmResultFilename.textContent = zName;
+        if (btnDownloadMmZip) btnDownloadMmZip.setAttribute('href', data.download_url || `/api/download/${zName}`);
+
+        if (mmEmptyState) mmEmptyState.style.display = 'none';
+        if (mmResultBox) mmResultBox.style.display = 'block';
+        showToast('Trộn thư hàng loạt thành công!', 'success');
+      } catch (err) {
+        showToast(`Lỗi trộn thư: ${err.message}`, 'error', 6000);
+      } finally {
+        btnRunMailMerge.disabled = false;
+        setTimeout(() => { if (mmProgress) mmProgress.style.display = 'none'; }, 1500);
+      }
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // SUB-TAB 3: LEGAL REDLINE DIFF CONTROLLER (Edge Case 3: Dual Dropzones)
+  // -------------------------------------------------------------------------
+  let diffV1File = null;
+  let diffV2File = null;
+
+  const diffV1DropZone = document.getElementById('diff-v1-drop-zone');
+  const diffV1FileInput = document.getElementById('diff-v1-file-input');
+  const btnBrowseDiffV1 = document.getElementById('btn-browse-diff-v1');
+  const diffV1FileInfo = document.getElementById('diff-v1-file-info');
+  const diffV1FileName = document.getElementById('diff-v1-file-name');
+  const diffV1FileSize = document.getElementById('diff-v1-file-size');
+  const btnRemoveDiffV1 = document.getElementById('btn-remove-diff-v1');
+
+  const diffV2DropZone = document.getElementById('diff-v2-drop-zone');
+  const diffV2FileInput = document.getElementById('diff-v2-file-input');
+  const btnBrowseDiffV2 = document.getElementById('btn-browse-diff-v2');
+  const diffV2FileInfo = document.getElementById('diff-v2-file-info');
+  const diffV2FileName = document.getElementById('diff-v2-file-name');
+  const diffV2FileSize = document.getElementById('diff-v2-file-size');
+  const btnRemoveDiffV2 = document.getElementById('btn-remove-diff-v2');
+
+  const btnRunDocDiff = document.getElementById('btn-run-doc-diff');
+  const diffProgress = document.getElementById('diff-progress-container');
+  const diffProgressFill = document.getElementById('diff-progress-fill');
+  const diffProgressStatus = document.getElementById('diff-progress-status');
+  const diffResultBox = document.getElementById('diff-result-box');
+  const diffEmptyState = document.getElementById('diff-empty-state');
+  const diffResInsertions = document.getElementById('diff-res-insertions');
+  const diffResDeletions = document.getElementById('diff-res-deletions');
+  const diffResModParas = document.getElementById('diff-res-mod-paras');
+  const diffResultFilename = document.getElementById('diff-result-filename');
+  const btnDownloadDiff = document.getElementById('btn-download-diff');
+
+  function checkDiffReady() {
+    if (btnRunDocDiff) btnRunDocDiff.disabled = !(diffV1File && diffV2File);
+  }
+
+  if (diffV1DropZone && diffV1FileInput) {
+    diffV1DropZone.addEventListener('click', () => diffV1FileInput.click());
+    if (btnBrowseDiffV1) btnBrowseDiffV1.addEventListener('click', (e) => { e.stopPropagation(); diffV1FileInput.click(); });
+    diffV1FileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        diffV1File = e.target.files[0];
+        if (diffV1FileName) diffV1FileName.textContent = diffV1File.name;
+        if (diffV1FileSize) diffV1FileSize.textContent = formatBytes(diffV1File.size);
+        const c = diffV1DropZone.querySelector('.drop-zone-content');
+        if (c) c.style.display = 'none';
+        if (diffV1FileInfo) diffV1FileInfo.style.display = 'flex';
+        checkDiffReady();
+      }
+    });
+    if (btnRemoveDiffV1) {
+      btnRemoveDiffV1.addEventListener('click', (e) => {
+        e.stopPropagation();
+        diffV1File = null;
+        diffV1FileInput.value = '';
+        if (diffV1FileInfo) diffV1FileInfo.style.display = 'none';
+        const c = diffV1DropZone.querySelector('.drop-zone-content');
+        if (c) c.style.display = 'block';
+        checkDiffReady();
+      });
+    }
+  }
+
+  if (diffV2DropZone && diffV2FileInput) {
+    diffV2DropZone.addEventListener('click', () => diffV2FileInput.click());
+    if (btnBrowseDiffV2) btnBrowseDiffV2.addEventListener('click', (e) => { e.stopPropagation(); diffV2FileInput.click(); });
+    diffV2FileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        diffV2File = e.target.files[0];
+        if (diffV2FileName) diffV2FileName.textContent = diffV2File.name;
+        if (diffV2FileSize) diffV2FileSize.textContent = formatBytes(diffV2File.size);
+        const c = diffV2DropZone.querySelector('.drop-zone-content');
+        if (c) c.style.display = 'none';
+        if (diffV2FileInfo) diffV2FileInfo.style.display = 'flex';
+        checkDiffReady();
+      }
+    });
+    if (btnRemoveDiffV2) {
+      btnRemoveDiffV2.addEventListener('click', (e) => {
+        e.stopPropagation();
+        diffV2File = null;
+        diffV2FileInput.value = '';
+        if (diffV2FileInfo) diffV2FileInfo.style.display = 'none';
+        const c = diffV2DropZone.querySelector('.drop-zone-content');
+        if (c) c.style.display = 'block';
+        checkDiffReady();
+      });
+    }
+  }
+
+  if (btnRunDocDiff) {
+    btnRunDocDiff.addEventListener('click', async () => {
+      if (!diffV1File || !diffV2File) return;
+      btnRunDocDiff.disabled = true;
+      if (diffProgress) diffProgress.style.display = 'block';
+      if (diffProgressFill) diffProgressFill.style.width = '30%';
+      if (diffProgressStatus) diffProgressStatus.textContent = 'Đang tải lên 2 văn bản v1 và v2...';
+
+      try {
+        const [upV1, upV2] = await Promise.all([
+          uploadFileToServer(diffV1File),
+          uploadFileToServer(diffV2File),
+        ]);
+        const v1Path = upV1.filepath || upV1.file_path;
+        const v2Path = upV2.filepath || upV2.file_path;
+
+        if (diffProgressFill) diffProgressFill.style.width = '70%';
+        if (diffProgressStatus) diffProgressStatus.textContent = 'Đang thực hiện giải thuật so sánh pháp lý...';
+
+        const authorInput = document.getElementById('diff-author-input');
+        const author = authorInput && authorInput.value.trim() ? authorInput.value.trim() : 'Antigravity Legal AI';
+
+        const res = await fetch('/api/docx/diff', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ doc_a: v1Path, doc_b: v2Path, author: author }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || 'So sánh văn bản thất bại');
+        }
+
+        const data = await res.json();
+        if (diffProgressFill) diffProgressFill.style.width = '100%';
+        if (diffProgressStatus) diffProgressStatus.textContent = 'Hoàn tất!';
+
+        if (diffResInsertions) diffResInsertions.textContent = data.insertions || data.total_insertions || 0;
+        if (diffResDeletions) diffResDeletions.textContent = data.deletions || data.total_deletions || 0;
+        if (diffResModParas) diffResModParas.textContent = data.modified_paragraphs || 0;
+
+        const outName = data.output_file || data.filename || 'legal_redline_diff.docx';
+        if (diffResultFilename) diffResultFilename.textContent = outName;
+        if (btnDownloadDiff) btnDownloadDiff.setAttribute('href', data.download_url || `/api/download/${outName}`);
+
+        if (diffEmptyState) diffEmptyState.style.display = 'none';
+        if (diffResultBox) diffResultBox.style.display = 'block';
+        showToast('So sánh pháp lý Track Changes thành công!', 'success');
+      } catch (err) {
+        showToast(`Lỗi so sánh: ${err.message}`, 'error', 6000);
+      } finally {
+        btnRunDocDiff.disabled = false;
+        setTimeout(() => { if (diffProgress) diffProgress.style.display = 'none'; }, 1500);
+      }
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // SUB-TAB 4: VIETNAMESE OCR CONTROLLER
+  // -------------------------------------------------------------------------
+  let ocrFile = null;
+  const ocrDropZone = document.getElementById('ocr-drop-zone');
+  const ocrFileInput = document.getElementById('ocr-file-input');
+  const btnBrowseOcr = document.getElementById('btn-browse-ocr');
+  const ocrFileInfo = document.getElementById('ocr-file-info');
+  const ocrFileName = document.getElementById('ocr-file-name');
+  const ocrFileSize = document.getElementById('ocr-file-size');
+  const ocrFileExt = document.getElementById('ocr-file-ext');
+  const btnRemoveOcr = document.getElementById('btn-remove-ocr');
+  const btnRunOcr = document.getElementById('btn-run-ocr');
+  const ocrProgress = document.getElementById('ocr-progress-container');
+  const ocrProgressFill = document.getElementById('ocr-progress-fill');
+  const ocrProgressStatus = document.getElementById('ocr-progress-status');
+  const ocrResultBox = document.getElementById('ocr-result-box');
+  const ocrEmptyState = document.getElementById('ocr-empty-state');
+  const ocrResPages = document.getElementById('ocr-res-pages');
+  const ocrResultFilename = document.getElementById('ocr-result-filename');
+  const btnDownloadOcr = document.getElementById('btn-download-ocr');
+
+  if (ocrDropZone && ocrFileInput) {
+    ocrDropZone.addEventListener('click', () => ocrFileInput.click());
+    if (btnBrowseOcr) btnBrowseOcr.addEventListener('click', (e) => { e.stopPropagation(); ocrFileInput.click(); });
+    ocrFileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        ocrFile = e.target.files[0];
+        const ext = ocrFile.name.substring(ocrFile.name.lastIndexOf('.')).replace('.', '').toUpperCase();
+        if (ocrFileName) ocrFileName.textContent = ocrFile.name;
+        if (ocrFileSize) ocrFileSize.textContent = formatBytes(ocrFile.size);
+        if (ocrFileExt) ocrFileExt.textContent = ext;
+        const c = ocrDropZone.querySelector('.drop-zone-content');
+        if (c) c.style.display = 'none';
+        if (ocrFileInfo) ocrFileInfo.style.display = 'flex';
+        if (btnRunOcr) btnRunOcr.disabled = false;
+      }
+    });
+    if (btnRemoveOcr) {
+      btnRemoveOcr.addEventListener('click', (e) => {
+        e.stopPropagation();
+        ocrFile = null;
+        ocrFileInput.value = '';
+        if (ocrFileInfo) ocrFileInfo.style.display = 'none';
+        const c = ocrDropZone.querySelector('.drop-zone-content');
+        if (c) c.style.display = 'block';
+        if (btnRunOcr) btnRunOcr.disabled = true;
+      });
+    }
+  }
+
+  if (btnRunOcr) {
+    btnRunOcr.addEventListener('click', async () => {
+      if (!ocrFile) return;
+      btnRunOcr.disabled = true;
+      if (ocrProgress) ocrProgress.style.display = 'block';
+      if (ocrProgressFill) ocrProgressFill.style.width = '30%';
+      if (ocrProgressStatus) ocrProgressStatus.textContent = 'Đang tải lên tệp scan...';
+
+      try {
+        const upRes = await uploadFileToServer(ocrFile);
+        const serverPath = upRes.filepath || upRes.file_path;
+
+        if (ocrProgressFill) ocrProgressFill.style.width = '60%';
+        if (ocrProgressStatus) ocrProgressStatus.textContent = 'Đang khử mộc đỏ và nhận diện tiếng Việt...';
+
+        const filterStamp = document.getElementById('ocr-filter-stamp')?.checked ?? true;
+        const deskew = document.getElementById('ocr-deskew')?.checked ?? true;
+        const fmtSelect = document.getElementById('ocr-format-select');
+        const fmt = fmtSelect ? fmtSelect.value : 'md';
+
+        const res = await fetch('/api/ocr/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            file_path: serverPath,
+            filter_red_stamp: filterStamp,
+            deskew: deskew,
+            format: fmt,
+            lang: 'vie+eng',
+          }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || 'OCR thất bại');
+        }
+
+        const data = await res.json();
+        if (ocrProgressFill) ocrProgressFill.style.width = '100%';
+        if (ocrProgressStatus) ocrProgressStatus.textContent = 'Hoàn tất!';
+
+        if (ocrResPages) ocrResPages.textContent = data.total_pages || 1;
+        const outName = data.filename || data.output_file || 'scanned_ocr.md';
+        if (ocrResultFilename) ocrResultFilename.textContent = outName;
+        if (btnDownloadOcr) btnDownloadOcr.setAttribute('href', data.download_url || `/api/download/${outName}`);
+
+        if (ocrEmptyState) ocrEmptyState.style.display = 'none';
+        if (ocrResultBox) ocrResultBox.style.display = 'block';
+        showToast('Bóc tách OCR tiếng Việt thành công!', 'success');
+      } catch (err) {
+        showToast(`Lỗi OCR: ${err.message}`, 'error', 6000);
+      } finally {
+        btnRunOcr.disabled = false;
+        setTimeout(() => { if (ocrProgress) ocrProgress.style.display = 'none'; }, 1500);
+      }
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // SUB-TAB 5: UNIFIED QA AUDIT CONTROLLER
+  // -------------------------------------------------------------------------
+  let qaFile = null;
+  const qaDropZone = document.getElementById('qa-drop-zone');
+  const qaFileInput = document.getElementById('qa-file-input');
+  const btnBrowseQa = document.getElementById('btn-browse-qa');
+  const qaFileInfo = document.getElementById('qa-file-info');
+  const qaFileName = document.getElementById('qa-file-name');
+  const qaFileSize = document.getElementById('qa-file-size');
+  const qaFileExt = document.getElementById('qa-file-ext');
+  const btnRemoveQa = document.getElementById('btn-remove-qa');
+  const btnRunQaAudit = document.getElementById('btn-run-qa-audit');
+  const qaProgress = document.getElementById('qa-progress-container');
+  const qaProgressFill = document.getElementById('qa-progress-fill');
+  const qaProgressStatus = document.getElementById('qa-progress-status');
+  const qaResultBox = document.getElementById('qa-result-box');
+  const qaEmptyState = document.getElementById('qa-empty-state');
+  const qaBadgeStatus = document.getElementById('qa-badge-status');
+  const qaResCritical = document.getElementById('qa-res-critical');
+  const qaResWarning = document.getElementById('qa-res-warning');
+  const qaResRepaired = document.getElementById('qa-res-repaired');
+  const qaDownloadContainer = document.getElementById('qa-download-container');
+  const btnDownloadQaRepaired = document.getElementById('btn-download-qa-repaired');
+
+  if (qaDropZone && qaFileInput) {
+    qaDropZone.addEventListener('click', () => qaFileInput.click());
+    if (btnBrowseQa) btnBrowseQa.addEventListener('click', (e) => { e.stopPropagation(); qaFileInput.click(); });
+    qaFileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        qaFile = e.target.files[0];
+        const ext = qaFile.name.substring(qaFile.name.lastIndexOf('.')).replace('.', '').toUpperCase();
+        if (qaFileName) qaFileName.textContent = qaFile.name;
+        if (qaFileSize) qaFileSize.textContent = formatBytes(qaFile.size);
+        if (qaFileExt) qaFileExt.textContent = ext;
+        const c = qaDropZone.querySelector('.drop-zone-content');
+        if (c) c.style.display = 'none';
+        if (qaFileInfo) qaFileInfo.style.display = 'flex';
+        if (btnRunQaAudit) btnRunQaAudit.disabled = false;
+      }
+    });
+    if (btnRemoveQa) {
+      btnRemoveQa.addEventListener('click', (e) => {
+        e.stopPropagation();
+        qaFile = null;
+        qaFileInput.value = '';
+        if (qaFileInfo) qaFileInfo.style.display = 'none';
+        const c = qaDropZone.querySelector('.drop-zone-content');
+        if (c) c.style.display = 'block';
+        if (btnRunQaAudit) btnRunQaAudit.disabled = true;
+      });
+    }
+  }
+
+  if (btnRunQaAudit) {
+    btnRunQaAudit.addEventListener('click', async () => {
+      if (!qaFile) return;
+      btnRunQaAudit.disabled = true;
+      if (qaProgress) qaProgress.style.display = 'block';
+      if (qaProgressFill) qaProgressFill.style.width = '30%';
+      if (qaProgressStatus) qaProgressStatus.textContent = 'Đang tải lên tệp kiểm định...';
+
+      try {
+        const upRes = await uploadFileToServer(qaFile);
+        const serverPath = upRes.filepath || upRes.file_path;
+
+        if (qaProgressFill) qaProgressFill.style.width = '70%';
+        if (qaProgressStatus) qaProgressStatus.textContent = 'Đang quét 35+ quy chuẩn OpenXML & Geometry...';
+
+        const repairToggle = document.getElementById('qa-repair-toggle');
+        const doRepair = repairToggle ? repairToggle.checked : true;
+
+        const res = await fetch('/api/qa/audit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file_path: serverPath, repair: doRepair }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || 'Kiểm định QA thất bại');
+        }
+
+        const data = await res.json();
+        if (qaProgressFill) qaProgressFill.style.width = '100%';
+        if (qaProgressStatus) qaProgressStatus.textContent = 'Hoàn tất!';
+
+        const crit = data.critical_count || 0;
+        const warn = data.warning_count || 0;
+        if (qaResCritical) qaResCritical.textContent = crit;
+        if (qaResWarning) qaResWarning.textContent = warn;
+
+        if (qaBadgeStatus) {
+          if (crit === 0) {
+            qaBadgeStatus.className = 'result-badge-success';
+            qaBadgeStatus.innerHTML = '<i data-lucide="check-circle-2"></i> Đạt chuẩn chất lượng 100%!';
+          } else {
+            qaBadgeStatus.className = 'result-badge-danger';
+            qaBadgeStatus.innerHTML = `<i data-lucide="alert-triangle"></i> Phát hiện ${crit} lỗi nghiêm trọng!`;
+          }
+        }
+
+        if (qaResRepaired) {
+          if (data.repaired && data.repair_actions && data.repair_actions.length > 0) {
+            qaResRepaired.textContent = `${data.repair_actions.length} hành động sửa an toàn`;
+          } else {
+            qaResRepaired.textContent = 'Không cần sửa hoặc chế độ chỉ kiểm định';
+          }
+        }
+
+        if (qaDownloadContainer) {
+          if (data.download_url) {
+            qaDownloadContainer.style.display = 'block';
+            if (btnDownloadQaRepaired) btnDownloadQaRepaired.setAttribute('href', data.download_url);
+          } else {
+            qaDownloadContainer.style.display = 'none';
+          }
+        }
+
+        if (qaEmptyState) qaEmptyState.style.display = 'none';
+        if (qaResultBox) qaResultBox.style.display = 'block';
+        refreshLucideIcons();
+        showToast('Kiểm định QA hoàn tất!', 'success');
+      } catch (err) {
+        showToast(`Lỗi kiểm định: ${err.message}`, 'error', 6000);
+      } finally {
+        btnRunQaAudit.disabled = false;
+        setTimeout(() => { if (qaProgress) qaProgress.style.display = 'none'; }, 1500);
+      }
+    });
+  }
+
+  // =========================================================================
   // 8. TAB 3: DIAGRAM STUDIO CONTROLLER
   // =========================================================================
   const engineBtns = document.querySelectorAll('.engine-btn');
@@ -1632,7 +2408,7 @@ Rel(studio, pdf_reader, "Xuất bản PDF chất lượng cao")
       diagramPreviewImg.style.transform = 'none';
       if (btnZoomFit) btnZoomFit.classList.add('active');
       if (btnZoom100) btnZoom100.classList.remove('active');
-      if (zoomLevelBadge) zoomLevelBadge.textContent = 'Fit';
+      if (zoomLevelBadge) zoomLevelBadge.textContent = 'Khớp';
       if (diagramCanvasContainer) diagramCanvasContainer.classList.remove('panning');
     } else {
       diagramViewport.classList.remove('mode-fit');
@@ -1762,32 +2538,10 @@ Rel(studio, pdf_reader, "Xuất bản PDF chất lượng cao")
         diagramCodeInput.value = DIAGRAM_PRESETS.mermaid_sequence;
       } else if (engine === 'plantuml' && diagramCodeInput) {
         diagramCodeInput.value = DIAGRAM_PRESETS.plantuml_c4;
+      } else if (engine === 'canvas' && diagramCodeInput) {
+        diagramCodeInput.value = DIAGRAM_PRESETS.canvas_flow;
       } else if (engine === 'drawio' && diagramCodeInput) {
-        diagramCodeInput.value = `<mxfile host="Antigravity Studio" modified="2026-10-02" agent="WebStudio" version="21.0.0">
-  <diagram id="sample" name="System Overview">
-    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="800" background="#FFFFFF">
-      <root>
-        <mxCell id="0"/>
-        <mxCell id="1" parent="0"/>
-        <mxCell id="hub" value="Antigravity Hub" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0051E2;strokeColor=#003DB3;fontColor=#FFFFFF;fontStyle=1;fontSize=14;" vertex="1" parent="1">
-          <mxGeometry x="450" y="250" width="180" height="70" as="geometry"/>
-        </mxCell>
-        <mxCell id="spoke1" value="PDF Engine" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8F9FA;strokeColor=#1E293B;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="180" y="255" width="150" height="60" as="geometry"/>
-        </mxCell>
-        <mxCell id="spoke2" value="PPTX 16:9 Generator" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8F9FA;strokeColor=#1E293B;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="750" y="255" width="170" height="60" as="geometry"/>
-        </mxCell>
-        <mxCell id="e1" edge="1" parent="1" source="spoke1" target="hub" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#0051E2;">
-          <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-        <mxCell id="e2" edge="1" parent="1" source="hub" target="spoke2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=2;strokeColor=#0051E2;">
-          <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-      </root>
-    </mxGraphModel>
-  </diagram>
-</mxfile>`;
+        diagramCodeInput.value = DIAGRAM_PRESETS.drawio_overview;
       }
     });
   });
@@ -1815,6 +2569,113 @@ Rel(studio, pdf_reader, "Xuất bản PDF chất lượng cao")
       diagramCodeInput.value = DIAGRAM_PRESETS.mermaid_erd;
     });
   }
+
+  const btnSampleCanvas = document.getElementById('btn-sample-canvas');
+  if (btnSampleCanvas && diagramCodeInput) {
+    btnSampleCanvas.addEventListener('click', () => {
+      engineBtns.forEach((b) => b.classList.toggle('active', b.getAttribute('data-engine') === 'canvas'));
+      state.diagramEngine = 'canvas';
+      diagramCodeInput.value = DIAGRAM_PRESETS.canvas_flow;
+    });
+  }
+
+  const diagramPresetSelect = document.getElementById('diagram-preset-select');
+  if (diagramPresetSelect && diagramCodeInput) {
+    diagramPresetSelect.addEventListener('change', (e) => {
+      const presetKey = e.target.value;
+      if (!presetKey || !DIAGRAM_PRESETS[presetKey]) return;
+
+      let targetEngine = 'mermaid';
+      if (presetKey.startsWith('plantuml_')) {
+        targetEngine = 'plantuml';
+      } else if (presetKey.startsWith('drawio_')) {
+        targetEngine = 'drawio';
+      } else if (presetKey.startsWith('canvas_')) {
+        targetEngine = 'canvas';
+      }
+
+      state.diagramEngine = targetEngine;
+      engineBtns.forEach((b) => b.classList.toggle('active', b.getAttribute('data-engine') === targetEngine));
+      diagramCodeInput.value = DIAGRAM_PRESETS[presetKey];
+      showToast(`Đã tải mẫu: ${presetKey.replace('_', ' ').toUpperCase()}`, 'info');
+    });
+  }
+
+  function insertSnippetIntoEditor(snippet) {
+    if (!diagramCodeInput) return;
+    const start = diagramCodeInput.selectionStart;
+    const end = diagramCodeInput.selectionEnd;
+    const text = diagramCodeInput.value;
+    if (typeof start === 'number' && typeof end === 'number') {
+      diagramCodeInput.value = text.substring(0, start) + snippet + text.substring(end);
+      diagramCodeInput.selectionStart = diagramCodeInput.selectionEnd = start + snippet.length;
+    } else {
+      diagramCodeInput.value += snippet;
+    }
+    diagramCodeInput.focus();
+  }
+
+  const toolstripBtns = document.querySelectorAll('.toolstrip-btn');
+  toolstripBtns.forEach((tBtn) => {
+    tBtn.addEventListener('click', () => {
+      const sym = tBtn.getAttribute('data-symbol');
+      const randId = Math.floor(1000 + Math.random() * 9000);
+      let snippet = '';
+
+      if (state.diagramEngine === 'mermaid') {
+        const map = {
+          actor: `\n  actor User_${randId} as Người Dùng\n`,
+          database: `\n  DB_${randId}[(Cơ Sở Dữ Liệu)]\n`,
+          decision: `\n  Cond_${randId}{"Điều Kiện Kiểm Tra?"}\n`,
+          cloud: `\n  subgraph Cloud_${randId} [Hệ Thống Đám Mây]\n    Svc_${randId}[Dịch Vụ Ngoài]\n  end\n`,
+          terminator: `\n  Term_${randId}([Bắt Đầu / Kết Thúc])\n`,
+          queue: `\n  Queue_${randId}[("(Hàng Đợi Queue)")]\n`,
+          component: `\n  Comp_${randId}[Mô-đun Hệ Thống]\n`,
+          document: `\n  Doc_${randId}[/"Tài Liệu Báo Cáo"/]\n`,
+        };
+        snippet = map[sym] || `\n  Node_${randId}[Khối Mới]\n`;
+      } else if (state.diagramEngine === 'plantuml') {
+        const map = {
+          actor: `\nactor "Người Dùng" as User_${randId}\n`,
+          database: `\ndatabase "Cơ Sở Dữ Liệu" as DB_${randId}\n`,
+          decision: `\nif (Điều kiện kiểm tra?) then (Đúng)\n  :Xử lý tiếp;\nelse (Sai)\n  :Báo lỗi;\nendif\n`,
+          cloud: `\ncloud "Dịch Vụ Cloud" as Cloud_${randId}\n`,
+          terminator: `\nstart\n:Bắt đầu tác vụ;\nstop\n`,
+          queue: `\nqueue "Hàng Đợi Tin Nhắn" as Queue_${randId}\n`,
+          component: `\n[Mô-đun Thành Phần] as Comp_${randId}\n`,
+          document: `\nfile "Tệp Tài Liệu" as Doc_${randId}\n`,
+        };
+        snippet = map[sym] || `\n:Tác Vụ Mới;\n`;
+      } else if (state.diagramEngine === 'canvas') {
+        const map = {
+          actor: `,\n    {\n      "id": "actor_${randId}",\n      "title": "Actor User",\n      "type": "actor",\n      "x": 100,\n      "y": 200,\n      "width": 70,\n      "height": 100,\n      "icon": "user"\n    }`,
+          database: `,\n    {\n      "id": "db_${randId}",\n      "title": "Database",\n      "type": "database",\n      "x": 300,\n      "y": 200,\n      "width": 140,\n      "height": 90,\n      "icon": "database"\n    }`,
+          decision: `,\n    {\n      "id": "decision_${randId}",\n      "title": "Check Valid?",\n      "type": "decision",\n      "x": 300,\n      "y": 200,\n      "width": 140,\n      "height": 90\n    }`,
+          cloud: `,\n    {\n      "id": "cloud_${randId}",\n      "title": "External Cloud",\n      "type": "cloud",\n      "x": 300,\n      "y": 200,\n      "width": 180,\n      "height": 90,\n      "icon": "cloud"\n    }`,
+          terminator: `,\n    {\n      "id": "term_${randId}",\n      "title": "Start/End",\n      "type": "terminator",\n      "x": 300,\n      "y": 200,\n      "width": 140,\n      "height": 60\n    }`,
+          queue: `,\n    {\n      "id": "queue_${randId}",\n      "title": "Message Queue",\n      "type": "queue",\n      "x": 300,\n      "y": 200,\n      "width": 160,\n      "height": 70\n    }`,
+          component: `,\n    {\n      "id": "comp_${randId}",\n      "title": "Component",\n      "type": "component",\n      "x": 300,\n      "y": 200,\n      "width": 180,\n      "height": 80,\n      "icon": "server"\n    }`,
+          document: `,\n    {\n      "id": "doc_${randId}",\n      "title": "Document",\n      "type": "document",\n      "x": 300,\n      "y": 200,\n      "width": 150,\n      "height": 80\n    }`,
+        };
+        snippet = map[sym] || `,\n    {\n      "id": "node_${randId}",\n      "title": "New Node",\n      "type": "standard",\n      "x": 300,\n      "y": 200,\n      "width": 180,\n      "height": 80\n    }`;
+      } else if (state.diagramEngine === 'drawio') {
+        const map = {
+          actor: `\n        <mxCell id="actor_${randId}" value="User Actor" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#1E293B;strokeWidth=1.8;" vertex="1" parent="1">\n          <mxGeometry x="100" y="200" width="60" height="90" as="geometry"/>\n        </mxCell>`,
+          database: `\n        <mxCell id="db_${randId}" value="Database" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#F8FAFC;strokeColor=#2563EB;strokeWidth=1.8;fontSize=13;" vertex="1" parent="1">\n          <mxGeometry x="300" y="200" width="120" height="90" as="geometry"/>\n        </mxCell>`,
+          decision: `\n        <mxCell id="decision_${randId}" value="Condition?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#D97706;strokeWidth=1.8;fontSize=13;" vertex="1" parent="1">\n          <mxGeometry x="300" y="200" width="130" height="85" as="geometry"/>\n        </mxCell>`,
+          cloud: `\n        <mxCell id="cloud_${randId}" value="Cloud API" style="ellipse;shape=cloud;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#0284C7;strokeWidth=1.8;fontSize=13;" vertex="1" parent="1">\n          <mxGeometry x="300" y="200" width="170" height="90" as="geometry"/>\n        </mxCell>`,
+          terminator: `\n        <mxCell id="term_${randId}" value="Start/Stop" style="rounded=1;arcSize=50;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#10B981;strokeWidth=1.8;fontSize=13;" vertex="1" parent="1">\n          <mxGeometry x="300" y="200" width="140" height="60" as="geometry"/>\n        </mxCell>`,
+          queue: `\n        <mxCell id="queue_${randId}" value="Task Queue" style="shape=tape;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#7C3AED;strokeWidth=1.8;fontSize=13;" vertex="1" parent="1">\n          <mxGeometry x="300" y="200" width="150" height="70" as="geometry"/>\n        </mxCell>`,
+          component: `\n        <mxCell id="comp_${randId}" value="Component" style="shape=module;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#2563EB;strokeWidth=1.8;fontSize=13;" vertex="1" parent="1">\n          <mxGeometry x="300" y="200" width="160" height="80" as="geometry"/>\n        </mxCell>`,
+          document: `\n        <mxCell id="doc_${randId}" value="Report Doc" style="shape=document;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#F8FAFC;strokeColor=#475569;strokeWidth=1.8;fontSize=13;" vertex="1" parent="1">\n          <mxGeometry x="300" y="200" width="140" height="80" as="geometry"/>\n        </mxCell>`,
+        };
+        snippet = map[sym] || `\n        <mxCell id="node_${randId}" value="New Node" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">\n          <mxGeometry x="300" y="200" width="180" height="70" as="geometry"/>\n        </mxCell>`;
+      }
+
+      insertSnippetIntoEditor(snippet);
+      showToast(`Đã chèn ký hiệu ${sym.toUpperCase()}!`, 'info');
+    });
+  });
 
   if (btnRenderDiagram) {
     btnRenderDiagram.addEventListener('click', async () => {
@@ -1857,6 +2718,7 @@ Rel(studio, pdf_reader, "Xuất bản PDF chất lượng cao")
         if (diagramZoomToolbar) diagramZoomToolbar.style.display = 'flex';
         if (diagramHintBar) diagramHintBar.style.display = 'flex';
         if (btnDownloadDiagram) btnDownloadDiagram.setAttribute('href', downloadUrl);
+        refreshLucideIcons();
 
         // Auto default to fit mode for instant full overview
         setViewMode('fit');
@@ -2057,6 +2919,10 @@ $$R_{eff} = \\sqrt{R_1^2 - R_2^2}$$`,
       [/\\pi/g, 'π'],
       [/\\sigma/g, 'σ'],
       [/\\theta/g, 'θ'],
+      [/\\mu/g, 'μ'],
+      [/\\lambda/g, 'λ'],
+      [/\\phi/g, 'ϕ'],
+      [/\\Phi/g, 'Φ'],
       [/\\approx/g, '≈'],
       [/\\le/g, '≤'],
       [/\\ge/g, '≥'],
@@ -2072,6 +2938,14 @@ $$R_{eff} = \\sqrt{R_1^2 - R_2^2}$$`,
 
     let s = latex;
 
+    // Apply token replacements first so symbols inside fractions or sub/sup are converted
+    for (const [pattern, repl] of replacements) {
+      s = s.replace(pattern, repl);
+    }
+
+    // Text: \text{...}
+    s = s.replace(/\\text\{([^{}]+)\}/g, '<span style="font-family: var(--font-sans); font-style: normal;">$1</span>');
+
     // Fractions: \frac{num}{den}
     s = s.replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, (match, num, den) => {
       return `<span class="math-fraction-view"><span class="math-frac-num">${formatLatexToHtml(num)}</span><span class="math-frac-den">${formatLatexToHtml(den)}</span></span>`;
@@ -2082,20 +2956,13 @@ $$R_{eff} = \\sqrt{R_1^2 - R_2^2}$$`,
       return `<span class="math-sqrt-view"><span class="math-sqrt-sym">√</span><span class="math-sqrt-rad">${formatLatexToHtml(rad)}</span></span>`;
     });
 
-    // Text: \text{...}
-    s = s.replace(/\\text\{([^{}]+)\}/g, '<span style="font-family: var(--font-sans); font-style: normal;">$1</span>');
-
     // Superscripts: ^{...} or ^x
     s = s.replace(/\^\{([^{}]+)\}/g, '<sup>$1</sup>');
-    s = s.replace(/\^([0-9a-zA-Z])/g, '<sup>$1</sup>');
+    s = s.replace(/\^([0-9a-zA-Z]+)/g, '<sup>$1</sup>');
 
     // Subscripts: _{...} or _x
     s = s.replace(/_\{([^{}]+)\}/g, '<sub>$1</sub>');
-    s = s.replace(/_([0-9a-zA-Z])/g, '<sub>$1</sub>');
-
-    for (const [pattern, repl] of replacements) {
-      s = s.replace(pattern, repl);
-    }
+    s = s.replace(/_([0-9a-zA-Z]+)/g, '<sub>$1</sub>');
 
     return s;
   }

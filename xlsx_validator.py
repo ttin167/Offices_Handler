@@ -117,6 +117,32 @@ def detect_section_boundaries(ws_ref: Any) -> Tuple[int, int, int, int, int, int
     )
 
 
+def _resolve_sheet_name(wb: openpyxl.Workbook, raw_name: Optional[str]) -> Optional[str]:
+    """
+    Soft-matches sheet names handling quotes ('Scope ', "Scope") and trailing whitespace.
+    """
+    if raw_name is None:
+        return None
+    raw_str = str(raw_name).strip()
+    if not raw_str or raw_str.lower() in ("none", "null"):
+        return None
+    clean = raw_str.strip("'\"").strip()
+    # 1. Exact match with original or stripped clean
+    if raw_str in wb.sheetnames:
+        return raw_str
+    if clean in wb.sheetnames:
+        return clean
+    # 2. Stripped match (e.g. workbook sheet is 'Scope ')
+    for s in wb.sheetnames:
+        if s.strip() == clean:
+            return s
+    # 3. Case-insensitive stripped match
+    for s in wb.sheetnames:
+        if s.strip().lower() == clean.lower():
+            return s
+    return None
+
+
 def validate_excel_sheet(
     workbook_or_path: Union[str, openpyxl.Workbook],
     target_sheet: Optional[str] = None,
@@ -135,37 +161,40 @@ def validate_excel_sheet(
         wb = workbook_or_path
 
     # Auto-default target sheet if None, empty, or string "None"/"null"
-    if not target_sheet or str(target_sheet).strip().lower() in ("none", "null", ""):
-        target_sheet = wb.sheetnames[0]
-
-    if target_sheet not in wb.sheetnames:
-        if is_path:
-            try:
-                wb.close()
-            except Exception:
-                pass
-        raise ValueError(f"Target sheet '{target_sheet}' not found. Available: {wb.sheetnames}")
+    resolved_target = _resolve_sheet_name(wb, target_sheet)
+    if not resolved_target:
+        if not target_sheet or str(target_sheet).strip().lower() in ("none", "null", ""):
+            resolved_target = wb.sheetnames[0]
+        else:
+            if is_path:
+                try:
+                    wb.close()
+                except Exception:
+                    pass
+            raise ValueError(f"Target sheet '{target_sheet}' not found. Available: {wb.sheetnames}")
+    target_sheet = resolved_target
 
     # Discover reference sheet if not specified
-    if not ref_sheet or str(ref_sheet).strip().lower() in ("none", "null", ""):
-        ref_sheet = None
-        ref_candidates = ["Example", "Template", "Sample", "Pattern", "Ref", "Reference"]
-        for cand in ref_candidates:
-            matched = next((s for s in wb.sheetnames if s.lower() == cand.lower()), None)
-            if matched and matched != target_sheet:
-                ref_sheet = matched
-                break
-        if not ref_sheet:
-            # Fallback to first available sheet that isn't the target sheet
-            ref_sheet = next((s for s in wb.sheetnames if s != target_sheet), target_sheet)
-
-    if ref_sheet not in wb.sheetnames:
-        if is_path:
-            try:
-                wb.close()
-            except Exception:
-                pass
-        raise ValueError(f"Reference sheet '{ref_sheet}' not found. Available: {wb.sheetnames}")
+    resolved_ref = _resolve_sheet_name(wb, ref_sheet)
+    if not resolved_ref:
+        if not ref_sheet or str(ref_sheet).strip().lower() in ("none", "null", ""):
+            ref_candidates = ["Example", "Template", "Sample", "Pattern", "Ref", "Reference"]
+            for cand in ref_candidates:
+                matched = next((s for s in wb.sheetnames if s.strip().lower() == cand.lower()), None)
+                if matched and matched != target_sheet:
+                    resolved_ref = matched
+                    break
+            if not resolved_ref:
+                # Fallback to first available sheet that isn't the target sheet
+                resolved_ref = next((s for s in wb.sheetnames if s != target_sheet), target_sheet)
+        else:
+            if is_path:
+                try:
+                    wb.close()
+                except Exception:
+                    pass
+            raise ValueError(f"Reference sheet '{ref_sheet}' not found. Available: {wb.sheetnames}")
+    ref_sheet = resolved_ref
 
     ws_tgt = wb[target_sheet]
     ws_ref = wb[ref_sheet]

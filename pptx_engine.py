@@ -108,13 +108,64 @@ def parse_markdown_to_slides_spec(md_text: str, default_theme: str = "corporate_
             title = first_line[4:].strip()
             lines = lines[1:]
 
-        # Parse remaining lines
-        for line in lines:
+        # Parse remaining lines with code block & diagram support
+        in_code_block = False
+        code_block_lang = ""
+        code_block_lines: List[str] = []
+
+        line_idx = 0
+        while line_idx < len(lines):
+            line = lines[line_idx]
+
+            # Fenced code block detection (for diagrams & code snippets)
+            if line.startswith("```"):
+                if in_code_block:
+                    code_content = "\n".join(code_block_lines).strip()
+                    lang_clean = (code_block_lang or "").strip().lower()
+                    diag_res = None
+                    if lang_clean in (
+                        "mermaid", "mmd", "plantuml", "puml", "drawio", "mxgraph", "xml",
+                        "canvas", "spec", "diagram-spec", "diagram", "json"
+                    ):
+                        try:
+                            from core.diagrams.bridge import render_diagram_code_to_png
+                        except (ImportError, ValueError):
+                            try:
+                                from diagram_bridge import render_diagram_code_to_png
+                            except (ImportError, ValueError):
+                                render_diagram_code_to_png = None
+
+                        if render_diagram_code_to_png:
+                            diag_res = render_diagram_code_to_png(code_content, lang_clean)
+
+                    if diag_res and diag_res.get("png_path") and os.path.isfile(diag_res["png_path"]):
+                        cap = diag_res.get("title") or f"Sơ đồ {lang_clean.capitalize()}"
+                        images.append((diag_res["png_path"], cap))
+                    else:
+                        for cl in code_block_lines:
+                            bullets.append((cl, 0))
+
+                    in_code_block = False
+                    code_block_lines = []
+                    code_block_lang = ""
+                else:
+                    in_code_block = True
+                    code_block_lang = line[3:].strip()
+                    code_block_lines = []
+                line_idx += 1
+                continue
+
+            if in_code_block:
+                code_block_lines.append(line)
+                line_idx += 1
+                continue
+
             # Notes syntax: <!-- note: ... -->
             if "<!-- note:" in line:
                 m_note = re.search(r'<!--\s*note:\s*(.*?)\s*-->', line, re.IGNORECASE)
                 if m_note:
                     notes = m_note.group(1).strip()
+                line_idx += 1
                 continue
 
             # Banner syntax: <!-- banner: ... -->
@@ -122,27 +173,44 @@ def parse_markdown_to_slides_spec(md_text: str, default_theme: str = "corporate_
                 m_b = re.search(r'<!--\s*banner:\s*(.*?)\s*-->', line, re.IGNORECASE)
                 if m_b:
                     banner = m_b.group(1).strip()
+                line_idx += 1
                 continue
 
             # Subtitle syntax: > Subtitle
             if line.startswith("> "):
                 subtitle = line[2:].strip()
+                line_idx += 1
                 continue
 
-            # Image / Diagram syntax: ![Caption](path/to/img.png)
+            # Image / Diagram syntax: ![Caption](path/to/img.png or spec.json)
             m_img = re.search(r'!\[(.*?)\]\((.*?)\)', line)
             if m_img:
                 cap, path = m_img.group(1), m_img.group(2)
-                images.append((path, cap))
+                try:
+                    from core.diagrams.bridge import render_diagram_file_to_png
+                except (ImportError, ValueError):
+                    try:
+                        from diagram_bridge import render_diagram_file_to_png
+                    except (ImportError, ValueError):
+                        render_diagram_file_to_png = None
+
+                diag_file_res = render_diagram_file_to_png(path) if render_diagram_file_to_png else None
+                if diag_file_res and diag_file_res.get("png_path") and os.path.isfile(diag_file_res["png_path"]):
+                    images.append((diag_file_res["png_path"], cap or diag_file_res.get("title") or ""))
+                else:
+                    images.append((path, cap))
+                line_idx += 1
                 continue
 
             # Markdown Table Syntax: | Col 1 | Col 2 |
             if line.startswith("|") and line.endswith("|"):
                 # Skip divider line like |---|---|
                 if re.match(r'^\|[\s\-:|]+\|$', line):
+                    line_idx += 1
                     continue
                 cells = [c.strip() for c in line.strip("|").split("|")]
                 table_rows.append(cells)
+                line_idx += 1
                 continue
 
             # Bullets
@@ -152,6 +220,7 @@ def parse_markdown_to_slides_spec(md_text: str, default_theme: str = "corporate_
                 level = min(indent // 2, 2)
                 text = m_bullet.group(3).strip()
                 bullets.append((text, level))
+                line_idx += 1
                 continue
 
             # Regular text line
@@ -161,6 +230,7 @@ def parse_markdown_to_slides_spec(md_text: str, default_theme: str = "corporate_
                 subtitle = line
             else:
                 bullets.append((line, 0))
+            line_idx += 1
 
         # Determine final slide spec
         if table_rows and len(table_rows) >= 2:

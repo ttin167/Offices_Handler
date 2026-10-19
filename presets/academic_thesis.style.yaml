@@ -1,0 +1,42 @@
+# Preset: Khóa luận / Luận văn Thạc sĩ / Tiến sĩ Chuẩn Học Thuật
+
+geometry:
+  page_size: A4
+  orientation: portrait
+  margin:
+    top: 25mm     # 25mm
+    bottom: 25mm  # 25mm
+    left: 35mm    # 35mm (rộng để đóng gáy lò xo / gáy sách)
+    right: 20mm   # 20mm
+
+typography:
+  font_family: "Times New Roman, serif"
+  font_size: "13pt"
+  body_color: "#1E293B"
+  line_spacing: 1.5        # Giãn dòng học thuật chuẩn 1.5 lines
+  paragraph_spacing_after: "6pt"
+  paragraph_spacing_before: "0pt"
+  first_line_indent: "1.0cm"
+
+headings:
+  color: "#0F294A"         # Thesis Blue
+  h1_size: "16pt"
+  h1_bold: true
+  h2_size: "14pt"
+  h2_bold: true
+  h3_size: "13pt"
+  h3_bold: true
+  h4_size: "13pt"
+  h4_italic: true
+
+tables:
+  header_background: "#E2E8F0"
+  header_bold: true
+  header_align: "center"
+  border_color: "#94A3B8"
+  cell_valign: "center"
+
+lists:
+  bullet_glyph: "•"
+  space_before: "3pt"
+  space_after: "3pt"

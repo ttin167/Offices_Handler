@@ -470,16 +470,20 @@ def _format_bullet_paragraph(
         level = int(item.get("level", 0))
     elif isinstance(item, str):
         # Match markdown bold prefix like "**Prefix:** Body" or "**Prefix**: Body"
-        m = re.match(r'^\*\*(.*?)\*\*[:\s]*(.*)$', item.strip())
-        if m:
-            prefix = m.group(1).strip()
-            body = m.group(2).strip()
-        elif ":" in item and len(item.split(":", 1)[0]) <= 32 and not item.startswith("http"):
-            parts = item.split(":", 1)
-            prefix = parts[0].strip()
-            body = parts[1].strip()
+        m_bold = re.match(r'^\*\*(.*?)\*\*[:\s]*(.*)$', item.strip())
+        if m_bold:
+            prefix = m_bold.group(1).strip()
+            body = m_bold.group(2).strip()
         else:
-            body = item.strip()
+            # Chỉ tách tại dấu ':' có khoảng trắng phía sau (:\s+), bỏ qua '16:9', ':8000', '<w:num>', 'w:id'
+            # Đồng thời xử lý đúng câu có 2 dấu hai chấm:
+            # Chuẩn Widescreen 16:9 (PPTX_INV_01): Kích thước slide mặc định...
+            m_colon = re.match(r"^([^<>]{2,45}?):\s+(.+)$", item.strip())
+            if m_colon and not any(m_colon.group(1).lower().startswith(p) for p in ("http", "https")):
+                prefix = m_colon.group(1).strip()
+                body = m_colon.group(2).strip()
+            else:
+                body = item.strip()
 
     p.level = min(level, 2)
     eff_size = font_size_pt if p.level == 0 else max(11.0, font_size_pt - 2.0)
@@ -1895,6 +1899,65 @@ def add_grid_cards_slide(
     content_top = _add_slide_header(slide, title, subtitle, theme, banner=banner)
 
     n = len(cards)
+    if 6 <= n <= 12:
+        # 2-Column Balanced Agenda Grid (Left: 1..ceil(n/2), Right: ceil(n/2)+1..n)
+        cols = 2
+        rows_col0 = (n + 1) // 2
+        max_rows = rows_col0
+        total_w = 11.733
+        gap_x = 0.533
+        card_w = (total_w - gap_x) / 2  # 5.60 inches
+        total_h = min(5.0, 7.0 - content_top - 0.2)
+        gap_y = max(0.08, min(0.18, (total_h - max_rows * 0.55) / max(1, max_rows - 1)))
+        card_h = (total_h - (max_rows - 1) * gap_y) / max_rows
+
+        for idx, cdata in enumerate(cards):
+            if idx < rows_col0:
+                c = 0
+                r = idx
+            else:
+                c = 1
+                r = idx - rows_col0
+            cx = 0.8 + c * (card_w + gap_x)
+            cy = content_top + 0.10 + r * (card_h + gap_y)
+
+            card = slide.shapes.add_shape(
+                MSO_SHAPE.ROUNDED_RECTANGLE,
+                Inches(cx), Inches(cy), Inches(card_w), Inches(card_h)
+            )
+            card.fill.solid()
+            card.fill.fore_color.rgb = theme["card_bg"]
+            card.line.color.rgb = theme["card_border"]
+            card.line.width = Pt(1.2)
+
+            tf = card.text_frame
+            tf.word_wrap = True
+            tf.margin_left = Inches(0.14)
+            tf.margin_right = Inches(0.14)
+            tf.margin_top = Inches(0.06)
+            tf.margin_bottom = Inches(0.06)
+
+            p_t = tf.paragraphs[0]
+            set_paragraph_text_clean(
+                p_t, cdata.get("title", f"Phần {idx+1}"),
+                font_size_pt=12.0, is_bold=True,
+                color=theme.get("title_color", RGBColor(0, 0, 0)),
+                font_name=theme["font_heading"]
+            )
+
+            desc = cdata.get("description", cdata.get("desc", ""))
+            if desc:
+                p_d = tf.add_paragraph()
+                p_d.space_before = Pt(2)
+                set_paragraph_text_clean(
+                    p_d, desc,
+                    font_size_pt=9.5, is_bold=False,
+                    color=theme.get("text_color", RGBColor(100, 116, 139)),
+                    font_name=theme["font_body"]
+                )
+
+        return slide
+
     cols = 2 if n <= 4 else (3 if n <= 6 else 4)
     rows = (n + cols - 1) // cols
 
@@ -2045,6 +2108,423 @@ def paginate_slide_specs(
 
         paginated.append(s)
     return paginated
+
+
+# ---------------------------------------------------------------------------
+# Business Layout Functions (v4.0)
+# ---------------------------------------------------------------------------
+
+def add_kpi_summary_slide(
+    prs: PresentationType,
+    title: str,
+    metrics: List[Dict[str, Any]],
+    subtitle: Optional[str] = None,
+    banner: Optional[str] = None,
+    theme_name: str = "corporate_blue",
+    target_slide: Optional[Any] = None,
+) -> Any:
+    """Creates a rich KPI Executive Summary slide with up to 4 metric cards and trend badges."""
+    theme = get_theme(theme_name)
+    slide = _prepare_slide(prs, theme, target_slide=target_slide)
+    top_y = _add_slide_header(slide, title, subtitle, theme, banner=banner)
+
+    count = max(1, min(len(metrics), 4))
+    total_w = 11.733
+    gap = 0.28
+    card_w = (total_w - (count - 1) * gap) / count
+    card_top = top_y + 0.25
+    card_h = min(4.5, 7.0 - card_top)
+
+    for i, m in enumerate(metrics[:4]):
+        card_x = 0.8 + i * (card_w + gap)
+
+        card = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE,
+            Inches(card_x), Inches(card_top), Inches(card_w), Inches(card_h)
+        )
+        card.fill.solid()
+        card.fill.fore_color.rgb = theme.get("card_bg", RGBColor(255, 255, 255))
+        card.line.color.rgb = theme.get("card_border", RGBColor(226, 232, 240))
+        card.line.width = Pt(1.5)
+
+        tf = card.text_frame
+        tf.word_wrap = True
+        tf.margin_left = Inches(0.25)
+        tf.margin_right = Inches(0.25)
+        tf.margin_top = Inches(0.35)
+
+        # 1. Label
+        lbl = str(m.get("label", m.get("title", f"Chỉ số {i+1}"))).upper()
+        p_lbl = tf.paragraphs[0]
+        p_lbl.space_after = Pt(8)
+        set_paragraph_text_clean(
+            p_lbl, lbl, font_size_pt=11, is_bold=True,
+            color=theme.get("subtitle_color", RGBColor(100, 116, 139)),
+            font_name=theme["font_heading"]
+        )
+
+        # 2. Big Numerical Value
+        val_str = str(m.get("value", "0"))
+        p_val = tf.add_paragraph()
+        p_val.space_after = Pt(8)
+        set_paragraph_text_clean(
+            p_val, val_str, font_size_pt=36, is_bold=True,
+            color=theme.get("accent_color", RGBColor(0, 81, 226)),
+            font_name=theme["font_heading"]
+        )
+
+        # 3. Delta Trend Badge
+        delta = str(m.get("change", m.get("delta", "")))
+        if delta:
+            p_delta = tf.add_paragraph()
+            p_delta.space_after = Pt(10)
+            if "+" in delta or "▲" in delta or "up" in delta.lower():
+                badge_text = delta if "▲" in delta else f"▲ {delta}"
+                badge_clr = RGBColor(16, 185, 129)  # Emerald
+            elif "-" in delta or "▼" in delta or "down" in delta.lower():
+                badge_text = delta if "▼" in delta else f"▼ {delta}"
+                badge_clr = RGBColor(239, 68, 68)  # Crimson
+            else:
+                badge_text = f"• {delta}"
+                badge_clr = theme.get("subtitle_color", RGBColor(100, 116, 139))
+
+            set_paragraph_text_clean(
+                p_delta, badge_text, font_size_pt=12, is_bold=True,
+                color=badge_clr, font_name=theme["font_heading"]
+            )
+
+        # 4. Contextual Description
+        desc_str = str(m.get("desc", m.get("description", m.get("subtitle", ""))))
+        if desc_str:
+            p_desc = tf.add_paragraph()
+            set_paragraph_text_clean(
+                p_desc, desc_str, font_size_pt=11.5, is_bold=False,
+                color=theme.get("text_color", RGBColor(0, 0, 0)),
+                font_name=theme["font_body"]
+            )
+
+    return slide
+
+
+def add_timeline_roadmap_slide(
+    prs: PresentationType,
+    title: str,
+    milestones: List[Dict[str, Any]],
+    subtitle: Optional[str] = None,
+    banner: Optional[str] = None,
+    theme_name: str = "corporate_blue",
+    target_slide: Optional[Any] = None,
+) -> Any:
+    """Creates a clean Horizontal Timeline / Roadmap slide with milestone nodes and deliverables."""
+    theme = get_theme(theme_name)
+    slide = _prepare_slide(prs, theme, target_slide=target_slide)
+    top_y = _add_slide_header(slide, title, subtitle, theme, banner=banner)
+
+    items = milestones[:5] if len(milestones) > 5 else milestones
+    count = max(1, len(items))
+    total_w = 11.733
+    start_x = 0.8
+    axis_y = top_y + 0.85
+
+    # Continuous axis line
+    axis_line = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE,
+        Inches(start_x), Inches(axis_y), Inches(total_w), Inches(0.04)
+    )
+    axis_line.fill.solid()
+    axis_line.fill.fore_color.rgb = theme.get("accent_color", RGBColor(37, 99, 235))
+    axis_line.line.fill.background()
+
+    gap = 0.25
+    col_w = (total_w - (count - 1) * gap) / count
+
+    for i, item in enumerate(items):
+        node_center_x = start_x + i * (col_w + gap) + col_w / 2
+
+        # 1. Phase tag above axis
+        phase_str = str(item.get("phase", item.get("date", item.get("quarter", f"Phase {i+1}"))))
+        tb_phase = slide.shapes.add_textbox(
+            Inches(node_center_x - col_w / 2), Inches(axis_y - 0.55), Inches(col_w), Inches(0.4)
+        )
+        tf_p = tb_phase.text_frame
+        tf_p.word_wrap = True
+        p_p = tf_p.paragraphs[0]
+        p_p.alignment = PP_ALIGN.CENTER
+        set_paragraph_text_clean(
+            p_p, phase_str.upper(), font_size_pt=11, is_bold=True,
+            color=theme.get("accent_color", RGBColor(37, 99, 235)),
+            font_name=theme["font_heading"]
+        )
+
+        # 2. Circular node badge on the axis line
+        node_d = 0.40
+        circle = slide.shapes.add_shape(
+            MSO_SHAPE.OVAL,
+            Inches(node_center_x - node_d / 2), Inches(axis_y - node_d / 2 + 0.02),
+            Inches(node_d), Inches(node_d)
+        )
+        circle.fill.solid()
+        circle.fill.fore_color.rgb = theme.get("accent_color", RGBColor(37, 99, 235))
+        circle.line.color.rgb = RGBColor(255, 255, 255)
+        circle.line.width = Pt(2.0)
+        p_c = circle.text_frame.paragraphs[0]
+        p_c.alignment = PP_ALIGN.CENTER
+        set_paragraph_text_clean(
+            p_c, f"{i+1:02d}", font_size_pt=10, is_bold=True,
+            color=RGBColor(255, 255, 255), font_name=theme["font_heading"]
+        )
+
+        # 3. Content card below axis line
+        card_y = axis_y + 0.45
+        card_h = min(3.8, 7.0 - card_y)
+        card = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE,
+            Inches(start_x + i * (col_w + gap)), Inches(card_y),
+            Inches(col_w), Inches(card_h)
+        )
+        card.fill.solid()
+        card.fill.fore_color.rgb = theme.get("card_bg", RGBColor(255, 255, 255))
+        card.line.color.rgb = theme.get("card_border", RGBColor(226, 232, 240))
+        card.line.width = Pt(1.5)
+
+        tf = card.text_frame
+        tf.word_wrap = True
+        tf.margin_left = Inches(0.2)
+        tf.margin_right = Inches(0.2)
+        tf.margin_top = Inches(0.25)
+
+        m_title = str(item.get("title", item.get("name", f"Cột mốc {i+1}")))
+        p_title = tf.paragraphs[0]
+        p_title.space_after = Pt(8)
+        set_paragraph_text_clean(
+            p_title, m_title, font_size_pt=12.5, is_bold=True,
+            color=theme.get("title_color", RGBColor(0, 0, 0)),
+            font_name=theme["font_heading"]
+        )
+
+        tasks = item.get("tasks", item.get("bullets", item.get("items", [])))
+        if isinstance(tasks, str):
+            tasks = [tasks]
+        for t_text in tasks[:4]:
+            p_t = tf.add_paragraph()
+            p_t.space_after = Pt(4)
+            set_paragraph_text_clean(
+                p_t, f"• {t_text}", font_size_pt=10.5, is_bold=False,
+                color=theme.get("text_color", RGBColor(0, 0, 0)),
+                font_name=theme["font_body"]
+            )
+
+    return slide
+
+
+def add_swot_matrix_slide(
+    prs: PresentationType,
+    title: str,
+    swot_data: Union[Dict[str, Any], List[Dict[str, Any]]],
+    subtitle: Optional[str] = None,
+    banner: Optional[str] = None,
+    theme_name: str = "corporate_blue",
+    target_slide: Optional[Any] = None,
+) -> Any:
+    """Creates a balanced 2x2 SWOT Matrix slide (Strengths, Weaknesses, Opportunities, Threats)."""
+    theme = get_theme(theme_name)
+    slide = _prepare_slide(prs, theme, target_slide=target_slide)
+    top_y = _add_slide_header(slide, title, subtitle, theme, banner=banner)
+
+    # Standardize swot input
+    quadrants = [
+        {
+            "key": "S",
+            "title": "STRENGTHS (ĐIỂM MẠNH)",
+            "color": RGBColor(37, 99, 235),      # Blue
+            "border": RGBColor(191, 219, 254),
+            "bg": RGBColor(248, 250, 252),
+            "items": []
+        },
+        {
+            "key": "W",
+            "title": "WEAKNESSES (ĐIỂM YẾU)",
+            "color": RGBColor(220, 38, 38),      # Red
+            "border": RGBColor(254, 202, 202),
+            "bg": RGBColor(254, 242, 242),
+            "items": []
+        },
+        {
+            "key": "O",
+            "title": "OPPORTUNITIES (CƠ HỘI)",
+            "color": RGBColor(16, 185, 129),     # Green
+            "border": RGBColor(167, 243, 208),
+            "bg": RGBColor(240, 253, 244),
+            "items": []
+        },
+        {
+            "key": "T",
+            "title": "THREATS (THÁCH THỨC)",
+            "color": RGBColor(217, 119, 6),      # Amber
+            "border": RGBColor(253, 230, 138),
+            "bg": RGBColor(255, 251, 235),
+            "items": []
+        },
+    ]
+
+    if isinstance(swot_data, dict):
+        quadrants[0]["items"] = swot_data.get("strengths", swot_data.get("diem_manh", swot_data.get("S", [])))
+        quadrants[1]["items"] = swot_data.get("weaknesses", swot_data.get("diem_yeu", swot_data.get("W", [])))
+        quadrants[2]["items"] = swot_data.get("opportunities", swot_data.get("co_hoi", swot_data.get("O", [])))
+        quadrants[3]["items"] = swot_data.get("threats", swot_data.get("thach_thuc", swot_data.get("T", [])))
+    elif isinstance(swot_data, list):
+        for idx, item in enumerate(swot_data[:4]):
+            if isinstance(item, dict):
+                quadrants[idx]["items"] = item.get("items", item.get("bullets", []))
+                if item.get("title"):
+                    quadrants[idx]["title"] = item["title"]
+
+    total_w = 11.733
+    total_h = min(5.0, 7.0 - top_y - 0.2)
+    gap_x = 0.30
+    gap_y = 0.25
+    card_w = (total_w - gap_x) / 2
+    card_h = (total_h - gap_y) / 2
+
+    for idx, quad in enumerate(quadrants):
+        r = idx // 2
+        c = idx % 2
+        x = 0.8 + c * (card_w + gap_x)
+        y = top_y + 0.15 + r * (card_h + gap_y)
+
+        card = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE,
+            Inches(x), Inches(y), Inches(card_w), Inches(card_h)
+        )
+        card.fill.solid()
+        card.fill.fore_color.rgb = quad["bg"]
+        card.line.color.rgb = quad["border"]
+        card.line.width = Pt(1.5)
+
+        tf = card.text_frame
+        tf.word_wrap = True
+        tf.margin_left = Inches(0.25)
+        tf.margin_right = Inches(0.25)
+        tf.margin_top = Inches(0.25)
+
+        p_header = tf.paragraphs[0]
+        p_header.space_after = Pt(8)
+        set_paragraph_text_clean(
+            p_header, f"[{quad['key']}]  {quad['title']}", font_size_pt=13, is_bold=True,
+            color=quad["color"], font_name=theme["font_heading"]
+        )
+
+        items = quad["items"]
+        if isinstance(items, str):
+            items = [items]
+        for itm in (items or [])[:4]:
+            p_itm = tf.add_paragraph()
+            p_itm.space_after = Pt(3)
+            set_paragraph_text_clean(
+                p_itm, f"• {itm}", font_size_pt=11, is_bold=False,
+                color=theme.get("text_color", RGBColor(0, 0, 0)),
+                font_name=theme["font_body"]
+            )
+
+    return slide
+
+
+def add_process_chevron_slide(
+    prs: PresentationType,
+    title: str,
+    steps: List[Dict[str, Any]],
+    subtitle: Optional[str] = None,
+    banner: Optional[str] = None,
+    theme_name: str = "corporate_blue",
+    target_slide: Optional[Any] = None,
+) -> Any:
+    """Creates a Horizontal Sequential Process Workflow slide with 3 to 6 steps and step connectors."""
+    theme = get_theme(theme_name)
+    slide = _prepare_slide(prs, theme, target_slide=target_slide)
+    top_y = _add_slide_header(slide, title, subtitle, theme, banner=banner)
+
+    step_items = steps[:6] if len(steps) > 6 else steps
+    count = max(1, len(step_items))
+    total_w = 11.733
+    gap = 0.22
+    card_w = (total_w - (count - 1) * gap) / count
+    card_top = top_y + 0.35
+    card_h = min(4.3, 7.0 - card_top)
+
+    for i, step in enumerate(step_items):
+        card_x = 0.8 + i * (card_w + gap)
+
+        card = slide.shapes.add_shape(
+            MSO_SHAPE.ROUNDED_RECTANGLE,
+            Inches(card_x), Inches(card_top), Inches(card_w), Inches(card_h)
+        )
+        card.fill.solid()
+        card.fill.fore_color.rgb = theme.get("card_bg", RGBColor(255, 255, 255))
+        card.line.color.rgb = theme.get("accent_color", RGBColor(37, 99, 235)) if i == 0 else theme.get("card_border", RGBColor(226, 232, 240))
+        card.line.width = Pt(2.0 if i == 0 else 1.2)
+
+        # Arrow connector to next step
+        if i < count - 1:
+            arrow_x = card_x + card_w + (gap - 0.16) / 2
+            arrow = slide.shapes.add_shape(
+                MSO_SHAPE.RIGHT_ARROW,
+                Inches(arrow_x), Inches(card_top + card_h / 2 - 0.1),
+                Inches(0.16), Inches(0.2)
+            )
+            arrow.fill.solid()
+            arrow.fill.fore_color.rgb = theme.get("accent_color", RGBColor(37, 99, 235))
+            arrow.line.fill.background()
+
+        tf = card.text_frame
+        tf.word_wrap = True
+        tf.margin_left = Inches(0.2)
+        tf.margin_right = Inches(0.2)
+        tf.margin_top = Inches(0.25)
+
+        # Step badge (e.g. STEP 01)
+        p_badge = tf.paragraphs[0]
+        p_badge.space_after = Pt(6)
+        set_paragraph_text_clean(
+            p_badge, f"BƯỚC {i+1:02d}", font_size_pt=10, is_bold=True,
+            color=theme.get("accent_color", RGBColor(37, 99, 235)),
+            font_name=theme["font_heading"]
+        )
+
+        # Step title
+        s_title = str(step.get("title", step.get("name", f"Giai đoạn {i+1}")))
+        p_title = tf.add_paragraph()
+        p_title.space_after = Pt(6)
+        set_paragraph_text_clean(
+            p_title, s_title, font_size_pt=12.5, is_bold=True,
+            color=theme.get("title_color", RGBColor(0, 0, 0)),
+            font_name=theme["font_heading"]
+        )
+
+        # Duration/Time tag if provided
+        time_tag = step.get("duration", step.get("time", step.get("timeline", "")))
+        if time_tag:
+            p_time = tf.add_paragraph()
+            p_time.space_after = Pt(6)
+            set_paragraph_text_clean(
+                p_time, str(time_tag), font_size_pt=10, is_bold=False, is_italic=True,
+                color=theme.get("subtitle_color", RGBColor(100, 116, 139)),
+                font_name=theme["font_body"]
+            )
+
+        # Actions / details
+        actions = step.get("actions", step.get("bullets", step.get("desc", [])))
+        if isinstance(actions, str):
+            actions = [actions]
+        for act in (actions or [])[:3]:
+            p_act = tf.add_paragraph()
+            p_act.space_after = Pt(3)
+            set_paragraph_text_clean(
+                p_act, f"• {act}", font_size_pt=10.5, is_bold=False,
+                color=theme.get("text_color", RGBColor(0, 0, 0)),
+                font_name=theme["font_body"]
+            )
+
+    return slide
 
 
 # ---------------------------------------------------------------------------
@@ -2267,6 +2747,55 @@ def write_pptx_from_spec(
                 title=title,
                 headers=s.get("headers", []),
                 rows=s.get("rows", []),
+                subtitle=subtitle,
+                banner=banner,
+                theme_name=applied_theme,
+                target_slide=target_slide,
+            )
+        elif stype in ("chart", "native_chart", "chart_slide"):
+            try:
+                from .charts import add_chart_slide
+            except (ImportError, ValueError):
+                try:
+                    from core.pptx.charts import add_chart_slide
+                except (ImportError, ValueError):
+                    from pptx_charts import add_chart_slide  # type: ignore
+            slide_obj = add_chart_slide(prs, s, theme=theme)
+        elif stype in ("kpi_summary", "kpi_metrics", "kpi_summary_slide"):
+            slide_obj = add_kpi_summary_slide(
+                prs,
+                title=title,
+                metrics=s.get("metrics", s.get("cards", [])),
+                subtitle=subtitle,
+                banner=banner,
+                theme_name=applied_theme,
+                target_slide=target_slide,
+            )
+        elif stype in ("timeline", "roadmap", "timeline_roadmap", "timeline_slide"):
+            slide_obj = add_timeline_roadmap_slide(
+                prs,
+                title=title,
+                milestones=s.get("milestones", s.get("items", s.get("steps", []))),
+                subtitle=subtitle,
+                banner=banner,
+                theme_name=applied_theme,
+                target_slide=target_slide,
+            )
+        elif stype in ("swot", "swot_matrix", "swot_slide"):
+            slide_obj = add_swot_matrix_slide(
+                prs,
+                title=title,
+                swot_data=s.get("swot", s.get("data", s.get("quadrants", {}))),
+                subtitle=subtitle,
+                banner=banner,
+                theme_name=applied_theme,
+                target_slide=target_slide,
+            )
+        elif stype in ("process", "chevron", "process_chevron", "process_slide", "steps"):
+            slide_obj = add_process_chevron_slide(
+                prs,
+                title=title,
+                steps=s.get("steps", s.get("items", [])),
                 subtitle=subtitle,
                 banner=banner,
                 theme_name=applied_theme,

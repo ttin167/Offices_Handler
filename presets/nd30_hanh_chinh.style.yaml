@@ -1,0 +1,56 @@
+# Preset: Văn bản Hành chính Chuẩn Việt Nam
+# Căn cứ pháp lý: Nghị định số 30/2020/NĐ-CP ngày 05/03/2020 của Chính phủ về công tác văn thư
+
+geometry:
+  page_size: A4
+  orientation: portrait
+  margin:
+    top: 20mm     # 20mm - 25mm (khoảng cách lề trên)
+    bottom: 20mm  # 20mm - 25mm (khoảng cách lề dưới)
+    left: 30mm    # 30mm - 35mm (khoảng cách lề trái)
+    right: 20mm   # 15mm - 20mm (khoảng cách lề phải)
+
+typography:
+  font_family: "Times New Roman, serif"
+  font_size: "13pt"        # Chuẩn 13pt - 14pt
+  body_color: "#000000"    # Đen thuần 100%
+  line_spacing: 1.3        # Giãn dòng tối thiểu 1.3 - 1.5 lines
+  paragraph_spacing_after: "4pt"
+  paragraph_spacing_before: "0pt"
+  first_line_indent: "1.27cm"  # Thụt lề đầu dòng 1cm - 1.27cm
+
+headings:
+  color: "#000000"         # Không dùng màu mè trong văn bản hành chính
+  h1_size: "14pt"          # Tiêu đề mục: In hoa, đậm
+  h1_bold: true
+  h1_transform: "uppercase"
+  h2_size: "13pt"          # Tiêu đề tiểu mục: In thường, đậm
+  h2_bold: true
+  h3_size: "13pt"          # Tiêu đề nhóm: In nghiêng, đậm
+  h3_bold: true
+  h3_italic: true
+  h4_size: "13pt"
+  h4_italic: true
+
+tables:
+  header_background: "#F2F2F2"
+  header_bold: true
+  header_align: "center"
+  border_color: "#000000"
+  border_size: "4"         # 0.5pt
+  cell_valign: "center"
+  cell_margin_top: 100
+  cell_margin_bottom: 100
+  cell_margin_left: 140
+  cell_margin_right: 140
+
+lists:
+  bullet_glyph: "–"        # Gạch đầu dòng En-dash theo chuẩn Điều 10 NĐ30
+  space_before: "2pt"
+  space_after: "2pt"
+
+administrative:
+  standard: "Nghị định 30/2020/NĐ-CP"
+  republic_title: "CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM"
+  motto: "Độc lập - Tự do - Hạnh phúc"
+  page_number_position: "top_center"  # Đánh số trang giữa mép trên văn bản

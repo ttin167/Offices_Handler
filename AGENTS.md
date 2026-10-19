@@ -26,6 +26,9 @@ When user requests you to perform document tasks or draw diagrams, run these com
 
 | Task | Command Line |
 |---|---|
+| **Zero-Setup Environment Doctor** | `python ai_tools_cli.py doctor [--json]` |
+| **Model Context Protocol (MCP) Server** | `python mcp_server.py` (STDIO JSON-RPC 2.0) |
+| **Web Studio Server & SSE Queue** | `python web_api_server.py 8000` |
 | **Unified Multi-Engine Diagram Render** | `python ai_tools_cli.py diagram-render <spec.json> -o <out.png>` |
 | **Render PlantUML Diagram** | `python ai_tools_cli.py plantuml-render <spec.json> -o <out.png> --dpi 300` |
 | **Render Mermaid Diagram** | `python ai_tools_cli.py mermaid-render <spec.json> -o <out.png>` |
@@ -37,9 +40,30 @@ When user requests you to perform document tasks or draw diagrams, run these com
 | **Convert MD to Styled DOCX** | `python -m ai_tools_cli convert <document.md> -t docx --style <doc.style.yaml>` |
 | **Inspect DOCX Headings & Tables** | `python -m ai_tools_cli inspect-doc <document.docx>` |
 | **Insert Image into DOCX** | `python -m ai_tools_cli insert-diagram <doc.docx> <img.png> -s "Heading" -c "Caption"` |
+| **Legal Redline Diff (Track Changes)** | `python ai_tools_cli.py docx-diff <v1.docx> <v2.docx> -o <diff.docx>` |
+| **Vietnamese OCR & Scan Recovery** | `python ai_tools_cli.py ocr-scan <scan.pdf> -o <out.md> [--lang vie+eng]` |
 | **Build 16:9 Presentation from Spec** | `python ai_tools_cli.py pptx-build <spec.json> -o <deck.pptx> [--template <tpl.pptx>]` |
 | **Export Slide PNG Previews for QA** | `python ai_tools_cli.py pptx-preview <deck.pptx> -o <preview_dir> [--slides 1,5,11]` |
 | **Launch Desktop GUI** | `python main.py` |
+
+---
+
+## 🗺️ Schema-First Routing Table (AI Agent Dispatch)
+
+When executing tasks programmatically via Python, MCP, or CLI, dispatch according to this matrix:
+
+| User Task / Intent | Input Type | MCP Tool | CLI Subcommand | Core Module |
+|---|---|---|---|---|
+| **System Diagnostics** | Environment | `env_doctor()` | `ai_tools_cli.py doctor` | `core.env_doctor.run_doctor` |
+| **Convert Doc (Lossless)** | PDF / DOCX / MD / HTML | `doc_convert(...)` | `ai_tools_cli.py convert` | `core.converter.engine.convert_universal` |
+| **Inspect Document AST** | DOCX / PPTX / XLSX | `doc_inspect(...)` | `ai_tools_cli.py docx-read` / `pptx-inspect` | `core.docx.reader`, `core.pptx.reader` |
+| **Legal Redline Diff (Track Changes)** | DOCX v1 + DOCX v2 | `doc_redline_diff(...)` | `ai_tools_cli.py docx-diff` | `core.docx.diff_engine.compare_docx_documents` |
+| **Vietnamese OCR & Scan Recovery** | Scanned PDF / Image | `doc_ocr_scan(...)` | `ai_tools_cli.py ocr-scan` | `core.converter.ocr_pipeline.VietnameseOcrPipeline` |
+| **Inject Diagram Image** | DOCX / PPTX + PNG | `doc_insert_diagram(...)` | `ai_tools_cli.py docx-inject` / `pptx-insert-diagram` | `core.docx.writer`, `core.pptx.engine` |
+| **Render Technical Diagram** | Spec JSON / Raw Code | `diagram_render(...)` | `ai_tools_cli.py diagram-render` | `core.diagrams.bridge` |
+| **Synthesize 16:9 Presentation** | DOCX / PDF / MD | `pptx_synthesize(...)` | `ai_tools_cli.py docx-to-pptx` / `pptx-from-md` | `core.pptx.docx_to_pptx`, `core.pptx.engine` |
+| **Excel Template Mutation** | XLSX + Patch JSON | (via REST API) | `ai_tools_cli.py xlsx-mutate` | `core.xlsx.writer.mutate_template_excel` |
+| **Excel 12-Gate Audit** | XLSX Target + Ref | (via REST API) | `ai_tools_cli.py xlsx-validate` | `core.xlsx.validator.validate_excel_sheet` |
 
 ---
 

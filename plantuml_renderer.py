@@ -17,7 +17,7 @@ warnings.warn(
 
 try:
     from .legacy_engines.plantuml_renderer import *  # type: ignore
-    from .legacy_engines.plantuml_renderer import render_plantuml_to_png
+    from .legacy_engines.plantuml_renderer import render_plantuml_to_png, calculate_aspect_dimensions
 except (ImportError, ValueError):
     from legacy_engines.plantuml_renderer import *  # type: ignore
-    from legacy_engines.plantuml_renderer import render_plantuml_to_png
+    from legacy_engines.plantuml_renderer import render_plantuml_to_png, calculate_aspect_dimensions

@@ -57,9 +57,17 @@ def _find_plantuml_jar(custom_jar: str | None = None) -> str:
     if os.path.isfile(candidate_local):
         return os.path.abspath(candidate_local)
 
-    candidate_parent = os.path.join(os.path.dirname(_CURRENT_DIR), "tools", "plantuml.jar")
-    if os.path.isfile(candidate_parent):
-        return os.path.abspath(candidate_parent)
+    # Search upwards for tools/plantuml.jar
+    p = _CURRENT_DIR
+    for _ in range(4):
+        p = os.path.dirname(p)
+        candidate = os.path.join(p, "tools", "plantuml.jar")
+        if os.path.isfile(candidate):
+            return os.path.abspath(candidate)
+
+    cwd_candidate = os.path.join(os.getcwd(), "tools", "plantuml.jar")
+    if os.path.isfile(cwd_candidate):
+        return os.path.abspath(cwd_candidate)
 
     which_jar = shutil.which("plantuml.jar")
     if which_jar and os.path.isfile(which_jar):

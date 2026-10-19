@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  doc-handler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: antigravity-doc-handler:v4.0
+    container_name: doc-handler-studio
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - PLANTUML_LIMIT_SIZE=16384
+      - LANG=C.UTF-8
+      - LC_ALL=C.UTF-8
+    volumes:
+      - ./diagram_assets:/app/diagram_assets
+      - ./specs:/app/specs
+      - ./mail_merge_output:/app/mail_merge_output
+      - ./presets:/app/presets
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/doctor"]
+      interval: 30s
+      timeout: 10s
+      retries: 3

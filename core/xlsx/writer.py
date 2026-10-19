@@ -36,7 +36,9 @@ __all__ = [
     "update_template_workbook",
     "write_xlsx",
     "write_xlsx_from_json_file",
+    "apply_worksheet_print_setup",
 ]
+
 
 
 def normalize_hex_color(hex_str: str | None) -> str | None:
@@ -676,6 +678,48 @@ class UniversalExcelEngine:
         ws = self.get_sheet(sheet_name)
         ws.freeze_panes = coordinate
 
+    def apply_print_setup(
+        self: Any,
+        sheet_name: Optional[str] = None,
+        orientation: Optional[str] = None,
+        fit_to_page: bool = True,
+        fit_to_width: int = 1,
+        fit_to_height: int = 0,
+        print_title_header_row: Optional[int] = None,
+        horizontal_centered: bool = True,
+    ) -> Any:
+        """Applies ERR_XLSX_008 Print-Ready Page Setup to prevent horizontal overflow."""
+        # Support invocation as class method: UniversalExcelEngine.apply_print_setup(file_path)
+        if isinstance(self, str):
+            engine = UniversalExcelEngine(self)
+            res = engine.apply_print_setup(
+                sheet_name=sheet_name,
+                orientation=orientation,
+                fit_to_page=fit_to_page,
+                fit_to_width=fit_to_width,
+                fit_to_height=fit_to_height,
+                print_title_header_row=print_title_header_row,
+                horizontal_centered=horizontal_centered,
+            )
+            engine.save(self)
+            return {"success": True, "sheets_modified": res, "output_path": self}
+
+        target_sheets = [sheet_name] if sheet_name else self.wb.sheetnames
+        modified = []
+        for sname in target_sheets:
+            ws = self.get_sheet(sname)
+            apply_worksheet_print_setup(
+                ws,
+                orientation=orientation,
+                fit_to_page=fit_to_page,
+                fit_to_width=fit_to_width,
+                fit_to_height=fit_to_height,
+                print_title_header_row=print_title_header_row,
+                horizontal_centered=horizontal_centered,
+            )
+            modified.append(sname)
+        return modified
+
     def save(self, output_path: str) -> str:
         """Saves mutated workbook preserving DrawingML packages (ERR_XLSX_006)."""
         dest = os.path.abspath(output_path)
@@ -684,6 +728,60 @@ class UniversalExcelEngine:
             os.makedirs(out_dir, exist_ok=True)
         self.wb.save(dest)
         return dest
+
+
+def apply_worksheet_print_setup(
+    ws: Worksheet,
+    orientation: Optional[str] = None,
+    fit_to_page: bool = True,
+    fit_to_width: int = 1,
+    fit_to_height: int = 0,
+    print_title_header_row: Optional[int] = None,
+    horizontal_centered: bool = True,
+) -> None:
+    """
+    Applies ERR_XLSX_008 Print-Ready Page Setup:
+    1. Enables fitToPage so table width never overflows horizontally onto sibling pages.
+    2. Automatic orientation: Landscape if column count > 7, Portrait if <= 7.
+    3. Repeats Header row on multi-page printouts via ws.print_title_rows.
+    4. Centered horizontal printing with standard margins (0.7 in left/right, 0.75 in top/bottom).
+    """
+    try:
+        ws.sheet_properties.pageSetUpPr.fitToPage = fit_to_page
+    except Exception:
+        pass
+    ws.page_setup.fitToPage = fit_to_page
+    ws.page_setup.fitToWidth = fit_to_width
+    ws.page_setup.fitToHeight = fit_to_height
+
+    max_col = ws.max_column
+    if orientation:
+        ws.page_setup.orientation = orientation.lower()
+    else:
+        if max_col > 7:
+            ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
+        else:
+            ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
+
+    ws.page_margins.left = 0.7
+    ws.page_margins.right = 0.7
+    ws.page_margins.top = 0.75
+    ws.page_margins.bottom = 0.75
+    ws.page_margins.header = 0.3
+    ws.page_margins.footer = 0.3
+
+    ws.print_options.horizontalCentered = horizontal_centered
+
+    if print_title_header_row is not None and print_title_header_row > 0:
+        ws.print_title_rows = f"{print_title_header_row}:{print_title_header_row}"
+    elif not ws.print_title_rows:
+        header_kws = ["id", "no", "stt", "mã", "tên", "function", "test case", "name", "description"]
+        for r in range(1, min(ws.max_row, 20) + 1):
+            row_txt = " ".join(str(ws.cell(r, c).value or "").strip().lower() for c in range(1, max_col + 1))
+            if any(k in row_txt for k in header_kws):
+                ws.print_title_rows = f"{r}:{r}"
+                break
+
 
 
 def mutate_template_excel(
@@ -820,6 +918,15 @@ def mutate_template_excel(
         # 4. Merged Borders Sync
         engine.sync_merged_borders(sheet_name)
 
+        # 5. Print-Ready Page Setup (ERR_XLSX_008)
+        engine.apply_print_setup(
+            sheet_name,
+            orientation=s_spec.get("orientation"),
+            fit_to_page=s_spec.get("fit_to_page", True),
+            fit_to_width=s_spec.get("fit_to_width", 1),
+            fit_to_height=s_spec.get("fit_to_height", 0),
+        )
+
     return engine.save(output_path)
 
 
@@ -879,6 +986,9 @@ def write_xlsx(
                 font_bold=fmt.get("bold"),
                 font_color=fmt.get("font_color")
             )
+
+    for ws in wb.worksheets:
+        apply_worksheet_print_setup(ws)
 
     wb.save(output_path)
     return os.path.abspath(output_path)

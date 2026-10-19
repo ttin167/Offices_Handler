@@ -347,6 +347,14 @@ body {
   font-weight: 600;
 }
 
+/* Header Right Actions */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
 /* Theme Toggle Button */
 .theme-toggle-btn {
   background: var(--bg-surface-elevated);
@@ -1228,6 +1236,94 @@ body {
   border-color: var(--cyan-neon);
 }
 
+.preset-select {
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid var(--border-medium);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 3px 8px;
+  cursor: pointer;
+  outline: none;
+  max-width: 220px;
+  transition: all var(--transition-fast);
+}
+
+.preset-select:hover,
+.preset-select:focus {
+  border-color: var(--cyan-neon);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+}
+
+.preset-select optgroup {
+  background: #0f172a;
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.preset-select option {
+  background: #0f172a;
+  color: #f8fafc;
+  font-weight: 400;
+}
+
+.symbol-toolstrip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.toolstrip-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.toolstrip-items {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.toolstrip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.toolstrip-btn i,
+.toolstrip-btn svg {
+  width: 13px;
+  height: 13px;
+  stroke-width: 2px;
+}
+
+.toolstrip-btn:hover {
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--cyan-neon);
+  border-color: rgba(56, 189, 248, 0.4);
+  transform: translateY(-1px);
+}
+
 .code-textarea {
   width: 100%;
   background: var(--code-bg);
@@ -1631,8 +1727,10 @@ body {
 
 .gallery-card-badge {
   position: absolute;
-  top: 8px;
-  left: 8px;
+  bottom: 8px;
+  right: 8px;
+  top: auto;
+  left: auto;
   z-index: 2;
   padding: 4px 10px;
   font-family: var(--font-mono);
@@ -2352,5 +2450,131 @@ body {
   border-top: 1.5px solid currentColor;
   padding: 0 2px;
 }
+
+/* ==========================================================================
+   MATH STUDIO DARK MODE & FORM CONTROLS
+   ========================================================================== */
+.theme-select,
+select.theme-select,
+input.theme-select {
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: var(--radius-sm);
+  color: #f8fafc;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.theme-select:focus,
+select.theme-select:focus,
+input.theme-select:focus {
+  outline: none;
+  border-color: var(--cyan-neon);
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
+}
+
+select.theme-select option {
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+[data-theme="light"] .theme-select,
+[data-theme="light"] select.theme-select,
+[data-theme="light"] input.theme-select {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.code-textarea::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.code-textarea::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 4px;
+}
+
+.code-textarea::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 4px;
+}
+
+.code-textarea::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
+sub,
+.math-display-block sub,
+.math-inline-elem sub {
+  font-size: 0.75em;
+  vertical-align: sub;
+  line-height: 0;
+}
+
+sup,
+.math-display-block sup,
+.math-inline-elem sup {
+  font-size: 0.75em;
+  vertical-align: super;
+  line-height: 0;
+}
+
+/* ==========================================================================
+   DOCUMENT HUB DUAL DROP-ZONE GRID & SUB-TABS (Edge Case 3)
+   ========================================================================== */
+.dual-dropzone-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 900px) {
+  .dual-dropzone-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dropzone-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.dropzone-help {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.tokens-badge-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.token-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--cyan-neon);
+}
+
 
 

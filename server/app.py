@@ -23,7 +23,7 @@ import os
 import sys
 import time
 import urllib.parse
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 if sys.platform == "win32":
     try:
@@ -45,6 +45,9 @@ try:
     from core.xlsx.reader import read_xlsx
     from .db import record_history, get_recent_history, delete_history_item, clear_history
     from core.docx.math import parse_inline_math, add_math_to_paragraph
+    from core.docx.presets import apply_preset_to_document, load_preset, list_available_presets, build_administrative_header
+    from core.converter.pdf_toolkit import merge_pdfs, split_pdf, rotate_and_clean_pdf, stamp_watermark_pdf, compress_pdf
+    from core.xlsx.writer import apply_worksheet_print_setup, UniversalExcelEngine
 except (ImportError, ValueError):
     from converter_engine import convert_universal  # type: ignore
     from docx_to_pptx import convert_docx_to_pptx, convert_pdf_to_pptx  # type: ignore
@@ -52,9 +55,18 @@ except (ImportError, ValueError):
     from docx_writer import patch_docx_template, write_docx  # type: ignore
     from xlsx_writer import mutate_template_excel  # type: ignore
     from xlsx_validator import validate_excel_sheet  # type: ignore
-    from xlsx_reader import read_xlsx  # type: ignore
     from db_manager import record_history, get_recent_history, delete_history_item, clear_history  # type: ignore
     from docx_math import parse_inline_math, add_math_to_paragraph  # type: ignore
+    from docx_presets import apply_preset_to_document, load_preset, list_available_presets, build_administrative_header  # type: ignore
+    from pdf_toolkit import merge_pdfs, split_pdf, rotate_and_clean_pdf, stamp_watermark_pdf, compress_pdf  # type: ignore
+    from xlsx_writer import apply_worksheet_print_setup, UniversalExcelEngine  # type: ignore
+
+try:
+    from core.job_manager import global_job_manager
+    from core.env_doctor import run_doctor
+except (ImportError, ValueError):
+    from job_manager import global_job_manager  # type: ignore
+    from env_doctor import run_doctor  # type: ignore
 
 PORT = int(os.environ.get("PORT", 8000))
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -173,7 +185,7 @@ def resolve_file_path(path_str: Optional[str]) -> Optional[str]:
 
 
 class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
-    server_version = "AntigravityOfficeStudio/3.2"
+    server_version = "AntigravityOfficeStudio/3.4"
 
     def _send_cors_headers(self) -> None:
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -210,7 +222,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                 self._send_json({
                     "status": "online",
                     "healthy": True,
-                    "version": "3.3.0",
+                    "version": "3.4.0",
                     "service": "Antigravity Office & Presentation Studio",
                     "timestamp": time.time(),
                 })
@@ -218,7 +230,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
             elif path == "/api/info":
                 self._send_json({
                     "name": "Antigravity Office Studio",
-                    "version": "3.3.0",
+                    "version": "3.4.0",
                     "capabilities": [
                         "docx-patch",
                         "xlsx-mutate",
@@ -229,7 +241,9 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                         "pptx-preview",
                         "in-place-preservation",
                         "diagram-render",
-                        "universal-convert"
+                        "universal-convert",
+                        "env-doctor",
+                        "sse-job-queue",
                     ],
                     "themes": list(THEMES.keys()),
                     "formats": [".docx", ".pptx", ".pdf", ".md", ".xlsx"],
@@ -242,6 +256,36 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     "upload_dir": UPLOAD_DIR,
                     "output_dir": OUTPUT_DIR,
                 })
+
+            elif path == "/api/doctor":
+                self._send_json(run_doctor())
+
+            elif path == "/api/presets":
+                try:
+                    presets = list_available_presets()
+                except Exception:
+                    presets = ["nd30", "academic_thesis", "corporate_report"]
+                self._send_json({"success": True, "presets": presets})
+
+            elif path.startswith("/api/jobs/"):
+                parts = path.strip("/").split("/")
+                if len(parts) >= 3 and parts[2] == "stream":
+                    job_id = parts[1]
+                    self._handle_job_stream(job_id)
+                    return
+                else:
+                    job_id = parts[1]
+                    job = global_job_manager.get_job(job_id)
+                    if not job:
+                        self._send_json({"error": f"Job not found: {job_id}"}, status=404)
+                    else:
+                        self._send_json(job)
+                    return
+
+            elif path == "/api/jobs":
+                jobs = global_job_manager.list_jobs(limit=50)
+                self._send_json({"jobs": jobs, "total": len(jobs)})
+                return
 
             elif path == "/api/history":
                 items = get_recent_history(limit=50)
@@ -294,8 +338,23 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
         content_type = self.headers.get("Content-Type", "")
 
         try:
+            # Endpoint 0: Asynchronous Job Submission (SSE Streaming Queue)
+            if path == "/api/jobs/submit":
+                payload = self._read_body_json()
+                action = payload.get("action", "convert")
+                job_payload = payload.get("payload", payload)
+                job_id = self._dispatch_job_submission(action, job_payload)
+                self._send_json({
+                    "success": True,
+                    "job_id": job_id,
+                    "status": "pending",
+                    "stream_url": f"/api/jobs/{job_id}/stream",
+                    "status_url": f"/api/jobs/{job_id}/status",
+                })
+                return
+
             # Endpoint 1: File Upload (multipart or json base64)
-            if path == "/api/upload":
+            elif path == "/api/upload":
                 self._handle_upload(content_type)
 
             # Endpoint 2: Universal Document Conversion
@@ -486,7 +545,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
                 if engine == "mermaid":
                     try:
-                        from .mermaid_renderer import render_mermaid_to_png
+                        from core.diagrams.legacy.mermaid import render_mermaid_to_png
                     except (ImportError, ValueError):
                         from mermaid_renderer import render_mermaid_to_png  # type: ignore
 
@@ -503,7 +562,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     render_mermaid_to_png(m_spec)
                 elif engine == "plantuml":
                     try:
-                        from .plantuml_renderer import render_plantuml_to_png
+                        from core.diagrams.legacy.plantuml import render_plantuml_to_png
                     except (ImportError, ValueError):
                         from plantuml_renderer import render_plantuml_to_png  # type: ignore
 
@@ -520,15 +579,40 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     render_plantuml_to_png(p_spec)
                 elif engine == "drawio":
                     try:
-                        from .mxgraph_engine import render_mxgraph_to_png
+                        from core.diagrams.mxgraph import render_diagram, render_mxgraph_to_png
                     except (ImportError, ValueError):
-                        from mxgraph_engine import render_mxgraph_to_png  # type: ignore
+                        from mxgraph_engine import render_diagram, render_mxgraph_to_png  # type: ignore
 
-                    if isinstance(spec_content, dict):
-                        xml_code = spec_content.get("xml_content") or spec_content.get("code") or ""
+                    if isinstance(spec_content, str) and spec_content.strip().startswith("{"):
+                        try:
+                            d_spec = json.loads(spec_content)
+                        except Exception:
+                            d_spec = {}
+                        d_spec["output_path"] = out_png
+                        d_spec["scale"] = int(payload.get("scale", 2))
+                        render_diagram(d_spec)
                     else:
-                        xml_code = str(spec_content)
-                    render_mxgraph_to_png(xml_code, out_png, scale=int(payload.get("scale", 2)))
+                        if isinstance(spec_content, dict):
+                            xml_code = spec_content.get("xml_content") or spec_content.get("code") or ""
+                        else:
+                            xml_code = str(spec_content)
+                        render_mxgraph_to_png(xml_code, out_png, scale=int(payload.get("scale", 2)))
+                elif engine in ("canvas", "spec"):
+                    try:
+                        from core.diagrams.legacy.canvas import PrecisionDiagram
+                    except (ImportError, ValueError):
+                        from legacy_engines.spec_diagram_engine import PrecisionDiagram  # type: ignore
+
+                    if isinstance(spec_content, str):
+                        try:
+                            c_spec = json.loads(spec_content)
+                        except Exception:
+                            c_spec = {"nodes": [], "edges": []}
+                    else:
+                        c_spec = dict(spec_content)
+                    scale = int(payload.get("scale", 2))
+                    diag = PrecisionDiagram.from_spec(c_spec)
+                    diag.render_to_png(out_png, scale=scale)
 
                 out_name = os.path.basename(out_png)
                 quoted_name = urllib.parse.quote(out_name)
@@ -868,6 +952,365 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     ]
                 })
 
+            # Endpoint 14: Apply Document Presets (ND30, Academic, Corporate)
+            elif path == "/api/docx/preset":
+                payload = self._read_body_json()
+                src_param = payload.get("file_path") or payload.get("filepath") or payload.get("source_path") or payload.get("filename")
+                src = resolve_file_path(src_param)
+                if not src:
+                    self._send_json({"success": False, "error": f"File not found: {src_param}"}, status=400)
+                    return
+                preset_name = payload.get("preset", "nd30")
+                add_header = bool(payload.get("add_header", False))
+                out_param = payload.get("output_path")
+
+                from docx import Document
+                doc = Document(src)
+                preset_res = apply_preset_to_document(doc, preset_name)
+
+                if add_header:
+                    build_administrative_header(
+                        doc,
+                        agency_parent=payload.get("agency_parent", "BỘ THÔNG TIN VÀ TRUYỀN THÔNG"),
+                        agency_name=payload.get("agency_name", "CỤC CÔNG NGHỆ THÔNG TIN"),
+                        document_no=payload.get("document_no", "Số: 01/QĐ-CNTT"),
+                        location_date=payload.get("location_date", "Hà Nội, ngày 18 tháng 10 năm 2026"),
+                        insert_at_top=True,
+                    )
+
+                base_name = os.path.splitext(os.path.basename(src))[0]
+                resolved_out = resolve_file_path(out_param) if out_param else None
+                actual_target = resolved_out or os.path.join(OUTPUT_DIR, f"{base_name}_{preset_name}.docx")
+                doc.save(actual_target)
+                out_name = os.path.basename(actual_target)
+                quoted_out = urllib.parse.quote(out_name)
+                self._send_json({
+                    "success": True,
+                    "filename": out_name,
+                    "output_file": out_name,
+                    "download_url": f"/api/download/{quoted_out}",
+                    "details": preset_res
+                })
+
+            # Endpoint 15: PDF Everyday Toolkit (merge, split, rotate, clean, watermark, compress)
+            elif path == "/api/pdf/tools":
+                payload = self._read_body_json()
+                action = payload.get("action", "").lower().strip()
+                input_param = payload.get("input_path") or payload.get("filepath") or payload.get("file_path") or payload.get("filename")
+                src = resolve_file_path(input_param) if input_param else None
+
+                if action == "merge":
+                    inputs: List[str] = [rf for p in payload.get("inputs", []) if (rf := resolve_file_path(p)) is not None]
+                    if not inputs:
+                        self._send_json({"success": False, "error": "No valid input PDF files specified for merge"}, status=400)
+                        return
+                    out_path = os.path.join(OUTPUT_DIR, payload.get("output_name", "merged_document.pdf"))
+                    res_path = merge_pdfs(inputs, out_path)
+                    out_name = os.path.basename(res_path)
+                    self._send_json({
+                        "success": True,
+                        "action": "merge",
+                        "filename": out_name,
+                        "download_url": f"/api/download/{urllib.parse.quote(out_name)}"
+                    })
+                    return
+
+                if not src:
+                    self._send_json({"success": False, "error": f"Input PDF not found: {input_param}"}, status=400)
+                    return
+
+                base_name = os.path.splitext(os.path.basename(src))[0]
+
+                if action == "split":
+                    out_dir = os.path.join(OUTPUT_DIR, f"{base_name}_split")
+                    ranges = payload.get("ranges")
+                    files = split_pdf(src, out_dir, page_ranges=ranges)
+                    self._send_json({
+                        "success": True,
+                        "action": "split",
+                        "generated_files": [os.path.basename(f) for f in files],
+                        "count": len(files)
+                    })
+                    return
+
+                elif action in ("rotate", "clean"):
+                    angle = int(payload.get("angle", 90 if action == "rotate" else 0))
+                    remove_blanks = bool(payload.get("remove_blanks", True if action == "clean" else False))
+                    out_file = os.path.join(OUTPUT_DIR, f"{base_name}_{action}.pdf")
+                    details = rotate_and_clean_pdf(src, out_file, rotation=angle, remove_blank=remove_blanks)
+                    out_name = os.path.basename(out_file)
+                    self._send_json({
+                        "success": True,
+                        "action": action,
+                        "filename": out_name,
+                        "download_url": f"/api/download/{urllib.parse.quote(out_name)}",
+                        "details": details
+                    })
+                    return
+
+                elif action == "watermark":
+                    text = payload.get("watermark_text", "CONFIDENTIAL")
+                    out_file = os.path.join(OUTPUT_DIR, f"{base_name}_watermarked.pdf")
+                    res_path = stamp_watermark_pdf(src, out_file, watermark_text=text)
+                    out_name = os.path.basename(res_path)
+                    self._send_json({
+                        "success": True,
+                        "action": "watermark",
+                        "filename": out_name,
+                        "download_url": f"/api/download/{urllib.parse.quote(out_name)}"
+                    })
+                    return
+
+                elif action == "compress":
+                    out_file = os.path.join(OUTPUT_DIR, f"{base_name}_compressed.pdf")
+                    details = compress_pdf(src, out_file)
+                    out_name = os.path.basename(out_file)
+                    self._send_json({
+                        "success": True,
+                        "action": "compress",
+                        "filename": out_name,
+                        "download_url": f"/api/download/{urllib.parse.quote(out_name)}",
+                        "details": details
+                    })
+                    return
+
+                else:
+                    self._send_json({"success": False, "error": f"Unknown pdf-tools action: '{action}'"}, status=400)
+                    return
+
+            # Endpoint 16: Excel Print-Ready Page Setup (ERR_XLSX_008)
+            elif path == "/api/xlsx/print-setup":
+                payload = self._read_body_json()
+                src_param = payload.get("file_path") or payload.get("filepath") or payload.get("source_path") or payload.get("filename")
+                src = resolve_file_path(src_param)
+                if not src:
+                    self._send_json({"success": False, "error": f"Excel file not found: {src_param}"}, status=400)
+                    return
+                sheet_name = payload.get("sheet_name")
+                orientation = payload.get("orientation")
+
+                engine = UniversalExcelEngine(src)
+                res = engine.apply_print_setup(sheet_name=sheet_name, orientation=orientation)
+                engine.save(src)
+                out_name = os.path.basename(src)
+                self._send_json({
+                    "success": True,
+                    "filename": out_name,
+                    "details": res
+                })
+
+            # Endpoint 17: Mail Merge Inspection (Live Token Mapping)
+            elif path in ("/api/mail-merge/inspect", "/api/mail_merge/inspect"):
+                payload = self._read_body_json()
+                tpl_param = payload.get("template") or payload.get("template_path") or payload.get("filepath")
+                tpl = resolve_file_path(tpl_param)
+                if not tpl:
+                    self._send_json({"success": False, "error": f"Template file not found: {tpl_param}"}, status=400)
+                    return
+                try:
+                    from core.docx.mail_merge import inspect_template_tokens
+                except (ImportError, ValueError):
+                    from docx_mail_merge import inspect_template_tokens  # type: ignore
+                tokens = inspect_template_tokens(tpl)
+                self._send_json({"success": True, "template": os.path.basename(tpl), "tokens": tokens})
+                return
+
+            # Endpoint 18: Execute Batch Mail Merge Studio
+            elif path in ("/api/mail-merge", "/api/mail_merge"):
+                payload = self._read_body_json()
+                tpl_param = payload.get("template") or payload.get("template_path")
+                tpl = resolve_file_path(tpl_param)
+                if not tpl:
+                    self._send_json({"success": False, "error": f"Template file not found: {tpl_param}"}, status=400)
+                    return
+
+                data_param = payload.get("data") or payload.get("data_source")
+                data_source = data_param
+                if isinstance(data_param, str):
+                    resolved_data = resolve_file_path(data_param)
+                    if resolved_data:
+                        data_source = resolved_data
+
+                if not data_source:
+                    self._send_json({"success": False, "error": "data or data_source is required"}, status=400)
+                    return
+
+                out_dir = payload.get("output_dir") or os.path.join(OUTPUT_DIR, "generated_mail_merge")
+                pattern = payload.get("pattern")
+                zip_name = payload.get("zip")
+                zip_path = os.path.join(OUTPUT_DIR, zip_name) if zip_name else None
+
+                try:
+                    from core.docx.mail_merge import execute_mail_merge
+                except (ImportError, ValueError):
+                    from docx_mail_merge import execute_mail_merge  # type: ignore
+
+                res = execute_mail_merge(
+                    template_path=tpl,
+                    data_source=data_source,
+                    output_dir=out_dir,
+                    filename_pattern=pattern,
+                    zip_output=zip_path,
+                )
+                if res.get("zip_path"):
+                    z_name = os.path.basename(res["zip_path"])
+                    res["download_url"] = f"/api/download/{urllib.parse.quote(z_name)}"
+                self._send_json(res)
+                return
+
+            # Endpoint 19: Legal Redline Diff (Track Changes & Comments)
+            elif path in ("/api/docx/diff", "/api/docx-diff"):
+                payload = self._read_body_json()
+                doc_a_param = payload.get("doc_a") or payload.get("doc_a_path") or payload.get("original")
+                doc_b_param = payload.get("doc_b") or payload.get("doc_b_path") or payload.get("revised")
+                doc_a = resolve_file_path(doc_a_param)
+                doc_b = resolve_file_path(doc_b_param)
+
+                if not doc_a:
+                    self._send_json({"success": False, "error": f"Original document not found: {doc_a_param}"}, status=400)
+                    return
+                if not doc_b:
+                    self._send_json({"success": False, "error": f"Revised document not found: {doc_b_param}"}, status=400)
+                    return
+
+                author = payload.get("author", "AI Reviewer")
+                out_name = payload.get("output_name") or f"{os.path.splitext(os.path.basename(doc_b))[0]}_redline.docx"
+                out_path = os.path.join(OUTPUT_DIR, out_name)
+
+                try:
+                    from core.docx.diff_engine import compare_docx_documents
+                except (ImportError, ValueError):
+                    from docx_diff_engine import compare_docx_documents  # type: ignore
+
+                res = compare_docx_documents(doc_a, doc_b, out_path, author=author)
+                qname = urllib.parse.quote(out_name)
+                res["download_url"] = f"/api/download/{qname}"
+                res["filename"] = out_name
+                self._send_json(res)
+                return
+
+            # Endpoint 20: Vietnamese OCR Pipeline (Scan & Red-Stamp Filter)
+            elif path in ("/api/ocr/scan", "/api/ocr-scan"):
+                payload = self._read_body_json()
+                input_param = payload.get("file_path") or payload.get("filepath") or payload.get("input_path") or payload.get("filename")
+                src = resolve_file_path(input_param)
+                if not src:
+                    self._send_json({"success": False, "error": f"Input file not found: {input_param}"}, status=400)
+                    return
+
+                lang = payload.get("lang", "vie+eng")
+                filter_stamp = bool(payload.get("filter_red_stamp", True))
+                deskew_flag = bool(payload.get("deskew", True))
+                out_format = payload.get("format", "md").lower()
+
+                base_name = os.path.splitext(os.path.basename(src))[0]
+                out_ext = ".docx" if out_format == "docx" else ".md"
+                out_name = f"{base_name}_ocr{out_ext}"
+                out_path = os.path.join(OUTPUT_DIR, out_name)
+
+                try:
+                    from core.converter.ocr_pipeline import VietnameseOcrPipeline
+                except (ImportError, ValueError):
+                    from ocr_pipeline import VietnameseOcrPipeline  # type: ignore
+
+                pipeline = VietnameseOcrPipeline(lang=lang, filter_red_stamp=filter_stamp, deskew=deskew_flag)
+                res = pipeline.process_document(src, output_path=out_path)
+                qname = urllib.parse.quote(out_name)
+                res["download_url"] = f"/api/download/{qname}"
+                res["filename"] = out_name
+                summary = {k: v for k, v in res.items() if k != "pages"}
+                self._send_json(summary)
+                return
+
+            # Endpoint 21: Unified QA Diagnostic & Audit Pipeline
+            elif path in ("/api/qa/audit", "/api/qa/validate"):
+                payload = self._read_body_json()
+                src_param = payload.get("file_path") or payload.get("filepath") or payload.get("filename")
+                src = resolve_file_path(src_param)
+                if not src:
+                    self._send_json({"success": False, "error": f"Target document not found: {src_param}"}, status=400)
+                    return
+
+                repair_flag = bool(payload.get("repair", False))
+                ext = os.path.splitext(src)[1].lower()
+
+                try:
+                    from tools.unified_qa_diagnostic import (
+                        ExcelDiagnosticEngine,
+                        DocxDiagnosticEngine,
+                        PptxDiagnosticEngine,
+                        DiagramAndConversionEngine,
+                    )
+                    WordDiagnosticEngine = DocxDiagnosticEngine
+                    PowerPointDiagnosticEngine = PptxDiagnosticEngine
+                    DiagramDiagnosticEngine = DiagramAndConversionEngine
+                except (ImportError, ValueError):
+                    import importlib.util
+                    qa_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools", "unified_qa_diagnostic.py")
+                    spec = importlib.util.spec_from_file_location("unified_qa_diagnostic", qa_path)
+                    mod = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(mod)
+                    ExcelDiagnosticEngine = getattr(mod, "ExcelDiagnosticEngine", None)
+                    WordDiagnosticEngine = getattr(mod, "DocxDiagnosticEngine", None) or getattr(mod, "WordDiagnosticEngine", None)
+                    PowerPointDiagnosticEngine = getattr(mod, "PptxDiagnosticEngine", None) or getattr(mod, "PowerPointDiagnosticEngine", None)
+                    DiagramDiagnosticEngine = getattr(mod, "DiagramAndConversionEngine", None) or getattr(mod, "DiagramDiagnosticEngine", None)
+
+                t0 = time.time()
+                issues = []
+                metrics = {}
+                repaired = False
+                repair_actions = []
+                out_name = None
+
+                if ext in (".xlsx", ".xlsm"):
+                    issues, metrics = ExcelDiagnosticEngine.diagnose(src)
+                    if repair_flag:
+                        out_name = f"repaired_{os.path.basename(src)}"
+                        out_path = os.path.join(OUTPUT_DIR, out_name)
+                        repaired, repair_actions = ExcelDiagnosticEngine.repair(src, out_path)
+                elif ext in (".docx", ".doc"):
+                    issues, metrics = WordDiagnosticEngine.diagnose(src)
+                    if repair_flag:
+                        out_name = f"repaired_{os.path.basename(src)}"
+                        out_path = os.path.join(OUTPUT_DIR, out_name)
+                        repaired, repair_actions = WordDiagnosticEngine.repair(src, out_path)
+                elif ext in (".pptx", ".potx"):
+                    issues, metrics = PowerPointDiagnosticEngine.diagnose(src)
+                    if repair_flag:
+                        out_name = f"repaired_{os.path.basename(src)}"
+                        out_path = os.path.join(OUTPUT_DIR, out_name)
+                        repaired, repair_actions = PowerPointDiagnosticEngine.repair(src, out_path)
+                elif ext in (".drawio", ".xml", ".svg"):
+                    issues, metrics = DiagramDiagnosticEngine.diagnose_diagram_file(src)
+                else:
+                    self._send_json({"success": False, "error": f"Unsupported format for QA audit: '{ext}'"}, status=400)
+                    return
+
+                elap = round(time.time() - t0, 3)
+                critical_count = sum(1 for i in issues if getattr(i, "severity", "").upper() == "CRITICAL")
+                warning_count = sum(1 for i in issues if getattr(i, "severity", "").upper() == "WARNING")
+
+                res = {
+                    "success": True,
+                    "target_file": os.path.basename(src),
+                    "format": ext,
+                    "elapsed": elap,
+                    "total_issues": len(issues),
+                    "critical_count": critical_count,
+                    "warning_count": warning_count,
+                    "passed": critical_count == 0,
+                    "metrics": metrics,
+                    "issues": [i.to_dict() if hasattr(i, "to_dict") else vars(i) for i in issues],
+                    "repaired": repaired,
+                    "repair_actions": repair_actions,
+                }
+                if repaired and out_name:
+                    res["download_url"] = f"/api/download/{urllib.parse.quote(out_name)}"
+                    res["repaired_file"] = out_name
+
+                self._send_json(res)
+                return
+
             else:
                 self._send_json({"error": f"POST endpoint not found: {path}"}, status=404)
 
@@ -1042,6 +1485,164 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(content)))
         self.end_headers()
         self.wfile.write(content)
+
+    def _handle_job_stream(self, job_id: str) -> None:
+        """Streams Server-Sent Events (SSE) for background job progress tracking."""
+        job = global_job_manager.get_job(job_id)
+        if not job:
+            self._send_json({"error": f"Job not found: {job_id}"}, status=404)
+            return
+
+        self.send_response(200)
+        self._send_cors_headers()
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache, no-transform")
+        self.send_header("Connection", "keep-alive")
+        self.send_header("X-Accel-Buffering", "no")
+        self.end_headers()
+
+        initial_data = f"data: {json.dumps(job, ensure_ascii=False)}\n\n".encode("utf-8")
+        try:
+            self.wfile.write(initial_data)
+            self.wfile.flush()
+        except Exception:
+            return
+
+        if job["status"] in ("completed", "failed"):
+            return
+
+        import queue
+        q = global_job_manager.subscribe(job_id)
+        if not q:
+            return
+
+        try:
+            while True:
+                try:
+                    event = q.get(timeout=25)
+                    data_str = f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+                    self.wfile.write(data_str.encode("utf-8"))
+                    self.wfile.flush()
+                    if event.get("status") in ("completed", "failed"):
+                        break
+                except queue.Empty:
+                    self.wfile.write(b": keep-alive\n\n")
+                    self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, Exception):
+            pass
+        finally:
+            global_job_manager.unsubscribe(job_id, q)
+
+    def _dispatch_job_submission(self, action: str, p: Dict[str, Any]) -> str:
+        """Dispatches job payload to thread pool executor with progress reporting."""
+        def _runner(payload: Dict[str, Any], cb: Any) -> Any:
+            act = action.lower()
+            if act in ("convert", "universal-convert"):
+                src_param = (
+                    payload.get("source_path")
+                    or payload.get("input_path")
+                    or payload.get("filepath")
+                    or payload.get("file_path")
+                    or payload.get("filename")
+                )
+                src = resolve_file_path(src_param)
+                if not src:
+                    raise FileNotFoundError(f"Source file not found: {src_param}")
+                dest_ext = payload.get("target_ext", ".docx")
+                pages = payload.get("page_range")
+                base_name = os.path.splitext(os.path.basename(src))[0]
+                target_path = os.path.join(OUTPUT_DIR, f"{base_name}_converted{dest_ext}")
+                ok, res, elap = convert_universal(
+                    source_path=src,
+                    target_path=target_path,
+                    target_ext=dest_ext,
+                    page_range=pages,
+                    progress_callback=cb,
+                )
+                if not ok:
+                    raise RuntimeError(res)
+                out_name = os.path.basename(res)
+                file_sz = os.path.getsize(res) if os.path.isfile(res) else 0
+                record_history("convert", os.path.basename(src), out_name, res, file_sz)
+                return {
+                    "filename": out_name,
+                    "download_url": f"/api/download/{out_name}",
+                    "preview_url": f"/api/preview/{out_name}",
+                    "elapsed": elap,
+                }
+
+            elif act in ("docx-to-pptx", "pptx-build"):
+                src_param = payload.get("docx_path") or payload.get("source_path") or payload.get("filename")
+                src = resolve_file_path(src_param)
+                if not src:
+                    raise FileNotFoundError(f"File not found: {src_param}")
+                theme = payload.get("theme", "corporate_blue")
+                base_name = os.path.splitext(os.path.basename(src))[0]
+                target_pptx = os.path.join(OUTPUT_DIR, f"{base_name}_presentation.pptx")
+                actual_path, _ = convert_docx_to_pptx(src, target_pptx, theme=theme, progress_callback=cb)
+                preview_list = export_pptx_slides(actual_path, os.path.join(OUTPUT_DIR, "previews"))
+                out_name = os.path.basename(actual_path)
+                file_sz = os.path.getsize(actual_path) if os.path.isfile(actual_path) else 0
+                record_history("docx_to_pptx", os.path.basename(src), out_name, actual_path, file_sz)
+                return {
+                    "filename": out_name,
+                    "download_url": f"/api/download/{out_name}",
+                    "slides_count": len(preview_list),
+                    "previews": preview_list,
+                }
+
+            elif act == "pdf-to-pptx":
+                src_param = payload.get("pdf_path") or payload.get("source_path") or payload.get("filename")
+                src = resolve_file_path(src_param)
+                if not src:
+                    raise FileNotFoundError(f"File not found: {src_param}")
+                theme = payload.get("theme", "corporate_blue")
+                pages = payload.get("page_range")
+                base_name = os.path.splitext(os.path.basename(src))[0]
+                target_pptx = os.path.join(OUTPUT_DIR, f"{base_name}_pdf_presentation.pptx")
+                actual_path, _ = convert_pdf_to_pptx(src, target_pptx, theme=theme, page_range=pages, progress_callback=cb)
+                preview_list = export_pptx_slides(actual_path, os.path.join(OUTPUT_DIR, "previews"))
+                out_name = os.path.basename(actual_path)
+                file_sz = os.path.getsize(actual_path) if os.path.isfile(actual_path) else 0
+                record_history("pdf_to_pptx", os.path.basename(src), out_name, actual_path, file_sz)
+                return {
+                    "filename": out_name,
+                    "download_url": f"/api/download/{out_name}",
+                    "slides_count": len(preview_list),
+                    "previews": preview_list,
+                }
+
+            elif act in ("render-diagram", "diagram-render"):
+                code = payload.get("code") or payload.get("mermaid_code") or payload.get("plantuml_code") or payload.get("xml_content") or ""
+                lang = payload.get("engine") or payload.get("type", "mermaid")
+                try:
+                    from core.diagrams.bridge import render_diagram_code_to_png
+                except (ImportError, ValueError):
+                    from diagram_bridge import render_diagram_code_to_png
+
+                cb(20.0, f"Đang khởi động engine {lang}...")
+                diag_res = render_diagram_code_to_png(code, lang, scale=payload.get("scale", 2))
+                if not diag_res or not diag_res.get("png_path"):
+                    raise RuntimeError(f"Lỗi render sơ đồ {lang}")
+                png_path = diag_res["png_path"]
+                out_name = os.path.basename(png_path)
+                dest_path = os.path.join(OUTPUT_DIR, out_name)
+                import shutil
+                shutil.copy2(png_path, dest_path)
+                cb(100.0, "Hoàn tất render sơ đồ!")
+                file_sz = os.path.getsize(dest_path) if os.path.isfile(dest_path) else 0
+                record_history("diagram_render", f"diag_{lang}", out_name, dest_path, file_sz)
+                return {
+                    "filename": out_name,
+                    "download_url": f"/api/download/{out_name}",
+                    "preview_url": f"/api/preview/{out_name}",
+                    "dimensions_px": diag_res["dimensions_px"],
+                }
+
+            else:
+                raise ValueError(f"Hành động không hợp lệ: {action}")
+
+        return global_job_manager.submit_job(action, p, _runner)
 
 
 def is_server_already_running(port: int) -> bool:

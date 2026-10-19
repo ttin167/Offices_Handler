@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "antigravity-doc-handler"
-version = "3.2.0"
+version = "3.4.0"
 description = "Universal Office Document Studio & Precision Technical Diagram Engine for Antigravity AI and Developers"
 readme = "README.md"
 authors = [{ name = "YukiiMin" }]
@@ -49,6 +49,8 @@ windows = [
 
 [project.scripts]
 doc-handler = "ai_tools_cli:main"
+doc-handler-mcp = "server.mcp_server:main"
+doc-handler-studio = "server.app:run_server"
 spec-render = "ai_tools_cli:main_spec_render"
 docx-tools = "ai_tools_cli:main"
 diagram-editor = "diagram_editor:main"
@@ -69,4 +71,5 @@ extraPaths = ["."]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_functions = ["test_*"]
+addopts = "-s"
 

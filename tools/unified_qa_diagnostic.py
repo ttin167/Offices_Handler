@@ -55,6 +55,17 @@ try:
 except ImportError:
     HAS_PIL = False
 
+try:
+    import pptx
+    from pptx import Presentation
+    from pptx.util import Inches as PptxInches, Pt as PptxPt
+    from pptx.oxml.ns import qn as pptx_qn
+    HAS_PPTX = True
+except ImportError:
+    HAS_PPTX = False
+
+import xml.etree.ElementTree as ET
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Diagnostic Issue Record
@@ -260,6 +271,22 @@ class ExcelDiagnosticEngine:
                 location=f"{sheetname}"
             ))
 
+        # Check Print-Ready Page Setup (ERR_XLSX_008)
+        page_setup_pr = getattr(ws.sheet_properties, "pageSetUpPr", None)
+        fit_to_page = bool(getattr(page_setup_pr, "fitToPage", False)) if page_setup_pr is not None else False
+        if not fit_to_page:
+            fit_to_page = bool(getattr(ws.page_setup, "fitToPage", False))
+        fit_to_width = getattr(ws.page_setup, "fitToWidth", None)
+        if not fit_to_page or not fit_to_width:
+            issues.append(DiagnosticIssue(
+                code="ERR_XLSX_008",
+                domain="EXCEL",
+                severity="INFO",
+                message=f"Print-ready page setup missing (fitToPage={fit_to_page}, fitToWidth={fit_to_width}); risk of horizontal page overflow when printed",
+                location=f"{sheetname}",
+                fixable=True
+            ))
+
     @classmethod
     def repair(cls, xlsx_path: str, out_path: str) -> Tuple[bool, List[str]]:
         """Safe non-destructive repair for fixable Excel issues."""
@@ -306,6 +333,20 @@ class ExcelDiagnosticEngine:
                     ws.row_dimensions[r].height = target_h
                     actions.append(f"Auto-scaled {sheetname}!Row {r} height to {target_h:.1f}pt with wrap_text")
 
+            # Apply Print-Ready Page Setup (ERR_XLSX_008)
+            try:
+                page_set_up_pr = getattr(ws.sheet_properties, "pageSetUpPr", None)
+                if page_set_up_pr is not None:
+                    page_set_up_pr.fitToPage = True
+            except Exception:
+                pass
+            ws.page_setup.fitToPage = True
+            ws.page_setup.fitToWidth = 1
+            ws.page_setup.fitToHeight = 0
+            if ws.max_column > 7 and not ws.page_setup.orientation:
+                ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
+            actions.append(f"Applied ERR_XLSX_008 Print-Ready Page Setup to {sheetname}")
+
         wb.save(out_path)
         actions.append(f"Saved repaired workbook to {out_path}")
         return True, actions
@@ -349,16 +390,16 @@ class DocxDiagnosticEngine:
         # Calculate printable width from section 0
         if doc.sections:
             sec = doc.sections[0]
-            pw = sec.page_width.inches
-            lm = sec.left_margin.inches
-            rm = sec.right_margin.inches
+            pw = sec.page_width.inches if sec.page_width is not None else 8.5
+            lm = sec.left_margin.inches if sec.left_margin is not None else 1.0
+            rm = sec.right_margin.inches if sec.right_margin is not None else 1.0
             metrics["printable_width_inches"] = pw - lm - rm
 
         # 1. Diagnose Tables (ERR_DOCX_001, ERR_DOCX_003, ERR_DOCX_004)
         for t_idx, tbl in enumerate(doc.tables, start=1):
             num_rows = len(tbl.rows)
             num_cols = len(tbl.columns) if num_rows > 0 else 0
-            is_multi_page = num_rows > 12
+            is_multi_page = num_rows >= 10
             if is_multi_page:
                 metrics["multi_page_tables_count"] += 1
 
@@ -409,6 +450,70 @@ class DocxDiagnosticEngine:
                 blips = r._r.xpath(".//a:blip")
                 if blips:
                     metrics["images_count"] += len(blips)
+
+        # 3. Diagnose Track Changes & Revisions (ERR_DOCX_008)
+        try:
+            body = doc._body._element
+            ins_elements = body.findall(f".//{qn('w:ins')}")
+            del_elements = body.findall(f".//{qn('w:del')}")
+            seen_ids = set()
+
+            for elem in ins_elements + del_elements:
+                elem_tag = elem.tag.split("}")[-1]
+                change_id = elem.get(qn("w:id"))
+                author = elem.get(qn("w:author"))
+                date_val = elem.get(qn("w:date"))
+
+                if not change_id or not change_id.isdigit() or int(change_id) <= 0:
+                    issues.append(DiagnosticIssue(
+                        code="ERR_DOCX_008",
+                        domain="WORD",
+                        severity="CRITICAL",
+                        message=f"Track change <w:{elem_tag}> has invalid or missing w:id='{change_id}' (must be positive integer)",
+                        location=f"Element <w:{elem_tag}>"
+                    ))
+                elif change_id in seen_ids:
+                    issues.append(DiagnosticIssue(
+                        code="ERR_DOCX_008",
+                        domain="WORD",
+                        severity="CRITICAL",
+                        message=f"Track change <w:{elem_tag}> has duplicate w:id='{change_id}'",
+                        location=f"Element <w:{elem_tag}>"
+                    ))
+                else:
+                    seen_ids.add(change_id)
+
+                if not author:
+                    issues.append(DiagnosticIssue(
+                        code="ERR_DOCX_008",
+                        domain="WORD",
+                        severity="WARNING",
+                        message=f"Track change <w:{elem_tag}> (id={change_id}) missing w:author attribute",
+                        location=f"Element <w:{elem_tag}>"
+                    ))
+
+                if not date_val or not re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", date_val):
+                    issues.append(DiagnosticIssue(
+                        code="ERR_DOCX_008",
+                        domain="WORD",
+                        severity="WARNING",
+                        message=f"Track change <w:{elem_tag}> (id={change_id}) has invalid ISO-8601 w:date='{date_val}'",
+                        location=f"Element <w:{elem_tag}>"
+                    ))
+
+                if elem_tag == "del":
+                    del_texts = elem.findall(f".//{qn('w:delText')}")
+                    reg_texts = elem.findall(f".//{qn('w:t')}")
+                    if len(del_texts) == 0 and len(reg_texts) > 0:
+                        issues.append(DiagnosticIssue(
+                            code="ERR_DOCX_008",
+                            domain="WORD",
+                            severity="CRITICAL",
+                            message=f"Track change <w:del> (id={change_id}) uses <w:t> instead of required <w:delText>",
+                            location=f"Element <w:del id='{change_id}'>"
+                        ))
+        except Exception:
+            pass
 
         return issues, metrics
 
@@ -467,7 +572,186 @@ class DocxDiagnosticEngine:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 3. DIAGRAMS & CONVERSION DIAGNOSTIC ENGINE
+# 3. POWERPOINT (PPTX) DIAGNOSTIC ENGINE
+# ─────────────────────────────────────────────────────────────────────────────
+class PptxDiagnosticEngine:
+    """Enterprise diagnostic & safe-fix engine for PowerPoint presentations."""
+
+    @classmethod
+    def diagnose(cls, pptx_path: str) -> Tuple[List[DiagnosticIssue], Dict[str, Any]]:
+        issues: List[DiagnosticIssue] = []
+        metrics: Dict[str, Any] = {
+            "file": pptx_path,
+            "slides_count": 0,
+            "charts_count": 0,
+            "tables_count": 0,
+            "images_count": 0,
+            "widescreen_16_9": True,
+            "aspect_ratio": 1.777,
+        }
+
+        if not HAS_PPTX:
+            issues.append(DiagnosticIssue("ERR_SYS_003", "PRESENTATION", "CRITICAL", "python-pptx is not installed."))
+            return issues, metrics
+
+        # Check zombie locks (ERR_CONV_004)
+        cls._check_zombie_locks(pptx_path, issues, metrics)
+
+        try:
+            prs = Presentation(pptx_path)
+        except Exception as e:
+            issues.append(DiagnosticIssue(
+                "PPTX_INV_07", "PRESENTATION", "CRITICAL",
+                f"Failed to open presentation (corrupt package or file lock): {e}",
+                location="Package"
+            ))
+            return issues, metrics
+
+        metrics["slides_count"] = len(prs.slides)
+        slide_w = prs.slide_width
+        slide_h = prs.slide_height
+
+        # PPTX_INV_01: Widescreen 16:9 Master Aspect Ratio Check
+        if slide_h and slide_h > 0:
+            ar = float(slide_w) / float(slide_h)
+            metrics["aspect_ratio"] = round(ar, 3)
+            # Standard 16:9 is 16/9 ≈ 1.777 (13.333 x 7.5 in or 1280x720 pt)
+            if abs(ar - (16.0 / 9.0)) > 0.08:
+                metrics["widescreen_16_9"] = False
+                issues.append(DiagnosticIssue(
+                    code="PPTX_INV_01",
+                    domain="PRESENTATION",
+                    severity="WARNING",
+                    message=(
+                        f"Presentation aspect ratio is not 16:9 Widescreen "
+                        f"({slide_w.inches:.2f}x{slide_h.inches:.2f} in, ratio {ar:.2f}). "
+                        f"Standard widescreen requires 16:9 (13.333x7.5 in)."
+                    ),
+                    location="SlideMaster",
+                    details={"width_in": slide_w.inches, "height_in": slide_h.inches, "ratio": ar}
+                ))
+
+        for s_idx, slide in enumerate(prs.slides, start=1):
+            for shape in slide.shapes:
+                # 1. Text boxes & Word Wrap (PPTX_INV_04 & PPTX_INV_09)
+                if shape.has_text_frame:
+                    tf = shape.text_frame
+                    if tf.text and tf.text.strip():
+                        if not tf.word_wrap:
+                            issues.append(DiagnosticIssue(
+                                code="PPTX_INV_04",
+                                domain="PRESENTATION",
+                                severity="WARNING",
+                                message=f"Slide #{s_idx} shape '{shape.name}' lacks word_wrap=True, risking text clipping at boundaries.",
+                                location=f"Slide #{s_idx} Shape '{shape.name}'",
+                                fixable=True
+                            ))
+
+                        # Check for PPTX_INV_09 (defRPr formatting locking Ribbon / Color Picker)
+                        try:
+                            sp_xml = shape._element
+                            for def_rpr in sp_xml.findall(f".//{pptx_qn('a:defRPr')}"):
+                                if "b" in def_rpr.attrib or def_rpr.find(pptx_qn("a:solidFill")) is not None:
+                                    issues.append(DiagnosticIssue(
+                                        code="PPTX_INV_09",
+                                        domain="PRESENTATION",
+                                        severity="WARNING",
+                                        message=f"Slide #{s_idx} contains formatting (bold/fill) on <a:defRPr>, locking PowerPoint color controls.",
+                                        location=f"Slide #{s_idx} Shape '{shape.name}'",
+                                        fixable=True
+                                    ))
+                                    break
+                        except Exception:
+                            pass
+
+                # 2. Charts & Embedded Data (PPTX_INV_14)
+                if getattr(shape, "has_chart", False):
+                    metrics["charts_count"] += 1
+                    try:
+                        chart_part = shape.chart.part
+                        has_xlsx = any(
+                            "spreadsheet" in str(r.reltype).lower() or str(r.target_ref).lower().endswith(".xlsx")
+                            for r in chart_part.rels.values()
+                        )
+                        if not has_xlsx:
+                            issues.append(DiagnosticIssue(
+                                code="PPTX_INV_14",
+                                domain="PRESENTATION",
+                                severity="WARNING",
+                                message=f"Slide #{s_idx} Chart '{shape.name}' lacks embedded Excel spreadsheet data package.",
+                                location=f"Slide #{s_idx} Chart '{shape.name}'"
+                            ))
+                    except Exception:
+                        pass
+
+                # 3. Tables (PPTX_INV_06)
+                if getattr(shape, "has_table", False):
+                    metrics["tables_count"] += 1
+
+                # 4. Images
+                if shape.shape_type == 13:  # MSO_SHAPE_TYPE.PICTURE
+                    metrics["images_count"] += 1
+
+        return issues, metrics
+
+    @classmethod
+    def _check_zombie_locks(cls, file_path: str, issues: List[DiagnosticIssue], metrics: Dict[str, Any]):
+        dirname = os.path.dirname(os.path.abspath(file_path))
+        basename = os.path.basename(file_path)
+        for lp in [os.path.join(dirname, f"~${basename}"), os.path.join(dirname, f".~lock.{basename}#")]:
+            if os.path.exists(lp):
+                issues.append(DiagnosticIssue(
+                    code="ERR_CONV_004",
+                    domain="CONVERSION",
+                    severity="WARNING",
+                    message=f"Zombie lock file detected on disk: {os.path.basename(lp)}",
+                    location=lp,
+                    fixable=True
+                ))
+
+    @classmethod
+    def repair(cls, pptx_path: str, out_path: str) -> Tuple[bool, List[str]]:
+        """Safe non-destructive repair for fixable PPTX issues."""
+        if not HAS_PPTX:
+            return False, ["python-pptx is not installed."]
+
+        actions = []
+        try:
+            prs = Presentation(pptx_path)
+        except Exception as e:
+            return False, [f"Cannot load presentation for repair: {e}"]
+
+        for s_idx, slide in enumerate(prs.slides, start=1):
+            for shape in slide.shapes:
+                if shape.has_text_frame:
+                    tf = shape.text_frame
+                    if not tf.word_wrap:
+                        tf.word_wrap = True
+                        actions.append(f"Enabled word_wrap on Slide #{s_idx} Shape '{shape.name}'")
+
+                    try:
+                        sp_xml = shape._element
+                        for def_rpr in sp_xml.findall(f".//{pptx_qn('a:defRPr')}"):
+                            removed = False
+                            if "b" in def_rpr.attrib:
+                                del def_rpr.attrib["b"]
+                                removed = True
+                            fill_el = def_rpr.find(pptx_qn("a:solidFill"))
+                            if fill_el is not None:
+                                def_rpr.remove(fill_el)
+                                removed = True
+                            if removed:
+                                actions.append(f"Pruned illegal formatting from <a:defRPr> on Slide #{s_idx} Shape '{shape.name}'")
+                    except Exception:
+                        pass
+
+        prs.save(out_path)
+        actions.append(f"Saved repaired presentation to {out_path}")
+        return True, actions
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. DIAGRAMS & CONVERSION DIAGNOSTIC ENGINE
 # ─────────────────────────────────────────────────────────────────────────────
 class DiagramAndConversionEngine:
     @classmethod
@@ -506,12 +790,118 @@ class DiagramAndConversionEngine:
                     ))
         return issues, metrics
 
+    @classmethod
+    def diagnose_diagram_file(cls, diagram_path: str) -> Tuple[List[DiagnosticIssue], Dict[str, Any]]:
+        """Diagnoses Draw.io / mxGraph diagrams and vector assets."""
+        issues: List[DiagnosticIssue] = []
+        metrics: Dict[str, Any] = {
+            "file": diagram_path,
+            "cells_count": 0,
+            "edges_count": 0,
+            "native_hierarchy": True,
+        }
+
+        if not os.path.isfile(diagram_path):
+            return issues, metrics
+
+        ext = os.path.splitext(diagram_path)[1].lower()
+        if ext in (".drawio", ".xml"):
+            try:
+                tree = ET.parse(diagram_path)
+                root = tree.getroot()
+
+                # MX_INV_01: Pure Native Hierarchy (no UserObject embedding raw code blobs)
+                user_objects = root.findall(".//UserObject")
+                for uo in user_objects:
+                    if "mermaidData" in uo.attrib or "plantUmlData" in uo.attrib:
+                        metrics["native_hierarchy"] = False
+                        issues.append(DiagnosticIssue(
+                            code="MX_INV_01",
+                            domain="DIAGRAM",
+                            severity="CRITICAL",
+                            message="Draw.io diagram contains raw code wrapper <UserObject> instead of pure native mxCell hierarchy.",
+                            location=diagram_path
+                        ))
+
+                cells = root.findall(".//mxCell")
+                metrics["cells_count"] = len(cells)
+
+                edges = [c for c in cells if c.attrib.get("edge") == "1"]
+                metrics["edges_count"] = len(edges)
+
+                # MX_INV_08: Check collision-free edge labels have background mask
+                for e_idx, edge in enumerate(edges):
+                    val = edge.attrib.get("value", "").strip()
+                    style = edge.attrib.get("style", "")
+                    if val and "labelBackgroundColor=" not in style:
+                        issues.append(DiagnosticIssue(
+                            code="MX_INV_08",
+                            domain="DIAGRAM",
+                            severity="WARNING",
+                            message=f"Edge #{e_idx+1} with label '{val[:20]}' lacks labelBackgroundColor mask, risking text-line collision.",
+                            location=f"Edge #{e_idx+1}"
+                        ))
+            except Exception as ex:
+                issues.append(DiagnosticIssue(
+                    code="MX_INV_02",
+                    domain="DIAGRAM",
+                    severity="CRITICAL",
+                    message=f"Draw.io XML is malformed or corrupted: {ex}",
+                    location=diagram_path
+                ))
+
+        return issues, metrics
+
+    @classmethod
+    def diagnose_scan_image(cls, img_path: str) -> Tuple[List[DiagnosticIssue], Dict[str, Any]]:
+        """Diagnoses scanned images for ERR_CONV_005 (red stamp saturation & skew)."""
+        issues: List[DiagnosticIssue] = []
+        metrics: Dict[str, Any] = {"file": img_path, "has_red_stamp": False}
+        if not HAS_PIL or not os.path.isfile(img_path):
+            return issues, metrics
+
+        try:
+            with Image.open(img_path) as im:
+                rgb_im = im.convert("RGB")
+                w, h = rgb_im.size
+                step = max(1, (w * h) // 10000)
+                if hasattr(rgb_im, "get_flattened_data"):
+                    pixels = list(rgb_im.get_flattened_data())[::step]
+                else:
+                    pixels = list(rgb_im.getdata())[::step]
+                red_count = 0
+                for r, g, b in pixels:
+                    if r > 150 and g < 100 and b < 100:
+                        red_count += 1
+                red_ratio = red_count / max(len(pixels), 1)
+                if red_ratio > 0.05:
+                    metrics["has_red_stamp"] = True
+                    issues.append(DiagnosticIssue(
+                        code="ERR_CONV_005",
+                        domain="CONVERSION",
+                        severity="INFO",
+                        message=f"Image exhibits high red stamp saturation ({red_ratio*100:.1f}%). HSV red-stamp filter recommended for clean OCR.",
+                        location=img_path
+                    ))
+        except Exception:
+            pass
+        return issues, metrics
+
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Backward Compatibility Engine Aliases
+# ─────────────────────────────────────────────────────────────────────────────
+WordDiagnosticEngine = DocxDiagnosticEngine
+PowerPointDiagnosticEngine = PptxDiagnosticEngine
+DiagramDiagnosticEngine = DiagramAndConversionEngine
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 4. MASTER CLI & REPORT FORMATTER
 # ─────────────────────────────────────────────────────────────────────────────
 def format_terminal_report(all_issues: List[DiagnosticIssue], all_metrics: Dict[str, Any]) -> str:
-    lines = []
+    lines: List[str] = []
     lines.append("=" * 80)
     lines.append("       ENTERPRISE UNIFIED QA & DIAGNOSTIC REPORT (DOCX / XLSX / DIAGRAM)")
     lines.append("=" * 80)
@@ -538,10 +928,12 @@ def format_terminal_report(all_issues: List[DiagnosticIssue], all_metrics: Dict[
     return "\n".join(lines)
 
 
-def run_pipeline():
+def run_pipeline(args_or_argv: Optional[Any] = None) -> int:
     parser = argparse.ArgumentParser(description="Enterprise Unified QA & Diagnostic Engine")
     parser.add_argument("--xlsx", help="Path to Excel workbook to diagnose", default=None)
     parser.add_argument("--docx", help="Path to Word document to diagnose", default=None)
+    parser.add_argument("--pptx", help="Path to PowerPoint presentation to diagnose", default=None)
+    parser.add_argument("--diagram", help="Path to Draw.io / vector diagram to diagnose", default=None)
     parser.add_argument("--all", help="Directory containing documents to diagnose", default=None)
     parser.add_argument("--mode", choices=["diagnose", "audit-fix"], default="diagnose",
                         help="Operation mode: 'diagnose' (read-only audit) or 'audit-fix' (safe repair)")
@@ -551,20 +943,32 @@ def run_pipeline():
                         help="Output report format")
     parser.add_argument("--output", help="Optional output file path for the report/log", default=None)
 
-    args = parser.parse_args()
+    if args_or_argv is None:
+        args = parser.parse_args()
+    elif isinstance(args_or_argv, list):
+        args = parser.parse_args(args_or_argv)
+    else:
+        args = args_or_argv
 
     files_to_check: List[str] = []
-    if args.xlsx:
+    if getattr(args, "xlsx", None):
         files_to_check.append(args.xlsx)
-    if args.docx:
+    if getattr(args, "docx", None):
         files_to_check.append(args.docx)
-    if args.all and os.path.exists(args.all):
-        files_to_check.extend(glob.glob(os.path.join(args.all, "**", "*.xlsx"), recursive=True))
-        files_to_check.extend(glob.glob(os.path.join(args.all, "**", "*.docx"), recursive=True))
+    if getattr(args, "pptx", None):
+        files_to_check.append(args.pptx)
+    if getattr(args, "diagram", None):
+        files_to_check.append(args.diagram)
+    all_target = getattr(args, "all", None)
+    if all_target and os.path.exists(all_target):
+        files_to_check.extend(glob.glob(os.path.join(all_target, "**", "*.xlsx"), recursive=True))
+        files_to_check.extend(glob.glob(os.path.join(all_target, "**", "*.docx"), recursive=True))
+        files_to_check.extend(glob.glob(os.path.join(all_target, "**", "*.pptx"), recursive=True))
+        files_to_check.extend(glob.glob(os.path.join(all_target, "**", "*.drawio"), recursive=True))
 
     if not files_to_check:
-        print("No target files specified. Use --xlsx, --docx, or --all.")
-        sys.exit(0)
+        print("No target files specified. Use --xlsx, --docx, --pptx, --diagram, or --all.")
+        return 0
 
     all_issues: List[DiagnosticIssue] = []
     all_metrics: Dict[str, Any] = {"files": files_to_check, "details": {}}
@@ -606,6 +1010,32 @@ def run_pipeline():
                 for act in actions:
                     print(f"  + {act}")
 
+        elif ext == ".pptx":
+            issues, metrics = PptxDiagnosticEngine.diagnose(file_path)
+            all_issues.extend(issues)
+            all_metrics["details"][file_path] = metrics
+
+            if args.mode == "audit-fix":
+                if args.in_place:
+                    shutil.copyfile(file_path, file_path + ".bak")
+                    target_out = file_path
+                else:
+                    target_out = file_path.replace(".pptx", "_repaired.pptx")
+                success, actions = PptxDiagnosticEngine.repair(file_path, target_out)
+                print(f"[REPAIR] {file_path} -> {target_out}: {'SUCCESS' if success else 'FAILED'}")
+                for act in actions:
+                    print(f"  + {act}")
+
+        elif ext in (".drawio", ".xml"):
+            issues, metrics = DiagramAndConversionEngine.diagnose_diagram_file(file_path)
+            all_issues.extend(issues)
+            all_metrics["details"][file_path] = metrics
+
+        elif ext in (".png", ".jpg", ".jpeg", ".bmp"):
+            issues, metrics = DiagramAndConversionEngine.diagnose_scan_image(file_path)
+            all_issues.extend(issues)
+            all_metrics["details"][file_path] = metrics
+
     # Output formatting
     if args.format == "json":
         report_data = {
@@ -630,12 +1060,12 @@ def run_pipeline():
     has_warning = any(i.severity == "WARNING" for i in all_issues)
 
     if has_critical:
-        sys.exit(2)
+        return 2
     elif has_warning:
-        sys.exit(1)
+        return 1
     else:
-        sys.exit(0)
+        return 0
 
 
 if __name__ == "__main__":
-    run_pipeline()
+    sys.exit(run_pipeline())

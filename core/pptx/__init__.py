@@ -16,9 +16,18 @@ from .writer import (
     add_split_diagram_slide,
     add_mockup_slide,
     add_split_mockup_slide,
+    add_kpi_summary_slide,
+    add_timeline_roadmap_slide,
+    add_swot_matrix_slide,
+    add_process_chevron_slide,
     safe_save_pptx,
     get_theme,
     THEMES,
+)
+from .charts import (
+    add_chart_to_slide,
+    add_chart_slide,
+    build_chart_data,
 )
 from .engine import (
     compile_markdown_file_to_pptx,
@@ -42,6 +51,13 @@ __all__ = [
     "add_split_diagram_slide",
     "add_mockup_slide",
     "add_split_mockup_slide",
+    "add_kpi_summary_slide",
+    "add_timeline_roadmap_slide",
+    "add_swot_matrix_slide",
+    "add_process_chevron_slide",
+    "add_chart_to_slide",
+    "add_chart_slide",
+    "build_chart_data",
     "safe_save_pptx",
     "get_theme",
     "THEMES",

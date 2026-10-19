@@ -1,6 +1,6 @@
-# CHANGELOG — Lịch Sử Thay Đổi & Tiến Hóa Dự Án (v1.0 → v3.4)
+# CHANGELOG — Lịch Sử Thay Đổi & Tiến Hóa Dự Án (v1.0 → v4.0.0)
 
-Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân hệ kiến trúc mới, và các cải tiến công nghệ từ phiên bản cơ sở (v1.0 Baseline) cho đến phiên bản hoàn thiện hiện tại (**v3.4 Production Grade**) của bộ công cụ **`antigravity-doc-handler`**.
+Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân hệ kiến trúc mới, và các cải tiến công nghệ từ phiên bản cơ sở (v1.0 Baseline) cho đến phiên bản hoàn thiện hiện tại (**v4.0.0 Production Grade**) của bộ công cụ **`antigravity-doc-handler`**.
 
 ---
 
@@ -21,29 +21,166 @@ Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân h�
 | **Sơ đồ Kỹ thuật (Diagram Suite)** | Chỉ có sơ đồ cơ bản qua Chromium headless | **Hệ sinh thái Đa Engine**: Hỗ trợ 4 loại công nghệ: Draw.io Native mxGraph (`mxgraph_engine.py`), PlantUML cục bộ (`plantuml.jar` với chuẩn C4 nội bộ), Mermaid pastel phẳng, và Canvas Screen Flow tương tác | Xuất vector SVG và PNG siêu nét 300+ DPI, hỗ trợ kéo thả chỉnh sửa 2 chiều qua `diagram_editor.py` |
 | **Quản lý Định dạng (Decoupled Styling)** | Code và Style bị trộn lẫn, khó thay đổi giao diện | Tách rời hoàn toàn Nội dung (`.md`) và Kiểu dáng (`.style.yaml`); tự động trích xuất metadata phong cách từ DOCX mẫu | Thay đổi toàn bộ phông chữ, màu sắc, lề trang chỉ bằng việc chỉnh sửa file YAML mà không cần sửa code |
 | **Giao diện & CLI Dispatcher** | Các script chạy phân mảnh | `ai_tools_cli.py` hợp nhất toàn bộ lệnh: `docx-tools`, `pptx-build`, `pptx-preview`, `diagram-render`, `convert`, `inspect-doc` + Desktop GUI Tkinter (`main.py`) | Thân thiện cho cả người dùng cuối (chạy app desktop) và AI Coding Agent (gọi CLI dạng declarative JSON) |
-| **Kiểm định Chất Lượng (Quality Assurance)** | 16 bài test sơ khai (bị lỗi hardcode đường dẫn trên máy khác) | **105 Automated Test Suites (100% Pass Rate)**: Bộ test toàn diện bao quát OpenXML Lists, Invariants, DrawingML, SQLite CRUD, Web API, và Microsoft Word COM Automation | Bảo đảm tính ổn định tuyệt đối trong môi trường CI/CD và máy tính cá nhân |
+| **Kiểm định Chất Lượng (Quality Assurance)** | 16 bài test sơ khai (bị lỗi hardcode đường dẫn trên máy khác) | **108 Automated Test Suites (100% Pass Rate)**: Bộ test toàn diện bao quát OpenXML Lists, Invariants, DrawingML, SQLite CRUD, Web API, và Microsoft Word COM Automation | Bảo đảm tính ổn định tuyệt đối trong môi trường CI/CD và máy tính cá nhân |
 
 ---
 
 ## 2. Chi Tiết Các Phiên Bản Phát Triển
 
-### Phiên Bản 3.4.0 (Phiên Bản Hiện Tại — OpenXML List & Numbering Engine + 105 Test Suites)
+### Phiên Bản 4.0.0 (Phase 4 — Enterprise Unified QA Diagnostic, System Integrity & Final Integration)
+- **Động Cơ Chẩn Đoán & Sửa Chữa Hợp Nhất (Enterprise Unified QA Diagnostic & Self-Repair)**:
+  - `tools/unified_qa_diagnostic.py`:
+    - **PowerPoint Diagnostic (`PptxDiagnosticEngine`)**:
+      - Chẩn đoán chuẩn Widescreen 16:9 (**`PPTX_INV_01`**): Phát hiện tỷ lệ slide 4:3 gây co cụt hoặc vỡ lề khi trình chiếu.
+      - Chẩn đoán tràn viền và thiếu word wrap (**`PPTX_INV_04`**): Quét toàn bộ text frame có nội dung, phát hiện nguy cơ tràn mép slide khi thiếu cờ `word_wrap=True`.
+      - Chẩn đoán khóa thanh Ribbon / Color Picker (**`PPTX_INV_09`**): Phát hiện định dạng in đậm hoặc màu nền gán trực tiếp lên `<a:defRPr>` gây khóa cứng thanh chọn màu PowerPoint.
+      - Chẩn đoán tính khả chỉnh của biểu đồ (**`PPTX_INV_14`**): Xác minh gói bảng tính Excel nhúng kèm theo các biểu đồ OpenXML Native.
+      - Cơ chế Safe Non-destructive Repair cho PPTX: Tự động kích hoạt `word_wrap=True` và dọn dẹp các thuộc tính định dạng phi chuẩn trên `<a:defRPr>` mà không làm xô lệch vị trí hay font chữ gốc.
+    - **Sơ Đồ Kỹ Thuật & Tài Sản Đồ Họa Vector (`DiagramAndConversionEngine`)**:
+      - Kiểm định phân cấp Draw.io XML thuần (**`MX_INV_01`**): Ngăn chặn việc bọc thẻ `<UserObject>` chứa raw code PlantUML/Mermaid vi phạm kiến trúc native mxCell.
+      - Kiểm định cú pháp XML hợp thức (**`MX_INV_02`**): Phát hiện tệp sơ đồ bị cắt cụt thẻ hoặc lỗi cú pháp XML.
+      - Kiểm định mặt nạ nhãn đường nối line (**`MX_INV_08`**): Bắt buộc các đường line có nhãn văn bản phải có lớp nền `labelBackgroundColor=#ffffff` chống đè nét dây.
+    - **Ảnh Scan & Phục Hồi Dấu Mộc Đỏ (`ERR_CONV_005`)**:
+      - Tự động đo đạc tỷ lệ điểm ảnh mộc đỏ trong không gian màu HSV, khuyến nghị kích hoạt bộ lọc red-stamp trước khi đưa vào OCR.
+    - **Tự Động Sửa Chữa Văn Bản Word (DOCX Safe Repair)**:
+      - Tự động tiêm thẻ `<w:p/>` vào các ô bảng vi phạm *The Last Paragraph Rule* (**`ERR_DOCX_001`**).
+      - Tự động tiêm cờ `<w:cantSplit/>` và `<w:tblHeader/>` cho các bảng biểu nhiều trang (**`ERR_DOCX_003`**).
+      - Kiểm định tính hợp thức của Track Changes XML (**`ERR_DOCX_008`**).
+- **Hợp Nhất Giao Diện Dòng Lệnh Master CLI (`qa-audit`)**:
+  - `cli/ai_tools.py` & root facade `ai_tools_cli.py`:
+    - Đăng ký subcommand `qa-audit`:
+      `python ai_tools_cli.py qa-audit [--docx D] [--xlsx X] [--pptx P] [--diagram G] [--all DIR] [--mode {diagnose,audit-fix}] [--in-place] [--format {terminal,json,sarif}] [-o OUT]`
+    - Mã thoát CI/CD chuẩn mực: `0` (Clean 100%), `1` (Cảnh báo thẩm mỹ), `2` (Lỗi cấu trúc nghiêm trọng).
+- **Bộ Kiểm Thử Chất Lượng Toàn Diện (Quality Gate)**:
+  - Bổ sung `tests/test_unified_qa_diagnostic.py` (5 tests chuyên sâu).
+  - Toàn bộ test suite đạt **193 tests passed 100% (0 failed, 3 warnings in 53s)**.
+- **Nâng Cấp Kiến Trúc `ARCHITECTURE.md` Lên v4.0.0**:
+  - Chuẩn hóa mô hình 5 tầng: Presentation, Interface/Protocol, Core Engine, Storage/Cache, External Tooling.
+  - Hoàn thiện tài liệu ma trận bất biến và tiêu chuẩn Clean-Room MIT Zero-COM.
+
+### Phiên Bản 3.8.0 (Phase 3 — Enterprise Grade: Legal Redline Diff, Vietnamese OCR Pipeline & Linux/Docker Zero-COM)
+- **So Sánh Văn Bản Pháp Lý & AI Track Changes (Redline Diff Engine)**:
+  - `core/docx/diff_engine.py` & root facade `docx_diff_engine.py`:
+    - Thuật toán so khớp văn bản chi tiết cấp đoạn văn và từ ngữ (`SequenceMatcher` Token-level Diff) bảo toàn khoảng trắng và dấu câu.
+    - Sinh mã chuẩn OpenXML `<w:ins>` và `<w:del>` với thẻ `<w:delText>` (thay vì `<w:t>`), tuân thủ nghiêm ngặt quy chuẩn **ERR_DOCX_008 (Valid Track Changes XML)**.
+    - Quản lý định danh `w:id` là số nguyên dương tăng dần duy nhất, tác giả `w:author` và timestamp ISO-8601 UTC `w:date`.
+    - Tích hợp chèn nhận xét AI Reviewer vào lề phải tài liệu: đóng gói trực tiếp `word/comments.xml`, cập nhật `[Content_Types].xml` và liên kết quan hệ trong `word/_rels/document.xml.rels`.
+    - Bảo toàn cấu trúc bảng biểu, tự động áp dụng `<w:cantSplit/>`, `<w:tblHeader/>` và quy tắc *The Last Paragraph Rule* (`ERR_DOCX_001`).
+- **Pipeline OCR Tiếng Việt & Bóc Tách Hóa Đơn/Chứng Từ Scan (Scan Recovery)**:
+  - `core/converter/ocr_pipeline.py` & root facade `ocr_pipeline.py`:
+    - Thuật toán tự động phát hiện văn bản scan (`is_scanned_pdf`): mật độ text < 20 ký tự/trang kết hợp diện tích ảnh raster > 70% diện tích trang.
+    - Bộ lọc mộc đỏ HSV (**ERR_CONV_005 (Scan & Red-Stamp Recovery)**): quét dải sắc độ đỏ trong không gian màu HSV (`H <= 14` hoặc `H >= 240`, `S >= 50`, `V >= 50`) để trung hòa dấu mộc đỏ, chống đứt gãy đường viền bảng tính và loại bỏ nhiễu đen khi qua OCR.
+    - Bộ ước lượng góc nghiêng (`detect_skew_angle`) và nắn thẳng ảnh scan tự động (`deskew_image`) dựa trên phương sai của hồ sơ chiếu ngang.
+    - Điều phối Tesseract OCR với gói ngôn ngữ tiếng Việt (`vie+eng`), tự động fallback sang `eng` hoặc trả về cấu trúc lỗi chuẩn khi thiếu binary ngoại vi.
+    - Hỗ trợ xuất kết quả bóc tách ra tệp Markdown (`.md`) hoặc tài liệu Word (`.docx`).
+- **Động Cơ Đa Nền Tảng Linux / Docker (Zero-COM Dependency)**:
+  - `core/converter/pdf_renderer.py` & root facade `pdf_renderer.py`:
+    - Lớp trừu tượng `UniversalPdfRenderer` với chuỗi fallback ưu tiên: Win32 COM (trên Windows có MS Office, kiểm tra an toàn không khóa tiến trình qua `winreg`) ➔ LibreOffice Headless (`soffice --headless --convert-to pdf`) ➔ Fallback PyMuPDF / Python.
+    - Cung cấp các hàm tiện ích: `convert_docx_to_pdf()`, `convert_pptx_to_pdf()`, `convert_xlsx_to_pdf()`, `convert_to_pdf()`.
+  - `Dockerfile` & `docker-compose.yml`:
+    - Đóng gói container production Debian Bookworm với đầy đủ `libreoffice`, `tesseract-ocr`, `tesseract-ocr-vie`, `chromium`, OpenJDK JRE cho PlantUML, font chữ Liberation / DejaVu và Web Studio Server port 8000.
+- **Mở Rộng Giao Diện & Bộ Công Cụ Chẩn Đoán (CLI, MCP, Web REST, Diagnostic)**:
+  - CLI: Bổ sung lệnh `docx-diff` (hỗ trợ cả DOCX Redline Diff và JSON snapshot diff) và `ocr-scan` (bóc tách ảnh/PDF scan) trong `ai_tools_cli.py` và `cli/ai_tools.py`.
+  - MCP Server: Đăng ký 2 công cụ mới `doc_redline_diff` và `doc_ocr_scan` trong `server/mcp_server.py` (tổng cộng 11 tools chuẩn MCP JSON-RPC 2.0).
+  - REST API: Bổ sung 2 endpoints `POST /api/docx/diff` và `POST /api/ocr/scan` trong `server/app.py`.
+  - Unified QA Diagnostic: Cập nhật kiểm tra quy chuẩn `ERR_DOCX_008` (xác thực tính hợp lệ của thẻ `<w:ins>`, `<w:del>`, `w:id`, `w:date`, `w:delText`) trong `tools/unified_qa_diagnostic.py`.
+- **Bộ Kiểm Thử Chất Lượng (Quality Gate)**:
+  - Mở rộng thêm 25 bài kiểm thử mới: `tests/test_docx_diff_redline.py` (10 tests), `tests/test_ocr_pipeline.py` (8 tests), `tests/test_pdf_renderer.py` (6 tests), và mở rộng `tests/test_mcp_server.py`.
+  - Toàn bộ test suite đạt **188 bài kiểm thử vượt qua 100% (188 passed, 0 failed, 3 warnings in 51s)**.
+
+### Phiên Bản 3.6.0 (Phase 2 — Batch Mail Merge Studio, Native OpenXML Charts & Enterprise Business Layouts)
+- **Phân Hệ Trộn Thư Hàng Loạt (Batch Mail Merge Studio)**:
+  - `core/docx/mail_merge.py` & root facade `docx_mail_merge.py`:
+    - Quét và trích xuất token `{{Token}}` từ văn bản Word mẫu (`inspect_template_tokens`).
+    - Nạp nguồn dữ liệu linh hoạt: Excel (`.xlsx`), file JSON (`.json`) hoặc danh sách đối tượng trực tiếp.
+    - Bảo toàn số 0 ở đầu (`ERR_XLSX_007`), định dạng ngày tháng `YYYY-MM-DD` / `DD/MM/YYYY`, số tiền tệ.
+    - Hỗ trợ khối logic điều kiện: `{{IF:Field=Val}}...{{ENDIF}}`, `{{IF:Field!=Val}}...{{ENDIF}}`, `{{IF:Field>Val}}...{{ENDIF}}`.
+    - Hỗ trợ đặt tên file động: `HDLD_{{MaNV}}_{{HoTen}}.docx` và đóng gói nén toàn bộ tệp kết quả thành kho lưu trữ `.zip`.
+- **Động Cơ Biểu Đồ Native OpenXML (`<c:chart>`) Cho PowerPoint & Word**:
+  - `core/pptx/charts.py` & root facade `pptx_charts.py`:
+    - Sinh thẻ chuẩn OpenXML `<c:chart>` cho 5 loại biểu đồ: Column (Clustered), Bar (Horizontal), Line (Markers), Pie (2D), Doughnut.
+    - Nhúng workbook Excel ẩn (`embedded_xlsx`) cho phép chuột phải chọn "Edit Data" trực tiếp trong PowerPoint.
+    - Tuân thủ nghiêm ngặt **PPTX_INV_14**: thiết lập màu sắc trục toạ độ và số liệu thuần đen `#000000` ở cấp run-level (`<a:rPr>`).
+    - Các hàm cốt lõi: `add_chart_to_slide()`, `add_chart_slide()`, `build_chart_data()`.
+  - `core/docx/charts.py` & root facade `docx_charts.py`:
+    - Sinh mã vector SVG thuần túy cho 5 loại biểu đồ.
+    - Kết xuất ảnh phân giải cao PNG qua headless browser (Edge/Chromium).
+    - Khóa tỷ lệ và lề in ấn chuẩn A4 $\le 14\text{cm}$ (**ERR_DOCX_005**) kèm caption căn giữa in nghiêng.
+  - `core/converter/markdown.py` & `markdown_converter.py`:
+    - Bổ sung hỗ trợ fenced code block ````chart` chứa JSON/YAML spec, tự động render và nhúng biểu đồ vào tài liệu Word DOCX.
+- **Mở Rộng 4 Bố Cục Slide Trình Diễn Doanh Nghiệp (Enterprise Business Layouts)**:
+  - `core/pptx/writer.py` & root facade `pptx_writer.py`:
+    - `add_kpi_summary_slide`: 4 thẻ chỉ số lớn kèm huy hiệu xu hướng `▲` (xanh ngọc) / `▼` (đỏ thẫm) và mô tả ngữ cảnh.
+    - `add_timeline_roadmap_slide`: Trục thời gian ngang liên tục, các node đánh dấu tròn (01, 02...) và thẻ cột mốc chi tiết.
+    - `add_swot_matrix_slide`: Lưới 2x2 ma trận SWOT cân đối (Strengths xanh dương, Weaknesses đỏ, Opportunities xanh lá, Threats hổ phách).
+    - `add_process_chevron_slide`: Tiến trình tuần tự 3 đến 6 bước với mũi tên kết nối liên tục (`→`).
+    - Bộ điều phối `write_pptx_from_spec`: tích hợp liền mạch các kiểu slide `chart`, `kpi_summary`, `timeline`, `swot`, `process`.
+  - `core/pptx/docx_to_pptx.py` & root facade `docx_to_pptx.py`:
+    - Bổ sung bộ phân loại ngữ nghĩa `_detect_business_layout()` tự động nhận diện tiêu đề và nội dung để sinh slide SWOT, Timeline, KPI Summary, hoặc Process.
+- **Mở Rộng Giao Diện & Kết Nối (CLI, MCP, Web REST)**:
+  - CLI: Bổ sung lệnh `docx-mail-merge` trong `ai_tools_cli.py` và `cli/ai_tools.py` (hỗ trợ cờ `--inspect`, `--pattern`, `--zip`).
+  - Model Context Protocol: Đăng ký công cụ `doc_mail_merge` trong `server/mcp_server.py`.
+  - Web REST API: Thêm endpoints `POST /api/mail-merge` và `POST /api/mail-merge/inspect` trong `server/app.py`.
+- **Bộ Kiểm Thử Chất Lượng (Quality Gate Suite Expansion)**:
+  - Tạo mới `tests/test_mail_merge.py` (4 tests), `tests/test_native_charts.py` (8 tests), `tests/test_pptx_business_layouts.py` (6 tests).
+  - Nâng tổng số bài kiểm thử tự động toàn dự án lên **163 passed tests (100% Pass Rate)**.
+
+### Phiên Bản 3.5.0 (Phase 1 — Administrative Presets, Vietnamese Typography Sanitizer, Print-Ready Excel & Everyday PDF Toolkit)
+- **Bộ Preset Văn Bản Hành Chính (Nghị định 30/2020/NĐ-CP) & Luận Văn Học Thuật**:
+  - `presets/nd30_hanh_chinh.style.yaml`: Quy định kích thước lề A4 chuẩn (Trên: 20mm, Dưới: 20mm, Trái: 30mm, Phải: 20mm), phông Times New Roman 13–14pt, giãn dòng 1.3 lines.
+  - `presets/academic_thesis.style.yaml`: Lề đóng gáy trái 35mm, giãn dòng 1.5 lines, bảng màu Thesis Blue.
+  - `core/docx/presets.py` & root facade `docx_presets.py`: Cung cấp `apply_preset_to_document()` và `build_administrative_header()` tạo bảng 2 cột ẩn viền cho Cơ quan chủ quản và Quốc hiệu / Tiêu ngữ tuân thủ nghiêm ngặt OpenXML invariants (`cantSplit`, `tblHeader`, `<w:p>` termination).
+- **Bộ Sanitize Tiếng Việt & Dọn Dẹp Ký Tự Lạ Nâng Cao (`VietnameseTypographySanitizer`)**:
+  - Tích hợp trong `core/docx/advanced_engine.py` (và root facade `docx_advanced_engine.py`).
+  - Chuẩn hóa Unicode NFC (loại bỏ hoàn toàn lỗi vỡ dấu thanh tổ hợp tiếng Việt).
+  - Chuẩn hóa khoảng trắng dấu câu (không khoảng trắng trước `, . ; : ! ?`, đúng 1 khoảng trắng sau dấu câu).
+  - Ôm sát ngoặc đơn `( text )` ➔ `(text)` và ngoặc kép `“ quote ”` ➔ `“quote”`.
+  - Chuẩn hóa En-dash (`–`) cho dải niên độ/số liệu: `2020-2026` ➔ `2020 – 2026`.
+  - `sanitize_vietnamese_typography(doc)` duyệt đệ quy toàn bộ đoạn văn, bảng biểu, headers/footers.
+- **Chuẩn Hóa In Ấn Bảng Tính Excel (`ERR_XLSX_008: Print-Ready Page Setup`)**:
+  - `core/xlsx/writer.py` & `xlsx_writer.py`: Hàm `apply_worksheet_print_setup()` và `UniversalExcelEngine.apply_print_setup()`.
+  - Thiết lập `fitToPage = True`, `fitToWidth = 1`, `fitToHeight = 0` (ngăn chặn triệt để hiện tượng vỡ bảng và tràn cột sang trang ngang).
+  - Tự động xoay Landscape nếu số cột > 7, Portrait nếu $\le 7$.
+  - Tự động phát hiện dòng Header qua Semantic Anchors và kích hoạt `ws.print_title_rows` lặp lại tiêu đề trên mọi trang in.
+  - Tích hợp kiểm định và sửa chữa không phá hủy trong `tools/unified_qa_diagnostic.py`.
+- **Bộ Công Cụ PDF Hàng Ngày (Everyday PDF Toolkit)**:
+  - `core/converter/pdf_toolkit.py` & root facade `pdf_toolkit.py`:
+    - `merge_pdfs`: Gộp tuần tự danh sách tệp PDF.
+    - `split_pdf`: Tách PDF thành từng trang đơn lẻ hoặc theo dải trang (`1-3, 4-5`).
+    - `rotate_and_clean_pdf`: Xoay trang theo góc (90°, 180°, 270°) và nhận diện/loại bỏ trang trắng.
+    - `stamp_watermark_pdf`: Đóng dấu chìm watermark bán trong suốt, tự động dò tìm và nhúng TrueType font hệ thống hỗ trợ tiếng Việt Unicode 100%.
+    - `compress_pdf`: Tối ưu hóa xref, deflation và dọn dẹp rác bộ nhớ giảm dung lượng PDF.
+- **Mở Rộng Giao Tiếp & Giao Diện (CLI, MCP, Web REST)**:
+  - CLI: Bổ sung các lệnh `docx-apply-preset`, `docx-sanitize-vietnamese`, `pdf-tools` trong `ai_tools_cli.py` và `cli/ai_tools.py`.
+  - Model Context Protocol: Đăng ký công cụ `docx_apply_preset` và `pdf_quick_tools` trong `server/mcp_server.py`.
+  - Web API REST: Thêm endpoints `GET /api/presets`, `POST /api/docx/preset`, `POST /api/pdf/tools`, `POST /api/xlsx/print-setup` trong `server/app.py`.
+- **Bộ Kiểm Thử Chất Lượng Nâng Cấp**:
+  - Tạo mới `tests/test_nd30_preset.py` (5 tests), `tests/test_xlsx_print_setup.py` (5 tests), `tests/test_pdf_toolkit.py` (5 tests).
+  - Mở rộng tổng số bài kiểm thử tự động lên **145 passed tests (100% Pass Rate)**.
+
+### Phiên Bản 3.4.0 (Phiên Bản Nền Tảng — OpenXML List & Numbering Engine + Unified Diagram Bridge + 108 Test Suites)
 - **Động cơ Quản lý Danh sách Độc lập (`docx_lists.py`)**:
   - Đăng ký cấu trúc OpenXML `abstractNum` chuẩn ECMA-376 (ID 2001 cho số thứ tự 3 cấp `1.` -> `a.` -> `i.`; ID 2002 cho bullet 3 cấp `•` -> `○` -> `■`).
   - Cấp phát `numId` động độc lập kèm `<w:startOverride w:val="1"/>`, tự động reset danh sách về 1 khi bắt đầu mục mới.
-  - **Cơ chế Smart Continuation**: Duy trì liên tục số thứ tự cấp cha ngay cả khi có ghi chú hoặc sub-bullet xen kẽ.
+  - **Cơ chế Smart Continuation**: Duy trì liên tục số thứ tự cấp cha ngay cả khi có ghi chú hoặc sub-items xen kẽ.
   - **Dynamic Native Word Numbering**: Khi mở tài liệu trong Word, nhấn Enter sẽ tự động nhảy số tiếp theo thay vì văn bản tĩnh.
   - **Task Lists Checkbox**: Chuyển đổi mượt mà `- [ ]` sang `☐` (ballot box) và `- [x]` / `* [X]` sang `☑` (checked box) in đậm.
   - **Hanging Indentation Invariants**: Áp dụng chuẩn thụt lề dxa `<w:ind w:left="..." w:hanging="360"/>` (cấp 0: 720, cấp 1: 1440, cấp 2: 2160).
   - **Strict Guard**: Tuyệt đối không tự ý sinh số thứ tự hoặc bullet cho các đoạn văn thông thường.
+- **Cơ chế Sinh Sơ Đồ Đa Định Dạng Thống Nhất (`core/diagrams/bridge.py` & `diagram_bridge.py`)**:
+  - Hợp nhất 4 động cơ đồ họa (Mermaid, PlantUML, Draw.io XML, Canvas Spec) qua giao diện chung.
+  - Biên dịch trực tiếp khối mã sơ đồ fenced trong Markdown (` ```mermaid `, ` ```plantuml `, ` ```drawio `, ` ```canvas `, ` ```spec `) thành hình ảnh PNG chất lượng cao nhúng vào DOCX, PPTX và PDF.
+  - Hỗ trợ cú pháp liên kết `![Caption](spec.json)` tự động dò tìm và render spec đồ họa thành ảnh tương ứng.
+  - Khóa tỷ lệ khung hình chuẩn A4 (`ERR_DOCX_005`: $W \le 14\text{cm}, H \le 18\text{cm}$) và gắn chú thích in nghiêng $9.5\text{pt}$ căn giữa.
+  - Bộ nhớ đệm Content-Hash Caching (MD5) chống render trùng lặp, tăng tốc tối đa khi xử lý tài liệu lớn.
 - **Tích hợp sâu vào `markdown_converter.py` & `docx_writer.py`**:
   - `markdown_converter.py`: Tích hợp `ListContextTracker` nhận diện thụt đầu dòng; tự động reset danh sách khi gặp tiêu đề `#`, code blocks, ảnh, bảng biểu, ngắt trang, hoặc văn bản thường.
   - **Hỗ trợ Danh sách trong Bảng (Table Cell Lists)**: Phân giải các dòng ngắt `<br>` hoặc `\n` trong ô bảng biểu thành các đoạn danh sách chuẩn OpenXML, giữ vững quy tắc *The Last Paragraph Rule* (`ERR_DOCX_001`).
   - `docx_writer.py`: Hỗ trợ trường `list_type`, `list_level`, `list_restart`, `is_checked` trong paragraph AST và cell paragraphs.
-- **Mở Rộng Test Suites Lên 105 Bài Kiểm Thử (100% Pass Rate)**:
+- **Mở Rộng Test Suites Lên 108 Bài Kiểm Thử (100% Pass Rate)**:
   - Tạo mới `tests/test_docx_lists.py` (22 bài test chuyên sâu cho OpenXML list engine).
   - Tạo mới `tests/test_docx_extended.py` (25 bài test mở rộng kiểm tra các bất biến bố cục, màu sắc, bảng biểu, lề trang, Math, và template patching).
-  - Tổng số bài test tăng từ 58 lên **105 bài kiểm thử tự động**, đạt tỷ lệ đạt 100/100 (100% Pass Rate).
+  - Tổng số bài test đạt **108 bài kiểm thử tự động**, đạt tỷ lệ đạt 108/108 (100% Pass Rate).
 
 ### Phiên Bản 3.3.0 (End-User Suite, Storage & Diagram Precision)
 - **Tích hợp SQLite Storage Layer (`db_manager.py`)**:

@@ -1,26 +1,28 @@
 # HƯỚNG DẪN KIẾN TRÚC TOÀN DIỆN VÀ PIPELINE XỬ LÝ TÀI LIỆU
 ## Antigravity Universal Office Studio & Precision Diagram Engine
-> **Phiên bản tài liệu**: 3.2.0 (Enterprise Architecture Standard)  
+> **Phiên bản tài liệu**: 3.4.0 (Enterprise Architecture Standard)  
 > **Tác giả**: Đội ngũ Kỹ thuật Antigravity  
 > **Mục tiêu**: Làm rõ toàn bộ tính năng giao diện, kiến trúc Client-Server, và chi tiết từng bước Backend xử lý để sinh tài liệu PDF và trình chiếu PowerPoint 16:9 Widescreen.
 
 ---
 
-## 1. TỔNG QUAN HỆ THỐNG & 3 WORKSPACE STUDIOS
+## 1. TỔNG QUAN HỆ THỐNG & 4 WORKSPACE STUDIOS
 
 Hệ thống **Antigravity Office Studio** được thiết kế dưới dạng nền tảng hybrid: vừa là bộ công cụ dòng lệnh (CLI), vừa là giao diện Web Studio hiện đại chạy trực tiếp trên Localhost (`http://localhost:5173`) hoặc triển khai trên máy chủ đám mây. 
 
-Giao diện người dùng được phân chia thành **3 Không Gian Làm Việc (Workspace Studios)** chuyên biệt:
+Giao diện người dùng được phân chia thành **4 Không Gian Làm Việc (Workspace Studios)** chuyên biệt:
 
 ```mermaid
 graph TD
     Client["🌐 Web Studio (Vite + Vanilla CSS :5173)"]
     API["⚡ Python API Bridge (http.server :8000)"]
+    DB[("💾 SQLite History DB")]
     
     Client -->|Proxy /api/*| API
+    API <-->|CRUD Lịch sử| DB
     
     subgraph S1 ["1. Presentation Studio"]
-        F1["Tải lên DOCX / PDF"]
+        F1["Tải lên DOCX / PDF / MD"]
         T1["Chọn Theme: Thesis Blue, Corporate..."]
         P1["Live Slide Deck Inspector"]
     end
@@ -28,18 +30,26 @@ graph TD
     subgraph S2 ["2. Universal Document Hub"]
         F2["Ma trận chuyển đổi 4 chiều"]
         C2["PDF ↔ DOCX ↔ MD ↔ PPTX"]
-        R2["Bảo toàn OpenXML Table"]
+        R2["Bảo toàn OpenXML Table & Lists"]
     end
     
     subgraph S3 ["3. Technical Diagram Studio"]
         D1["Mermaid (Sequence, ERD, Flow)"]
         D2["PlantUML (C4 Context, Use Case)"]
         D3["Draw.io mxGraph XML HD Engine"]
+        D4["Canvas Spec Precision Flow"]
+    end
+
+    subgraph S4 ["4. Math Studio & Equation Lab"]
+        M1["Soạn thảo LaTeX trực quan"]
+        M2["Live Math Preview"]
+        M3["Xuất Word DOCX chuẩn OMML"]
     end
     
     Client --- S1
     Client --- S2
     Client --- S3
+    Client --- S4
 ```
 
 ### 1.1. Presentation Studio (🎯)

@@ -30,7 +30,26 @@ if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8")
 
 PortType = Literal["top", "bottom", "left", "right"]
-NodeType = Literal["primary", "standard", "modal", "toast", "table"]
+NodeType = Literal[
+    "primary", "standard", "modal", "toast", "table",
+    "actor", "usecase", "database", "decision", "cloud",
+    "terminator", "data_io", "queue", "component", "package", "document"
+]
+
+STANDARD_ICONS: dict[str, str] = {
+    "database": '<path d="M4 5c0-1.7 3.6-3 8-3s8 1.3 8 3v14c0 1.7-3.6 3-8 3s-8-1.3-8-3V5z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 9.5c0 1.7 3.6 3 8 3s8-1.3 8-3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 14.5c0 1.7 3.6 3 8 3s8-1.3 8-3" fill="none" stroke="currentColor" stroke-width="1.8"/>',
+    "server": '<rect x="2" y="3" width="20" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="2" y="14" width="20" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="6" cy="6.5" r="1" fill="currentColor"/><circle cx="6" cy="17.5" r="1" fill="currentColor"/>',
+    "cloud": '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" fill="none" stroke="currentColor" stroke-width="1.8"/>',
+    "shield": '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="none" stroke="currentColor" stroke-width="1.8"/>',
+    "mobile": '<rect x="6" y="2" width="12" height="20" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="18" r="1" fill="currentColor"/>',
+    "cpu": '<rect x="4" y="4" width="16" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="9" y="9" width="6" height="6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 15h3M1 9h3M1 15h3" stroke="currentColor" stroke-width="1.5"/>',
+    "globe": '<circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" fill="none" stroke="currentColor" stroke-width="1.8"/>',
+    "user": '<circle cx="12" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" fill="none" stroke="currentColor" stroke-width="1.8"/>',
+    "key": '<circle cx="8" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m11 12 9-9 3 3-2 2 2 2-4 4" stroke="currentColor" stroke-width="1.8"/>',
+    "lock": '<rect x="5" y="11" width="14" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 11V7a4 4 0 0 1 8 0v4" fill="none" stroke="currentColor" stroke-width="1.8"/>',
+    "zap": '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="none" stroke="currentColor" stroke-width="1.8"/>',
+    "cart": '<circle cx="9" cy="21" r="1" fill="currentColor"/><circle cx="20" cy="21" r="1" fill="currentColor"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" fill="none" stroke="currentColor" stroke-width="1.8"/>',
+}
 
 
 @dataclass
@@ -54,11 +73,43 @@ class Node:
     sublabel: str | None = None
     columns: list[ColumnDef] | None = None
     header_bg: str = "#F1F5F9"
+    icon: str | None = None
 
     def get_port(self, port: PortType, offset: float = 0.0) -> tuple[float, float]:
         """Calculate exact coordinate of anchor port on node perimeter."""
         cx = self.x + self.width / 2.0
         cy = self.y + self.height / 2.0
+        if self.type == "decision":
+            # 4 vertices of the diamond
+            if port == "top":
+                return (cx, self.y)
+            elif port == "bottom":
+                return (cx, self.y + self.height)
+            elif port == "left":
+                return (self.x, cy)
+            elif port == "right":
+                return (self.x + self.width, cy)
+        elif self.type == "actor":
+            # Anchor at top of head or bottom of label
+            if port == "top":
+                return (cx, self.y)
+            elif port == "bottom":
+                return (cx, self.y + self.height)
+            elif port == "left":
+                return (self.x, self.y + 40.0)
+            elif port == "right":
+                return (self.x + self.width, self.y + 40.0)
+        elif self.type == "terminator":
+            # Stadium perimeter ports
+            if port == "top":
+                return (cx + offset, self.y)
+            elif port == "bottom":
+                return (cx + offset, self.y + self.height)
+            elif port == "left":
+                return (self.x, cy + offset)
+            elif port == "right":
+                return (self.x + self.width, cy + offset)
+
         if port == "top":
             return (cx + offset, self.y)
         elif port == "bottom":
@@ -313,6 +364,7 @@ class PrecisionDiagram:
         sublabel: str | None = None,
         columns: list[ColumnDef] | None = None,
         header_bg: str = "#F1F5F9",
+        icon: str | None = None,
     ) -> Node:
         # If ERD table with columns, ensure sufficient height if not overridden
         if columns and height <= 42:
@@ -328,6 +380,7 @@ class PrecisionDiagram:
             sublabel=sublabel,
             columns=columns,
             header_bg=header_bg,
+            icon=icon,
         )
         self.nodes[id] = node
         return node
@@ -678,53 +731,149 @@ class PrecisionDiagram:
                 svg.append("  </g>")
 
             else:
-                # Standard Screen Flow / Node Rendering
-                if node.type == "primary":
-                    stroke_w = "2.5"
-                    dash_attr = ""
-                    font_w = "bold"
-                    fill_color = "#ffffff"
-                    stroke_color = "#000000"
-                elif node.type in ("modal", "toast"):
-                    stroke_w = "1.5"
-                    dash_attr = ' stroke-dasharray="4,4"'
-                    font_w = "normal"
-                    fill_color = "#ffffff"
-                    stroke_color = "#222222"
-                else:  # standard
-                    stroke_w = "1.5"
-                    dash_attr = ""
-                    font_w = "normal"
-                    fill_color = "#ffffff"
-                    stroke_color = "#000000"
-
-                svg.append(
-                    f'  <g id="node-{node.id}">\n'
-                    f'    <rect x="{node.x:.1f}" y="{node.y:.1f}" width="{node.width:.1f}" height="{node.height:.1f}" '
-                    f'fill="{fill_color}" stroke="{stroke_color}" stroke-width="{stroke_w}"{dash_attr} rx="3" filter="url(#badge-shadow)"/>'
-                )
-
+                # Standard or Specialized Visual Shape Rendering
                 cx = node.x + node.width / 2.0
                 cy = node.y + node.height / 2.0
+                ntype = node.type
 
-                # Split label lines if contains <br/> or \n
-                lines = node.label.replace("<br/>", "\n").split("\n")
-                if len(lines) == 1:
-                    esc_text = html.escape(lines[0], quote=True)
+                svg.append(f'  <g id="node-{node.id}">')
+
+                # 1. Render Specific Geometric Shape
+                if ntype == "actor":
+                    head_r = 11.0
+                    head_cy = node.y + 14.0
+                    svg.append(f'    <circle cx="{cx:.1f}" cy="{head_cy:.1f}" r="{head_r:.1f}" fill="#FFFFFF" stroke="#0F172A" stroke-width="2"/>')
+                    svg.append(f'    <line x1="{cx:.1f}" y1="{head_cy + head_r:.1f}" x2="{cx:.1f}" y2="{node.y + 55.0:.1f}" stroke="#0F172A" stroke-width="2"/>')
+                    svg.append(f'    <line x1="{cx - 20.0:.1f}" y1="{node.y + 36.0:.1f}" x2="{cx + 20.0:.1f}" y2="{node.y + 36.0:.1f}" stroke="#0F172A" stroke-width="2"/>')
+                    svg.append(f'    <line x1="{cx:.1f}" y1="{node.y + 55.0:.1f}" x2="{cx - 16.0:.1f}" y2="{node.y + 78.0:.1f}" stroke="#0F172A" stroke-width="2"/>')
+                    svg.append(f'    <line x1="{cx:.1f}" y1="{node.y + 55.0:.1f}" x2="{cx + 16.0:.1f}" y2="{node.y + 78.0:.1f}" stroke="#0F172A" stroke-width="2"/>')
+                elif ntype == "database":
+                    rx = node.width / 2.0 - 2.0
+                    ry = 9.0
                     svg.append(
-                        f'    <text x="{cx:.1f}" y="{cy + 4:.1f}" font-family="{self.font_family}" '
-                        f'font-size="{self.font_size}px" font-weight="{font_w}" fill="#000000" text-anchor="middle">{esc_text}</text>'
+                        f'    <path d="M {node.x + 2.0:.1f} {node.y + ry:.1f} L {node.x + 2.0:.1f} {node.y + node.height - ry:.1f} '
+                        f'A {rx:.1f} {ry:.1f} 0 0 0 {node.x + node.width - 2.0:.1f} {node.y + node.height - ry:.1f} '
+                        f'L {node.x + node.width - 2.0:.1f} {node.y + ry:.1f} Z" fill="#FFFFFF" stroke="#0F172A" stroke-width="1.8"/>'
+                    )
+                    svg.append(f'    <ellipse cx="{cx:.1f}" cy="{node.y + ry:.1f}" rx="{rx:.1f}" ry="{ry:.1f}" fill="#F1F5F9" stroke="#0F172A" stroke-width="1.8"/>')
+                    svg.append(f'    <path d="M {node.x + 2.0:.1f} {node.y + node.height - ry:.1f} A {rx:.1f} {ry:.1f} 0 0 0 {node.x + node.width - 2.0:.1f} {node.y + node.height - ry:.1f}" fill="none" stroke="#0F172A" stroke-width="1.8"/>')
+                elif ntype == "decision":
+                    svg.append(
+                        f'    <polygon points="{cx:.1f},{node.y:.1f} {node.x + node.width:.1f},{cy:.1f} {cx:.1f},{node.y + node.height:.1f} {node.x:.1f},{cy:.1f}" '
+                        f'fill="#FFFFFF" stroke="#0F172A" stroke-width="2" filter="url(#badge-shadow)"/>'
+                    )
+                elif ntype == "terminator":
+                    pill_rx = min(node.height / 2.0, 24.0)
+                    svg.append(
+                        f'    <rect x="{node.x:.1f}" y="{node.y:.1f}" width="{node.width:.1f}" height="{node.height:.1f}" '
+                        f'rx="{pill_rx:.1f}" fill="#F8FAFC" stroke="#0F172A" stroke-width="2" filter="url(#badge-shadow)"/>'
+                    )
+                elif ntype == "cloud":
+                    svg.append(
+                        f'    <rect x="{node.x:.1f}" y="{node.y:.1f}" width="{node.width:.1f}" height="{node.height:.1f}" '
+                        f'rx="18" fill="#F0F9FF" stroke="#0284C7" stroke-width="1.8" stroke-dasharray="6,3" filter="url(#badge-shadow)"/>'
+                    )
+                elif ntype == "queue":
+                    svg.append(
+                        f'    <rect x="{node.x:.1f}" y="{node.y:.1f}" width="{node.width:.1f}" height="{node.height:.1f}" '
+                        f'rx="6" fill="#F8FAFC" stroke="#0F172A" stroke-width="1.8" filter="url(#badge-shadow)"/>'
+                    )
+                    svg.append(f'    <line x1="{node.x + node.width - 15.0:.1f}" y1="{node.y:.1f}" x2="{node.x + node.width - 15.0:.1f}" y2="{node.y + node.height:.1f}" stroke="#0F172A" stroke-width="1.5"/>')
+                    svg.append(f'    <line x1="{node.x + node.width - 30.0:.1f}" y1="{node.y:.1f}" x2="{node.x + node.width - 30.0:.1f}" y2="{node.y + node.height:.1f}" stroke="#0F172A" stroke-width="1.5" stroke-dasharray="2,2"/>')
+                elif ntype == "document":
+                    svg.append(
+                        f'    <path d="M {node.x:.1f} {node.y:.1f} L {node.x + node.width:.1f} {node.y:.1f} '
+                        f'L {node.x + node.width:.1f} {node.y + node.height - 8.0:.1f} '
+                        f'Q {node.x + node.width * 0.75:.1f} {node.y + node.height:.1f} {node.x + node.width * 0.5:.1f} {node.y + node.height - 6.0:.1f} '
+                        f'Q {node.x + node.width * 0.25:.1f} {node.y + node.height - 12.0:.1f} {node.x:.1f} {node.y + node.height - 6.0:.1f} Z" '
+                        f'fill="#FFFFFF" stroke="#0F172A" stroke-width="1.8" filter="url(#badge-shadow)"/>'
+                    )
+                elif ntype == "component":
+                    svg.append(
+                        f'    <rect x="{node.x:.1f}" y="{node.y:.1f}" width="{node.width:.1f}" height="{node.height:.1f}" '
+                        f'rx="4" fill="#FFFFFF" stroke="#0F172A" stroke-width="1.8" filter="url(#badge-shadow)"/>'
+                    )
+                    svg.append(f'    <rect x="{node.x - 7.0:.1f}" y="{node.y + 8.0:.1f}" width="14" height="8" rx="1" fill="#F1F5F9" stroke="#0F172A" stroke-width="1.5"/>')
+                    svg.append(f'    <rect x="{node.x - 7.0:.1f}" y="{node.y + node.height - 16.0:.1f}" width="14" height="8" rx="1" fill="#F1F5F9" stroke="#0F172A" stroke-width="1.5"/>')
+                elif ntype == "usecase":
+                    svg.append(
+                        f'    <ellipse cx="{cx:.1f}" cy="{cy:.1f}" rx="{node.width / 2.0:.1f}" ry="{node.height / 2.0:.1f}" '
+                        f'fill="#FFFFFF" stroke="#0F172A" stroke-width="1.8" filter="url(#badge-shadow)"/>'
+                    )
+                elif ntype == "data_io":
+                    svg.append(
+                        f'    <polygon points="{node.x + 14.0:.1f},{node.y:.1f} {node.x + node.width:.1f},{node.y:.1f} '
+                        f'{node.x + node.width - 14.0:.1f},{node.y + node.height:.1f} {node.x:.1f},{node.y + node.height:.1f}" '
+                        f'fill="#FFFFFF" stroke="#0F172A" stroke-width="1.8" filter="url(#badge-shadow)"/>'
+                    )
+                elif ntype == "package":
+                    svg.append(
+                        f'    <path d="M {node.x:.1f} {node.y + 12.0:.1f} L {node.x:.1f} {node.y + node.height:.1f} '
+                        f'L {node.x + node.width:.1f} {node.y + node.height:.1f} L {node.x + node.width:.1f} {node.y + 12.0:.1f} '
+                        f'L {node.x + 55.0:.1f} {node.y + 12.0:.1f} L {node.x + 45.0:.1f} {node.y:.1f} L {node.x:.1f} {node.y:.1f} Z" '
+                        f'fill="#F8FAFC" stroke="#0F172A" stroke-width="1.8" filter="url(#badge-shadow)"/>'
                     )
                 else:
-                    line_height = self.font_size * 1.25
-                    start_y = cy - ((len(lines) - 1) * line_height) / 2.0 + 3.5
-                    for idx, line in enumerate(lines):
-                        ly = start_y + idx * line_height
-                        esc_text = html.escape(line, quote=True)
+                    # primary, standard, modal, toast
+                    if ntype == "primary":
+                        stroke_w = "2.5"
+                        dash_attr = ""
+                        fill_color = "#ffffff"
+                        stroke_color = "#000000"
+                    elif ntype in ("modal", "toast"):
+                        stroke_w = "1.5"
+                        dash_attr = ' stroke-dasharray="4,4"'
+                        fill_color = "#ffffff"
+                        stroke_color = "#222222"
+                    else:  # standard
+                        stroke_w = "1.5"
+                        dash_attr = ""
+                        fill_color = "#ffffff"
+                        stroke_color = "#000000"
+
+                    svg.append(
+                        f'    <rect x="{node.x:.1f}" y="{node.y:.1f}" width="{node.width:.1f}" height="{node.height:.1f}" '
+                        f'fill="{fill_color}" stroke="{stroke_color}" stroke-width="{stroke_w}"{dash_attr} rx="3" filter="url(#badge-shadow)"/>'
+                    )
+
+                # 2. Render Icon (if specified and recognized)
+                has_icon = bool(node.icon and node.icon in STANDARD_ICONS and ntype != "actor")
+                if has_icon:
+                    icon_svg = STANDARD_ICONS[node.icon]
+                    icon_x = node.x + 10.0
+                    icon_y = cy - 8.0
+                    svg.append(f'    <g transform="translate({icon_x:.1f}, {icon_y:.1f}) scale(0.67)" color="#0F172A">{icon_svg}</g>')
+
+                # 3. Render Label Text
+                font_w = "bold" if ntype in ("primary", "actor", "terminator") else "normal"
+                text_color = "#0369A1" if ntype == "cloud" else "#0F172A"
+                text_cx = cx + (9.0 if has_icon else 0.0)
+
+                if ntype == "actor":
+                    label_y = node.y + node.height - 4.0 if node.height > 85.0 else node.y + 96.0
+                    esc_text = html.escape(node.label, quote=True)
+                    svg.append(
+                        f'    <text x="{cx:.1f}" y="{label_y:.1f}" font-family="{self.font_family}" '
+                        f'font-size="{self.font_size}px" font-weight="bold" fill="{text_color}" text-anchor="middle">{esc_text}</text>'
+                    )
+                else:
+                    lines = node.label.replace("<br/>", "\n").split("\n")
+                    if len(lines) == 1:
+                        esc_text = html.escape(lines[0], quote=True)
                         svg.append(
-                            f'    <text x="{cx:.1f}" y="{ly:.1f}" font-family="{self.font_family}" '
-                            f'font-size="{self.font_size}px" font-weight="{font_w}" fill="#000000" text-anchor="middle">{esc_text}</text>'
+                            f'    <text x="{text_cx:.1f}" y="{cy + 4.0:.1f}" font-family="{self.font_family}" '
+                            f'font-size="{self.font_size}px" font-weight="{font_w}" fill="{text_color}" text-anchor="middle">{esc_text}</text>'
                         )
+                    else:
+                        line_height = self.font_size * 1.25
+                        start_y = cy - ((len(lines) - 1) * line_height) / 2.0 + 3.5
+                        for idx, line in enumerate(lines):
+                            ly = start_y + idx * line_height
+                            esc_text = html.escape(line, quote=True)
+                            svg.append(
+                                f'    <text x="{text_cx:.1f}" y="{ly:.1f}" font-family="{self.font_family}" '
+                                f'font-size="{self.font_size}px" font-weight="{font_w}" fill="{text_color}" text-anchor="middle">{esc_text}</text>'
+                            )
 
                 svg.append("  </g>")
 
@@ -770,12 +919,21 @@ class PrecisionDiagram:
                 visible=c.get("visible", True),
             )
 
-        for n in spec.get("nodes", []):
+        nodes_raw = list(spec.get("nodes", []))
+        if all(float(n.get("x", 0.0)) == 0.0 and float(n.get("y", 0.0)) == 0.0 for n in nodes_raw):
+            cols = 3
+            for idx, n in enumerate(nodes_raw):
+                c = idx % cols
+                r = idx // cols
+                n["x"] = 80.0 + c * 260.0
+                n["y"] = 80.0 + r * 160.0
+
+        for n in nodes_raw:
             columns = None
             if "columns" in n and n["columns"]:
                 columns = [
                     ColumnDef(
-                        name=c["name"],
+                        name=c.get("name", ""),
                         type=c.get("type", "string"),
                         is_pk=c.get("is_pk", False),
                         is_fk=c.get("is_fk", False),
@@ -783,19 +941,22 @@ class PrecisionDiagram:
                     )
                     for c in n["columns"]
                 ]
-            def_w = 260.0 if columns else 140.0
-            def_h = (36.0 + len(columns) * 24.0 + 10.0) if columns else 42.0
+            ntype = n.get("type", "table" if columns else "standard")
+            def_w = 260.0 if columns else (60.0 if ntype == "actor" else 140.0)
+            def_h = (36.0 + len(columns) * 24.0 + 10.0) if columns else (90.0 if ntype == "actor" else (60.0 if ntype == "terminator" else 80.0))
+            lbl = n.get("label") or n.get("title") or n.get("name") or str(n.get("id", ""))
             diag.add_node(
-                id=n["id"],
-                label=n["label"],
-                x=float(n["x"]),
-                y=float(n["y"]),
+                id=str(n["id"]),
+                label=lbl,
+                x=float(n.get("x", 0.0)),
+                y=float(n.get("y", 0.0)),
                 width=float(n.get("width", def_w)),
                 height=float(n.get("height", def_h)),
-                type=n.get("type", "table" if columns else "standard"),
+                type=ntype,
                 sublabel=n.get("sublabel"),
                 columns=columns,
                 header_bg=n.get("header_bg", "#F1F5F9"),
+                icon=n.get("icon"),
             )
 
         edges_list = spec.get("edges") or spec.get("connections", [])
@@ -819,10 +980,14 @@ class PrecisionDiagram:
                 print(f"[WARN] connections_file '{conn_ref}' could not be resolved from base_dir='{base_dir}'.")
 
         for e in edges_list:
+            src_id = e.get("source") or e.get("source_id")
+            tgt_id = e.get("target") or e.get("target_id")
+            if not src_id or not tgt_id:
+                continue
             waypoints = [(float(w[0]), float(w[1])) for w in e.get("waypoints", [])]
             diag.add_edge(
-                source_id=e["source"],
-                target_id=e["target"],
+                source_id=src_id,
+                target_id=tgt_id,
                 source_port=e.get("source_port", "right"),
                 target_port=e.get("target_port", "left"),
                 source_offset=float(e.get("source_offset", 0.0)),
@@ -854,6 +1019,8 @@ class PrecisionDiagram:
                 "type": n.type,
                 "sublabel": n.sublabel,
             }
+            if n.icon:
+                item["icon"] = n.icon
             if n.columns:
                 item["columns"] = [
                     {
