@@ -15,6 +15,7 @@ Dual-Mode Architecture:
 from __future__ import annotations
 
 import re
+import sys
 from dataclasses import dataclass
 from typing import Any, List, Optional, Tuple, Union
 
@@ -320,6 +321,55 @@ def create_omml_equation_element(expr: str) -> OxmlElement:
     return parse_xml(omml_xml)
 
 
+# Regex matching arrows, technical symbols, geometric shapes, and Unicode emojis
+SYMBOL_FALLBACK_REGEX = re.compile(
+    r"([\u2190-\u21FF\u25A0-\u25FF\u2600-\u27BF]|\U0001F300-\U0001FAFF)"
+)
+
+
+def _add_run_with_font_fallback(
+    paragraph: Any,
+    text: str,
+    base_font: str = "Arial",
+    size_pt: float = 11.0,
+    color_rgb: Optional[RGBColor] = None,
+    bold: bool = False,
+    italic: bool = False
+) -> None:
+    """
+    Appends text runs with platform-aware font fallback for Unicode arrows, symbols, and emojis
+    to prevent blank placeholder boxes [ ] when compiling to PDF.
+    """
+    if not text:
+        return
+    is_win = sys.platform == "win32"
+    tokens = SYMBOL_FALLBACK_REGEX.split(text)
+    for tok in tokens:
+        if not tok:
+            continue
+        run = paragraph.add_run(tok)
+        run.bold = bold
+        run.italic = italic
+        run.font.size = Pt(size_pt)
+        if color_rgb:
+            run.font.color.rgb = color_rgb
+
+        if SYMBOL_FALLBACK_REGEX.match(tok):
+            if tok in "↔→←↑↓↻⇄⇒⇌":
+                target_font = "Segoe UI Symbol" if is_win else "DejaVu Sans"
+            else:
+                target_font = "Segoe UI Emoji" if is_win else "Noto Color Emoji"
+            run.font.name = target_font
+            try:
+                rPr = run._r.get_or_add_rPr()
+                rFonts = parse_xml(f'<w:rFonts xmlns:w="{W_NS}" w:ascii="{target_font}" w:hAnsi="{target_font}" w:cs="{target_font}"/>')
+                rPr.append(rFonts)
+            except Exception:
+                pass
+        else:
+            run.font.name = base_font
+
+
 def add_math_to_paragraph(
     paragraph: Any,
     text: str,
@@ -331,6 +381,7 @@ def add_math_to_paragraph(
     """
     Master Dispatcher: Parses mixed paragraph text containing LaTeX math ($...$ or $$...$$)
     and transparently injects styled OpenXML runs or OMML equations.
+    Cleans inline code backticks (`...`) and applies symbol font fallbacks.
     """
     if not text:
         return
@@ -377,23 +428,39 @@ def add_math_to_paragraph(
                 )
             continue
 
-        # Case 3: Regular text (handles bold **text** and italic *text*)
-        sub_tokens = re.split(r"(\*\*.*?\*\*|\*.*?\*)", part)
+        # Case 3: Regular text (clean inline code / backticks, then handle bold **text** and italic *text*)
+        clean_part = re.sub(r"`(.*?)`", r"\1", part).replace("`", "")
+        sub_tokens = re.split(r"(\*\*.*?\*\*|\*.*?\*)", clean_part)
         for s_tok in sub_tokens:
             if not s_tok:
                 continue
             if s_tok.startswith("**") and s_tok.endswith("**") and len(s_tok) >= 4:
-                run = paragraph.add_run(s_tok[2:-2])
-                run.bold = True
+                _add_run_with_font_fallback(
+                    paragraph,
+                    s_tok[2:-2],
+                    base_font=font_name,
+                    size_pt=base_font_size_pt,
+                    color_rgb=color_rgb,
+                    bold=True,
+                    italic=False
+                )
             elif s_tok.startswith("*") and s_tok.endswith("*") and len(s_tok) >= 2:
-                run = paragraph.add_run(s_tok[1:-1])
-                run.italic = True
-                run.bold = bold
+                _add_run_with_font_fallback(
+                    paragraph,
+                    s_tok[1:-1],
+                    base_font=font_name,
+                    size_pt=base_font_size_pt,
+                    color_rgb=color_rgb,
+                    bold=bold,
+                    italic=True
+                )
             else:
-                run = paragraph.add_run(s_tok)
-                run.bold = bold
-
-            run.font.name = font_name
-            run.font.size = Pt(base_font_size_pt)
-            if color_rgb:
-                run.font.color.rgb = color_rgb
+                _add_run_with_font_fallback(
+                    paragraph,
+                    s_tok,
+                    base_font=font_name,
+                    size_pt=base_font_size_pt,
+                    color_rgb=color_rgb,
+                    bold=bold,
+                    italic=False
+                )

@@ -626,6 +626,171 @@ def heal_missing_table_text(doc: DocumentType, pdf_path: Optional[str] = None) -
     return healed
 
 
+def merge_table_orphan_rows(doc: DocumentType) -> int:
+    """
+    Rule 1 (Table Orphan Row Merger):
+    Fixes split multi-line sentences in tables where pdf2docx breaks a wrapped sentence
+    into an extra row <w:tr> with Column 1 and Column 2 completely empty and only Column 3
+    having text (e.g. '|  |  | thẻ <w:p>.').
+    Merges the text of Column 3 into the previous row and removes the orphan <w:tr>,
+    which automatically restores vertical rowspan alignment (e.g. Section IV Table).
+    """
+    total_merged = 0
+    for table in doc.tables:
+        r_idx = 1
+        while r_idx < len(table.rows):
+            curr_row = table.rows[r_idx]
+            prev_row = table.rows[r_idx - 1]
+            cells = curr_row.cells
+
+            if len(cells) >= 3:
+                leading_empty = all(not cells[i].text.strip() for i in range(len(cells) - 1))
+                last_has_text = bool(cells[-1].text.strip())
+
+                if leading_empty and last_has_text:
+                    orphan_text = cells[-1].text.strip()
+                    prev_last_cell = prev_row.cells[-1]
+
+                    if prev_last_cell.paragraphs:
+                        target_p = prev_last_cell.paragraphs[-1]
+                        target_p.add_run(" " + orphan_text)
+                    else:
+                        target_p = prev_last_cell.add_paragraph()
+                        target_p.add_run(orphan_text)
+
+                    table._tbl.remove(curr_row._tr)
+                    total_merged += 1
+                    continue
+            r_idx += 1
+
+    if total_merged > 0:
+        print(f"[OrphanRowMerger] Successfully merged {total_merged} orphan table row(s).")
+    return total_merged
+
+
+def restore_ascii_diagram_linebreaks(doc: DocumentType) -> int:
+    """
+    Rule 2 (ASCII Diagram Line Breaks):
+    Restores multi-tier box-drawing diagrams where pdf2docx joins lines together
+    due to line_spacing = 1.0 (e.g. '┌──────┐│ TẦNG 1 ││ - Vite... │└──────┘').
+    Inserts <w:br/> line breaks at contiguous border junctions (┐│, ││, ┘│, ┘┌, │┌, ┘└)
+    and formats with Consolas monospace font to align architecture boxes.
+    """
+    box_split_regex = re.compile(r"([┐│┘])([│┌└])")
+    healed_count = 0
+
+    for p in doc.paragraphs:
+        txt = p.text
+        if not txt:
+            continue
+        if ("│" in txt or "┌" in txt or "└" in txt) and box_split_regex.search(txt):
+            lines = box_split_regex.sub(r"\1\n\2", txt).split("\n")
+            if len(lines) > 1:
+                # Remove old runs without leaving a blank dummy run
+                for old_r in list(p._p.findall(qn("w:r"))):
+                    p._p.remove(old_r)
+                for idx, line in enumerate(lines):
+                    r = p.add_run(line)
+                    r.font.name = "Consolas"
+                    r.font.size = Pt(8.5)
+                    if idx < len(lines) - 1:
+                        r.add_break()
+                p.paragraph_format.line_spacing = 1.0
+                p.paragraph_format.space_before = Pt(2)
+                p.paragraph_format.space_after = Pt(2)
+                healed_count += 1
+
+    if healed_count > 0:
+        print(f"[AsciiDiagramHealing] Restored line breaks for {healed_count} ASCII box paragraph(s).")
+    return healed_count
+
+
+def filter_mid_sentence_tabs(doc: DocumentType) -> int:
+    """
+    Rule 3 (Mid-Sentence Tab Filter):
+    Replaces fake indentation tabs (\\t+) placed mid-sentence by pdf2docx
+    (e.g. 'hình ảnh, \\tcông thức', 'phân \\t\\ttích') with a single space.
+    Excludes Table of Contents (TOC) paragraphs.
+    """
+    cleaned_count = 0
+    for p in doc.paragraphs:
+        txt = p.text
+        if not txt or "\t" not in txt:
+            continue
+
+        # Skip Table of Contents / dot leaders with page numbers
+        if TOC_LINE_REGEX.match(txt) or MULTI_TOC_REGEX.search(txt):
+            continue
+        pPr = p._p.pPr
+        if pPr is not None and pPr.find(qn("w:tabs")) is not None:
+            continue
+
+        has_changed = False
+        for r in p.runs:
+            if "\t" in r.text:
+                new_text = re.sub(r"(?<=\S)\s*\t+\s*(?=\S)", " ", r.text)
+                if new_text != r.text:
+                    r.text = new_text
+                    has_changed = True
+
+        if has_changed:
+            cleaned_count += 1
+
+    if cleaned_count > 0:
+        print(f"[TabFilter] Cleaned mid-sentence tabs in {cleaned_count} paragraph(s).")
+    return cleaned_count
+
+
+def normalize_list_spacing_and_split_headings(doc: DocumentType) -> int:
+    """
+    Rule 4 (List Number Spacing & Heading-Bullet Separation):
+    1. Splits merged heading + bullet paragraphs:
+       '5. Phiên Bản 4.1... \\t• \\tBước đột phá chiến lược:'
+    2. Normalizes spacing after numbering:
+       '1.Phân mảnh' -> '1. Phân mảnh', 'b.Kéo-Thả' -> 'b. Kéo-Thả'.
+    """
+    modified_count = 0
+    i = 0
+    while i < len(doc.paragraphs):
+        p = doc.paragraphs[i]
+        txt = p.text.strip()
+        if not txt:
+            i += 1
+            continue
+
+        # 1. Split heading glued to bullet (e.g. '5. Phiên Bản 4.1 (...) \\t• \\tBước đột phá chiến lược:')
+        m_glue = re.match(r"^(\d+\.[^\t\n•]+)\s*\t*•\s*\t*(.*)$", txt)
+        if m_glue:
+            h_text = m_glue.group(1).strip()
+            bullet_text = m_glue.group(2).strip()
+
+            p.text = h_text
+            for r in p.runs:
+                r.bold = True
+                r.font.name = "Calibri"
+
+            new_p = docx.oxml.OxmlElement('w:p')
+            p._p.addnext(new_p)
+            bp = docx.text.paragraph.Paragraph(new_p, doc)
+            bp.add_run("• " + bullet_text)
+            modified_count += 1
+            i += 2
+            continue
+
+        # 2. Spacing after numbering marker: 1.Phân mảnh -> 1. Phân mảnh, b.Kéo-Thả -> b. Kéo-Thả
+        if re.search(r"(^|\s)(\d+|[a-z]|[ivx]+)\.([A-ZÀ-Ỹ])", txt):
+            for r in p.runs:
+                if re.search(r"(^|\s)(\d+|[a-z]|[ivx]+)\.([A-ZÀ-Ỹ])", r.text):
+                    r.text = re.sub(r"(^|\s)(\d+|[a-z]|[ivx]+)\.([A-ZÀ-Ỹ])", r"\1\2. \3", r.text)
+                    modified_count += 1
+
+        i += 1
+
+    if modified_count > 0:
+        print(f"[ListNormalization] Normalized list spacing/headings across {modified_count} paragraph(s).")
+    return modified_count
+
+
 def standardize_page_margins(
     doc: DocumentType,
     target_top_in: float = 0.40,
@@ -1257,6 +1422,9 @@ def post_process_docx(docx_path: str, pdf_path: Optional[str] = None) -> Tuple[b
         # 2. Auto-stitch broken tables split across pages
         stitch_broken_tables(doc)
 
+        # 2b. Rule 1: Table Orphan Row Merger (Fixes split rows and realigns vertical rowspan)
+        merge_table_orphan_rows(doc)
+
         # 3. Pre-extract PDF Semantic Map (Ground Truth Colors, Margins & Layout)
         semantic_map = extract_pdf_semantic_map(pdf_path)
 
@@ -1275,6 +1443,15 @@ def post_process_docx(docx_path: str, pdf_path: Optional[str] = None) -> Tuple[b
 
         # 3f. Separate accidentally merged headings (e.g. 'List of Tables \nTable 1...') and apply Red #C00000 16pt Bold
         separate_merged_heading_paragraphs(doc, semantic_map["red_headings"])
+
+        # 3g. Rule 2: Restore ASCII Box Line Breaks (Architecture 5 layers)
+        restore_ascii_diagram_linebreaks(doc)
+
+        # 3h. Rule 3: Filter Mid-Sentence Tabs (Removes fake indent tabs)
+        filter_mid_sentence_tabs(doc)
+
+        # 3i. Rule 4: Normalize List Number Spacing & Split Heading/Bullet
+        normalize_list_spacing_and_split_headings(doc)
 
         # 4. Calculate right margin tab position based on updated margins
         tab_pos = 9360

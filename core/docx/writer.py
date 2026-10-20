@@ -30,6 +30,7 @@ import json
 import os
 import re
 import shutil
+import sys
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from docx import Document
@@ -39,6 +40,11 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.section import WD_SECTION, WD_ORIENT
 from docx.oxml.ns import qn, nsdecls
 from docx.oxml import OxmlElement, parse_xml
+
+NS_W = nsdecls("w")
+SYMBOL_FALLBACK_REGEX = re.compile(
+    r"([\u2190-\u21FF\u25A0-\u25FF\u2600-\u27BF]|\U0001F300-\U0001FAFF)"
+)
 
 from PIL import Image as PILImage
 
@@ -121,6 +127,16 @@ def _apply_run_format(run, run_data: dict[str, Any]) -> None:
         run.font.strike = True
     if run_data.get("font_name"):
         run.font.name = str(run_data["font_name"])
+    if run.text and SYMBOL_FALLBACK_REGEX.search(run.text):
+        is_win = sys.platform == "win32"
+        has_arrows = any(c in run.text for c in "↔→←↑↓↻⇄⇒⇌")
+        target_font = "Segoe UI Symbol" if (has_arrows and is_win) else ("Segoe UI Emoji" if is_win else ("DejaVu Sans" if has_arrows else "Noto Color Emoji"))
+        try:
+            rPr = run._r.get_or_add_rPr()
+            rFonts = parse_xml(f'<w:rFonts {NS_W} w:ascii="{target_font}" w:hAnsi="{target_font}" w:cs="{target_font}"/>')
+            rPr.append(rFonts)
+        except Exception:
+            pass
     size_pt = _safe_pt(run_data.get("font_size"))
     if size_pt is not None:
         run.font.size = size_pt
@@ -321,24 +337,28 @@ def _write_paragraph(
     if runs:
         for run_data in runs:
             text = str(run_data.get("text", ""))
-            if "$" in text:
+            clean_text = re.sub(r"`(.*?)`", r"\1", text).replace("`", "")
+            if "$" in clean_text:
                 add_math_to_paragraph(
                     para,
-                    text,
+                    clean_text,
                     base_font_size_pt=float(run_data.get("font_size_pt") or 11.0),
                     font_name=str(run_data.get("font_name") or "Arial"),
                     color_rgb=_hex_to_rgb(run_data.get("font_color")),
                     bold=bool(run_data.get("bold", False))
                 )
             else:
-                run = para.add_run(text)
+                run = para.add_run(clean_text)
                 _apply_run_format(run, run_data)
     elif para_data.get("text"):
         raw_text = str(para_data["text"])
-        if "$" in raw_text:
-            add_math_to_paragraph(para, raw_text)
+        clean_text = re.sub(r"`(.*?)`", r"\1", raw_text).replace("`", "")
+        if "$" in clean_text:
+            add_math_to_paragraph(para, clean_text)
         else:
-            para.add_run(raw_text)
+            run = para.add_run(clean_text)
+            if SYMBOL_FALLBACK_REGEX.search(clean_text):
+                _apply_run_format(run, {})
 
     return para
 

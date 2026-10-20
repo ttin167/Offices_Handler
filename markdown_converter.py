@@ -841,7 +841,14 @@ def decoupled_to_docx(
     normal_style.paragraph_format.space_after = Pt(4)
 
     h_color = _hex_to_rgb(heading_hex)
-    for lvl, size in [("Heading 1", Pt(16)), ("Heading 2", Pt(13)), ("Heading 3", Pt(12)), ("Heading 4", Pt(11))]:
+    for lvl, size in [
+        ("Heading 1", Pt(16)),
+        ("Heading 2", Pt(13)),
+        ("Heading 3", Pt(12)),
+        ("Heading 4", Pt(11)),
+        ("Heading 5", Pt(11)),
+        ("Heading 6", Pt(10.5)),
+    ]:
         if lvl in doc.styles:
             h_st = doc.styles[lvl]
             h_st.font.name = font_family
@@ -1119,15 +1126,40 @@ def decoupled_to_docx(
             h.paragraph_format.space_before = Pt(6)
             h.paragraph_format.space_after = Pt(2)
             h.paragraph_format.keep_with_next = True
+        elif s_line.startswith("##### "):
+            list_tracker.reset_all_lists()
+            h_text = s_line[6:].strip()
+            try:
+                h = doc.add_heading(h_text, level=5)
+            except Exception:
+                h = doc.add_heading(h_text, level=4)
+            h.paragraph_format.space_before = Pt(5)
+            h.paragraph_format.space_after = Pt(2)
+            h.paragraph_format.keep_with_next = True
+            for r in h.runs:
+                r.bold = True
+                r.font.name = font_family
+                r.font.color.rgb = h_color
+        elif s_line.startswith("###### "):
+            list_tracker.reset_all_lists()
+            h_text = s_line[7:].strip()
+            try:
+                h = doc.add_heading(h_text, level=6)
+            except Exception:
+                h = doc.add_heading(h_text, level=4)
+            h.paragraph_format.space_before = Pt(4)
+            h.paragraph_format.space_after = Pt(2)
+            h.paragraph_format.keep_with_next = True
+            for r in h.runs:
+                r.bold = True
+                r.font.name = font_family
+                r.font.color.rgb = h_color
         else:
             # Check for list items (Ordered, Bullet, Checkbox with multi-level indentation)
             list_item = list_tracker.parse_markdown_line(line)
             if list_item:
                 p = doc.add_paragraph()
-                if "$" in list_item.text:
-                    add_math_to_paragraph(p, list_item.text)
-                else:
-                    _add_formatted_runs(p, list_item.text)
+                _add_formatted_runs(p, list_item.text, font_name=font_family)
                 num_id = list_tracker.get_num_id_for_item(list_item)
                 apply_list_formatting(p, list_item.item_type, list_item.level, num_id, list_item.is_checked)
                 if len(s_line) > 75:
@@ -1137,10 +1169,7 @@ def decoupled_to_docx(
             # Plain paragraph: reset list tracker (Zero auto-numbering on plain text)
             list_tracker.reset_all_lists()
             p = doc.add_paragraph()
-            if "$" in s_line:
-                add_math_to_paragraph(p, s_line)
-            else:
-                _add_formatted_runs(p, s_line)
+            _add_formatted_runs(p, s_line, font_name=font_family)
             p.paragraph_format.line_spacing = 1.15
             p.paragraph_format.space_before = Pt(0)
             p.paragraph_format.space_after = Pt(4)
@@ -1209,27 +1238,76 @@ def _apply_tab_stop_to_paragraph(
     pPr.append(parse_xml(f'<w:spacing {NS_W} w:before="60" w:after="40" w:line="240" w:lineRule="auto"/>'))
 
 
-def _add_formatted_runs(p: docx.text.paragraph.Paragraph, text: str) -> None:
-    """Parse inline Markdown links, line breaks, backticks, bold, italic, and LaTeX math into docx runs."""
+SYMBOL_FALLBACK_REGEX = re.compile(
+    r"([\u2190-\u21FF\u25A0-\u25FF\u2600-\u27BF]|\U0001F300-\U0001FAFF)"
+)
+
+
+def _add_symbol_fallback_runs(
+    p: docx.text.paragraph.Paragraph,
+    text: str,
+    base_font: Optional[str] = None,
+    bold: bool = False,
+    italic: bool = False,
+    color_rgb: Optional[RGBColor] = None,
+    size_pt: Optional[float] = None,
+) -> None:
+    """
+    Appends text runs with fallback to Segoe UI Symbol / Segoe UI Emoji (Windows)
+    or DejaVu Sans / Noto Color Emoji (Linux) for arrows and emojis.
+    """
+    if not text:
+        return
+    is_win = sys.platform == "win32"
+    tokens = SYMBOL_FALLBACK_REGEX.split(text)
+    for tok in tokens:
+        if not tok:
+            continue
+        r = p.add_run(tok)
+        r.bold = bold
+        r.italic = italic
+        if size_pt:
+            r.font.size = Pt(size_pt)
+        if color_rgb:
+            r.font.color.rgb = color_rgb
+
+        if SYMBOL_FALLBACK_REGEX.match(tok):
+            if tok in "↔→←↑↓↻⇄⇒⇌":
+                target_font = "Segoe UI Symbol" if is_win else "DejaVu Sans"
+            else:
+                target_font = "Segoe UI Emoji" if is_win else "Noto Color Emoji"
+            r.font.name = target_font
+            try:
+                rPr = r._r.get_or_add_rPr()
+                rFonts = parse_xml(f'<w:rFonts {NS_W} w:ascii="{target_font}" w:hAnsi="{target_font}" w:cs="{target_font}"/>')
+                rPr.append(rFonts)
+            except Exception:
+                pass
+        elif base_font:
+            r.font.name = base_font
+
+
+def _add_formatted_runs(p: docx.text.paragraph.Paragraph, text: str, font_name: Optional[str] = None) -> None:
+    """Parse inline Markdown links, line breaks, backticks, bold, italic, and LaTeX math into docx runs with font fallback."""
     cleaned_text = re.sub(r"\[(.*?)\]\(.*?\)", r"\1", text)
     cleaned_text = re.sub(r"<br\s*/?>", "\n", cleaned_text)
     cleaned_text = re.sub(r"`(.*?)`", r"\1", cleaned_text)
     cleaned_text = cleaned_text.replace("`", "")
 
     if "$" in cleaned_text:
-        add_math_to_paragraph(p, cleaned_text)
+        add_math_to_paragraph(p, cleaned_text, font_name=font_name or "Calibri")
         return
 
     tokens = re.split(r"(\*\*.*?\*\*|\*.*?\*)", cleaned_text)
     for token in tokens:
+        if not token:
+            continue
         if token.startswith("**") and token.endswith("**") and len(token) >= 4:
-            r = p.add_run(token[2:-2])
-            r.bold = True
+            _add_symbol_fallback_runs(p, token[2:-2], base_font=font_name, bold=True)
         elif token.startswith("*") and token.endswith("*") and len(token) >= 2:
-            r = p.add_run(token[1:-1])
-            r.italic = True
+            _add_symbol_fallback_runs(p, token[1:-1], base_font=font_name, italic=True)
         else:
-            p.add_run(token)
+            _add_symbol_fallback_runs(p, token, base_font=font_name)
 
 
 # ==============================================================================

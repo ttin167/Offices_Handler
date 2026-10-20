@@ -72,7 +72,7 @@ class ListContextTracker:
         ensure_numbering_definitions(self.doc)
 
     def allocate_ordered_num_id(self) -> int:
-        """Creates a brand new <w:num> element with startOverride=1 for clean restart."""
+        """Creates a brand new <w:num> element with startOverride=1 for clean restart across levels 0, 1, 2."""
         num_id = self.next_num_id_counter
         self.next_num_id_counter += 1
 
@@ -81,6 +81,12 @@ class ListContextTracker:
             f'<w:num {NS_W} w:numId="{num_id}">'
             f'  <w:abstractNumId w:val="{ABSTRACT_NUM_DECIMAL_ID}"/>'
             f'  <w:lvlOverride w:ilvl="0">'
+            f'    <w:startOverride w:val="1"/>'
+            f'  </w:lvlOverride>'
+            f'  <w:lvlOverride w:ilvl="1">'
+            f'    <w:startOverride w:val="1"/>'
+            f'  </w:lvlOverride>'
+            f'  <w:lvlOverride w:ilvl="2">'
             f'    <w:startOverride w:val="1"/>'
             f'  </w:lvlOverride>'
             f'</w:num>'
@@ -185,14 +191,18 @@ class ListContextTracker:
         """
         if item.item_type == "ordered":
             if self.active_ordered_num_id is None:
-                # Brand new list -> allocate fresh numId restarting at 1
+                # Brand new list -> allocate fresh numId restarting at 1 (for all levels)
                 self.active_ordered_num_id = self.allocate_ordered_num_id()
-            elif item.level == 0 and item.raw_number == 1 and self.last_item_type != "ordered":
-                # Explicit user '1.' after an interruption -> restart
+            elif item.raw_number == 1 and self.last_item_type != "ordered":
+                # Explicit user '1.' after an interruption (bullet, note, heading) -> restart
                 self.active_ordered_num_id = self.allocate_ordered_num_id()
+            self.last_item_type = "ordered"
+            self.last_level = item.level
             return self.active_ordered_num_id
 
         elif item.item_type == "bullet":
+            self.last_item_type = "bullet"
+            self.last_level = item.level
             return self.get_bullet_num_id()
 
         return None
