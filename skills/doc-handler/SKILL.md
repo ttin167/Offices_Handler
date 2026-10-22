@@ -114,9 +114,42 @@ When drafting or updating any diagram `.json` specification, you MUST follow the
 
 | Action | Command Line |
 |---|---|
+| **Zero-Setup Env Doctor** | `python ai_tools_cli.py doctor [--json]` |
+| **Model Context Protocol (MCP)** | `python mcp_server.py` |
+| **Web Studio API & SSE Stream** | `python web_api_server.py 8000` |
 | **Render Spec Diagram** | `python spec_diagram_engine.py --spec <spec.json> --out <output.png> --scale 3` |
 | **Convert PDF $\to$ DOCX** | `python -m ai_tools_cli convert <input.pdf> -o <output.docx>` |
 | **Decouple DOCX $\to$ MD** | `python -m ai_tools_cli convert <doc.docx> -t md` |
 | **Compile MD $\to$ DOCX** | `python -m ai_tools_cli convert <doc.md> -t docx --style <doc.style.yaml>` |
+| **Dynamic Page Numbers** | `python ai_tools_cli.py docx-page-numbers <doc.docx> [-o <out.docx>]` |
+| **Standardize Captions** | `python ai_tools_cli.py docx-caption-fix <doc.docx> [-o <out.docx>]` |
+| **Sanitize Icons/Emojis** | `python ai_tools_cli.py docx-sanitize-icons <doc.docx> [-o <out.docx>]` |
+| **Protected Translation** | `python ai_tools_cli.py docx-translate <doc.docx> [--sl vi --tl en]` |
 | **Inspect Document Structure** | `python -m ai_tools_cli inspect-doc <document.docx>` |
 | **Insert Image into Section** | `python -m ai_tools_cli insert-diagram <doc.docx> <img.png> -s "<Heading>" -w 14.0` |
+| **Legal Redline Diff (Track Changes)** | `python ai_tools_cli.py docx-diff <v1.docx> <v2.docx> -o <diff.docx>` |
+| **Batch Mail Merge & Templating** | `python ai_tools_cli.py docx-mail-merge <tpl.docx> <data.json> -o <merged.docx>` |
+| **Unified QA Audit (12 Gates / OpenXML)** | `python ai_tools_cli.py qa-audit <doc.docx|sheet.xlsx> [--strict]` |
+| **PDF Pro Studio Suite (16 Tools)** | `python ai_tools_cli.py pdf-tools {images-to-pdf,export-images-zip,sign,flatten,reorganize,redact,...}` |
+
+---
+
+## 🗺️ Schema-First Routing Table (AI Agent Dispatch)
+
+When executing tasks programmatically via Python, MCP, or CLI, dispatch according to this matrix:
+
+| User Task / Intent | Input Type | MCP Tool | CLI Subcommand | Core Module |
+|---|---|---|---|---|
+| **System Diagnostics** | Environment | `env_doctor()` | `ai_tools_cli.py doctor` | `core.env_doctor.run_doctor` |
+| **Convert Doc (Lossless)** | PDF / DOCX / MD / HTML | `doc_convert(...)` | `ai_tools_cli.py convert` | `core.converter.engine.convert_universal` |
+| **PDF Pro Suite & Security** | PDF / Images / Stamp | `pdf_quick_tools(...)` | `ai_tools_cli.py pdf-tools` | `core.converter.pdf_toolkit` |
+| **Inspect Document AST** | DOCX / PPTX / XLSX | `doc_inspect(...)` | `ai_tools_cli.py docx-read` / `pptx-inspect` | `core.docx.reader`, `core.pptx.reader` |
+| **Legal Redline Diff (Track Changes)** | DOCX v1 + DOCX v2 | `doc_redline_diff(...)` | `ai_tools_cli.py docx-diff` | `core.docx.diff_engine.compare_docx_documents` |
+| **Batch Mail Merge & Templating** | DOCX + JSON / CSV | `doc_mail_merge(...)` | `ai_tools_cli.py docx-mail-merge` | `core.docx.writer` |
+| **Unified Document QA Audit** | DOCX / XLSX | `doc_qa_audit(...)` | `ai_tools_cli.py qa-audit` | `core.qa.unified_audit` |
+| **Vietnamese OCR & Scan Recovery** | Scanned PDF / Image | `doc_ocr_scan(...)` | `ai_tools_cli.py ocr-scan` | `core.converter.ocr_pipeline.VietnameseOcrPipeline` |
+| **Inject Diagram Image** | DOCX / PPTX + PNG | `doc_insert_diagram(...)` | `ai_tools_cli.py docx-inject` / `pptx-insert-diagram` | `core.docx.writer`, `core.pptx.engine` |
+| **Render Technical Diagram** | Spec JSON / Raw Code | `diagram_render(...)` | `ai_tools_cli.py diagram-render` | `core.diagrams.bridge` |
+| **Synthesize 16:9 Presentation** | DOCX / PDF / MD | `pptx_synthesize(...)` | `ai_tools_cli.py docx-to-pptx` / `pptx-from-md` | `core.pptx.docx_to_pptx`, `core.pptx.engine` |
+| **Excel Template Mutation** | XLSX + Patch JSON | (via REST API) | `ai_tools_cli.py xlsx-mutate` | `core.xlsx.writer.mutate_template_excel` |
+| **Excel 12-Gate Audit** | XLSX Target + Ref | (via REST API) | `ai_tools_cli.py xlsx-validate` | `core.xlsx.validator.validate_excel_sheet` |

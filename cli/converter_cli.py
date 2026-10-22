@@ -56,11 +56,12 @@ Ví dụ sử dụng:
 
     parser.add_argument("path", nargs="?", help="Đường dẫn tệp nguồn (.pdf, .docx, .md) hoặc thư mục")
     parser.add_argument("-o", "--output", help="Đường dẫn tệp kết quả hoặc thư mục xuất")
-    parser.add_argument("-t", "--target", choices=["docx", "md", "pdf"], default=None, help="Định dạng đích (docx, md, pdf)")
+    parser.add_argument("-t", "--target", choices=["docx", "md", "pdf", "xlsx", "pptx"], default=None, help="Định dạng đích (docx, md, pdf, xlsx, pptx)")
     parser.add_argument("-p", "--pages", default=None, help="Khoảng trang cần chuyển đổi nếu nguồn là PDF (ví dụ: '1-5', '1,3,7-10')")
     parser.add_argument("-e", "--engine", default="pdf2docx", help="Engine chuyển đổi PDF -> Word: pdf2docx + Smart Post-Processor v3 (chuẩn Flow Document)")
     parser.add_argument("-b", "--batch", action="store_true", help="Chế độ chuyển đổi hàng loạt cho thư mục")
     parser.add_argument("--style", default=None, help="Đường dẫn tệp Style YAML (.style.yaml) tùy chỉnh khi chuyển đổi từ Markdown")
+    parser.add_argument("--scope", default="auto", choices=["auto", "executive", "standard", "comprehensive"], help="Quy mô slide khi xuất PPTX (executive, standard, comprehensive)")
     parser.add_argument("--open", action="store_true", help="Tự động mở file kết quả sau khi hoàn tất")
     parser.add_argument("--gui", action="store_true", help="Khởi chạy giao diện đồ họa Desktop GUI")
 
@@ -76,10 +77,10 @@ Ví dụ sử dụng:
     if args.batch or os.path.isdir(target_path):
         return _handle_batch_cli(target_path, args.output, args.target or "docx", args.engine, args.open)
     else:
-        return _handle_single_cli(target_path, args.output, args.target, args.pages, args.engine, args.style, args.open)
+        return _handle_single_cli(target_path, args.output, args.target, args.pages, args.engine, args.style, args.open, getattr(args, "scope", "auto"))
 
 
-def _handle_single_cli(src_file: str, output_file: str | None, target_fmt: str | None, page_range: str | None, engine: str, style_path: str | None, auto_open: bool) -> int:
+def _handle_single_cli(src_file: str, output_file: str | None, target_fmt: str | None, page_range: str | None, engine: str, style_path: str | None, auto_open: bool, deck_scope: str = "auto") -> int:
     if not os.path.isfile(src_file):
         print(f"[LỖI] Không tìm thấy tệp nguồn: {src_file}", file=sys.stderr)
         return 1
@@ -97,8 +98,10 @@ def _handle_single_cli(src_file: str, output_file: str | None, target_fmt: str |
         page_range=page_range,
         engine=engine,
         style_path=style_path,
-        progress_callback=progress
+        progress_callback=progress,
+        deck_scope=deck_scope,
     )
+
 
     if ok:
         print(f"[THÀNH CÔNG] File kết quả: {result}")
@@ -158,6 +161,9 @@ def _handle_batch_cli(folder_path: str, output_dir: str | None, target_fmt: str,
     print(f"\n==========================================")
     print(f"Tổng kết Batch: Hoàn thành {success_count}/{len(files)} files.")
     return 0
+
+
+main = run_cli
 
 
 if __name__ == "__main__":

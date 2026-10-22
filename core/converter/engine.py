@@ -19,23 +19,33 @@ if sys.platform == "win32":
         pass
 
 try:
-    from .smart_post_processor import post_process_docx
-    from .markdown_converter import (
+    from core.docx.post_processor import post_process_docx
+    from .markdown import (
         pdf_to_markdown,
         docx_to_markdown,
         markdown_to_docx,
         docx_to_pdf,
-        markdown_to_pdf
+        markdown_to_pdf,
     )
 except (ImportError, ValueError):
-    from smart_post_processor import post_process_docx  # type: ignore
-    from markdown_converter import (  # type: ignore
-        pdf_to_markdown,
-        docx_to_markdown,
-        markdown_to_docx,
-        docx_to_pdf,
-        markdown_to_pdf
-    )
+    try:
+        from core.docx.post_processor import post_process_docx
+        from core.converter.markdown import (
+            pdf_to_markdown,
+            docx_to_markdown,
+            markdown_to_docx,
+            docx_to_pdf,
+            markdown_to_pdf,
+        )
+    except (ImportError, ValueError):
+        from smart_post_processor import post_process_docx  # type: ignore
+        from markdown_converter import (  # type: ignore
+            pdf_to_markdown,
+            docx_to_markdown,
+            markdown_to_docx,
+            docx_to_pdf,
+            markdown_to_pdf,
+        )
 
 
 def parse_page_range(range_str: str, total_pages: int) -> Optional[List[int]]:
@@ -223,11 +233,12 @@ def convert_universal(
     page_range: Optional[str] = None,
     engine: str = "pdf2docx",
     style_path: Optional[str] = None,
-    progress_callback: Optional[Callable[[float, str], None]] = None
+    progress_callback: Optional[Callable[[float, str], None]] = None,
+    deck_scope: Optional[str] = None,
 ) -> Tuple[bool, str, float]:
     """
-    Universal 6-way conversion router between PDF, DOCX, and Markdown (.md).
-    Auto-detects source and target types. Supports decoupled Style YAML.
+    Universal multi-way conversion router between PDF, DOCX, Markdown, PPTX, and Excel (.xlsx).
+    Auto-detects source and target types. Supports decoupled Style YAML and Executive Deck Synthesis.
     """
     start_time = time.time()
     if not os.path.isfile(source_path):
@@ -289,20 +300,21 @@ def convert_universal(
         # Route 7: DOCX -> PPTX (Cross-Format Presentation Synthesis)
         elif src_ext == ".docx" and dest_ext == ".pptx":
             try:
-                from .docx_to_pptx import convert_docx_to_pptx
+                from core.pptx.docx_to_pptx import convert_docx_to_pptx
             except (ImportError, ValueError):
                 from docx_to_pptx import convert_docx_to_pptx
             if progress_callback:
                 progress_callback(30.0, "Đang phân tích cấu trúc Word AST...")
-            actual_pptx, _ = convert_docx_to_pptx(source_path, target_path)
+            actual_pptx, _ = convert_docx_to_pptx(source_path, target_path, deck_scope=deck_scope)
             if progress_callback:
                 progress_callback(100.0, "Hoàn tất tổng hợp slide PowerPoint!")
             return True, actual_pptx, time.time() - start_time
 
+
         # Route 8: MD -> PPTX (Markdown Slide Compilation)
         elif src_ext == ".md" and dest_ext == ".pptx":
             try:
-                from .pptx_engine import compile_markdown_to_presentation
+                from core.pptx.engine import compile_markdown_to_presentation
             except (ImportError, ValueError):
                 from pptx_engine import compile_markdown_to_presentation
             if progress_callback:
@@ -317,15 +329,62 @@ def convert_universal(
         # Route 9: PDF -> PPTX (Full-Cycle PDF Slide Synthesis)
         elif src_ext == ".pdf" and dest_ext == ".pptx":
             try:
-                from .docx_to_pptx import convert_pdf_to_pptx
+                from core.pptx.docx_to_pptx import convert_pdf_to_pptx
             except (ImportError, ValueError):
                 from docx_to_pptx import convert_pdf_to_pptx
             if progress_callback:
                 progress_callback(20.0, "Đang trích xuất cấu trúc văn bản và hình ảnh từ PDF...")
-            actual_pptx, _ = convert_pdf_to_pptx(source_path, target_path, page_range=page_range)
+            actual_pptx, _ = convert_pdf_to_pptx(
+                source_path, target_path, page_range=page_range, deck_scope=deck_scope
+            )
             if progress_callback:
                 progress_callback(100.0, "Hoàn tất tạo slide PowerPoint từ PDF!")
             return True, actual_pptx, time.time() - start_time
+
+        # Route 10: PDF -> XLSX (Semantic Table Extraction)
+        elif src_ext == ".pdf" and dest_ext == ".xlsx":
+            try:
+                from core.converter.table_extractor import extract_tables_to_xlsx
+            except (ImportError, ValueError):
+                from table_extractor import extract_tables_to_xlsx  # type: ignore
+            if progress_callback:
+                progress_callback(30.0, "Đang quét và trích xuất bảng biểu từ PDF...")
+            ok, res_path, count = extract_tables_to_xlsx(source_path, target_path)
+            if not ok:
+                return False, res_path, time.time() - start_time
+            if progress_callback:
+                progress_callback(100.0, f"Hoàn tất trích xuất {count} bảng sang Excel!")
+            return True, res_path, time.time() - start_time
+
+        # Route 11: DOCX -> XLSX (Semantic Table Extraction)
+        elif src_ext == ".docx" and dest_ext == ".xlsx":
+            try:
+                from core.converter.table_extractor import extract_tables_to_xlsx
+            except (ImportError, ValueError):
+                from table_extractor import extract_tables_to_xlsx  # type: ignore
+            if progress_callback:
+                progress_callback(30.0, "Đang quét các thẻ OpenXML Table trong Word...")
+            ok, res_path, count = extract_tables_to_xlsx(source_path, target_path)
+            if not ok:
+                return False, res_path, time.time() - start_time
+            if progress_callback:
+                progress_callback(100.0, f"Hoàn tất trích xuất {count} bảng sang Excel!")
+            return True, res_path, time.time() - start_time
+
+        # Route 12: MD -> XLSX (Semantic Table Extraction)
+        elif src_ext in (".md", ".markdown") and dest_ext == ".xlsx":
+            try:
+                from core.converter.table_extractor import extract_tables_to_xlsx
+            except (ImportError, ValueError):
+                from table_extractor import extract_tables_to_xlsx  # type: ignore
+            if progress_callback:
+                progress_callback(30.0, "Đang bóc tách bảng Markdown GFM...")
+            ok, res_path, count = extract_tables_to_xlsx(source_path, target_path)
+            if not ok:
+                return False, res_path, time.time() - start_time
+            if progress_callback:
+                progress_callback(100.0, f"Hoàn tất trích xuất {count} bảng sang Excel!")
+            return True, res_path, time.time() - start_time
 
         # Same format or unsupported
         elif src_ext == dest_ext:
@@ -336,3 +395,4 @@ def convert_universal(
     except Exception as exc:
         elapsed = time.time() - start_time
         return False, str(exc), elapsed
+

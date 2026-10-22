@@ -22,6 +22,7 @@ import re
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import openpyxl
+from openpyxl.cell.cell import Cell, MergedCell
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from openpyxl.utils import get_column_letter, coordinate_to_tuple, column_index_from_string
 from openpyxl.worksheet.worksheet import Worksheet
@@ -45,7 +46,7 @@ def normalize_hex_color(hex_str: str | None) -> str | None:
     """Normalize any hex color format to 6-char RRGGBB or 8-char AARRGGBB."""
     if not hex_str:
         return None
-    h = str(hex_str).lstrip("#").strip().upper()
+    h = hex_str.lstrip("#").strip().upper()
     if len(h) == 8:
         alpha = h[0:2]
         rgb = h[2:8]
@@ -61,7 +62,7 @@ def hex_to_rgb_tuple(hex_color: str | None) -> tuple[int, int, int] | None:
     """Convert '#RRGGBB' or 'AARRGGBB' hex string to (R, G, B) tuple."""
     if not hex_color:
         return None
-    h = str(hex_color).lstrip("#").strip().upper()
+    h = hex_color.lstrip("#").strip().upper()
     if len(h) == 8:
         h = h[2:8]
     if len(h) != 6:
@@ -94,7 +95,7 @@ def shift_formula_string(
     if not formula:
         return formula
 
-    formula_str = str(formula)
+    formula_str = formula
     if (
         not formula_str.startswith("=")
         and "!" not in formula_str
@@ -180,7 +181,7 @@ def safe_set_cell(
     target_coord = coordinate
     target_cell = ws[coordinate]
 
-    if isinstance(target_cell, openpyxl.cell.cell.MergedCell):
+    if isinstance(target_cell, MergedCell):
         for m_range in ws.merged_cells.ranges:
             if coordinate in m_range:
                 target_coord = m_range.coord.split(":")[0]
@@ -189,14 +190,20 @@ def safe_set_cell(
     cell = ws[target_coord]
 
     # Value / Formula assignment
-    if formula and str(formula).startswith("="):
-        cell.value = str(formula)
+    if formula and formula.startswith("="):
+        cell.value = formula
     elif value is not None:
-        cell.value = value
+        val_str = str(value)
+        # Leading zero loss guard (ERR_XLSX_007)
+        if number_format is None and val_str.startswith("0") and len(val_str) > 1 and val_str.isdigit():
+            cell.number_format = "@"
+            cell.value = val_str
+        else:
+            cell.value = value
 
     # Number Format
     if number_format:
-        cell.number_format = str(number_format)
+        cell.number_format = number_format
 
     # Shading Fill
     if fill_color:
@@ -251,13 +258,32 @@ class UniversalExcelEngine:
             return self.wb[sheet_name]
         return self.wb.create_sheet(title=sheet_name)
 
+    def safe_set_cell(
+        self,
+        ws: Worksheet,
+        coordinate: str,
+        value: Any = None,
+        formula: str | None = None,
+        **kwargs: Any
+    ) -> Any:
+        """Convenience delegation to safe_set_cell function."""
+        return safe_set_cell(ws, coordinate, value=value, formula=formula, **kwargs)
+
+    def save(self, output_path: Optional[str] = None) -> str:
+        """Save workbook preserving package integrity (ERR_XLSX_006)."""
+        target = output_path or self.source_path
+        if not target:
+            raise ValueError("No output path specified for workbook save")
+        self.wb.save(target)
+        return target
+
     def find_anchor(self, sheet_name: str, keyword: str, max_row: int = 150) -> Optional[Tuple[int, int]]:
         """
         Semantic Anchor Discovery (ERR_XLSX_003):
         Scans sheet matrix to discover the row and column containing `keyword`.
         """
         ws = self.get_sheet(sheet_name)
-        kw_clean = str(keyword).strip().lower()
+        kw_clean = keyword.strip().lower()
 
         for r in range(1, min(ws.max_row + 1, max_row + 1)):
             for c in range(1, min(ws.max_column + 1, 40)):
@@ -306,7 +332,7 @@ class UniversalExcelEngine:
         id_cols = set(id_columns or [])
 
         # 1. Snapshot prototype row styling BEFORE insert_rows to prevent row-shift index desync (ERR_XLSX_001)
-        proto_styles = []
+        proto_styles: List[Dict[str, Any]] = []
         max_col = max(ws.max_column, 25)
         for c in range(1, max_col + 1):
             proto_cell = ws.cell(row=proto_row_idx, column=c)
@@ -330,16 +356,17 @@ class UniversalExcelEngine:
 
             for c_idx, s in enumerate(proto_styles, start=1):
                 target_cell = ws.cell(row=new_r, column=c_idx)
-                if s["font"]:
-                    target_cell.font = copy.copy(s["font"])
-                if s["fill"]:
-                    target_cell.fill = copy.copy(s["fill"])
-                if s["border"]:
-                    target_cell.border = copy.copy(s["border"])
-                if s["alignment"]:
-                    target_cell.alignment = copy.copy(s["alignment"])
-                if s["number_format"]:
-                    target_cell.number_format = s["number_format"]
+                if isinstance(target_cell, Cell):
+                    if s["font"]:
+                        target_cell.font = copy.copy(s["font"])
+                    if s["fill"]:
+                        target_cell.fill = copy.copy(s["fill"])
+                    if s["border"]:
+                        target_cell.border = copy.copy(s["border"])
+                    if s["alignment"]:
+                        target_cell.alignment = copy.copy(s["alignment"])
+                    if s["number_format"]:
+                        target_cell.number_format = s["number_format"]
 
         # 4. Shift merged cell ranges that lie below start_row (ERR_XLSX_004)
         new_merged_ops = []
@@ -457,15 +484,16 @@ class UniversalExcelEngine:
         for r in range(1, ws.max_row + 1):
             for c in range(1, ws.max_column + 1):
                 cell = ws.cell(row=r, column=c)
-                val = cell.value
-                if isinstance(val, str) and val.startswith("="):
-                    cell.value = shift_formula_string(
-                        val,
-                        insert_row=insert_row,
-                        delta_rows=delta_rows,
-                        insert_col=insert_col,
-                        delta_cols=delta_cols,
-                    )
+                if isinstance(cell, Cell):
+                    val = cell.value
+                    if isinstance(val, str) and val.startswith("="):
+                        cell.value = shift_formula_string(
+                            val,
+                            insert_row=insert_row,
+                            delta_rows=delta_rows,
+                            insert_col=insert_col,
+                            delta_cols=delta_cols,
+                        )
 
     def expand_table_columns(
         self,
@@ -492,7 +520,7 @@ class UniversalExcelEngine:
 
         # 1. Snapshot prototype column cell styles across rows
         end_row = max_row if max_row is not None else max(ws.max_row, 30)
-        proto_styles = []
+        proto_styles: List[Dict[str, Any]] = []
         for r in range(min_row, end_row + 1):
             p_cell = ws.cell(row=r, column=proto_c_idx)
             proto_styles.append({
@@ -515,17 +543,18 @@ class UniversalExcelEngine:
                 ws.column_dimensions[new_letter].width = proto_width
 
             for s in proto_styles:
-                target_cell = ws.cell(row=s["row"], column=new_c)
-                if s["font"]:
-                    target_cell.font = copy.copy(s["font"])
-                if s["fill"]:
-                    target_cell.fill = copy.copy(s["fill"])
-                if s["border"]:
-                    target_cell.border = copy.copy(s["border"])
-                if s["alignment"]:
-                    target_cell.alignment = copy.copy(s["alignment"])
-                if s["number_format"]:
-                    target_cell.number_format = s["number_format"]
+                target_cell = ws.cell(row=int(s["row"]), column=new_c)
+                if isinstance(target_cell, Cell):
+                    if s["font"]:
+                        target_cell.font = copy.copy(s["font"])
+                    if s["fill"]:
+                        target_cell.fill = copy.copy(s["fill"])
+                    if s["border"]:
+                        target_cell.border = copy.copy(s["border"])
+                    if s["alignment"]:
+                        target_cell.alignment = copy.copy(s["alignment"])
+                    if s["number_format"]:
+                        target_cell.number_format = s["number_format"]
 
         # 4. Shift merged cell ranges that span across or lie to the right of start_col
         new_merged_ops = []
@@ -572,6 +601,8 @@ class UniversalExcelEngine:
             for c_offset, val in enumerate(row_vals):
                 curr_col = start_col + c_offset
                 cell = ws.cell(row=curr_row, column=curr_col)
+                if not isinstance(cell, Cell):
+                    continue
 
                 is_id = (c_offset in id_cols) or (curr_col in id_cols)
 
@@ -602,6 +633,8 @@ class UniversalExcelEngine:
         # 1. Adjust column widths
         for col in ws.columns:
             first_cell = col[0]
+            if first_cell.column is None:
+                continue
             col_letter = get_column_letter(first_cell.column)
             max_len = 0
 
@@ -626,7 +659,7 @@ class UniversalExcelEngine:
                 cell = ws.cell(row=r, column=c)
                 val = cell.value
                 if val is not None and isinstance(val, str) and not val.startswith("="):
-                    val_str = str(val)
+                    val_str = val
                     split_lines = len(val_str.split("\n"))
                     wrap_lines = int(len(val_str) / 45.0)
                     total_lines = split_lines + wrap_lines
@@ -747,7 +780,8 @@ def apply_worksheet_print_setup(
     4. Centered horizontal printing with standard margins (0.7 in left/right, 0.75 in top/bottom).
     """
     try:
-        ws.sheet_properties.pageSetUpPr.fitToPage = fit_to_page
+        if ws.sheet_properties and ws.sheet_properties.pageSetUpPr:
+            ws.sheet_properties.pageSetUpPr.fitToPage = fit_to_page
     except Exception:
         pass
     ws.page_setup.fitToPage = fit_to_page
@@ -756,7 +790,8 @@ def apply_worksheet_print_setup(
 
     max_col = ws.max_column
     if orientation:
-        ws.page_setup.orientation = orientation.lower()
+        norm_ori = orientation.lower()
+        ws.page_setup.orientation = "landscape" if norm_ori == "landscape" else "portrait"
     else:
         if max_col > 7:
             ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE

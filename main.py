@@ -1,28 +1,38 @@
 """
-Main Entry Point for PDF to DOCX Converter
-Automatically launches GUI if no CLI arguments are supplied.
-"""
+main.py — Main Application Entry Point for Universal Office Studio.
 
-import sys
+Auto-routes:
+- No arguments: Launches Desktop Tkinter GUI (ui.desktop_app)
+- With CLI arguments: Dispatches to Unified AI Tools CLI (cli.ai_tools)
+"""
+from __future__ import annotations
+
 import os
+import sys
 
 if sys.platform == "win32":
     try:
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        if hasattr(sys.stdout, "reconfigure"):
+            getattr(sys.stdout, "reconfigure")(encoding="utf-8", errors="replace")
+        if hasattr(sys.stderr, "reconfigure"):
+            getattr(sys.stderr, "reconfigure")(encoding="utf-8", errors="replace")
     except Exception:
         pass
 
-# Ensure package directory is in sys.path
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PARENT_DIR = os.path.dirname(BASE_DIR)
-ROOT_DIR = os.path.dirname(PARENT_DIR)
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
 
-for p in (ROOT_DIR, PARENT_DIR, BASE_DIR):
-    if p not in sys.path:
-        sys.path.insert(0, p)
 
-from tool.pdf_to_docx_converter.cli import run_cli
+def main() -> int:
+    if len(sys.argv) > 1:
+        from cli.ai_tools import main as run_cli
+        return run_cli()
+    else:
+        from ui.desktop_app import launch_gui
+        launch_gui()
+        return 0
+
 
 if __name__ == "__main__":
-    sys.exit(run_cli())
+    sys.exit(main())

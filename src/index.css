@@ -2916,6 +2916,127 @@ sup,
   border-color: var(--rose-danger);
 }
 
+/* ========================================================================= */
+/* Deck Scope Selector Grid (Target Deck Sizing)                            */
+/* ========================================================================= */
+.deck-scope-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
 
+.scope-card {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 12px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+  overflow: hidden;
+}
 
+.scope-card:hover {
+  border-color: var(--border-medium);
+  transform: translateY(-2px);
+}
 
+.scope-card.active {
+  border-color: var(--cyan-neon);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.25);
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.scope-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.scope-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.scope-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(56, 189, 248, 0.15);
+  color: var(--cyan-neon);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.scope-badge.badge-accent {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.scope-badge.badge-neutral {
+  background: rgba(148, 163, 184, 0.15);
+  color: #94a3b8;
+  border-color: rgba(148, 163, 184, 0.3);
+}
+
+.scope-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+/* ========================================================================= */
+/* Contextual Format Hint Box                                               */
+/* ========================================================================= */
+.format-hint-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: rgba(56, 189, 248, 0.06);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.format-hint-box i {
+  color: var(--cyan-neon);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* ========================================================================= */
+/* Progressive Slide Batch Loading Button                                   */
+/* ========================================================================= */
+.btn-load-more-slides {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  margin-top: 14px;
+  background: var(--bg-surface-elevated);
+  border: 1px dashed var(--border-medium);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-load-more-slides:hover {
+  background: rgba(56, 189, 248, 0.1);
+  border-color: var(--cyan-neon);
+  color: var(--cyan-neon);
+}

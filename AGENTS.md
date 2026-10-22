@@ -17,6 +17,8 @@ The workspace includes preconfigured Antigravity customizations:
 - **Skill 2**: [technical-diagrams](.agents/skills/technical-diagrams/SKILL.md) — Declarative diagram rendering (`spec-render`), orthogonal Manhattan routing, multi-line wrapping, and collision prevention.
 - **Rule 1**: [rule_technical_diagram_standards.md](.agents/rules/rule_technical_diagram_standards.md) — Mandatory standards for English screen names, codebase-truth action labels, multi-line wrapping (`\n`), and automated AABB collision detection.
 - **Rule 2**: [rule_decoupled_document_converter.md](.agents/rules/rule_decoupled_document_converter.md) — Mandatory standards for table OpenXML invariants (`cantSplit`, `tblHeader`, `vAlign="center"`) and decoupled styling.
+- **Rule 3**: [rule_feature_lifecycle_and_doc_sync.md](.agents/rules/rule_feature_lifecycle_and_doc_sync.md) — Mandatory standards for updating `CHANGELOG.md` and `ARCHITECTURE.md` after completing any feature (`ERR_DOC_SYNC_001`).
+- **Rule 4**: [rule_version_synchronization_and_release_invariants.md](.agents/rules/rule_version_synchronization_and_release_invariants.md) — 9-anchor synchronization and automated build on version bumps (`ERR_VER_001`).
 
 ---
 
@@ -41,6 +43,8 @@ When user requests you to perform document tasks or draw diagrams, run these com
 | **Inspect DOCX Headings & Tables** | `python -m ai_tools_cli inspect-doc <document.docx>` |
 | **Insert Image into DOCX** | `python -m ai_tools_cli insert-diagram <doc.docx> <img.png> -s "Heading" -c "Caption"` |
 | **Legal Redline Diff (Track Changes)** | `python ai_tools_cli.py docx-diff <v1.docx> <v2.docx> -o <diff.docx>` |
+| **Batch Mail Merge & Templating** | `python ai_tools_cli.py docx-mail-merge <tpl.docx> <data.json> -o <merged.docx>` |
+| **Unified QA Audit (12 Gates / OpenXML)** | `python ai_tools_cli.py qa-audit <doc.docx|sheet.xlsx> [--strict]` |
 | **Vietnamese OCR & Scan Recovery** | `python ai_tools_cli.py ocr-scan <scan.pdf> -o <out.md> [--lang vie+eng]` |
 | **Build 16:9 Presentation from Spec** | `python ai_tools_cli.py pptx-build <spec.json> -o <deck.pptx> [--template <tpl.pptx>]` |
 | **Export Slide PNG Previews for QA** | `python ai_tools_cli.py pptx-preview <deck.pptx> -o <preview_dir> [--slides 1,5,11]` |
@@ -50,6 +54,10 @@ When user requests you to perform document tasks or draw diagrams, run these com
 | **Sign PDF with Stamp/Signature** | `python ai_tools_cli.py pdf-tools sign -i <doc.pdf> -o <signed.pdf> --stamp <sig.png> --page 1` |
 | **Flatten & Sanitize PDF** | `python ai_tools_cli.py pdf-tools flatten -i <doc.pdf> -o <flat.pdf> [--strict]` |
 | **Reorganize Pages with Blank Insertion** | `python ai_tools_cli.py pdf-tools reorganize -i <doc.pdf> -o <reorg.pdf> --plan "1,blank,2"` |
+| **Set Excel Cell Value/Formula** | `python ai_tools_cli.py xlsx-set <file.xlsx> --sheet <sheet> --cell <cell> --value <val>` |
+| **Insert Excel Rows & Shift Formulas** | `python ai_tools_cli.py xlsx-insert-rows <file.xlsx> --sheet <sheet> --start-row <row> --count <n>` |
+| **Inspect Word Template Tokens** | `python ai_tools_cli.py docx-tokens <tpl.docx> [--json]` |
+| **Atomic Word Text Replace** | `python ai_tools_cli.py docx-replace <doc.docx> --data <patch.json>` |
 | **Launch Desktop GUI** | `python main.py` |
 
 ---
@@ -65,12 +73,19 @@ When executing tasks programmatically via Python, MCP, or CLI, dispatch accordin
 | **PDF Pro Suite & Security** | PDF / Images / Stamp | `pdf_quick_tools(...)` | `ai_tools_cli.py pdf-tools` | `core.converter.pdf_toolkit` |
 | **Inspect Document AST** | DOCX / PPTX / XLSX | `doc_inspect(...)` | `ai_tools_cli.py docx-read` / `pptx-inspect` | `core.docx.reader`, `core.pptx.reader` |
 | **Legal Redline Diff (Track Changes)** | DOCX v1 + DOCX v2 | `doc_redline_diff(...)` | `ai_tools_cli.py docx-diff` | `core.docx.diff_engine.compare_docx_documents` |
+| **Batch Mail Merge & Templating** | DOCX + JSON / CSV | `doc_mail_merge(...)` | `ai_tools_cli.py docx-mail-merge` | `core.docx.writer` |
+| **Unified Document QA Audit** | DOCX / XLSX | `doc_qa_audit(...)` | `ai_tools_cli.py qa-audit` | `core.qa.unified_audit` |
 | **Vietnamese OCR & Scan Recovery** | Scanned PDF / Image | `doc_ocr_scan(...)` | `ai_tools_cli.py ocr-scan` | `core.converter.ocr_pipeline.VietnameseOcrPipeline` |
 | **Inject Diagram Image** | DOCX / PPTX + PNG | `doc_insert_diagram(...)` | `ai_tools_cli.py docx-inject` / `pptx-insert-diagram` | `core.docx.writer`, `core.pptx.engine` |
 | **Render Technical Diagram** | Spec JSON / Raw Code | `diagram_render(...)` | `ai_tools_cli.py diagram-render` | `core.diagrams.bridge` |
 | **Synthesize 16:9 Presentation** | DOCX / PDF / MD | `pptx_synthesize(...)` | `ai_tools_cli.py docx-to-pptx` / `pptx-from-md` | `core.pptx.docx_to_pptx`, `core.pptx.engine` |
 | **Excel Template Mutation** | XLSX + Patch JSON | (via REST API) | `ai_tools_cli.py xlsx-mutate` | `core.xlsx.writer.mutate_template_excel` |
 | **Excel 12-Gate Audit** | XLSX Target + Ref | (via REST API) | `ai_tools_cli.py xlsx-validate` | `core.xlsx.validator.validate_excel_sheet` |
+| **Atomic Excel Cell Edit** | XLSX + Cell + Value | `xlsx_set_cell(...)` / `xlsx_set_range(...)` | `ai_tools_cli.py xlsx-set` | `core.xlsx.writer.UniversalExcelEngine` |
+| **Atomic Excel Row Expansion** | XLSX + Row + Count | `xlsx_insert_rows(...)` | `ai_tools_cli.py xlsx-insert-rows` | `core.xlsx.writer.UniversalExcelEngine` |
+| **Inspect Word Placeholders** | DOCX Template | `docx_inspect_placeholders(...)` | `ai_tools_cli.py docx-tokens` | `core.docx.mail_merge.inspect_template_tokens` |
+| **Atomic Word Text Patching** | DOCX + Replacements | `docx_replace_text(...)` | `ai_tools_cli.py docx-replace` | `core.docx.writer.patch_docx_template` |
+| **Atomic Word Paragraph/Table** | DOCX + Content | `docx_insert_paragraph(...)` / `docx_insert_table(...)` | (via MCP Tool) | `core.docx.writer` |
 
 ---
 

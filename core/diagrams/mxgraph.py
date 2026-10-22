@@ -1115,7 +1115,7 @@ def render_diagram(
             docx_target = os.path.abspath(os.path.join(base_dir, docx_target))
         if os.path.isfile(docx_target):
             try:
-                from .docx_writer import inject_diagram_into_docx
+                from core.docx.writer import inject_diagram_into_docx
             except (ImportError, ValueError):
                 from docx_writer import inject_diagram_into_docx  # type: ignore
             inject_diagram_into_docx(

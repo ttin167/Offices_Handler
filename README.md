@@ -5,11 +5,12 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Release: v4.2.0](https://img.shields.io/badge/Release-v4.2.0_Production-success.svg)](CHANGELOG.md)
-[![Tests: 199 Passed](https://img.shields.io/badge/Tests-199%2F199_Passed-brightgreen.svg)](tests/)
+[![Tests: 200 Passed](https://img.shields.io/badge/Tests-200%2F200_Passed-brightgreen.svg)](tests/)
+[![MCP Tools: 19](https://img.shields.io/badge/MCP_Tools-19_Available-blue.svg)](server/mcp_server.py)
 [![Antigravity IDE Ready](https://img.shields.io/badge/Antigravity_AI-Compatible-orange.svg)](AGENTS.md)
 [![Resolution: 300+ DPI](https://img.shields.io/badge/DPI-300%2B_Vector_Grade-purple.svg)](spec_diagram_engine.py)
 
-> 🚀 **Xem toàn bộ lộ trình tiến hóa & so sánh tính năng v1.0 → v4.0 tại [CHANGELOG.md](CHANGELOG.md)**.
+> 🚀 **Xem toàn bộ lộ trình tiến hóa & so sánh tính năng v1.0 → v4.2.0 tại [CHANGELOG.md](CHANGELOG.md)**.
 
 ---
 
@@ -18,6 +19,15 @@
 `antigravity-doc-handler` is a specialized Python toolkit designed for software engineers, business analysts, technical writers, and autonomous AI agents (especially within **Google Antigravity IDE**). 
 
 It bridges the gap between raw document conversion, OpenXML Word standard compliance, and publication-quality technical diagram generation.
+
+### 🆕 Highlights in v4.2.0 Production Grade
+- **Atomic Office Tools Suite (8 AI Agent Tools)**: Programmatic fine-grained inspection and manipulation of Word (.docx) and Excel (.xlsx) at cell/run level via MCP JSON-RPC 2.0 (19 tools) and CLI (`xlsx-set`, `xlsx-insert-rows`, `docx-tokens`, `docx-replace`), guaranteeing invariants `ERR_XLSX_004` (merged-cell safe targeting), `ERR_XLSX_007` (leading-zero string preservation `'@'`), and `ERR_DOCX_002` (run formatting preservation).
+- **DOCX Quick Patch Studio**: Interactive Web Studio sub-tab with real-time **Two-Way Synchronization** between visual input form and JSON code editor, automatic AST token discovery, and one-click template patching.
+- **PDF Pro Studio Suite (16 Tools)**: Complete Stirling-PDF alternative — true byte/pixel redaction (`ERR_PDF_001`), AES-256 permission encryption, $N$-cut overlapping page-spanning stamp (dấu giáp lai `ERR_PDF_002`), vector bake & raster flattening (`flatten`), visual page organizer with drag & drop, 300 DPI image export, and rotation-compensated digital signing.
+- **Batch Mail Merge (`docx-mail-merge`)**: High-speed variable and table templating for Microsoft Word documents with nested block repetition and zero formatting loss.
+- **Legal Redline Diff (`docx-diff`)**: Native OpenXML track changes comparison (`<w:ins>` / `<w:del>`) generating audit-compliant legal redlines between document revisions.
+- **Vietnamese OCR & Scan Recovery (`ocr-scan`)**: Dual-pass HSV color filtering for red corporate seal extraction, deskew correction, and high-accuracy Tesseract OCR with `vie+eng` dictionaries.
+- **Render Cloud Ready & Web Studio API**: Asynchronous SSE job queue (`server/job_manager.py`), REST endpoints for all tools, and live multi-format preview.
 
 ### Why does this tool exist?
 1. **Office Document Engines Lose Formatting**: Standard PDF-to-Word tools mangle Table of Contents (TOC) tab stops, split table rows awkwardly across page breaks, and fail to vertically center text.
@@ -192,6 +202,22 @@ For non-technical users, launch the native desktop studio with integrated **[�
 ```bash
 python main.py
 # Or double-click run_gui.bat on Windows
+```
+
+### 7. Atomic Office Tools (Word & Excel Manipulation)
+Programmatic cell and token editing for terminal users and automated AI pipelines:
+```bash
+# Update Excel cell with merged-cell safety and formula support (ERR_XLSX_004, ERR_XLSX_007)
+python ai_tools_cli.py xlsx-set data.xlsx --sheet "Report" --cell "C7" --value "100" --formula "=SUM(C2:C6)"
+
+# Expand table rows with prototype row style cloning and formula shifting (ERR_XLSX_001, ERR_XLSX_002)
+python ai_tools_cli.py xlsx-insert-rows data.xlsx --sheet "Report" --start-row 10 --count 5 --proto 9
+
+# Inspect Word template placeholders and variables (JSON AST)
+python ai_tools_cli.py docx-tokens template.docx --json
+
+# In-place Word text replacement preserving run formatting (ERR_DOCX_002)
+python ai_tools_cli.py docx-replace contract.docx --data '{"TEN_KHACH_HANG": "Nguyen Van A"}'
 ```
 
 ---

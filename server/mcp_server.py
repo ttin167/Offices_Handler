@@ -43,17 +43,22 @@ try:
     from core.pptx.docx_to_pptx import convert_docx_to_pptx, convert_pdf_to_pptx
     from core.diagrams.bridge import render_diagram_file_to_png, render_diagram_code_to_png
     from core.env_doctor import run_doctor
+    from core.xlsx.writer import UniversalExcelEngine
+    from core.docx.writer import patch_docx_template
+    from core.docx.mail_merge import inspect_template_tokens
 except (ImportError, ValueError):
     from converter_engine import convert_universal  # type: ignore
     from docx_reader import read_docx, read_docx_to_json  # type: ignore
     from pptx_reader import read_pptx  # type: ignore
     from xlsx_reader import read_xlsx  # type: ignore
-    from docx_writer import inject_diagram_into_docx  # type: ignore
+    from docx_writer import inject_diagram_into_docx, patch_docx_template  # type: ignore
     from pptx_engine import insert_diagram_into_pptx, parse_markdown_to_slides_spec  # type: ignore
     from pptx_writer import write_pptx_from_spec  # type: ignore
     from docx_to_pptx import convert_docx_to_pptx, convert_pdf_to_pptx  # type: ignore
     from diagram_bridge import render_diagram_file_to_png, render_diagram_code_to_png  # type: ignore
     from env_doctor import run_doctor  # type: ignore
+    from xlsx_writer import UniversalExcelEngine  # type: ignore
+    from docx_mail_merge import inspect_template_tokens  # type: ignore
 
 
 MCP_PROTOCOL_VERSION = "2024-11-05"
@@ -63,7 +68,7 @@ SERVER_VERSION = "4.2.0"
 TOOL_DEFINITIONS = [
     {
         "name": "doc_convert",
-        "description": "Universal document conversion between DOCX, PDF, Markdown, and PPTX with OpenXML table repair and zero data loss.",
+        "description": "Universal document conversion between DOCX, PDF, Markdown, PPTX, and Excel (.xlsx) with OpenXML table repair and semantic table extraction.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -73,7 +78,7 @@ TOOL_DEFINITIONS = [
                 },
                 "target_ext": {
                     "type": "string",
-                    "description": "Target extension (.docx, .pdf, .md, .pptx, .html)",
+                    "description": "Target extension (.docx, .pdf, .md, .pptx, .xlsx, .html)",
                     "default": ".docx"
                 },
                 "output_path": {
@@ -173,7 +178,7 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "pptx_synthesize",
-        "description": "Synthesize a 16:9 widescreen presentation deck from Word (.docx), PDF, or Markdown.",
+        "description": "Synthesize a 16:9 widescreen presentation deck from Word (.docx), PDF, or Markdown with Executive Deck Sizing.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -193,6 +198,12 @@ TOOL_DEFINITIONS = [
                 "template": {
                     "type": "string",
                     "description": "Optional path to base .pptx / .potx template for layout inheritance"
+                },
+                "deck_scope": {
+                    "type": "string",
+                    "description": "Presentation scope: 'executive' (15-25 slides for >= 50-100 page docs), 'standard' (30-45 slides), 'comprehensive' (full AST), or 'auto'",
+                    "enum": ["auto", "executive", "standard", "comprehensive"],
+                    "default": "auto"
                 }
             },
             "required": ["source_path"]
@@ -389,6 +400,252 @@ TOOL_DEFINITIONS = [
             },
             "required": ["input_path"]
         }
+    },
+    {
+        "name": "xlsx_set_cell",
+        "description": "Set value, formula, or formatting for an Excel cell in-place preserving DrawingML logos (ERR_XLSX_006) and safe merged cells (ERR_XLSX_004).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to target .xlsx document"
+                },
+                "coordinate": {
+                    "type": "string",
+                    "description": "Cell coordinate (e.g. 'F12', 'B5')"
+                },
+                "value": {
+                    "description": "New value to assign to cell"
+                },
+                "formula": {
+                    "type": "string",
+                    "description": "Optional formula string starting with '=', e.g. '=SUM(B2:B10)'"
+                },
+                "sheet_name": {
+                    "type": "string",
+                    "description": "Optional worksheet name (defaults to active sheet)"
+                },
+                "output_path": {
+                    "type": "string",
+                    "description": "Optional destination path (defaults to in-place update)"
+                }
+            },
+            "required": ["file_path", "coordinate"]
+        }
+    },
+    {
+        "name": "xlsx_set_range",
+        "description": "Batch update multiple cells in Excel workbook in-place, e.g. {'B5': '1,500,000', 'C5': 'Approved'}.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to target .xlsx document"
+                },
+                "updates": {
+                    "type": "object",
+                    "description": "Dictionary mapping cell coordinates to values/formula objects"
+                },
+                "sheet_name": {
+                    "type": "string",
+                    "description": "Optional worksheet name"
+                },
+                "output_path": {
+                    "type": "string",
+                    "description": "Optional destination path"
+                }
+            },
+            "required": ["file_path", "updates"]
+        }
+    },
+    {
+        "name": "xlsx_insert_rows",
+        "description": "Insert N rows at specified index, cloning prototype formatting (ERR_XLSX_001) and shifting downstream formulas via Regex AST (ERR_XLSX_002).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to target .xlsx document"
+                },
+                "sheet_name": {
+                    "type": "string",
+                    "description": "Worksheet name"
+                },
+                "start_row": {
+                    "type": "integer",
+                    "description": "1-based row index where new rows are inserted"
+                },
+                "count": {
+                    "type": "integer",
+                    "description": "Number of rows to insert",
+                    "default": 1
+                },
+                "prototype_row": {
+                    "type": "integer",
+                    "description": "Optional row index to clone formatting from"
+                },
+                "shift_formulas": {
+                    "type": "boolean",
+                    "description": "Whether to shift downstream formulas",
+                    "default": True
+                },
+                "output_path": {
+                    "type": "string",
+                    "description": "Optional destination path"
+                }
+            },
+            "required": ["file_path", "sheet_name", "start_row"]
+        }
+    },
+    {
+        "name": "xlsx_find_anchor",
+        "description": "Semantic Anchor Discovery (ERR_XLSX_003): Scans worksheet to discover row and column coordinates of a keyword.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to target .xlsx document"
+                },
+                "sheet_name": {
+                    "type": "string",
+                    "description": "Worksheet name"
+                },
+                "keyword": {
+                    "type": "string",
+                    "description": "Keyword string to search for"
+                },
+                "max_row": {
+                    "type": "integer",
+                    "description": "Maximum rows to scan (default: 150)",
+                    "default": 150
+                }
+            },
+            "required": ["file_path", "sheet_name", "keyword"]
+        }
+    },
+    {
+        "name": "docx_inspect_placeholders",
+        "description": "Inspect all {{TOKEN}} variables, {{IF:...}} conditions, and {{BLOCK:...}} anchors in a Word .docx template.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "template_path": {
+                    "type": "string",
+                    "description": "Path to Word .docx template file"
+                }
+            },
+            "required": ["template_path"]
+        }
+    },
+    {
+        "name": "docx_replace_text",
+        "description": "Replace text/placeholders in Word DOCX body, tables, and headers/footers in-place preserving run formatting (ERR_DOCX_002).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "doc_path": {
+                    "type": "string",
+                    "description": "Path to target Word .docx document"
+                },
+                "replacements": {
+                    "type": "object",
+                    "description": "Dict of {'KEY': 'Val'} or {'{{KEY}}': 'Val'} or {'old_text': 'new_text'}"
+                },
+                "output_path": {
+                    "type": "string",
+                    "description": "Optional destination path"
+                }
+            },
+            "required": ["doc_path", "replacements"]
+        }
+    },
+    {
+        "name": "docx_insert_paragraph",
+        "description": "Insert a paragraph with explicit typography (style, bold, italic, color) after a heading or at document end.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "doc_path": {
+                    "type": "string",
+                    "description": "Path to target Word .docx document"
+                },
+                "text": {
+                    "type": "string",
+                    "description": "Paragraph text content"
+                },
+                "after_heading": {
+                    "type": "string",
+                    "description": "Optional heading text to insert after"
+                },
+                "style": {
+                    "type": "string",
+                    "description": "Style name ('Normal', 'Heading 1', 'List Bullet')",
+                    "default": "Normal"
+                },
+                "bold": {
+                    "type": "boolean",
+                    "description": "Bold text",
+                    "default": False
+                },
+                "italic": {
+                    "type": "boolean",
+                    "description": "Italic text",
+                    "default": False
+                },
+                "font_size": {
+                    "type": "number",
+                    "description": "Font size in pt"
+                },
+                "color": {
+                    "type": "string",
+                    "description": "Hex color string (e.g. '003057')"
+                },
+                "output_path": {
+                    "type": "string",
+                    "description": "Optional destination path"
+                }
+            },
+            "required": ["doc_path", "text"]
+        }
+    },
+    {
+        "name": "docx_insert_table",
+        "description": "Insert an OpenXML-compliant table (<w:cantSplit/>, <w:tblHeader/>, centered) into Word document.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "doc_path": {
+                    "type": "string",
+                    "description": "Path to target Word .docx document"
+                },
+                "headers": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Table header column titles"
+                },
+                "rows": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {"type": "string"}
+                    },
+                    "description": "2D table rows data"
+                },
+                "after_heading": {
+                    "type": "string",
+                    "description": "Optional heading text to insert after"
+                },
+                "output_path": {
+                    "type": "string",
+                    "description": "Optional destination path"
+                }
+            },
+            "required": ["doc_path", "headers", "rows"]
+        }
     }
 ]
 
@@ -511,6 +768,7 @@ def execute_pptx_synthesize(args: Dict[str, Any]) -> Dict[str, Any]:
 
     theme = args.get("theme", "thesis_blue")
     template = args.get("template")
+    deck_scope = args.get("deck_scope", args.get("scope", "auto"))
 
     out_path = args.get("output_path")
     if not out_path:
@@ -521,10 +779,14 @@ def execute_pptx_synthesize(args: Dict[str, Any]) -> Dict[str, Any]:
 
     ext = os.path.splitext(src)[1].lower()
     if ext == ".docx":
-        final_pptx, _ = convert_docx_to_pptx(src, out_path, theme=theme, template_path=template)
+        final_pptx, _ = convert_docx_to_pptx(
+            src, out_path, theme=theme, template_path=template, deck_scope=deck_scope
+        )
         res_path = final_pptx
     elif ext == ".pdf":
-        final_pptx, _ = convert_pdf_to_pptx(src, out_path, theme=theme, template_path=template)
+        final_pptx, _ = convert_pdf_to_pptx(
+            src, out_path, theme=theme, template_path=template, deck_scope=deck_scope
+        )
         res_path = final_pptx
     elif ext in (".md", ".markdown"):
         with open(src, "r", encoding="utf-8") as f:
@@ -533,6 +795,7 @@ def execute_pptx_synthesize(args: Dict[str, Any]) -> Dict[str, Any]:
         res_path = write_pptx_from_spec(slides_spec, out_path, template_path=template)
     else:
         raise ValueError(f"Unsupported source format for presentation synthesis: {ext}")
+
 
     return {
         "success": True,
@@ -771,6 +1034,232 @@ def execute_doc_ocr_scan(args: Dict[str, Any]) -> Dict[str, Any]:
     return pipeline.process_document(inp, output_path=out)
 
 
+def execute_xlsx_set_cell(args: Dict[str, Any]) -> Dict[str, Any]:
+    file_path = os.path.abspath(args["file_path"])
+    coord_param = args.get("coordinate") or args.get("cell")
+    if not coord_param:
+        raise KeyError("'coordinate' or 'cell' must be provided")
+    coordinate = str(coord_param).strip().upper()
+    value = args.get("value")
+    formula = args.get("formula")
+    sheet_name = args.get("sheet_name")
+    out_path = os.path.abspath(args["output_path"]) if args.get("output_path") else file_path
+
+    if not os.path.isfile(file_path):
+        raise FileNotFoundError(f"Excel file not found: {file_path}")
+
+    engine = UniversalExcelEngine(file_path)
+    sheet_obj = engine.get_sheet(sheet_name) if sheet_name else engine.wb.active
+    ws = sheet_obj if sheet_obj is not None else engine.wb.worksheets[0]
+    engine.safe_set_cell(ws, coordinate, value=value, formula=formula)
+    engine.save(out_path)
+    sheet_title = getattr(ws, "title", "Sheet")
+    return {"success": True, "output_path": out_path, "coordinate": coordinate, "sheet": sheet_title}
+
+
+def execute_xlsx_set_range(args: Dict[str, Any]) -> Dict[str, Any]:
+    file_path = os.path.abspath(args["file_path"])
+    updates = args["updates"]
+    sheet_name = args.get("sheet_name")
+    out_path = os.path.abspath(args["output_path"]) if args.get("output_path") else file_path
+
+    if not os.path.isfile(file_path):
+        raise FileNotFoundError(f"Excel file not found: {file_path}")
+    if not isinstance(updates, dict):
+        raise ValueError("'updates' must be a dictionary of cell coordinates to values/specs")
+
+    engine = UniversalExcelEngine(file_path)
+    sheet_obj = engine.get_sheet(sheet_name) if sheet_name else engine.wb.active
+    ws = sheet_obj if sheet_obj is not None else engine.wb.worksheets[0]
+    for coord, val in updates.items():
+        coord_clean = str(coord).strip().upper()
+        if isinstance(val, dict):
+            engine.safe_set_cell(ws, coord_clean, value=val.get("value"), formula=val.get("formula"))
+        else:
+            engine.safe_set_cell(ws, coord_clean, value=val)
+    engine.save(out_path)
+    sheet_title = getattr(ws, "title", "Sheet")
+    return {"success": True, "output_path": out_path, "updated_cells": len(updates), "sheet": sheet_title}
+
+
+def execute_xlsx_insert_rows(args: Dict[str, Any]) -> Dict[str, Any]:
+    file_path = os.path.abspath(args["file_path"])
+    sheet_name = args["sheet_name"]
+    start_row = int(args["start_row"])
+    count = int(args.get("count", 1))
+    proto_row = args.get("prototype_row")
+    if proto_row is not None:
+        proto_row = int(proto_row)
+    shift_formulas = bool(args.get("shift_formulas", True))
+    out_path = os.path.abspath(args["output_path"]) if args.get("output_path") else file_path
+
+    if not os.path.isfile(file_path):
+        raise FileNotFoundError(f"Excel file not found: {file_path}")
+
+    engine = UniversalExcelEngine(file_path)
+    created_rows = engine.expand_table_rows(
+        sheet_name=sheet_name,
+        start_row=start_row,
+        count=count,
+        prototype_row=proto_row,
+        shift_formulas=shift_formulas,
+    )
+    engine.save(out_path)
+    return {"success": True, "output_path": out_path, "created_rows": created_rows, "count": count, "sheet": sheet_name}
+
+
+def execute_xlsx_find_anchor(args: Dict[str, Any]) -> Dict[str, Any]:
+    from openpyxl.utils import get_column_letter
+
+    file_path = os.path.abspath(args["file_path"])
+    sheet_name = args["sheet_name"]
+    keyword = str(args["keyword"])
+    max_row = int(args.get("max_row", 150))
+
+    if not os.path.isfile(file_path):
+        raise FileNotFoundError(f"Excel file not found: {file_path}")
+
+    engine = UniversalExcelEngine(file_path)
+    coord = engine.find_anchor(sheet_name, keyword, max_row=max_row)
+    if coord:
+        r, c = coord
+        return {
+            "success": True,
+            "found": True,
+            "row": r,
+            "col": c,
+            "coordinate": f"{get_column_letter(c)}{r}",
+            "sheet": sheet_name,
+        }
+    return {"success": True, "found": False, "keyword": keyword, "sheet": sheet_name}
+
+
+def execute_docx_inspect_placeholders(args: Dict[str, Any]) -> Dict[str, Any]:
+    template_path = os.path.abspath(args["template_path"])
+    if not os.path.isfile(template_path):
+        raise FileNotFoundError(f"Word template not found: {template_path}")
+    return inspect_template_tokens(template_path)
+
+
+def execute_docx_replace_text(args: Dict[str, Any]) -> Dict[str, Any]:
+    doc_path = os.path.abspath(args["doc_path"])
+    replacements = args["replacements"]
+    out_path = os.path.abspath(args["output_path"]) if args.get("output_path") else doc_path
+
+    if not os.path.isfile(doc_path):
+        raise FileNotFoundError(f"Word document not found: {doc_path}")
+    if not isinstance(replacements, dict):
+        raise ValueError("'replacements' must be a dictionary")
+
+    # Normalize token keys: support both "KEY" and "{{KEY}}"
+    normalized_rep: Dict[str, str] = {}
+    for k, v in replacements.items():
+        k_str = str(k).strip()
+        v_str = str(v)
+        normalized_rep[k_str] = v_str
+        if not k_str.startswith("{{") and not k_str.endswith("}}"):
+            normalized_rep[f"{{{{{k_str}}}}}"] = v_str
+
+    res_path = patch_docx_template(doc_path, out_path, text_replacements=normalized_rep)
+    return {"success": True, "output_path": res_path, "replacements_count": len(replacements)}
+
+
+def execute_docx_insert_paragraph(args: Dict[str, Any]) -> Dict[str, Any]:
+    from docx import Document
+    from docx.shared import Pt, RGBColor
+
+    doc_path = os.path.abspath(args["doc_path"])
+    text = str(args["text"])
+    after_heading = args.get("after_heading")
+    style = args.get("style", "Normal")
+    bold = bool(args.get("bold", False))
+    italic = bool(args.get("italic", False))
+    font_size = args.get("font_size")
+    color = args.get("color")
+    out_path = os.path.abspath(args["output_path"]) if args.get("output_path") else doc_path
+
+    if not os.path.isfile(doc_path):
+        raise FileNotFoundError(f"Word document not found: {doc_path}")
+
+    doc = Document(doc_path)
+    target_idx = None
+    if after_heading:
+        h_clean = after_heading.strip().lower()
+        for idx, p in enumerate(doc.paragraphs):
+            if p.text and h_clean in p.text.strip().lower():
+                target_idx = idx
+                break
+
+    if target_idx is not None and target_idx < len(doc.paragraphs) - 1:
+        ref_p = doc.paragraphs[target_idx]
+        new_p = doc.add_paragraph()
+        ref_p._p.addnext(new_p._p)
+    else:
+        new_p = doc.add_paragraph()
+
+    run = new_p.add_run(text)
+    if style in doc.styles:
+        new_p.style = doc.styles[style]
+    run.font.bold = bold
+    run.font.italic = italic
+    if font_size:
+        run.font.size = Pt(float(font_size))
+    if color:
+        c_clean = str(color).lstrip("#").strip()
+        if len(c_clean) == 6:
+            run.font.color.rgb = RGBColor.from_string(c_clean)
+
+    doc.save(out_path)
+    return {"success": True, "output_path": out_path, "text": text}
+
+
+def execute_docx_insert_table(args: Dict[str, Any]) -> Dict[str, Any]:
+    from docx import Document
+    from docx.enum.table import WD_TABLE_ALIGNMENT
+    from docx.oxml import parse_xml
+
+    doc_path = os.path.abspath(args["doc_path"])
+    headers = args["headers"]
+    rows = args["rows"]
+    after_heading = args.get("after_heading")
+    out_path = os.path.abspath(args["output_path"]) if args.get("output_path") else doc_path
+
+    if not os.path.isfile(doc_path):
+        raise FileNotFoundError(f"Word document not found: {doc_path}")
+    if not isinstance(headers, list) or not isinstance(rows, list):
+        raise ValueError("'headers' and 'rows' must be lists")
+
+    doc = Document(doc_path)
+    table = doc.add_table(rows=len(rows) + 1, cols=len(headers))
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+
+    for r_idx, row in enumerate(table.rows):
+        trPr = row._tr.get_or_add_trPr()
+        trPr.append(parse_xml(r'<w:cantSplit xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"/>'))
+        if r_idx == 0:
+            trPr.append(parse_xml(r'<w:tblHeader xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"/>'))
+            for c_idx, h in enumerate(headers):
+                cell = row.cells[c_idx]
+                cell.paragraphs[0].text = str(h)
+                if cell.paragraphs[0].runs:
+                    cell.paragraphs[0].runs[0].font.bold = True
+        else:
+            data_row = rows[r_idx - 1]
+            for c_idx, val in enumerate(data_row):
+                if c_idx < len(row.cells):
+                    row.cells[c_idx].paragraphs[0].text = str(val)
+
+    if after_heading:
+        h_clean = after_heading.strip().lower()
+        for p in doc.paragraphs:
+            if p.text and h_clean in p.text.strip().lower():
+                p._p.addnext(table._tbl)
+                break
+
+    doc.save(out_path)
+    return {"success": True, "output_path": out_path, "total_rows": len(rows) + 1, "cols": len(headers)}
+
+
 TOOL_DISPATCHER = {
     "doc_convert": execute_doc_convert,
     "doc_inspect": execute_doc_inspect,
@@ -783,6 +1272,15 @@ TOOL_DISPATCHER = {
     "doc_mail_merge": execute_doc_mail_merge,
     "doc_redline_diff": execute_doc_redline_diff,
     "doc_ocr_scan": execute_doc_ocr_scan,
+    # Atomic Office Tools
+    "xlsx_set_cell": execute_xlsx_set_cell,
+    "xlsx_set_range": execute_xlsx_set_range,
+    "xlsx_insert_rows": execute_xlsx_insert_rows,
+    "xlsx_find_anchor": execute_xlsx_find_anchor,
+    "docx_inspect_placeholders": execute_docx_inspect_placeholders,
+    "docx_replace_text": execute_docx_replace_text,
+    "docx_insert_paragraph": execute_docx_insert_paragraph,
+    "docx_insert_table": execute_docx_insert_table,
 }
 
 

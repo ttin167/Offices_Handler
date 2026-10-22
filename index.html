@@ -199,7 +199,46 @@
               </label>
             </div>
 
-            <h2 class="card-section-title">3. Tùy Chọn Master Slide & Phong Cách Core v2</h2>
+            <h2 class="card-section-title">3. Quy Mô Slide Thuyết Trình (Deck Scope)</h2>
+            <div class="deck-scope-grid">
+              <label class="scope-card active" data-scope-val="auto">
+                <input type="radio" name="pptx-scope" value="auto" checked class="hidden-radio" />
+                <div class="scope-header">
+                  <span class="scope-name">Tự Động (Auto)</span>
+                  <span class="scope-badge">Khuyên Dùng</span>
+                </div>
+                <div class="scope-desc">Tự phát hiện &gt;15k từ hoặc &gt;40 mục để bật Executive Deck.</div>
+              </label>
+
+              <label class="scope-card" data-scope-val="executive">
+                <input type="radio" name="pptx-scope" value="executive" class="hidden-radio" />
+                <div class="scope-header">
+                  <span class="scope-name">Executive Deck</span>
+                  <span class="scope-badge badge-accent">15–25 Slides</span>
+                </div>
+                <div class="scope-desc">Tóm lược quản lý, lọc bỏ văn phong đệm, ưu tiên KPI và sơ đồ.</div>
+              </label>
+
+              <label class="scope-card" data-scope-val="standard">
+                <input type="radio" name="pptx-scope" value="standard" class="hidden-radio" />
+                <div class="scope-header">
+                  <span class="scope-name">Tiêu Chuẩn</span>
+                  <span class="scope-badge badge-neutral">30–45 Slides</span>
+                </div>
+                <div class="scope-desc">Cân đối giữa chiều sâu kỹ thuật và thời lượng trình bày.</div>
+              </label>
+
+              <label class="scope-card" data-scope-val="comprehensive">
+                <input type="radio" name="pptx-scope" value="comprehensive" class="hidden-radio" />
+                <div class="scope-header">
+                  <span class="scope-name">Toàn Diện</span>
+                  <span class="scope-badge badge-neutral">Full AST</span>
+                </div>
+                <div class="scope-desc">Bảo toàn trọn vẹn mọi đề mục, bảng biểu và phụ lục chi tiết.</div>
+              </label>
+            </div>
+
+            <h2 class="card-section-title">4. Tùy Chọn Master Slide & Phong Cách Core v2</h2>
             <div class="form-group">
               <div class="input-with-btn">
                 <input type="text" id="pptx-template-input" class="form-input"
@@ -300,6 +339,12 @@
 
             <!-- Slide Image Gallery Grid -->
             <div class="slide-gallery-grid" id="slide-gallery-grid" style="display: none;"></div>
+            <div id="gallery-load-more-container" style="display: none; padding: 0 12px 12px;">
+              <button type="button" class="btn-load-more-slides" id="btn-load-more-previews">
+                <i data-lucide="chevrons-down"></i>
+                <span id="load-more-text">Tải tiếp 16 slides xem trước tiếp theo...</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -451,6 +496,7 @@
                 <span class="preset-label">Mẫu nhanh:</span>
                 <button type="button" class="preset-btn" id="btn-preset-expand-rows">Mở rộng 15 Hàng (KPI + Chart)</button>
                 <button type="button" class="preset-btn" id="btn-preset-expand-cols">Mở rộng Cột TC (F+)</button>
+                <button type="button" class="preset-btn" id="btn-preset-cell-patch">Sửa Nhanh Ô Tính (Cell Patch)</button>
               </div>
               <textarea id="xlsx-mut-spec-input" class="code-textarea" rows="12" spellcheck="false" placeholder="Nhập cấu hình JSON biến đổi template..."></textarea>
 
@@ -604,6 +650,10 @@
             <span class="sub-tab-icon"><i data-lucide="file-cog"></i></span>
             <span>PDF Pro Studio</span>
           </button>
+          <button class="sub-tab-btn" data-doc-subtab="patch">
+            <span class="sub-tab-icon"><i data-lucide="file-text"></i></span>
+            <span>DOCX Quick Patch</span>
+          </button>
         </div>
 
         <!-- SUB-PANEL 1: Universal Converter -->
@@ -669,9 +719,15 @@
                   <div class="matrix-icon"><i data-lucide="table"></i></div>
                   <div class="matrix-info">
                     <div class="matrix-name">Excel (.xlsx)</div>
-                    <div class="matrix-desc">Bảng tính cấu trúc dữ liệu nguyên bản</div>
+                    <div class="matrix-desc">Trích xuất Bảng Biểu & Dữ Liệu Lưới</div>
                   </div>
                 </label>
+              </div>
+
+              <!-- Contextual hint for XLSX Semantic Table Extraction -->
+              <div class="format-hint-box" id="xlsx-extraction-hint" style="display: none;">
+                <i data-lucide="info"></i>
+                <span>Chế độ <strong>Trích xuất Bảng Biểu (.xlsx)</strong> sẽ tự động nhận diện toàn bộ bảng dữ liệu trong tài liệu (Word, PDF, Markdown), loại bỏ bảng tiêu ngữ hành chính và xuất thành từng Sheet định dạng chuẩn Enterprise.</span>
               </div>
 
               <div class="action-buttons-group">
@@ -1321,6 +1377,97 @@
                 <div class="result-actions">
                   <a href="#" class="btn-primary" id="btn-download-pdf-pro" download><i data-lucide="download"></i> Tải Tệp Về Máy</a>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUB-PANEL 7: DOCX Quick Patch & Inspector -->
+        <div class="doc-subpanel" id="doc-subpanel-patch" style="display: none;">
+          <div class="studio-grid">
+            <div class="config-card glass-panel">
+              <h2 class="card-section-title">1. Tải Lên Mẫu Văn Bản Word (DOCX)</h2>
+              <div class="drop-zone" id="doc-patch-drop-zone">
+                <input type="file" id="doc-patch-file-input" accept=".docx" class="hidden-input" />
+                <div class="drop-zone-content">
+                  <div class="drop-icon"><i data-lucide="upload-cloud"></i></div>
+                  <div class="drop-text-primary">Kéo thả tệp Word (.docx) chứa biến mẫu vào đây</div>
+                  <div class="drop-text-sub">hoặc <button type="button" class="link-btn" id="btn-browse-doc-patch">chọn tệp từ máy tính</button></div>
+                </div>
+                <div class="file-loaded-info" id="doc-patch-file-info" style="display: none;">
+                  <span class="file-badge">DOCX</span>
+                  <span class="file-name" id="doc-patch-file-name">template.docx</span>
+                  <span class="file-size" id="doc-patch-file-size">0 KB</span>
+                  <button type="button" class="btn-remove-file" id="btn-remove-doc-patch" title="Gỡ file"><i data-lucide="x"></i></button>
+                </div>
+              </div>
+
+              <!-- Header with Mode Toggle -->
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px; margin-bottom: 8px;">
+                <h2 class="card-section-title" style="margin: 0;">2. Giá Trị Thay Thế &amp; Đồng Bộ Hai Chiều</h2>
+                <button type="button" class="btn-sm-ghost" id="btn-toggle-patch-mode" title="Chuyển đổi giữa Form trực quan và JSON Editor">
+                  <i data-lucide="code"></i> <span id="toggle-patch-mode-label">Chuyển sang JSON Editor</span>
+                </button>
+              </div>
+
+              <!-- View A: Interactive Form Container -->
+              <div id="doc-patch-form-view">
+                <div id="doc-patch-form-container" class="patch-fields-grid" style="display: flex; flex-direction: column; gap: 10px; max-height: 380px; overflow-y: auto; padding-right: 4px;">
+                  <p class="empty-desc" style="font-size: 0.85rem; color: var(--text-muted); font-style: italic;">
+                    Tải lên file Word ở trên để hệ thống tự động bóc tách các biến <code>{{KEY}}</code> thành ô nhập liệu.
+                  </p>
+                </div>
+              </div>
+
+              <!-- View B: JSON Editor View (Default Hidden) -->
+              <div id="doc-patch-json-view" style="display: none;">
+                <textarea id="doc-patch-json-input" class="code-textarea" rows="12" spellcheck="false" placeholder='{\n  "{{HO_TEN}}": "Biện Trung Tín",\n  "{{CHUC_VU}}": "SAP Consultant"\n}'></textarea>
+              </div>
+
+              <div class="action-buttons-group" style="margin-top: 16px;">
+                <button type="button" class="btn-primary glow-btn" id="btn-run-docx-patch" disabled>
+                  <span class="btn-icon"><i data-lucide="sparkles"></i></span>
+                  <span>ÁP DỤNG QUICK PATCH (PRESERVE STYLES)</span>
+                </button>
+              </div>
+
+              <div class="progress-container" id="doc-patch-progress-container" style="display: none;">
+                <div class="progress-bar-bg"><div class="progress-bar-fill" id="doc-patch-progress-fill"></div></div>
+                <div class="progress-status-text" id="doc-patch-progress-status">Đang phân tích mẫu và thay thế văn bản...</div>
+              </div>
+            </div>
+
+            <!-- Right Preview / Result Card -->
+            <div class="preview-card glass-panel">
+              <h2 class="card-section-title">Thông Tin Biến Mẫu &amp; Kết Quả</h2>
+              
+              <!-- Detected Placeholders Stats -->
+              <div class="patch-stats-box" id="doc-patch-stats-box" style="display: none; margin-bottom: 16px; padding: 12px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid var(--border-color, rgba(255,255,255,0.08));">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <strong style="color: var(--accent-color, #38bdf8); font-size: 0.9rem;">Biến Phát Hiện Trong Mẫu (AST)</strong>
+                  <span class="deck-count-badge" id="doc-patch-token-count">0 biến</span>
+                </div>
+                <div id="doc-patch-tokens-pill-list" style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 120px; overflow-y: auto;"></div>
+              </div>
+
+              <!-- Result Box -->
+              <div class="doc-result-box" id="doc-patch-result-box" style="display: none;">
+                <div class="result-badge-success"><i data-lucide="check-circle-2"></i> Vá Văn Bản Word Thành Công!</div>
+                <div class="result-details">
+                  <div class="result-row"><span class="lbl">Tệp kết quả:</span> <strong id="doc-patch-result-filename">-</strong></div>
+                  <div class="result-row"><span class="lbl">Định dạng bảo toàn:</span> <span class="tag-badge">OpenXML Run-Level (ERR_DOCX_002)</span></div>
+                  <div class="result-row"><span class="lbl">Thời gian:</span> <span id="doc-patch-result-time">-</span></div>
+                </div>
+                <div class="result-actions">
+                  <a href="#" class="btn-primary" id="btn-download-docx-patched" download><i data-lucide="download"></i> Tải Tệp Word Đã Sửa</a>
+                </div>
+              </div>
+
+              <!-- Empty State -->
+              <div class="empty-state-deck" id="doc-patch-empty-state">
+                <div class="empty-illustration"><i data-lucide="file-text"></i></div>
+                <div class="empty-title">Chưa Có Dữ Liệu Vá Mẫu</div>
+                <p class="empty-desc">Tải lên tệp Word có chứa placeholder dạng <code>{{KEY}}</code> hoặc biến hợp đồng, điền thông tin nhanh qua Form hoặc JSON Editor rồi bấm <strong>"Áp Dụng Quick Patch"</strong> để tạo văn bản chuẩn xác.</p>
               </div>
             </div>
           </div>

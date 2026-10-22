@@ -2,7 +2,7 @@
 
 > **Phiên bản**: 4.2.0 (Target Layered Modular Architecture v4.2)  
 > **Tiêu chuẩn**: Zero-Regression, 100% Backward Compatibility, Strict Layer Isolation, Clean-Room MIT Compliance  
-> **Test Suite**: 220 Automated Tests (100% Pass Rate)
+> **Test Suite**: 200 Automated Tests (100% Pass Rate)
 
 ---
 
@@ -62,16 +62,18 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
     - `charts.py`: Kết xuất vector SVG và PNG phân giải cao cho 5 loại biểu đồ, giới hạn lề in ấn $\le 14\text{cm}$.
   - `core/pptx/`:
     - `engine.py` / `writer.py`: Đọc, biên dịch slide Widescreen 16:9 (`PPTX_INV_01`), typography thuần đen `#000000` (`PPTX_INV_10`), run-level formatting (`PPTX_INV_09`), Adaptive Card Sizing (tự co giãn chiều cao và vị trí thẻ theo số dòng text thực tế).
-    - `docx_to_pptx.py`: Bộ chuyển đổi thông minh từ Word sang slide thuyết trình 16:9, tự động nhận diện bố cục doanh nghiệp và co giãn đối xứng các khối nội dung.
+    - `docx_to_pptx.py`: Bộ chuyển đổi thông minh từ Word sang slide thuyết trình 16:9; tích hợp Executive Deck Synthesizer cho tài liệu lớn $\ge 100$ trang (Target Deck Sizing 15-25 slides, Semantic Fluff Pruning, Quantitative KPI Prioritization, H3 minutiae folding, trần cứng $\le 25$ slides, Batch Progressive Previews 16 slides/lần).
     - `math.py`: Native DrawingML Math (`baseline="-25000"`, `baseline="30000"`, biến in nghiêng).
     - `charts.py`: Biểu đồ OpenXML Native (`<c:chart>`) nhúng gói bảng tính Excel ẩn cho phép "Edit Data" trực tiếp trên PowerPoint (`PPTX_INV_14`).
     - Business Layouts: Hỗ trợ 4 mẫu slide doanh nghiệp (KPI Summary Cards, Timeline Horizontal Roadmap, SWOT 2x2 Matrix, Process Chevron Steps).
   - `core/xlsx/`:
-    - `reader.py` / `writer.py`: Đọc, mutate bảng tính Excel in-place, clone style prototype row (`ERR_XLSX_001`), dịch chuyển công thức động (`ERR_XLSX_002`), thiết lập trang in Print-Ready (`ERR_XLSX_008`).
+    - `reader.py` / `writer.py`: Đọc, mutate bảng tính Excel in-place, clone style prototype row (`ERR_XLSX_001`), dịch chuyển công thức động (`ERR_XLSX_002`), thiết lập trang in Print-Ready (`ERR_XLSX_008`), `safe_set_cell` tự động bảo vệ ô hợp nhất (`ERR_XLSX_004`) và bảo toàn số 0 ở đầu (`ERR_XLSX_007`).
     - `validator.py`: Kiểm định chất lượng 12 Cổng (Invariant E6).
     - `format_diff.py`: Bóc tách và so sánh định dạng giữa các sheet.
   - `core/converter/`:
-    - `engine.py`: Dispatcher ma trận 4 chiều (PDF ↔ DOCX ↔ MD ↔ PPTX) và Decoupled Markdown parser.
+    - `engine.py`: Dispatcher ma trận 5 chiều (PDF ↔ DOCX ↔ MD ↔ PPTX ↔ XLSX) và Decoupled Markdown parser.
+    - `markdown.py`: Bộ phân tích và xuất bản Markdown tách rời kiểu dáng (Decoupled Markdown), tích hợp **Động cơ Mục Lục Tương Tác 3 Chiều** (Interactive TOC Engine: chuẩn hóa GFM slug, tự động đánh dấu `<w:bookmarkStart>` OpenXML $\le 40$ ký tự, liên kết hyperlink nội bộ `<w:hyperlink w:anchor="...">` phong cách Clean Publication Style, và tự động bảo toàn liên kết nội bộ `LINK_GOTO` trên PDF).
+    - `table_extractor.py`: Semantic Table Extractor trích xuất dữ liệu bảng từ PDF, DOCX (OpenXML) và MD sang Excel (.xlsx); lọc bảng hành chính NĐ30, xử lý an toàn ô gộp `<w:gridSpan>` và `<w:vMerge>` (`ERR_XLSX_004`), giữ nguyên số 0 ở đầu cho mã định danh `@` (`ERR_XLSX_007`).
     - `ocr_pipeline.py`: Pipeline bóc tách PDF/ảnh scan tiếng Việt (`vie+eng`), bộ lọc mộc đỏ HSV (`ERR_CONV_005`), nắn thẳng ảnh scan tự động (`deskew`).
     - `pdf_renderer.py`: Bộ chuyển đổi PDF phổ quát (`UniversalPdfRenderer`) với chuỗi ưu tiên: Win32 COM ➔ LibreOffice Headless ➔ PyMuPDF.
     - `pdf_toolkit.py`: Phân hệ PDF Pro Studio & iLovePDF Killer Features (True Redaction `ERR_PDF_001`, AES-256 Encryption, Dấu giáp lai đa trang overlap 8% `ERR_PDF_002`, Chuẩn hóa A4 vector `ERR_PDF_003`, Bóc bảng sang Excel `ERR_XLSX_007`, Tổ chức trang trực quan kèm chèn trang trắng A4, Chuyển đổi 2 chiều Ảnh ↔ PDF, Ký tên điện tử & đóng dấu bù góc xoay `page.derotation_matrix`, Làm phẳng 2 chế độ Vector Bake & Strict Raster kèm dọn sạch metadata ẩn `doc.scrub`).
@@ -84,16 +86,21 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
     - `legacy/`: Các renderer kế thừa (`canvas`, `plantuml`, `mermaid`).
 
 ### 2.2. `server/` — Tầng Giao Thức & Cung Cấp Dịch Vụ (Web API, MCP, SSE)
-- `app.py`: REST API Server nhẹ nhàng dựa trên `http.server`, phục vụ Web Studio cổng `8000`. Cung cấp endpoints cho conversion, history, mail merge, ocr, diff, math, và static assets. Bổ sung trọn bộ PDF Pro Endpoints: `POST /api/pdf/pages/preview`, `POST /api/pdf/tools`, `POST /api/pdf/images-to-pdf`, `POST /api/pdf/export-images-zip`, `POST /api/pdf/sign`, `POST /api/pdf/sanitize`.
-- `mcp_server.py`: Model Context Protocol Server (STDIO JSON-RPC 2.0) tương thích với Claude Desktop, Cursor, và Antigravity IDE. Đăng ký 11 tools chuẩn:
-  - `env_doctor`, `doc_convert`, `doc_inspect`, `doc_insert_diagram`, `docx_patch`, `docx_apply_preset`, `docx_sanitize_vietnamese`, `pptx_synthesize`, `diagram_render`, `doc_mail_merge`, `doc_redline_diff`, `doc_ocr_scan`, `pdf_quick_tools`.
+- `app.py`: REST API Server nhẹ nhàng dựa trên `http.server`, phục vụ Web Studio cổng `8000`. Cung cấp endpoints cho conversion, history, mail merge, ocr, diff, math, và static assets. Bổ sung trọn bộ PDF Pro Endpoints và Atomic Office Endpoints: `POST /api/docx/inspect-tokens`, `POST /api/docx/patch` (hỗ trợ normalization `KEY` vs `{{KEY}}`), `POST /api/xlsx/read` (auto `sheet_names` array).
+- `mcp_server.py`: Model Context Protocol Server (STDIO JSON-RPC 2.0) tương thích với Claude Desktop, Cursor, và Antigravity IDE. Đăng ký **19 tools** chuẩn:
+  - Macro Tools (11): `env_doctor`, `doc_convert`, `doc_inspect`, `doc_insert_diagram`, `docx_patch`, `docx_apply_preset`, `docx_sanitize_vietnamese`, `pptx_synthesize`, `diagram_render`, `doc_mail_merge`, `doc_redline_diff`, `doc_ocr_scan`, `pdf_quick_tools`.
+  - Atomic Office Tools (8): `xlsx_set_cell`, `xlsx_set_range`, `xlsx_insert_rows`, `xlsx_find_anchor`, `docx_inspect_placeholders`, `docx_replace_text`, `docx_insert_paragraph`, `docx_insert_table`.
 - `job_manager.py`: Server-Sent Events (SSE) background task manager và job queue, cho phép theo dõi tiến trình OCR, mail merge, và render theo thời gian thực.
 - `db.py`: Zero-config SQLite database (`history.db`) lưu trữ lịch sử chuyển đổi và tải tệp.
 
 ### 2.3. `cli/` — Tầng Giao Diện Dòng Lệnh (CLI Layer)
-`cli/ai_tools.py` và facade tại root `ai_tools_cli.py` cung cấp 23 subcommands hoàn chỉnh cho AI Agents và terminal users:
+`cli/ai_tools.py` và facade tại root `ai_tools_cli.py` cung cấp 29 subcommands hoàn chỉnh cho AI Agents và terminal users:
 - `doctor`: Kiểm tra sức khỏe môi trường.
+- `convert`: Chuyển đổi phổ quát 5 định dạng (PDF, DOCX, MD, PPTX, XLSX).
+- `md-toc`: Tạo, xem trước và tự động đồng bộ hóa mục lục tương tác trực tiếp trong tệp Markdown.
 - `docx-read`, `docx-write`, `docx-inject`, `docx-patch`, `docx-diff`: Quản lý tài liệu Word.
+- `docx-tokens`, `docx-replace`: Atomic Word CLI tools (quét biến & thay thế text bảo tồn OpenXML run).
+- `xlsx-set`, `xlsx-insert-rows`: Atomic Excel CLI tools (sửa ô hợp nhất & mở rộng dòng kèm dịch công thức).
 - `docx-mail-merge`: Trộn thư hàng loạt Word + Excel/JSON.
 - `docx-apply-preset`, `docx-sanitize-vietnamese`: Chuẩn hóa thể thức hành chính & chính tả.
 - `pptx-build`, `pptx-inspect`, `pptx-preview`, `pptx-insert-diagram`, `docx-to-pptx`, `pdf-to-pptx`: Quản lý thuyết trình PowerPoint.
@@ -169,6 +176,6 @@ Dự án được thiết kế theo chuẩn Clean-Room độc lập 100% với h
 1. **Thin Facades Tại Thư Mục Gốc**:
    Mọi module cũ tại root (`docx_reader.py`, `docx_writer.py`, `pptx_writer.py`, `web_api_server.py`, `mcp_server.py`, `ai_tools_cli.py`, v.v.) được duy trì dưới dạng **Thin Facades**, re-export toàn bộ symbol từ `core/`, `server/`, `ui/`.
 2. **100% Pass Rate Toàn Bộ Test Suite**:
-   Tất cả 193 bài kiểm thử tự động trong `tests/` phải luôn luôn PASS 100% trước khi phát hành.
+   Tất cả 220 bài kiểm thử tự động trong `tests/` phải luôn luôn PASS 100% trước khi phát hành.
 3. **Giữ Vững CLI Contract**:
    Tất cả cú pháp lệnh trong `AGENTS.md` tiếp tục hoạt động chính xác không thay đổi.

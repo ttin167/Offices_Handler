@@ -273,7 +273,7 @@ def add_math_token_run(
     return run
 
 
-def create_omml_equation_element(expr: str) -> OxmlElement:
+def create_omml_equation_element(expr: str) -> Any:
     """
     Constructs an OMML <m:oMath> XML element for complex block equations.
     Supports fractions \\frac{num}{den} and radicals \\sqrt{val}.

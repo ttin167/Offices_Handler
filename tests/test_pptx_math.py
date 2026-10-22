@@ -357,7 +357,14 @@ class TestPowerPointCOMAutomation(unittest.TestCase):
         # Open in PowerPoint COM
         ppt_app = None
         deck = None
+        com_initialized = False
         try:
+            try:
+                import pythoncom
+                pythoncom.CoInitialize()
+                com_initialized = True
+            except Exception:
+                pass
             ppt_app = win32com.client.DispatchEx("PowerPoint.Application")
             deck = ppt_app.Presentations.Open(out_path, ReadOnly=True, Untitled=False, WithWindow=False)
             self.assertEqual(deck.Slides.Count, 2)
@@ -373,6 +380,12 @@ class TestPowerPointCOMAutomation(unittest.TestCase):
                 deck.Close()
             if ppt_app is not None:
                 ppt_app.Quit()
+            if com_initialized:
+                try:
+                    import pythoncom
+                    pythoncom.CoUninitialize()
+                except Exception:
+                    pass
 
 
 if __name__ == "__main__":

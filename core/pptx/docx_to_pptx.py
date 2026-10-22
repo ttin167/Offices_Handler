@@ -33,12 +33,13 @@ if sys.platform == "win32":
 
 import docx
 from docx import Document
+from docx.document import Document as DocumentType
 from docx.oxml.ns import qn
 from docx.text.paragraph import Paragraph
 from docx.table import Table
 
 try:
-    from .pptx_writer import write_pptx_from_spec, get_theme, THEMES
+    from .writer import write_pptx_from_spec, get_theme, THEMES
 except (ImportError, ValueError):
     from pptx_writer import write_pptx_from_spec, get_theme, THEMES
 
@@ -64,12 +65,36 @@ RE_TABLE_CAPTION = re.compile(
 
 BOX_CHARS = set("┌┐└┘├┤┬┴┼─│═║╔╗╚╝╠╣╦╩╬▲▼◄►")
 
+RE_FLUFF_PARAGRAPH = re.compile(
+    r"^(?:"
+    r"như\s+(?:đã\s+)?(?:trình\s+bày|nêu|đề\s+cập|thấy|thảo\s+luận|phân\s+tích)|"
+    r"tài\s+liệu\s+này\s+(?:nhằm|được\s+biên\s+soạn|phục\s+vụ|hướng\s+dẫn)|"
+    r"trong\s+khuôn\s+khổ\s+của|"
+    r"xem\s+thêm\s+tại|"
+    r"dưới\s+đây\s+là\s+(?:các|một\s+số|chi\s+tiết)|"
+    r"sau\s+đây\s+là|"
+    r"mục\s+đích\s+của\s+(?:chương|phần|mục)|"
+    r"phần\s+này\s+sẽ\s+trình\s+bày|"
+    r"để\s+hiểu\s+rõ\s+hơn|"
+    r"như\s+chúng\s+ta\s+đã\s+biết|"
+    r"theo\s+quy\s+định\s+hiện\s+hành"
+    r")\b",
+    re.IGNORECASE
+)
+
+RE_QUANTITATIVE_SIGNAL = re.compile(
+    r"(?:\d+[\.,]?\d*\s*(?:%|tỷ|triệu|nghìn|usd|vnd|đ|k|m|gb|tb|ms|s|h|phút|giờ|km|kg|tấn))|"
+    r"\b(?:tăng|giảm|đạt|vượt|chiếm|tiết\s+kiệm|tối\s+ưu|chính\s+xác|doanh\s+thu|lợi\s+nhuận|kpi|tổng\s+số|ngân\s+sách|tỷ\s+lệ)\b",
+    re.IGNORECASE
+)
+
+
 
 # ---------------------------------------------------------------------------
 # Extraction Helpers
 # ---------------------------------------------------------------------------
 
-def _extract_embedded_images(doc: Document, output_dir: str) -> Dict[str, str]:
+def _extract_embedded_images(doc: DocumentType, output_dir: str) -> Dict[str, str]:
     """
     Extracts all embedded media parts from the docx package and saves them to disk.
     Returns mapping from r_id -> extracted image file path.
@@ -189,6 +214,7 @@ def extract_docx_structure(docx_path: str, asset_dir: Optional[str] = None) -> D
     }
     current_section: Dict[str, Any] = {
         "title": "Tổng quan",
+        "level": 1,
         "elements": []
     }
 
@@ -219,7 +245,8 @@ def extract_docx_structure(docx_path: str, asset_dir: Optional[str] = None) -> D
                 continue
 
             # First title discovery if metadata was empty
-            if not doc_title and len(text) < 120 and ("title" in p.style.name.lower() or _is_heading(p)[1] == 1):
+            p_style_name = (p.style.name.lower() if (p.style and getattr(p.style, "name", None)) else "")
+            if not doc_title and len(text) < 120 and ("title" in p_style_name or _is_heading(p)[1] == 1):
                 doc_title = text
                 continue
 
@@ -244,6 +271,7 @@ def extract_docx_structure(docx_path: str, asset_dir: Optional[str] = None) -> D
                     }
                     current_section = {
                         "title": text,
+                        "level": 1,
                         "elements": []
                     }
                 elif level in (2, 3):
@@ -251,8 +279,10 @@ def extract_docx_structure(docx_path: str, asset_dir: Optional[str] = None) -> D
                         current_chapter["subsections"].append(current_section)
                     current_section = {
                         "title": text,
+                        "level": level,
                         "elements": []
                     }
+
             else:
                 # ASCII diagram detection
                 if any(c in text for c in BOX_CHARS):
@@ -266,7 +296,7 @@ def extract_docx_structure(docx_path: str, asset_dir: Optional[str] = None) -> D
                     continue
 
                 # Normal paragraph or bullet point
-                is_bullet = "list" in p.style.name.lower() or text.startswith(("•", "-", "*", "+"))
+                is_bullet = "list" in p_style_name or text.startswith(("•", "-", "*", "+"))
                 clean_text = re.sub(r"^[•\-\*\+]\s*", "", text).strip()
                 current_section["elements"].append({
                     "type": "bullet" if is_bullet else "paragraph",
@@ -363,7 +393,9 @@ def _detect_business_layout(sec_title: str, elements: List[Dict[str, Any]]) -> O
             else:
                 clean_t = re.sub(r"^[-•*]\s*", "", txt).strip()
                 if clean_t and milestones:
-                    milestones[-1]["tasks"].append(clean_t)
+                    target_tasks = milestones[-1].get("tasks")
+                    if isinstance(target_tasks, list):
+                        target_tasks.append(clean_t)
         if len(milestones) >= 2:
             return {"type": "timeline", "milestones": milestones}
 
@@ -414,12 +446,28 @@ def synthesize_slide_spec(
     theme: str = "thesis_blue",
     max_bullets_per_slide: int = 5,
     max_table_rows_per_slide: int = 7,
+    deck_scope: str = "auto",
 ) -> Dict[str, Any]:
     """
     Transforms the extracted document tree into a declarative slide specification
     matching PPTX Invariants (PPTX_INV_01 to PPTX_INV_08).
+    Supports Target Deck Sizing: 'executive' (15-25 slides), 'standard' (30-45 slides),
+    'comprehensive' (full AST), or 'auto' (activates executive for >15k words or >40 headings).
     """
     slides: List[Dict[str, Any]] = []
+
+    total_words = sum(
+        len(el.get("text", "").split())
+        for ch in doc_tree.get("chapters", [])
+        for sec in ch.get("subsections", [])
+        for el in sec.get("elements", [])
+    )
+    total_headings = sum(len(ch.get("subsections", [])) for ch in doc_tree.get("chapters", []))
+
+    if not deck_scope or deck_scope == "auto":
+        resolved_scope = "executive" if (total_words > 15000 or total_headings > 40) else "standard"
+    else:
+        resolved_scope = deck_scope.lower().strip()
 
     # Slide 1: Premium Title Slide
     slides.append({
@@ -455,28 +503,76 @@ def synthesize_slide_spec(
         ch_label = f"PHẦN {ch_idx+1}" if not re.match(r"^(Chương|Chapter|Phần)", ch_title, re.I) else ""
 
         # Chapter Divider Slide
-        slides.append({
-            "type": "chapter",
-            "chapter_num": ch_label or f"CHƯƠNG {ch_idx+1}",
-            "title": ch_title,
-            "subtitle": f"Tổng quan phần {ch_idx+1}"
-        })
+        if not (resolved_scope == "executive" and len(slides) >= 22):
+            slides.append({
+                "type": "chapter",
+                "chapter_num": ch_label or f"CHƯƠNG {ch_idx+1}",
+                "title": ch_title,
+                "subtitle": f"Tổng quan phần {ch_idx+1}"
+            })
 
         banner_text = f"{ch_label + ': ' if ch_label else ''}{ch_title}"
         if len(banner_text) > 65:
             banner_text = banner_text[:62] + "..."
 
-        for sec in ch["subsections"]:
+        subsections = ch.get("subsections", [])
+        if resolved_scope == "executive":
+            # Executive Mode: Throttling & Pruning
+            # H3 subsections fold key quantitative bullets into preceding H2 subsection
+            processed_sections = []
+            pending_h2 = None
+            for sec in subsections:
+                sec_title = sec["title"].strip()
+                if re.search(r"\bMỤC\s+LỤC\b", sec_title, re.IGNORECASE):
+                    continue
+                sec_level = sec.get("level", 2)
+                has_visual = any(el.get("type") in ("table", "image", "ascii_diagram") for el in sec.get("elements", []))
+
+                if sec_level >= 3 and not has_visual:
+                    # Pure text sub-subsections in Executive scope: extract quantitative nuggets
+                    if pending_h2 is not None:
+                        for el in sec.get("elements", []):
+                            txt = el.get("text", "").strip()
+                            if txt and RE_QUANTITATIVE_SIGNAL.search(txt) and not RE_FLUFF_PARAGRAPH.match(txt):
+                                pending_h2["elements"].append({
+                                    "type": "bullet",
+                                    "text": f"{sec_title}: {txt[:160]}"
+                                })
+                    continue
+
+                clean_elements = []
+                for el in sec.get("elements", []):
+                    if el.get("type") in ("bullet", "paragraph"):
+                        txt = el.get("text", "").strip()
+                        if txt and not RE_FLUFF_PARAGRAPH.match(txt):
+                            clean_elements.append(el)
+                    else:
+                        clean_elements.append(el)
+
+                sec_copy = dict(sec)
+                sec_copy["elements"] = clean_elements
+                processed_sections.append(sec_copy)
+                if sec_level <= 2:
+                    pending_h2 = sec_copy
+        else:
+            processed_sections = subsections
+
+        for sec in processed_sections:
             sec_title = sec["title"].strip()
             if re.search(r"\bMỤC\s+LỤC\b", sec_title, re.IGNORECASE):
                 continue
 
-            # Deduplicate banner when sec_title matches or heavily overlaps ch_title
             sec_banner = banner_text
             t_norm = re.sub(r'^\d+[\.\s\-]*', '', sec_title).strip().lower()
             c_norm = re.sub(r'^\d+[\.\s\-]*', '', ch_title).strip().lower()
             if t_norm and c_norm and (t_norm == c_norm or t_norm in c_norm or c_norm in t_norm):
                 sec_banner = ch_label or f"PHẦN {ch_idx+1}"
+
+            # High-volume guard in Executive mode (keep deck <= 24 before conclusion)
+            if resolved_scope == "executive" and len(slides) >= 23:
+                has_visual = any(el.get("type") in ("table", "image", "ascii_diagram") for el in sec.get("elements", []))
+                if not has_visual:
+                    continue
 
             # Smart Semantic Classification for Business Layouts (v4.0)
             biz_layout = _detect_business_layout(sec_title, sec.get("elements", []))
@@ -495,7 +591,9 @@ def synthesize_slide_spec(
                     text = elem["text"].strip()
                     if not text:
                         continue
-                    # If paragraph is long, split into key points without hard character truncation
+                    if resolved_scope in ("executive", "standard") and RE_FLUFF_PARAGRAPH.match(text):
+                        continue
+
                     if len(text) > 160:
                         sents = _split_into_sentences(text)
                         for s in sents:
@@ -504,8 +602,8 @@ def synthesize_slide_spec(
                     else:
                         bullets.append(text)
 
-                    # Flush bullets if exceeding threshold
-                    if len(bullets) >= max_bullets_per_slide + 1:
+                    flush_limit = max_bullets_per_slide + 1
+                    if len(bullets) >= flush_limit and resolved_scope != "executive":
                         b_chunks = _flush_bullets(bullets, max_bullets_per_slide)
                         if len(b_chunks) > 1:
                             for chunk in b_chunks[:-1]:
@@ -539,8 +637,6 @@ def synthesize_slide_spec(
 
                 elif etype == "table":
                     table_sub = "Bảng tổng hợp số liệu"
-                    # If there was exactly 1 short bullet before table that ends with ':' or is brief,
-                    # fold it into table subtitle to prevent an orphan slide
                     if len(bullets) == 1 and (bullets[0].endswith(":") or len(bullets[0]) < 90):
                         table_sub = bullets.pop(0).rstrip(":")
                     elif bullets:
@@ -557,17 +653,16 @@ def synthesize_slide_spec(
                     all_rows = elem.get("rows", [])
                     total_rows = len(all_rows)
 
-                    if total_rows <= max_table_rows_per_slide:
+                    if total_rows <= max_table_rows_per_slide or resolved_scope == "executive":
                         slides.append({
                             "type": "table",
                             "banner": sec_banner,
                             "title": sec_title,
                             "subtitle": table_sub,
                             "headers": headers,
-                            "rows": all_rows
+                            "rows": all_rows[:max_table_rows_per_slide]
                         })
                     else:
-                        # Smart Table Pagination (PPTX_INV_06)
                         for page_start in range(0, total_rows, max_table_rows_per_slide):
                             page_rows = all_rows[page_start:page_start + max_table_rows_per_slide]
                             page_num = (page_start // max_table_rows_per_slide) + 1
@@ -600,16 +695,38 @@ def synthesize_slide_spec(
                         "caption": elem.get("caption") or "Sơ đồ kiến trúc / Biểu đồ minh họa"
                     })
 
-            # Flush remaining bullets
             if bullets:
-                for chunk in _flush_bullets(bullets, max_bullets_per_slide):
+                if resolved_scope == "executive":
+                    quant_bullets = [b for b in bullets if RE_QUANTITATIVE_SIGNAL.search(b)]
+                    other_bullets = [b for b in bullets if not RE_QUANTITATIVE_SIGNAL.search(b)]
+                    selected = (quant_bullets + other_bullets)[:max_bullets_per_slide]
                     slides.append({
                         "type": "content",
                         "banner": sec_banner,
                         "title": sec_title,
-                        "bullets": chunk
+                        "bullets": selected
                     })
+                else:
+                    for chunk in _flush_bullets(bullets, max_bullets_per_slide):
+                        slides.append({
+                            "type": "content",
+                            "banner": sec_banner,
+                            "title": sec_title,
+                            "bullets": chunk
+                        })
                 bullets = []
+
+    # Hard Cap for Executive Mode (strictly guarantee <= 25 slides total including final Q&A)
+    if resolved_scope == "executive" and len(slides) >= 25:
+        retained = []
+        for s in slides:
+            if s.get("type") in ("title", "grid_cards", "table", "diagram", "code"):
+                retained.append(s)
+            elif len(retained) < 24:
+                retained.append(s)
+            if len(retained) >= 24:
+                break
+        slides = retained
 
     # Final Slide: Summary & Q&A Conclusion
     slides.append({
@@ -623,6 +740,7 @@ def synthesize_slide_spec(
     return {
         "spec_version": "3.0",
         "theme": theme,
+        "deck_scope": resolved_scope,
         "source": doc_tree["title"],
         "total_slides": len(slides),
         "slides": slides
@@ -641,6 +759,7 @@ def convert_docx_to_pptx(
     template_path: Optional[str] = None,
     theme_name: Optional[str] = None,
     progress_callback: Optional[Callable[[float, str], None]] = None,
+    deck_scope: str = "auto",
 ) -> Tuple[str, str]:
     """
     Converts a Word (.docx) document to a 16:9 PowerPoint (.pptx) presentation.
@@ -653,6 +772,7 @@ def convert_docx_to_pptx(
         template_path:      Optional base .pptx / .potx template for master slide inheritance.
         theme_name:         Optional alias for theme.
         progress_callback:  Optional progress callback (pct, msg).
+        deck_scope:         Target deck scope ('executive', 'standard', 'comprehensive', 'auto').
 
     Returns:
         Tuple of (path_to_pptx, path_to_spec_json).
@@ -672,6 +792,7 @@ def convert_docx_to_pptx(
             theme=theme,
             template_path=template_path,
             progress_callback=progress_callback,
+            deck_scope=deck_scope,
         )
 
     if progress_callback:
@@ -696,8 +817,8 @@ def convert_docx_to_pptx(
     if progress_callback:
         progress_callback(40.0, "Đang tổng hợp các slide thuyết trình...")
 
-    # 2. Synthesize Slide Spec
-    spec = synthesize_slide_spec(doc_tree, theme=theme)
+    # 2. Synthesize Slide Spec with deck_scope
+    spec = synthesize_slide_spec(doc_tree, theme=theme, deck_scope=deck_scope)
 
     # 3. Export Spec JSON
     os.makedirs(os.path.dirname(spec_out), exist_ok=True)
@@ -720,6 +841,7 @@ def convert_docx_to_pptx(
 
     elapsed = time.time() - t0
     print(f"[OK] DOCX -> PPTX conversion completed in {elapsed:.2f}s")
+    print(f"     Deck Scope:       {spec.get('deck_scope', 'unknown')}")
     print(f"     Slides Generated: {len(spec['slides'])}")
     print(f"     Spec JSON:        {spec_out}")
     print(f"     PowerPoint Deck:  {final_pptx}")
@@ -736,6 +858,7 @@ def convert_pdf_to_pptx(
     page_range: Optional[str] = None,
     theme_name: Optional[str] = None,
     progress_callback: Optional[Callable[[float, str], None]] = None,
+    deck_scope: str = "auto",
 ) -> Tuple[str, str]:
     """
     Converts a PDF document to a 16:9 PowerPoint presentation.
@@ -750,6 +873,7 @@ def convert_pdf_to_pptx(
         page_range:         Optional page range filter (e.g. '1-10').
         theme_name:         Optional alias for theme.
         progress_callback:  Optional progress callback.
+        deck_scope:         Target deck scope ('executive', 'standard', 'comprehensive', 'auto').
 
     Returns:
         Tuple of (path_to_pptx, path_to_spec_json).
@@ -769,7 +893,7 @@ def convert_pdf_to_pptx(
     temp_docx = os.path.join(base_dir, f".{base_name}_intermediate.docx")
 
     try:
-        from .converter_engine import convert_file
+        from core.converter.engine import convert_file
     except (ImportError, ValueError):
         from converter_engine import convert_file  # type: ignore
 
@@ -786,6 +910,7 @@ def convert_pdf_to_pptx(
             theme=theme,
             template_path=template_path,
             progress_callback=progress_callback,
+            deck_scope=deck_scope,
         )
         elapsed = time.time() - t0
         print(f"[OK] PDF -> PPTX full-cycle conversion completed in {elapsed:.2f}s")
@@ -796,3 +921,4 @@ def convert_pdf_to_pptx(
                 os.remove(actual_docx)
             except Exception:
                 pass
+

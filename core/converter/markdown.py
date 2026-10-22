@@ -9,6 +9,7 @@ Implements decoupled Document Architecture:
 from __future__ import annotations
 import os
 import re
+import shutil
 import sys
 import yaml
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
@@ -24,24 +25,164 @@ from docx.shared import Pt, Inches, Length, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.ns import nsdecls, qn
+from xml.sax.saxutils import escape as xml_escape
 
 NS_W = nsdecls("w")
+NS_W_R = nsdecls("w", "r")
 TOC_LINE_REGEX = re.compile(r"^(.*?)(?:\.{2,}|…+|(?:\.\s+){2,}\.|\t)\s*(\d+)$")
 
-try:
-    from .smart_post_processor import calculate_heuristic_column_widths
-except (ImportError, ValueError):
-    from smart_post_processor import calculate_heuristic_column_widths
+VIETNAMESE_ACCENT_MAP = {
+    'à': 'a', 'á': 'a', 'ả': 'a', 'ã': 'a', 'ạ': 'a',
+    'ă': 'a', 'ằ': 'a', 'ắ': 'a', 'ẳ': 'a', 'ẵ': 'a', 'ặ': 'a',
+    'â': 'a', 'ầ': 'a', 'ấ': 'a', 'ẩ': 'a', 'ẫ': 'a', 'ậ': 'a',
+    'đ': 'd',
+    'è': 'e', 'é': 'e', 'ẻ': 'e', 'ẽ': 'e', 'ẹ': 'e',
+    'ê': 'e', 'ề': 'e', 'ế': 'e', 'ể': 'e', 'ễ': 'e', 'ệ': 'e',
+    'ì': 'i', 'í': 'i', 'ỉ': 'i', 'ĩ': 'i', 'ị': 'i',
+    'ò': 'o', 'ó': 'o', 'ỏ': 'o', 'õ': 'o', 'ọ': 'o',
+    'ô': 'o', 'ồ': 'o', 'ố': 'o', 'ổ': 'o', 'ỗ': 'o', 'ộ': 'o',
+    'ơ': 'o', 'ờ': 'o', 'ớ': 'o', 'ở': 'o', 'ỡ': 'o', 'ợ': 'o',
+    'ù': 'u', 'ú': 'u', 'ủ': 'u', 'ũ': 'u', 'ụ': 'u',
+    'ư': 'u', 'ừ': 'u', 'ứ': 'u', 'ử': 'u', 'ữ': 'u', 'ự': 'u',
+    'ỳ': 'y', 'ý': 'y', 'ỷ': 'y', 'ỹ': 'y', 'ỵ': 'y',
+}
+
+
+def remove_vietnamese_accents(text: str) -> str:
+    """Strip Vietnamese diacritics into unaccented ASCII characters."""
+    res = []
+    for ch in text:
+        low = ch.lower()
+        if low in VIETNAMESE_ACCENT_MAP:
+            rep = VIETNAMESE_ACCENT_MAP[low]
+            res.append(rep.upper() if ch.isupper() else rep)
+        else:
+            res.append(ch)
+    return "".join(res)
+
+
+def slugify_markdown_heading(text: str) -> str:
+    """
+    Generate a normalized GFM-compliant anchor slug matching VS Code and GitHub Markdown parsers.
+    Preserves Vietnamese unicode characters while stripping markdown syntax and punctuation.
+    """
+    t = re.sub(r"\[(.*?)\]\(.*?\)", r"\1", text)
+    t = re.sub(r"[*_`$]", "", t)
+    t = t.replace(r"\ge", "ge").replace(r"\le", "le")
+    t = t.strip().lower()
+    t = re.sub(r"[^\w\s-]", "", t, flags=re.UNICODE)
+    t = re.sub(r"\s+", "-", t)
+    return t.strip("-")
+
+
+def make_word_bookmark_name(slug_or_text: str, idx: int) -> str:
+    """
+    Generate a valid Word OpenXML bookmark name complying with ISO/IEC 29500:
+    - Starts with underscore or letter
+    - Length <= 40 characters
+    - Contains only [a-zA-Z0-9_] (unaccented ASCII)
+    """
+    ascii_str = remove_vietnamese_accents(slug_or_text)
+    clean = re.sub(r"[^a-zA-Z0-9_]", "_", ascii_str).strip("_")
+    clean = re.sub(r"_+", "_", clean)
+    name = f"_bm_{idx}_{clean}"
+    return name[:40]
+
+
+def normalize_text_for_match(text: str) -> str:
+    """Normalize heading or TOC text for fuzzy cross-matching."""
+    t = re.sub(r"\[(.*?)\]\(.*?\)", r"\1", text)
+    t = re.sub(r"[*_`$]", "", t)
+    t = remove_vietnamese_accents(t).lower()
+    t = re.sub(r"[^a-z0-9]", "", t)
+    return t
+
+
+def _attach_bookmark_to_heading(h_para: docx.text.paragraph.Paragraph, bm_id: int, bm_name: str) -> None:
+    """Insert <w:bookmarkStart> and <w:bookmarkEnd> tags into a heading paragraph."""
+    bm_start = parse_xml(f'<w:bookmarkStart {NS_W} w:id="{bm_id}" w:name="{bm_name}"/>')
+    bm_end = parse_xml(f'<w:bookmarkEnd {NS_W} w:id="{bm_id}"/>')
+    h_para._p.insert(0, bm_start)
+    h_para._p.append(bm_end)
+
+
+def generate_markdown_toc(md_content: str, min_level: int = 1, max_level: int = 3) -> str:
+    """
+    Generate an interactive, GFM/VS Code compliant Table of Contents block from Markdown content.
+    Produces clean nested bullet lists with clickable anchor links [Title](#slug).
+    """
+    lines = md_content.splitlines()
+    in_code_block = False
+    toc_lines: List[str] = []
+
+    for line in lines:
+        s_line = line.strip()
+        if s_line.startswith("```"):
+            in_code_block = not in_code_block
+            continue
+        if in_code_block:
+            continue
+        m = re.match(r"^(#{1,6})\s+(.*)$", s_line)
+        if m:
+            lvl = len(m.group(1))
+            if lvl < min_level or lvl > max_level:
+                continue
+            h_text = m.group(2).strip()
+            # Skip the TOC heading itself
+            if "mục lục" in h_text.lower() or "table of contents" in h_text.lower():
+                continue
+            slug = slugify_markdown_heading(h_text)
+            indent = "  " * (lvl - min_level)
+            toc_lines.append(f"{indent}- [{h_text}](#{slug})")
+
+    return "\n".join(toc_lines)
+
+
+def update_markdown_toc_in_file(md_path: str, max_level: int = 3) -> bool:
+    """
+    Synchronize or insert an interactive Table of Contents into a Markdown file.
+    If <!-- TOC_START --> and <!-- TOC_END --> markers exist, replaces content between them.
+    Otherwise, inserts beneath the first H1/H2 header.
+    """
+    if not os.path.isfile(md_path):
+        return False
+    with open(md_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    new_toc = generate_markdown_toc(content, min_level=2, max_level=max_level)
+    if not new_toc:
+        return False
+
+    toc_block = f"<!-- TOC_START -->\n{new_toc}\n<!-- TOC_END -->"
+    if "<!-- TOC_START -->" in content and "<!-- TOC_END -->" in content:
+        updated = re.sub(r"<!-- TOC_START -->.*?<!-- TOC_END -->", toc_block, content, flags=re.DOTALL)
+    else:
+        # Check if there is already a ## MỤC LỤC section
+        m_toc_sec = re.search(r"(##\s+MỤC LỤC[^\n]*\n)(.*?)(?=\n##|\n---|\Z)", content, flags=re.DOTALL | re.IGNORECASE)
+        if m_toc_sec:
+            updated = content[:m_toc_sec.start(2)] + f"\n{new_toc}\n" + content[m_toc_sec.end(2):]
+        else:
+            # Insert after the first H1
+            m_h1 = re.search(r"(^#\s+[^\n]+\n)", content, flags=re.MULTILINE)
+            if m_h1:
+                insert_pos = m_h1.end()
+                updated = content[:insert_pos] + f"\n## MỤC LỤC TỔNG QUAN\n\n{new_toc}\n\n---\n" + content[insert_pos:]
+            else:
+                updated = f"## MỤC LỤC TỔNG QUAN\n\n{new_toc}\n\n---\n\n" + content
+
+    with open(md_path, "w", encoding="utf-8") as f:
+        f.write(updated)
+    return True
+
 
 try:
-    from .docx_math import add_math_to_paragraph
+    from core.docx.post_processor import calculate_heuristic_column_widths
+    from core.docx.math import add_math_to_paragraph
+    from core.docx.lists import ListContextTracker, apply_list_formatting
 except (ImportError, ValueError):
-    from docx_math import add_math_to_paragraph
-
-try:
-    from .docx_lists import ListContextTracker, apply_list_formatting
-except (ImportError, ValueError):
-    from docx_lists import ListContextTracker, apply_list_formatting
+    from smart_post_processor import calculate_heuristic_column_widths  # type: ignore
+    from docx_math import add_math_to_paragraph  # type: ignore
+    from docx_lists import ListContextTracker, apply_list_formatting  # type: ignore
 
 def _hex_to_rgb(hex_str: str) -> RGBColor:
     cleaned = hex_str.lstrip("#")
@@ -469,7 +610,7 @@ def _render_and_embed_mermaid_diagram(
     """Render Mermaid code block into high-res PNG and embed into Word document."""
     try:
         try:
-            from core.diagrams.legacy.mermaid_renderer import render_mermaid_to_png, calculate_aspect_dimensions
+            from core.diagrams.legacy.mermaid import render_mermaid_to_png, calculate_aspect_dimensions
         except (ImportError, ValueError):
             from legacy_engines.mermaid_renderer import render_mermaid_to_png, calculate_aspect_dimensions
 
@@ -874,6 +1015,76 @@ def decoupled_to_docx(
     col_alignments: List[WD_ALIGN_PARAGRAPH] = []
     list_tracker = ListContextTracker(doc)
 
+    # Pass 1: Scan headings for Bookmarks and Interactive TOC mapping
+    heading_catalog: List[Dict[str, Any]] = []
+    heading_by_slug: Dict[str, Dict[str, Any]] = {}
+    heading_by_clean: Dict[str, Dict[str, Any]] = {}
+    heading_by_line_idx: Dict[int, Dict[str, Any]] = {}
+
+    in_cb_scan = False
+    bm_counter = 1
+    for l_idx, raw_l in enumerate(lines):
+        s_l = raw_l.strip()
+        if s_l.startswith("```"):
+            in_cb_scan = not in_cb_scan
+            continue
+        if in_cb_scan:
+            continue
+        m_head = re.match(r"^(#{1,6})\s+(.*)$", s_l)
+        if m_head:
+            lvl = len(m_head.group(1))
+            h_raw = m_head.group(2).strip()
+            slug = slugify_markdown_heading(h_raw)
+            clean_text = normalize_text_for_match(h_raw)
+            bm_name = make_word_bookmark_name(slug or clean_text or f"h_{bm_counter}", bm_counter)
+            h_info = {
+                "idx": bm_counter,
+                "level": lvl,
+                "text": h_raw,
+                "slug": slug,
+                "clean": clean_text,
+                "bm_name": bm_name,
+                "bm_id": bm_counter,
+            }
+            heading_catalog.append(h_info)
+            heading_by_line_idx[l_idx] = h_info
+            if slug:
+                heading_by_slug[slug] = h_info
+                col_slug = re.sub(r"-+", "-", slug)
+                heading_by_slug[col_slug] = h_info
+                unacc_slug = remove_vietnamese_accents(col_slug)
+                heading_by_slug[unacc_slug] = h_info
+            if clean_text:
+                heading_by_clean[clean_text] = h_info
+            bm_counter += 1
+
+    def resolve_heading_bookmark(target_str: Optional[str], text_str: Optional[str] = None) -> Optional[str]:
+        if target_str:
+            cl_target = target_str.lstrip("#").strip()
+            if cl_target in heading_by_slug:
+                return heading_by_slug[cl_target]["bm_name"]
+            col_target = re.sub(r"-+", "-", cl_target)
+            if col_target in heading_by_slug:
+                return heading_by_slug[col_target]["bm_name"]
+            unacc = remove_vietnamese_accents(col_target)
+            if unacc in heading_by_slug:
+                return heading_by_slug[unacc]["bm_name"]
+            slug_t = slugify_markdown_heading(cl_target)
+            if slug_t in heading_by_slug:
+                return heading_by_slug[slug_t]["bm_name"]
+        if text_str:
+            cl_t = normalize_text_for_match(text_str)
+            if cl_t in heading_by_clean:
+                return heading_by_clean[cl_t]["bm_name"]
+            for h_c, h_i in heading_by_clean.items():
+                if cl_t and h_c and (cl_t in h_c or h_c in cl_t):
+                    return h_i["bm_name"]
+                t_no_num = re.sub(r"^\d+(\.\d+)*\s*", "", cl_t).strip()
+                h_no_num = re.sub(r"^\d+(\.\d+)*\s*", "", h_c).strip()
+                if t_no_num and h_no_num and (t_no_num == h_no_num or t_no_num.startswith(h_no_num) or h_no_num.startswith(t_no_num)):
+                    return h_i["bm_name"]
+        return None
+
     def flush_table():
         nonlocal in_table, table_buffer, col_alignments
         if not table_buffer:
@@ -926,7 +1137,7 @@ def decoupled_to_docx(
 
                     cell.text = ""
                     # Handle multiple lines or list items inside table cells
-                    cell_lines = re.split(r"<br\s*/?>|\n", str(val))
+                    cell_lines = re.split(r"<br\s*/?>|\n", val)
                     cell_lines = [cl for cl in cell_lines if cl.strip()]
 
                     if not cell_lines:
@@ -1092,8 +1303,17 @@ def decoupled_to_docx(
             list_tracker.reset_all_lists()
             title_p = m_toc.group(1).strip()
             page_p = m_toc.group(2).strip()
+            bm_target = resolve_heading_bookmark(None, title_p)
             p_toc = doc.add_paragraph()
-            _apply_tab_stop_to_paragraph(p_toc, title_p, page_p, font_name=font_family, tab_pos_twips=tab_pos_twips)
+            _apply_tab_stop_to_paragraph(
+                p_toc,
+                title_p,
+                page_p,
+                font_name=font_family,
+                tab_pos_twips=tab_pos_twips,
+                bookmark_anchor=bm_target,
+                color_rgb=_hex_to_rgb(body_hex),
+            )
             continue
 
         # Horizontal Rule (Divider)
@@ -1108,24 +1328,36 @@ def decoupled_to_docx(
             h.paragraph_format.space_before = Pt(14)
             h.paragraph_format.space_after = Pt(6)
             h.paragraph_format.keep_with_next = True
+            h_info = heading_by_line_idx.get(idx)
+            if h_info:
+                _attach_bookmark_to_heading(h, h_info["bm_id"], h_info["bm_name"])
         elif s_line.startswith("## "):
             list_tracker.reset_all_lists()
             h = doc.add_heading(s_line[3:].strip(), level=2)
             h.paragraph_format.space_before = Pt(12)
             h.paragraph_format.space_after = Pt(4)
             h.paragraph_format.keep_with_next = True
+            h_info = heading_by_line_idx.get(idx)
+            if h_info:
+                _attach_bookmark_to_heading(h, h_info["bm_id"], h_info["bm_name"])
         elif s_line.startswith("### "):
             list_tracker.reset_all_lists()
             h = doc.add_heading(s_line[4:].strip(), level=3)
             h.paragraph_format.space_before = Pt(8)
             h.paragraph_format.space_after = Pt(3)
             h.paragraph_format.keep_with_next = True
+            h_info = heading_by_line_idx.get(idx)
+            if h_info:
+                _attach_bookmark_to_heading(h, h_info["bm_id"], h_info["bm_name"])
         elif s_line.startswith("#### "):
             list_tracker.reset_all_lists()
             h = doc.add_heading(s_line[5:].strip(), level=4)
             h.paragraph_format.space_before = Pt(6)
             h.paragraph_format.space_after = Pt(2)
             h.paragraph_format.keep_with_next = True
+            h_info = heading_by_line_idx.get(idx)
+            if h_info:
+                _attach_bookmark_to_heading(h, h_info["bm_id"], h_info["bm_name"])
         elif s_line.startswith("##### "):
             list_tracker.reset_all_lists()
             h_text = s_line[6:].strip()
@@ -1140,6 +1372,9 @@ def decoupled_to_docx(
                 r.bold = True
                 r.font.name = font_family
                 r.font.color.rgb = h_color
+            h_info = heading_by_line_idx.get(idx)
+            if h_info:
+                _attach_bookmark_to_heading(h, h_info["bm_id"], h_info["bm_name"])
         elif s_line.startswith("###### "):
             list_tracker.reset_all_lists()
             h_text = s_line[7:].strip()
@@ -1154,12 +1389,21 @@ def decoupled_to_docx(
                 r.bold = True
                 r.font.name = font_family
                 r.font.color.rgb = h_color
+            h_info = heading_by_line_idx.get(idx)
+            if h_info:
+                _attach_bookmark_to_heading(h, h_info["bm_id"], h_info["bm_name"])
         else:
             # Check for list items (Ordered, Bullet, Checkbox with multi-level indentation)
             list_item = list_tracker.parse_markdown_line(line)
             if list_item:
                 p = doc.add_paragraph()
-                _add_formatted_runs(p, list_item.text, font_name=font_family)
+                _add_formatted_runs(
+                    p,
+                    list_item.text,
+                    font_name=font_family,
+                    heading_lookup_fn=resolve_heading_bookmark,
+                    link_color_hex=heading_hex.lstrip("#"),
+                )
                 num_id = list_tracker.get_num_id_for_item(list_item)
                 apply_list_formatting(p, list_item.item_type, list_item.level, num_id, list_item.is_checked)
                 if len(s_line) > 75:
@@ -1169,7 +1413,13 @@ def decoupled_to_docx(
             # Plain paragraph: reset list tracker (Zero auto-numbering on plain text)
             list_tracker.reset_all_lists()
             p = doc.add_paragraph()
-            _add_formatted_runs(p, s_line, font_name=font_family)
+            _add_formatted_runs(
+                p,
+                s_line,
+                font_name=font_family,
+                heading_lookup_fn=resolve_heading_bookmark,
+                link_color_hex=heading_hex.lstrip("#"),
+            )
             p.paragraph_format.line_spacing = 1.15
             p.paragraph_format.space_before = Pt(0)
             p.paragraph_format.space_after = Pt(4)
@@ -1213,22 +1463,12 @@ def _apply_tab_stop_to_paragraph(
     page_num_text: str,
     font_name: str = "Calibri",
     font_size_pt: float = 11.0,
-    tab_pos_twips: int = 9360
+    tab_pos_twips: int = 9360,
+    bookmark_anchor: Optional[str] = None,
+    color_rgb: Optional[RGBColor] = None,
 ) -> None:
-    """Format paragraph with right-aligned Tab Stop with dot leader."""
+    """Format paragraph with right-aligned Tab Stop with dot leader and optional interactive hyperlink."""
     p.text = ""
-    r_title = p.add_run(title_text)
-    r_title.font.name = font_name
-    r_title.font.size = Pt(font_size_pt)
-
-    r_tab = p.add_run("\t")
-    r_tab.font.name = font_name
-    r_tab.font.size = Pt(font_size_pt)
-
-    r_num = p.add_run(page_num_text)
-    r_num.font.name = font_name
-    r_num.font.size = Pt(font_size_pt)
-
     pPr = p._p.get_or_add_pPr()
     pPr.append(parse_xml(
         f'<w:tabs {NS_W}>'
@@ -1236,6 +1476,33 @@ def _apply_tab_stop_to_paragraph(
         f'</w:tabs>'
     ))
     pPr.append(parse_xml(f'<w:spacing {NS_W} w:before="60" w:after="40" w:line="240" w:lineRule="auto"/>'))
+
+    size_val = int(font_size_pt * 2)
+    hex_color = f"{color_rgb[0]:02X}{color_rgb[1]:02X}{color_rgb[2]:02X}" if color_rgb else "1E293B"
+
+    rPr_xml = (
+        f'<w:rPr {NS_W}>'
+        f'<w:rFonts {NS_W} w:ascii="{font_name}" w:hAnsi="{font_name}"/>'
+        f'<w:sz {NS_W} w:val="{size_val}"/>'
+        f'<w:color {NS_W} w:val="{hex_color}"/>'
+        f'<w:u {NS_W} w:val="none"/>'
+        f'</w:rPr>'
+    )
+
+    r_title = parse_xml(f'<w:r {NS_W}>{rPr_xml}<w:t>{xml_escape(title_text)}</w:t></w:r>')
+    r_tab = parse_xml(f'<w:r {NS_W}><w:t xml:space="preserve">\t</w:t></w:r>')
+    r_num = parse_xml(f'<w:r {NS_W}>{rPr_xml}<w:t>{xml_escape(page_num_text)}</w:t></w:r>')
+
+    if bookmark_anchor:
+        hl = parse_xml(f'<w:hyperlink {NS_W} w:anchor="{bookmark_anchor}"/>')
+        hl.append(r_title)
+        hl.append(r_tab)
+        hl.append(r_num)
+        p._p.append(hl)
+    else:
+        p._p.append(r_title)
+        p._p.append(r_tab)
+        p._p.append(r_num)
 
 
 SYMBOL_FALLBACK_REGEX = re.compile(
@@ -1287,27 +1554,100 @@ def _add_symbol_fallback_runs(
             r.font.name = base_font
 
 
-def _add_formatted_runs(p: docx.text.paragraph.Paragraph, text: str, font_name: Optional[str] = None) -> None:
-    """Parse inline Markdown links, line breaks, backticks, bold, italic, and LaTeX math into docx runs with font fallback."""
-    cleaned_text = re.sub(r"\[(.*?)\]\(.*?\)", r"\1", text)
-    cleaned_text = re.sub(r"<br\s*/?>", "\n", cleaned_text)
-    cleaned_text = re.sub(r"`(.*?)`", r"\1", cleaned_text)
-    cleaned_text = cleaned_text.replace("`", "")
-
-    if "$" in cleaned_text:
-        add_math_to_paragraph(p, cleaned_text, font_name=font_name or "Calibri")
+def _render_text_runs(
+    p: docx.text.paragraph.Paragraph,
+    text: str,
+    font_name: Optional[str] = None,
+    color_rgb: Optional[RGBColor] = None,
+    bold: bool = False,
+    italic: bool = False,
+) -> None:
+    """Render text runs with bold, italic, LaTeX math, and symbol fallbacks."""
+    if not text:
+        return
+    if "$" in text and not ("[" in text and "]" in text):
+        add_math_to_paragraph(p, text, font_name=font_name or "Calibri")
         return
 
-    tokens = re.split(r"(\*\*.*?\*\*|\*.*?\*)", cleaned_text)
+    tokens = re.split(r"(\*\*.*?\*\*|\*.*?\*)", text)
     for token in tokens:
         if not token:
             continue
         if token.startswith("**") and token.endswith("**") and len(token) >= 4:
-            _add_symbol_fallback_runs(p, token[2:-2], base_font=font_name, bold=True)
+            _add_symbol_fallback_runs(p, token[2:-2], base_font=font_name, bold=True, italic=italic, color_rgb=color_rgb)
         elif token.startswith("*") and token.endswith("*") and len(token) >= 2:
-            _add_symbol_fallback_runs(p, token[1:-1], base_font=font_name, italic=True)
+            _add_symbol_fallback_runs(p, token[1:-1], base_font=font_name, bold=bold, italic=True, color_rgb=color_rgb)
         else:
-            _add_symbol_fallback_runs(p, token, base_font=font_name)
+            _add_symbol_fallback_runs(p, token, base_font=font_name, bold=bold, italic=italic, color_rgb=color_rgb)
+
+
+def _add_formatted_runs(
+    p: docx.text.paragraph.Paragraph,
+    text: str,
+    font_name: Optional[str] = None,
+    heading_lookup_fn: Optional[Callable[[Optional[str], Optional[str]], Optional[str]]] = None,
+    link_color_hex: str = "0F294A",
+) -> None:
+    """
+    Parse inline Markdown links, line breaks, backticks, bold, italic, and LaTeX math
+    into docx runs with font fallback and interactive hyperlinks (Clean Publication Style).
+    """
+    cleaned_text = re.sub(r"<br\s*/?>", "\n", text)
+    cleaned_text = re.sub(r"`(.*?)`", r"\1", cleaned_text)
+    cleaned_text = cleaned_text.replace("`", "")
+
+    # Quick check for math-only line without links
+    if "$" in cleaned_text and "[" not in cleaned_text:
+        add_math_to_paragraph(p, cleaned_text, font_name=font_name or "Calibri")
+        return
+
+    link_pattern = re.compile(r"(\[.*?\]\(.*?\))")
+    link_match_pattern = re.compile(r"^\[(.*?)\]\((.*?)\)$")
+
+    parts = link_pattern.split(cleaned_text)
+    for part in parts:
+        if not part:
+            continue
+        m_link = link_match_pattern.match(part)
+        if m_link:
+            label = m_link.group(1).strip()
+            target = m_link.group(2).strip()
+            # 1. Internal bookmark link
+            if target.startswith("#"):
+                bm_name = heading_lookup_fn(target, label) if heading_lookup_fn else None
+                if bm_name:
+                    hl = parse_xml(f'<w:hyperlink {NS_W} w:anchor="{bm_name}"/>')
+                    r = parse_xml(
+                        f'<w:r {NS_W}><w:rPr>'
+                        f'<w:rFonts {NS_W} w:ascii="{font_name or "Calibri"}" w:hAnsi="{font_name or "Calibri"}"/>'
+                        f'<w:color {NS_W} w:val="{link_color_hex}"/>'
+                        f'<w:u {NS_W} w:val="none"/>'
+                        f'</w:rPr><w:t>{xml_escape(label)}</w:t></w:r>'
+                    )
+                    hl.append(r)
+                    p._p.append(hl)
+                else:
+                    _render_text_runs(p, label, font_name=font_name)
+            # 2. External URL link
+            elif target.startswith(("http://", "https://", "mailto:")):
+                try:
+                    r_id = p.part.relate_to(target, docx.opc.constants.RELATIONSHIP_TYPE.HYPERLINK, is_external=True)
+                    hl = parse_xml(f'<w:hyperlink {NS_W_R} r:id="{r_id}"/>')
+                    r = parse_xml(
+                        f'<w:r {NS_W}><w:rPr>'
+                        f'<w:rFonts {NS_W} w:ascii="{font_name or "Calibri"}" w:hAnsi="{font_name or "Calibri"}"/>'
+                        f'<w:color {NS_W} w:val="{link_color_hex}"/>'
+                        f'<w:u {NS_W} w:val="none"/>'
+                        f'</w:rPr><w:t>{xml_escape(label)}</w:t></w:r>'
+                    )
+                    hl.append(r)
+                    p._p.append(hl)
+                except Exception:
+                    _render_text_runs(p, label, font_name=font_name)
+            else:
+                _render_text_runs(p, label, font_name=font_name)
+        else:
+            _render_text_runs(p, part, font_name=font_name)
 
 
 # ==============================================================================
@@ -1353,7 +1693,7 @@ def pdf_to_markdown(
     temp_docx = os.path.splitext(md_path)[0] + "_temp_stage1.docx"
 
     try:
-        from .converter_engine import convert_pdf_to_docx_flow
+        from .engine import convert_pdf_to_docx_flow
     except ImportError:
         from converter_engine import convert_pdf_to_docx_flow
 
@@ -1707,7 +2047,7 @@ def _md_to_html_printable(md_text: str, base_dir: str) -> str:
 
                 img_uri = f"file:///{resolved_img.replace(os.sep, '/')}"
                 html_lines.append('<div class="diagram-figure" style="text-align: center; margin: 16px auto;">')
-                html_lines.append(f'  <img src="{img_uri}" alt="{html_lib.escape(alt)}" style="max-width: 100%; height: auto; display: block; margin: 0 auto; border-radius: 4px;" />')
+                html_lines.append(f'  <img src="{img_uri}" alt="{html_lib.escape(alt or "")}" style="max-width: 100%; height: auto; display: block; margin: 0 auto; border-radius: 4px;" />')
                 if alt:
                     html_lines.append(f'  <p style="font-size: 9.5pt; font-style: italic; color: #64748b; margin-top: 6px;">{html_lib.escape(alt)}</p>')
                 html_lines.append('</div>')

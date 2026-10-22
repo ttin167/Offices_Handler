@@ -9,6 +9,7 @@ export default defineConfig({
         '**/diagram_assets/**',
         '**/.web_outputs/**',
         '**/.web_uploads/**',
+        '**/scratch/**',
         '**/tests/**',
         '**/*.db',
         '**/*.db-journal',
@@ -18,6 +19,9 @@ export default defineConfig({
         '**/*.docx',
         '**/*.pptx',
         '**/*.pdf',
+        '**/*.tmp',
+        '**/~$*',
+        '**/.~lock.*',
       ],
     },
     proxy: {

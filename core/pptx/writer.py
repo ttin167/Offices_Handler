@@ -224,13 +224,16 @@ def set_paragraph_text_clean(
 
     if "$" in text:
         try:
-            from .pptx_math import add_math_text_to_paragraph
+            from .math import add_math_text_to_paragraph
         except (ImportError, ValueError):
-            from pptx_math import add_math_text_to_paragraph  # type: ignore
+            try:
+                from core.pptx.math import add_math_text_to_paragraph
+            except (ImportError, ValueError):
+                from pptx_math import add_math_text_to_paragraph  # type: ignore
         add_math_text_to_paragraph(
             paragraph,
             text,
-            base_sz=int(round(font_size_pt * 100)),
+            base_sz=round(font_size_pt * 100),
             is_bold=is_bold,
             color=hex_clr,
             typeface=font_name
@@ -501,13 +504,16 @@ def _format_bullet_paragraph(
         clean_pre = prefix.rstrip(":") + ": "
         if "$" in clean_pre:
             try:
-                from .pptx_math import add_math_text_to_paragraph
+                from .math import add_math_text_to_paragraph
             except (ImportError, ValueError):
-                from pptx_math import add_math_text_to_paragraph  # type: ignore
+                try:
+                    from core.pptx.math import add_math_text_to_paragraph
+                except (ImportError, ValueError):
+                    from pptx_math import add_math_text_to_paragraph  # type: ignore
             add_math_text_to_paragraph(
                 p,
                 clean_pre,
-                base_sz=int(round(eff_size * 100)),
+                base_sz=round(eff_size * 100),
                 is_bold=True,
                 color="000000" if prefix_color is None else (
                     f"{prefix_color[0]:02X}{prefix_color[1]:02X}{prefix_color[2]:02X}"
@@ -526,13 +532,16 @@ def _format_bullet_paragraph(
     # Body run (regular, with math parsing if $ present)
     if "$" in body:
         try:
-            from .pptx_math import add_math_text_to_paragraph
+            from .math import add_math_text_to_paragraph
         except (ImportError, ValueError):
-            from pptx_math import add_math_text_to_paragraph  # type: ignore
+            try:
+                from core.pptx.math import add_math_text_to_paragraph
+            except (ImportError, ValueError):
+                from pptx_math import add_math_text_to_paragraph  # type: ignore
         add_math_text_to_paragraph(
             p,
             body,
-            base_sz=int(round(eff_size * 100)),
+            base_sz=round(eff_size * 100),
             is_bold=False,
             color="000000" if body_color is None else (
                 f"{body_color[0]:02X}{body_color[1]:02X}{body_color[2]:02X}"
@@ -2458,9 +2467,10 @@ def add_swot_matrix_slide(
 
         p_header = tf.paragraphs[0]
         p_header.space_after = Pt(8)
+        header_color = quad["color"] if isinstance(quad["color"], (RGBColor, str)) else None
         set_paragraph_text_clean(
             p_header, f"[{quad['key']}]  {quad['title']}", font_size_pt=13, is_bold=True,
-            color=quad["color"], font_name=theme["font_heading"]
+            color=header_color, font_name=theme["font_heading"]
         )
 
         items = quad["items"]

@@ -49,19 +49,18 @@ SYMBOL_FALLBACK_REGEX = re.compile(
 from PIL import Image as PILImage
 
 try:
-    from .smart_post_processor import calculate_heuristic_column_widths
+    from .post_processor import calculate_heuristic_column_widths
+    from .math import add_math_to_paragraph
+    from .lists import ListContextTracker, apply_list_formatting, ensure_numbering_definitions
 except (ImportError, ValueError):
-    from smart_post_processor import calculate_heuristic_column_widths
-
-try:
-    from .docx_math import add_math_to_paragraph
-except (ImportError, ValueError):
-    from docx_math import add_math_to_paragraph
-
-try:
-    from .docx_lists import ListContextTracker, apply_list_formatting, ensure_numbering_definitions
-except (ImportError, ValueError):
-    from docx_lists import ListContextTracker, apply_list_formatting, ensure_numbering_definitions
+    try:
+        from core.docx.post_processor import calculate_heuristic_column_widths
+        from core.docx.math import add_math_to_paragraph
+        from core.docx.lists import ListContextTracker, apply_list_formatting, ensure_numbering_definitions
+    except (ImportError, ValueError):
+        from smart_post_processor import calculate_heuristic_column_widths  # type: ignore
+        from docx_math import add_math_to_paragraph  # type: ignore
+        from docx_lists import ListContextTracker, apply_list_formatting, ensure_numbering_definitions  # type: ignore
 
 __all__ = [
     "write_docx",

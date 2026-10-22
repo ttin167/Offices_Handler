@@ -42,6 +42,7 @@ import json
 import os
 import sys
 import time
+from typing import Any, Dict, List, cast
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
@@ -612,7 +613,7 @@ def cmd_pdf_tools(args: argparse.Namespace) -> int:
                     plan = json.loads(plan_str)
                 except Exception:
                     # Parse simple list like 1,3,2 or 1:90,2:0
-                    plan = []
+                    plan: List[Dict[str, Any]] = []
                     for seg in plan_str.split(","):
                         seg = seg.strip()
                         if not seg:
@@ -1420,6 +1421,7 @@ def cmd_docx_to_pptx(args: argparse.Namespace) -> int:
             spec_out=args.spec_out,
             theme=args.theme,
             template_path=os.path.abspath(args.template) if args.template else None,
+            deck_scope=getattr(args, "scope", "auto"),
         )
         print(f"[OK] Successfully synthesized presentation: {pptx_res}")
         return 0
@@ -1454,7 +1456,9 @@ def cmd_pdf_to_pptx(args: argparse.Namespace) -> int:
             theme=args.theme,
             template_path=os.path.abspath(args.template) if args.template else None,
             page_range=getattr(args, "pages", None),
+            deck_scope=getattr(args, "scope", "auto"),
         )
+
         print(f"[OK] Successfully synthesized presentation from PDF: {pptx_res}")
         return 0
     except Exception as exc:
@@ -1693,6 +1697,242 @@ def cmd_qa_audit(args: argparse.Namespace) -> int:
             raise ImportError(f"Could not load unified_qa_diagnostic from {spec_path}")
 
     return run_pipeline(args)
+
+
+# ---------------------------------------------------------------------------
+# md-toc & convert
+# ---------------------------------------------------------------------------
+
+def cmd_md_toc(args: argparse.Namespace) -> int:
+    md_path = os.path.abspath(args.file)
+    if not os.path.isfile(md_path):
+        print(f"[ERROR] Markdown file not found: {md_path}", file=sys.stderr)
+        return 1
+
+    try:
+        from core.converter.markdown import generate_markdown_toc, update_markdown_toc_in_file
+    except (ImportError, ValueError):
+        from markdown_converter import generate_markdown_toc, update_markdown_toc_in_file  # type: ignore
+
+    with open(md_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    max_lvl = getattr(args, "max_level", 3) or 3
+    min_lvl = getattr(args, "min_level", 2) or 2
+    toc_text = generate_markdown_toc(content, min_level=min_lvl, max_level=max_lvl)
+
+    if getattr(args, "check", False):
+        print("[INFO] Generated Table of Contents preview:")
+        print(toc_text)
+        return 0
+
+    if getattr(args, "in_place", False):
+        ok = update_markdown_toc_in_file(md_path, max_level=max_lvl)
+        if ok:
+            print(f"[OK] Successfully updated interactive Table of Contents in: {md_path}")
+            return 0
+        else:
+            print(f"[ERROR] Could not update TOC in: {md_path}", file=sys.stderr)
+            return 1
+
+    if getattr(args, "output", None):
+        out_path = os.path.abspath(args.output)
+        with open(out_path, "w", encoding="utf-8") as f:
+            f.write(toc_text)
+        print(f"[OK] Table of Contents written to: {out_path}")
+        return 0
+
+    print(toc_text)
+    return 0
+
+
+def cmd_convert(args: argparse.Namespace) -> int:
+    try:
+        from core.converter.engine import convert_universal
+    except (ImportError, ValueError):
+        from converter_engine import convert_universal  # type: ignore
+
+    source_path = os.path.abspath(args.input)
+    if not os.path.isfile(source_path):
+        print(f"[ERROR] Source file not found: {source_path}", file=sys.stderr)
+        return 1
+
+    target_path = getattr(args, "output", None)
+    if not target_path:
+        t_ext = f".{args.target}" if getattr(args, "target", None) else ".docx"
+        target_path = os.path.splitext(source_path)[0] + t_ext
+    else:
+        target_path = os.path.abspath(target_path)
+
+    ok, out_p, elapsed = convert_universal(
+        source_path,
+        target_path,
+        style_path=getattr(args, "style", None),
+        page_range=getattr(args, "pages", None),
+        deck_scope=getattr(args, "scope", "auto"),
+    )
+    if ok:
+        print(f"[OK] Conversion completed in {elapsed:.2f}s: {out_p}")
+        return 0
+    else:
+        print(f"[ERROR] Conversion failed: {out_p}", file=sys.stderr)
+        return 2
+
+
+# ---------------------------------------------------------------------------
+# Atomic Office Tools (CLI Commands)
+# ---------------------------------------------------------------------------
+
+def cmd_xlsx_set(args: argparse.Namespace) -> int:
+    try:
+        from core.xlsx.writer import UniversalExcelEngine
+    except (ImportError, ValueError):
+        from xlsx_writer import UniversalExcelEngine  # type: ignore
+
+    src = os.path.abspath(args.file)
+    if not os.path.isfile(src):
+        print(f"[ERROR] Excel file not found: {src}", file=sys.stderr)
+        return 1
+
+    out_path = os.path.abspath(args.output) if args.output else src
+    try:
+        engine = UniversalExcelEngine(src)
+        sheet_name = args.sheet
+        if sheet_name and sheet_name in engine.wb.sheetnames:
+            ws = engine.wb[sheet_name]
+        else:
+            ws = engine.wb.active or engine.wb.worksheets[0]
+        cell_coord = args.cell.strip().upper()
+        engine.safe_set_cell(ws, cell_coord, value=args.value, formula=args.formula)
+        engine.save(out_path)
+        sheet_title = getattr(ws, "title", "Sheet")
+        print(f"[OK] Cell {cell_coord} updated in '{sheet_title}' -> {out_path}")
+        return 0
+    except Exception as exc:
+        print(f"[ERROR] Failed to set cell: {exc}", file=sys.stderr)
+        return 2
+
+
+def cmd_xlsx_insert_rows(args: argparse.Namespace) -> int:
+    try:
+        from core.xlsx.writer import UniversalExcelEngine
+    except (ImportError, ValueError):
+        from xlsx_writer import UniversalExcelEngine  # type: ignore
+
+    src = os.path.abspath(args.file)
+    if not os.path.isfile(src):
+        print(f"[ERROR] Excel file not found: {src}", file=sys.stderr)
+        return 1
+
+    out_path = os.path.abspath(args.output) if args.output else src
+    try:
+        engine = UniversalExcelEngine(src)
+        sheet_name = args.sheet
+        if not sheet_name or sheet_name not in engine.wb.sheetnames:
+            sheet_name = engine.wb.sheetnames[0]
+        proto_row = int(args.proto) if args.proto is not None else None
+        created = engine.expand_table_rows(
+            sheet_name=sheet_name,
+            start_row=int(args.start_row),
+            count=int(args.count),
+            prototype_row=proto_row,
+            shift_formulas=not getattr(args, "no_shift_formulas", False),
+        )
+        engine.save(out_path)
+        print(f"[OK] Inserted {len(created)} row(s) starting at row {args.start_row} in sheet '{sheet_name}' -> {out_path}")
+        return 0
+    except Exception as exc:
+        print(f"[ERROR] Failed to insert rows: {exc}", file=sys.stderr)
+        return 2
+
+
+def cmd_docx_tokens(args: argparse.Namespace) -> int:
+    try:
+        from core.docx.mail_merge import inspect_template_tokens
+    except (ImportError, ValueError):
+        try:
+            from mail_merge import inspect_template_tokens  # type: ignore
+        except (ImportError, ValueError):
+            from core.docx.writer import inspect_template_tokens  # type: ignore
+
+    src = os.path.abspath(args.template)
+    if not os.path.isfile(src):
+        print(f"[ERROR] Word template file not found: {src}", file=sys.stderr)
+        return 1
+
+    try:
+        res = inspect_template_tokens(src)
+        if getattr(args, "json", False):
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+        else:
+            print(f"Template: {os.path.basename(src)}")
+            print(f"Total Placeholders: {res.get('total_placeholders', 0)}")
+            vars_ = res.get("variables", [])
+            if vars_:
+                print(f"Variables ({len(vars_)}):")
+                for v in vars_:
+                    print(f"  - {{{{ {v} }}}}")
+            conds = res.get("conditionals", [])
+            if conds:
+                print(f"Conditionals ({len(conds)}):")
+                for c in conds:
+                    print(f"  - {c}")
+            blocks = res.get("blocks", [])
+            if blocks:
+                print(f"Blocks ({len(blocks)}):")
+                for b in blocks:
+                    print(f"  - {b}")
+        return 0
+    except Exception as exc:
+        print(f"[ERROR] Failed to inspect docx tokens: {exc}", file=sys.stderr)
+        return 2
+
+
+def cmd_docx_replace(args: argparse.Namespace) -> int:
+    try:
+        from core.docx.writer import patch_docx_template
+    except (ImportError, ValueError):
+        from docx_writer import patch_docx_template  # type: ignore
+
+    src = os.path.abspath(args.file)
+    if not os.path.isfile(src):
+        print(f"[ERROR] Word document not found: {src}", file=sys.stderr)
+        return 1
+
+    out_path = os.path.abspath(args.output) if args.output else src
+
+    raw_data = args.data
+    replacements: dict = {}
+    if os.path.isfile(raw_data):
+        with open(raw_data, "r", encoding="utf-8") as f:
+            replacements = json.load(f)
+    else:
+        try:
+            replacements = json.loads(raw_data)
+        except Exception:
+            print(f"[ERROR] --data must be a valid JSON string or path to a JSON file", file=sys.stderr)
+            return 1
+
+    if not isinstance(replacements, dict):
+        print(f"[ERROR] Replacements data must be a JSON object (dictionary)", file=sys.stderr)
+        return 1
+
+    # Normalize token keys: support both "KEY" and "{{KEY}}"
+    normalized_rep: dict[str, str] = {}
+    for k, v in replacements.items():
+        k_str = str(k).strip()
+        v_str = str(v)
+        normalized_rep[k_str] = v_str
+        if not k_str.startswith("{{") and not k_str.endswith("}}"):
+            normalized_rep[f"{{{{{k_str}}}}}"] = v_str
+
+    try:
+        res_path = patch_docx_template(src, out_path, text_replacements=normalized_rep)
+        print(f"[OK] Replaced {len(replacements)} token(s) in -> {res_path}")
+        return 0
+    except Exception as exc:
+        print(f"[ERROR] Failed to replace docx text: {exc}", file=sys.stderr)
+        return 2
 
 
 # ---------------------------------------------------------------------------
@@ -1948,6 +2188,9 @@ Examples:
                        choices=["thesis_blue", "corporate_blue", "modern_dark", "academic_light"],
                        help="Visual theme (default: thesis_blue)")
     p_dtp.add_argument("--template", default=None, help="Path to base .pptx / .potx template")
+    p_dtp.add_argument("--scope", default="auto",
+                       choices=["auto", "executive", "standard", "comprehensive"],
+                       help="Target presentation deck scope (default: auto)")
     p_dtp.set_defaults(func=cmd_docx_to_pptx)
 
     # --- pdf-to-pptx ---
@@ -1960,7 +2203,11 @@ Examples:
                        choices=["thesis_blue", "corporate_blue", "modern_dark", "academic_light"],
                        help="Visual theme (default: thesis_blue)")
     p_ptp.add_argument("--template", default=None, help="Path to base .pptx / .potx template")
+    p_ptp.add_argument("--scope", default="auto",
+                       choices=["auto", "executive", "standard", "comprehensive"],
+                       help="Target presentation deck scope (default: auto)")
     p_ptp.set_defaults(func=cmd_pdf_to_pptx)
+
 
     # --- pptx-insert-diagram ---
     p_pid = sub.add_parser("pptx-insert-diagram", help="Insert technical diagram image into a PowerPoint slide")
@@ -2088,7 +2335,59 @@ Examples:
     p_qa.add_argument("--format", choices=["terminal", "json", "sarif"], default="terminal",
                       help="Output report format")
     p_qa.add_argument("-o", "--output", default=None, help="Optional output file path for the report/log")
-    p_qa.set_defaults(func=cmd_qa_audit)
+    # --- convert (Unified Converter Dispatcher) ---
+    p_conv = sub.add_parser("convert", help="Universal multi-format document conversion (PDF ↔ DOCX ↔ MD ↔ PPTX ↔ XLSX)")
+    p_conv.add_argument("input", help="Source file path (.pdf, .docx, .md)")
+    p_conv.add_argument("-o", "--output", default=None, help="Output file path (.docx, .pdf, .md, .pptx, .xlsx)")
+    p_conv.add_argument("-t", "--target", choices=["docx", "pdf", "md", "pptx", "xlsx"], default=None, help="Target format extension")
+    p_conv.add_argument("--style", default=None, help="Path to style YAML stylesheet (for Markdown/HTML conversions)")
+    p_conv.add_argument("--pages", default=None, help="Page range (e.g. '1-5, 8')")
+    p_conv.add_argument("--scope", choices=["auto", "executive", "standard", "comprehensive"], default="auto", help="Presentation deck scope (for PPTX target)")
+    p_conv.set_defaults(func=cmd_convert)
+
+    # --- md-toc (Interactive Markdown Table of Contents) ---
+    p_toc = sub.add_parser("md-toc", help="Generate or update interactive Table of Contents for Markdown (.md) documents")
+    p_toc.add_argument("file", help="Path to Markdown (.md) file")
+    p_toc.add_argument("--max-level", type=int, default=3, help="Maximum heading level (default: 3)")
+    p_toc.add_argument("--min-level", type=int, default=2, help="Minimum heading level (default: 2)")
+    p_toc.add_argument("--in-place", action="store_true", help="Update TOC directly in the file")
+    p_toc.add_argument("--check", action="store_true", help="Print generated TOC preview without modifying file")
+    p_toc.add_argument("-o", "--output", default=None, help="Save TOC to separate file")
+    p_toc.set_defaults(func=cmd_md_toc)
+
+    # --- xlsx-set (Atomic Excel Cell Update) ---
+    p_xs = sub.add_parser("xlsx-set", help="Atomic Excel tool: set cell value or formula with merged-cell protection")
+    p_xs.add_argument("file", help="Path to .xlsx file")
+    p_xs.add_argument("--sheet", default=None, help="Worksheet name (default: active sheet)")
+    p_xs.add_argument("--cell", required=True, help="Cell coordinate, e.g. 'A1', 'C7'")
+    p_xs.add_argument("--value", default=None, help="Cell value to set")
+    p_xs.add_argument("--formula", default=None, help="Excel formula string (e.g. '=SUM(C2:C6)')")
+    p_xs.add_argument("-o", "--output", default=None, help="Output .xlsx path (default: in-place safe save)")
+    p_xs.set_defaults(func=cmd_xlsx_set)
+
+    # --- xlsx-insert-rows (Atomic Excel Row Expansion) ---
+    p_xi = sub.add_parser("xlsx-insert-rows", help="Atomic Excel tool: insert blank or prototype-cloned rows with formula shifting")
+    p_xi.add_argument("file", help="Path to .xlsx file")
+    p_xi.add_argument("--sheet", default=None, help="Worksheet name (default: active sheet)")
+    p_xi.add_argument("--start-row", type=int, required=True, help="Start row index (1-based)")
+    p_xi.add_argument("--count", type=int, default=1, help="Number of rows to insert (default: 1)")
+    p_xi.add_argument("--proto", type=int, default=None, help="Prototype row index to clone styles/formulas from")
+    p_xi.add_argument("--no-shift-formulas", action="store_true", help="Disable automatic formula range shifting")
+    p_xi.add_argument("-o", "--output", default=None, help="Output .xlsx path (default: in-place safe save)")
+    p_xi.set_defaults(func=cmd_xlsx_insert_rows)
+
+    # --- docx-tokens (Atomic Word Placeholders Inspection) ---
+    p_dtk = sub.add_parser("docx-tokens", help="Atomic Word tool: inspect template placeholders and variables")
+    p_dtk.add_argument("template", help="Path to .docx template file")
+    p_dtk.add_argument("--json", action="store_true", help="Output machine-readable JSON format")
+    p_dtk.set_defaults(func=cmd_docx_tokens)
+
+    # --- docx-replace (Atomic Word Text Replacement) ---
+    p_drp = sub.add_parser("docx-replace", help="Atomic Word tool: replace text tokens preserving run styles")
+    p_drp.add_argument("file", help="Path to .docx file")
+    p_drp.add_argument("--data", required=True, help="Path to JSON file or raw JSON string with token replacements")
+    p_drp.add_argument("-o", "--output", default=None, help="Output .docx path (default: in-place safe save)")
+    p_drp.set_defaults(func=cmd_docx_replace)
 
     return parser
 

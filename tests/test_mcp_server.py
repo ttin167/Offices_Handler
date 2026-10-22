@@ -77,8 +77,16 @@ class TestMCPServer(unittest.TestCase):
             "doc_mail_merge",
             "doc_redline_diff",
             "doc_ocr_scan",
+            "xlsx_set_cell",
+            "xlsx_set_range",
+            "xlsx_insert_rows",
+            "xlsx_find_anchor",
+            "docx_inspect_placeholders",
+            "docx_replace_text",
+            "docx_insert_paragraph",
+            "docx_insert_table",
         ]
-        self.assertEqual(len(tools), 11)
+        self.assertEqual(len(tools), 19)
         for expected in expected_tools:
             self.assertIn(expected, tool_names)
 

@@ -19,7 +19,7 @@ from pptx import Presentation
 from pptx.util import Inches, Pt
 
 try:
-    from .pptx_writer import (
+    from .writer import (
         write_pptx_from_spec,
         add_title_slide,
         add_chapter_slide,
@@ -62,7 +62,7 @@ except (ImportError, ValueError):
     )
 
 try:
-    from .pptx_math import add_math_text_to_paragraph, parse_inline_math
+    from .math import add_math_text_to_paragraph, parse_inline_math
 except (ImportError, ValueError):
     from pptx_math import add_math_text_to_paragraph, parse_inline_math  # type: ignore
 

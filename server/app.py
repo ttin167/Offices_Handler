@@ -42,6 +42,7 @@ try:
     from core.pptx.docx_to_pptx import convert_docx_to_pptx, convert_pdf_to_pptx
     from core.pptx.writer import THEMES, write_pptx_from_spec
     from core.docx.writer import patch_docx_template, write_docx
+    from core.docx.mail_merge import inspect_template_tokens
     from core.xlsx.writer import mutate_template_excel
     from core.xlsx.validator import validate_excel_sheet
     from core.xlsx.reader import read_xlsx
@@ -60,6 +61,7 @@ except (ImportError, ValueError):
     from docx_to_pptx import convert_docx_to_pptx, convert_pdf_to_pptx  # type: ignore
     from pptx_writer import THEMES, write_pptx_from_spec  # type: ignore
     from docx_writer import patch_docx_template, write_docx  # type: ignore
+    from docx_mail_merge import inspect_template_tokens  # type: ignore
     from xlsx_writer import mutate_template_excel  # type: ignore
     from xlsx_validator import validate_excel_sheet  # type: ignore
     from db_manager import record_history, get_recent_history, delete_history_item, clear_history  # type: ignore
@@ -136,7 +138,17 @@ def export_pptx_slides(pptx_path: str, output_dir: str, slides_arg: Any = "all")
             elif isinstance(slides_arg, list):
                 target_indices = [int(x) for x in slides_arg if str(x).isdigit()]
             else:
-                target_indices = [int(x.strip()) for x in str(slides_arg).split(",") if x.strip().isdigit()]
+                target_indices = []
+                for part in str(slides_arg).split(","):
+                    part = part.strip()
+                    if "-" in part:
+                        try:
+                            p_start, p_end = part.split("-", 1)
+                            target_indices.extend(range(int(p_start.strip()), int(p_end.strip()) + 1))
+                        except Exception:
+                            pass
+                    elif part.isdigit():
+                        target_indices.append(int(part))
 
             for s_idx in target_indices:
                 if 1 <= s_idx <= total:
@@ -477,6 +489,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                 )
                 src = resolve_file_path(src_param)
                 theme = payload.get("theme", "thesis_blue")
+                deck_scope = payload.get("deck_scope") or payload.get("scope") or "auto"
                 tmpl_param = payload.get("template_path") or payload.get("template_pptx")
                 template = resolve_file_path(tmpl_param) if tmpl_param else None
 
@@ -494,7 +507,8 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     output_pptx=out_pptx,
                     spec_out=out_spec,
                     theme=theme,
-                    template_path=template
+                    template_path=template,
+                    deck_scope=deck_scope,
                 )
 
                 # Load generated spec for instant frontend UI preview
@@ -537,6 +551,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                 )
                 src = resolve_file_path(src_param)
                 theme = payload.get("theme", "thesis_blue")
+                deck_scope = payload.get("deck_scope") or payload.get("scope") or "auto"
                 pages = payload.get("pages")
                 tmpl_param = payload.get("template_path") or payload.get("template_pptx")
                 template = resolve_file_path(tmpl_param) if tmpl_param else None
@@ -556,8 +571,10 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     spec_out=out_spec,
                     theme=theme,
                     template_path=template,
-                    page_range=pages
+                    page_range=pages,
+                    deck_scope=deck_scope,
                 )
+
 
                 spec_data = {}
                 if os.path.isfile(final_spec):
@@ -682,6 +699,38 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     "preview_url": f"/api/preview/{quoted_name}"
                 })
 
+            # Endpoint 5.5: Inspect DOCX Template Tokens / Placeholders
+            elif path == "/api/docx/inspect-tokens":
+                payload = self._read_body_json()
+                src_param = (
+                    payload.get("template_path")
+                    or payload.get("source_path")
+                    or payload.get("input_path")
+                    or payload.get("filepath")
+                    or payload.get("file_path")
+                )
+                src = resolve_file_path(src_param)
+                if not src:
+                    self._send_json({"success": False, "error": f"Template DOCX file not found: {src_param}"}, status=400)
+                    return
+
+                try:
+                    try:
+                        from core.docx.mail_merge import inspect_template_tokens as _fn_tokens
+                    except (ImportError, ValueError):
+                        from docx_mail_merge import inspect_template_tokens as _fn_tokens  # type: ignore
+                    res = _fn_tokens(src)
+                    self._send_json({
+                        "success": True,
+                        "template_file": res.get("template_file"),
+                        "variables": res.get("variables", []),
+                        "conditionals": res.get("conditionals", []),
+                        "blocks": res.get("blocks", []),
+                        "total_unique_tokens": res.get("total_unique_tokens", 0),
+                    })
+                except Exception as ex:
+                    self._send_json({"success": False, "error": str(ex)}, status=500)
+
             # Endpoint 6: In-Place DOCX Template Patching
             elif path == "/api/docx/patch":
                 payload = self._read_body_json()
@@ -693,9 +742,19 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     or payload.get("file_path")
                 )
                 src = resolve_file_path(src_param)
-                text_rep = payload.get("text_replacements", {})
-                block_rep = payload.get("block_replacements", {})
+                text_rep = payload.get("text_replacements") or payload.get("replacements") or (payload.get("patch_spec") or {}).get("text_replacements", {})
+                block_rep = payload.get("block_replacements") or (payload.get("patch_spec") or {}).get("block_replacements", {})
                 custom_name = payload.get("output_name")
+
+                if isinstance(text_rep, dict):
+                    norm: Dict[str, str] = {}
+                    for k, v in text_rep.items():
+                        k_str = str(k).strip()
+                        v_str = str(v)
+                        norm[k_str] = v_str
+                        if not k_str.startswith("{{") and not k_str.endswith("}}"):
+                            norm[f"{{{{{k_str}}}}}"] = v_str
+                    text_rep = norm
 
                 if not src:
                     self._send_json({"success": False, "error": f"Template DOCX file not found: {src_param}"}, status=400)
@@ -841,10 +900,12 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                         engine=engine,
                     )
                     elap = time.time() - t0
+                    sheet_names = [s.get("sheet_name") for s in snapshot.get("sheets", []) if s.get("sheet_name")]
                     self._send_json({
                         "success": True,
                         "engine": engine,
                         "snapshot": snapshot,
+                        "sheet_names": sheet_names,
                         "elapsed": elap,
                     })
                 except Exception as ex:
@@ -1658,12 +1719,18 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     import importlib.util
                     qa_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools", "unified_qa_diagnostic.py")
                     spec = importlib.util.spec_from_file_location("unified_qa_diagnostic", qa_path)
-                    mod = importlib.util.module_from_spec(spec)
-                    spec.loader.exec_module(mod)
-                    ExcelDiagnosticEngine = getattr(mod, "ExcelDiagnosticEngine", None)
-                    WordDiagnosticEngine = getattr(mod, "DocxDiagnosticEngine", None) or getattr(mod, "WordDiagnosticEngine", None)
-                    PowerPointDiagnosticEngine = getattr(mod, "PptxDiagnosticEngine", None) or getattr(mod, "PowerPointDiagnosticEngine", None)
-                    DiagramDiagnosticEngine = getattr(mod, "DiagramAndConversionEngine", None) or getattr(mod, "DiagramDiagnosticEngine", None)
+                    if spec is not None and spec.loader is not None:
+                        mod = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(mod)
+                        ExcelDiagnosticEngine = getattr(mod, "ExcelDiagnosticEngine", None)
+                        WordDiagnosticEngine = getattr(mod, "DocxDiagnosticEngine", None) or getattr(mod, "WordDiagnosticEngine", None)
+                        PowerPointDiagnosticEngine = getattr(mod, "PptxDiagnosticEngine", None) or getattr(mod, "PowerPointDiagnosticEngine", None)
+                        DiagramDiagnosticEngine = getattr(mod, "DiagramAndConversionEngine", None) or getattr(mod, "DiagramDiagnosticEngine", None)
+                    else:
+                        ExcelDiagnosticEngine = None
+                        WordDiagnosticEngine = None
+                        PowerPointDiagnosticEngine = None
+                        DiagramDiagnosticEngine = None
 
                 t0 = time.time()
                 issues = []
@@ -1673,24 +1740,36 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                 out_name = None
 
                 if ext in (".xlsx", ".xlsm"):
+                    if ExcelDiagnosticEngine is None:
+                        self._send_json({"success": False, "error": "Excel diagnostic engine could not be loaded"}, status=500)
+                        return
                     issues, metrics = ExcelDiagnosticEngine.diagnose(src)
                     if repair_flag:
                         out_name = f"repaired_{os.path.basename(src)}"
                         out_path = os.path.join(OUTPUT_DIR, out_name)
                         repaired, repair_actions = ExcelDiagnosticEngine.repair(src, out_path)
                 elif ext in (".docx", ".doc"):
+                    if WordDiagnosticEngine is None:
+                        self._send_json({"success": False, "error": "Word diagnostic engine could not be loaded"}, status=500)
+                        return
                     issues, metrics = WordDiagnosticEngine.diagnose(src)
                     if repair_flag:
                         out_name = f"repaired_{os.path.basename(src)}"
                         out_path = os.path.join(OUTPUT_DIR, out_name)
                         repaired, repair_actions = WordDiagnosticEngine.repair(src, out_path)
                 elif ext in (".pptx", ".potx"):
+                    if PowerPointDiagnosticEngine is None:
+                        self._send_json({"success": False, "error": "PowerPoint diagnostic engine could not be loaded"}, status=500)
+                        return
                     issues, metrics = PowerPointDiagnosticEngine.diagnose(src)
                     if repair_flag:
                         out_name = f"repaired_{os.path.basename(src)}"
                         out_path = os.path.join(OUTPUT_DIR, out_name)
                         repaired, repair_actions = PowerPointDiagnosticEngine.repair(src, out_path)
                 elif ext in (".drawio", ".xml", ".svg"):
+                    if DiagramDiagnosticEngine is None:
+                        self._send_json({"success": False, "error": "Diagram diagnostic engine could not be loaded"}, status=500)
+                        return
                     issues, metrics = DiagramDiagnosticEngine.diagnose_diagram_file(src)
                 else:
                     self._send_json({"success": False, "error": f"Unsupported format for QA audit: '{ext}'"}, status=400)

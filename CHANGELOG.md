@@ -6,7 +6,7 @@ Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân h�
 
 ## 1. Bảng So Sánh Toàn Diện (Feature Comparison Matrix)
 
-| Phân hệ / Tiêu chí kỹ thuật | Phiên bản cũ (v1.0 Baseline) | Phiên bản hiện tại (v4.1.0 Production Grade) | Lợi ích & Độ tin cậy thực tế |
+| Phân hệ / Tiêu chí kỹ thuật | Phiên bản cũ (v1.0 Baseline) | Phiên bản hiện tại (v4.2.0 Production Grade) | Lợi ích & Độ tin cậy thực tế |
 |---|---|---|---|
 | **Bảo Mật & Xử Lý PDF (PDF Pro Studio)** | Chỉ có 5 công cụ cơ bản (merge, split, rotate, watermark, compress) | **Bộ Công Cụ PDF Pro Studio & Visual Organizer**: True Redaction xóa vĩnh viễn byte/pixel (`ERR_PDF_001`); Mã hóa AES-256 phân quyền in/copy/modify; Đóng dấu giáp lai đa trang $N$-lát cắt overlap 8% (`ERR_PDF_002`); Chuẩn hóa A4 vector centering & số Bates Unicode (`ERR_PDF_003`); Trích xuất bảng sang Excel giữ số 0 đầu (`ERR_XLSX_007`) & khổ in A4 ngang (`ERR_XLSX_008`); Trình biên tập trang trực quan (xoay 90°, xóa trang, thumbnail 120 DPI) | Biến phân hệ PDF thành vũ khí cấp Stirling-PDF / Adobe Acrobat Pro; giải quyết trọn vẹn yêu cầu bảo mật thông tin tài chính/hồ sơ thầu và chuẩn hóa hợp đồng doanh nghiệp Việt Nam |
 | **Danh Sách & Đánh Số Word (Lists & Numbering)** | Dùng style `List Number` tĩnh của Word khiến số bị đếm tích lũy liên tục không reset; bullet không phân cấp; không hỗ trợ checkbox | **Native OpenXML Numbering Engine (`docx_lists.py`)**: Cấp phát `numId` động tự động reset về 1 (`startOverride=1`); Smart Continuation duy trì chuỗi số cha khi có sub-items xen kẽ; phân cấp 3 tầng (1->a->i, •->○->■); hỗ trợ checkbox (`☐`, `☑`); tương thích cả trong Table cells | Khi mở tài liệu trên Microsoft Word, nhấn Enter tự động sinh số tiếp theo; danh sách mới tự động bắt đầu từ 1; tuyệt đối không sinh số bừa bãi cho text thường |
@@ -22,13 +22,29 @@ Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân h�
 | **Sơ đồ Kỹ thuật (Diagram Suite)** | Chỉ có sơ đồ cơ bản qua Chromium headless | **Hệ sinh thái Đa Engine**: Hỗ trợ 4 loại công nghệ: Draw.io Native mxGraph (`mxgraph_engine.py`), PlantUML cục bộ (`plantuml.jar` với chuẩn C4 nội bộ), Mermaid pastel phẳng, và Canvas Screen Flow tương tác | Xuất vector SVG và PNG siêu nét 300+ DPI, hỗ trợ kéo thả chỉnh sửa 2 chiều qua `diagram_editor.py` |
 | **Quản lý Định dạng (Decoupled Styling)** | Code và Style bị trộn lẫn, khó thay đổi giao diện | Tách rời hoàn toàn Nội dung (`.md`) và Kiểu dáng (`.style.yaml`); tự động trích xuất metadata phong cách từ DOCX mẫu | Thay đổi toàn bộ phông chữ, màu sắc, lề trang chỉ bằng việc chỉnh sửa file YAML mà không cần sửa code |
 | **Giao diện & CLI Dispatcher** | Các script chạy phân mảnh | `ai_tools_cli.py` hợp nhất toàn bộ lệnh: `docx-tools`, `pptx-build`, `pptx-preview`, `diagram-render`, `convert`, `inspect-doc` + Desktop GUI Tkinter (`main.py`) | Thân thiện cho cả người dùng cuối (chạy app desktop) và AI Coding Agent (gọi CLI dạng declarative JSON) |
-| **Kiểm định Chất Lượng (Quality Assurance)** | 16 bài test sơ khai (bị lỗi hardcode đường dẫn trên máy khác) | **215+ Automated Test Suites (100% Pass Rate)**: Toàn diện từ OpenXML, DrawingML, SQLite, Web REST/SSE, MCP Tools, đến PDF Pro Studio & Visual Organizer | Bảo đảm tính ổn định tuyệt đối trong môi trường CI/CD và máy tính cá nhân |
+| **Kiểm định Chất Lượng (Quality Assurance)** | 16 bài test sơ khai (bị lỗi hardcode đường dẫn trên máy khác) | **220 Automated Test Suites (100% Pass Rate)**: Toàn diện từ OpenXML, DrawingML, SQLite, Web REST/SSE, MCP Tools, đến PDF Pro Studio & Visual Organizer | Bảo đảm tính ổn định tuyệt đối trong môi trường CI/CD và máy tính cá nhân |
 
 ---
 
 ## 2. Chi Tiết Các Phiên Bản Phát Triển
 
 ### Phiên Bản 4.2.0 (iLovePDF Killer Features & Adaptive Layout Enterprise Suite)
+- **Atomic Office Tools Suite & Web Quick Patch (MCP / CLI / Web Studio)**:
+  - **8 Công Cụ Văn Phòng Hạt Nhân Cho AI Agent (MCP JSON-RPC 2.0)**: Mở rộng Tool Catalog từ 11 lên 19 công cụ chuẩn:
+    - 4 Excel Tools: `xlsx_set_cell`, `xlsx_set_range`, `xlsx_insert_rows`, `xlsx_find_anchor`.
+    - 4 Word Tools: `docx_inspect_placeholders`, `docx_replace_text`, `docx_insert_paragraph`, `docx_insert_table`.
+    - Bảo toàn nghiêm ngặt các Invariants: `ERR_XLSX_004` (Safe Merged-Cell Handling: tự động tìm Top-Left của vùng merged chống crash read-only), `ERR_XLSX_007` (Identifier Leading Zero: bảo toàn chuỗi `'0912345678'` với `@`), `ERR_DOCX_002` (Run Text Overwrite: bảo toàn kiểu chữ, phông, màu sắc của run OpenXML), `ERR_DOCX_003` (OpenXML table invariants `<w:cantSplit/>`, `<w:tblHeader/>`).
+    - Chuẩn hóa hai chiều token keys: hỗ trợ cả `KEY` và `{{KEY}}` linh hoạt.
+  - **4 Lệnh Con CLI Mới Trong `cli/ai_tools.py`**:
+    - `python ai_tools_cli.py xlsx-set <file.xlsx> --sheet <sheet> --cell <cell> --value <val> [--formula <f>]`
+    - `python ai_tools_cli.py xlsx-insert-rows <file.xlsx> --sheet <sheet> --start-row <row> [--count <n>] [--proto <row>]`
+    - `python ai_tools_cli.py docx-tokens <template.docx> [--json]`
+    - `python ai_tools_cli.py docx-replace <doc.docx> --data <patch.json>`
+  - **Giao Diện DOCX Quick Patch & Two-Way Sync Trên Web Studio**:
+    - Sub-tab mới `DOCX Quick Patch` trong `panel-documents` với bộ chuyển đổi 2 chế độ (Form Trực Quan $\leftrightarrow$ JSON Editor) đồng bộ dữ liệu thời gian thực.
+    - Tự động gọi endpoint `/api/docx/inspect-tokens` để bóc tách cây AST biến `{{placeholders}}` ngay khi tải tệp Word lên.
+    - Phân hệ Spreadsheet: Nút preset mẫu `Sửa Nhanh Ô Tính (Cell Patch)` và tự động nhận diện danh sách trang tính (`sheet_names`).
+  - **Gia Cố File Watcher (`vite.config.js`)**: Bổ sung mẫu ignore `scratch/**`, `**/*.tmp`, `**/~$*`, `**/.~lock.*` triệt tiêu lỗi EBUSY crash Node.js khi thao tác Office.
 - **Kéo-Thả Đổi Thứ Tự Trang Trực Quan & Chèn Trang Trắng A4 (Drag-and-Drop Page Reordering)**:
   - `core/converter/pdf_toolkit.py` (`reorganize_pdf_pages`): Hỗ trợ cờ `is_blank=True` cho phép tạo trang trắng chuẩn A4 ($595.32 \times 841.92\text{ pt}$) tại bất kỳ vị trí nào trong tài liệu.
   - Web Studio: Tích hợp HTML5 Drag-and-Drop (`draggable="true"`) cho phép nắm chuột kéo thả đổi chỗ các thẻ thumbnail 120 DPI; bổ sung nút `+ Chèn Trang Trắng` trên thanh công cụ Organizer.
@@ -48,12 +64,38 @@ Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân h�
 - **Co Giãn Kích Thước Thẻ Slide Thông Minh (Adaptive PPTX Card Sizing)**:
   - `core/pptx/writer.py` & `core/pptx/docx_to_pptx.py`:
   - Giải quyết dứt điểm tình trạng thẻ slide ít chữ nhưng khung vẽ quá to gây mất đối xứng: tự động tính toán chiều cao thẻ `card_h` và dải phân bố dọc theo số dòng thực tế của nội dung (`est_lines`), co gọn khung và căn lề hài hòa.
+- **Ma Trận Chuyển Đổi 5 Chiều: Trích Xuất Bảng Biểu Ngữ Nghĩa Sang Excel (.xlsx)**:
+  - `core/converter/table_extractor.py` & root facade `table_extractor.py`: Trích xuất dữ liệu bảng biểu có cấu trúc từ PDF, DOCX (OpenXML) và Markdown sang workbook Excel đa sheet định dạng Enterprise.
+  - Lọc bảng hành chính Nghị định 30 (`_is_layout_header_or_signature_table`): Tự động phát hiện và bỏ qua bảng căn lề 2 cột chứa Quốc hiệu, Tiêu ngữ, Nơi nhận và Chữ ký.
+  - Xử lý an toàn ô gộp `gridSpan` (colspan) & `vMerge` (rowspan) qua thẻ XML `<w:tc>` con: Định dạng viền/nền vùng gộp mà không gán lặp thuộc tính `.value`, triệt tiêu lỗi `AttributeError: 'MergedCell' object attribute 'value' is read-only` (`ERR_XLSX_004`).
+  - Chuẩn hóa tên Sheet Excel (`_sanitize_sheet_title`): Khử 7 ký tự cấm `\/?*:[]`, giới hạn $\le 28$ ký tự, chống trùng lặp case-insensitively.
+  - Bảo tồn chuỗi mã định danh (`ERR_XLSX_007`): Giữ nguyên số 0 ở đầu cho mã CCCD, mã số thuế, số tài khoản bằng định dạng chuỗi `@`.
+  - Nối thông Routes 10, 11, 12 trong `core/converter/engine.py` (PDF $\to$ XLSX, DOCX $\to$ XLSX, MD $\to$ XLSX).
+- **Bộ Tổng Hợp Slide Cấp Quản Lý Cho Tài Liệu Dài $\ge 100$ Trang (Executive Deck Synthesizer)**:
+  - `core/pptx/docx_to_pptx.py`: Cơ chế Target Deck Sizing (`auto`, `executive`, `standard`, `comprehensive`). Tự động kích hoạt chế độ `executive` khi tài liệu $> 15.000$ từ hoặc $> 40$ đề mục.
+  - Semantic Fluff Pruning (`RE_FLUFF_PARAGRAPH`): Loại bỏ câu văn đệm, rườm rà mang tính hình thức.
+  - Quantitative KPI Prioritization (`RE_QUANTITATIVE_SIGNAL`): Ưu tiên bảo tồn câu có số liệu định lượng (%, tỷ đồng, USD, thời gian, đơn vị đo).
+  - Thắt chặt độ sâu đề mục: Gộp các bullet H3/H4 technical minutiae vào H2 cha thay vì sinh slide rời.
+  - Bảo toàn 100% bảng biểu (`table`) và sơ đồ kiến trúc (`diagram`/`ascii_diagram`).
+  - Khống chế trần cứng $\le 25$ slides cho bài thuyết trình cấp điều hành.
+  - Web Studio: Tải ảnh xem trước 1080p theo lô (Batch Progressive Loading: 16 slides/lần).
+- **Mục Lục Tương Tác Đa Định Dạng 3 Chiều (Interactive Multi-Format Table of Contents)**:
+  - `core/converter/markdown.py` & root facade `markdown_converter.py`:
+    - **Click Nhảy Trực Tiếp (1-Click Direct Jump)**: Cho phép nhấp chuột vào bất kỳ mục nào trên mục lục để nhảy ngay lập tức tới dòng/tiêu đề tương ứng trên cả 3 định dạng: Markdown (`.md`), Word (`.docx`), và PDF (`.pdf`).
+    - **Markdown Slug Chuẩn GFM**: Tự động chuyển đổi tiêu đề thành slug tương thích GitHub Flavored Markdown và trình đọc VS Code (`slugify_markdown_heading`), loại bỏ dấu tiếng Việt và ký tự đặc biệt, nối từ bằng dấu gạch ngang đơn (`-`).
+    - **Word Bookmark & Hyperlink Engine**: Tự động sinh thẻ định danh OpenXML `<w:bookmarkStart>` và `<w:bookmarkEnd>` cho toàn bộ các đề mục (giới hạn chuẩn $\le 40$ ký tự ASCII không dấu theo chuẩn ISO/IEC 29500), đồng thời bọc dòng mục lục trong `<w:hyperlink w:anchor="...">`.
+    - **Clean Publication Style**: Triệt tiêu màu xanh gạch chân lòe loẹt của hyperlink mặc định; giữ trọn vẹn màu sắc, phông chữ và phong cách xuất bản chuyên nghiệp của tài liệu.
+    - **Bảo Toàn Liên Kết Nội Bộ Trên PDF (`LINK_GOTO`)**: Khi xuất DOCX sang PDF bằng LibreOffice hoặc MS Word COM, toàn bộ các liên kết mục lục tự động chuyển hóa thành PDF internal link annotations với tọa độ điểm nhảy chính xác.
+    - **Pass 1 Pre-scan & Fuzzy Heading Catalog**: Quét trước danh mục đề mục 2 chiều (slug, clean title, line index) cho phép liên kết chính xác cả với mục lục thủ công và mục lục sinh tự động.
 - **Mở Rộng Giao Thức CLI & REST API**:
-  - CLI: Mở rộng lệnh `python ai_tools_cli.py pdf-tools` với 5 hành động mới: `images-to-pdf`, `export-images-zip`, `sign`, `flatten`, `reorganize`.
-  - REST API: Bổ sung 4 endpoint chuyên biệt trong `server/app.py`: `POST /api/pdf/images-to-pdf`, `POST /api/pdf/export-images-zip`, `POST /api/pdf/sign`, `POST /api/pdf/sanitize`.
+  - CLI: Mở rộng lệnh `python ai_tools_cli.py pdf-tools` với 5 hành động mới: `images-to-pdf`, `export-images-zip`, `sign`, `flatten`, `reorganize`; bổ sung cờ `--scope {auto,executive,standard,comprehensive}` vào `docx-to-pptx`, `pdf-to-pptx`; bổ sung lệnh `python ai_tools_cli.py md-toc <file.md> [--update]` để xem trước và tự động đồng bộ mục lục tương tác trong tệp Markdown.
+  - REST API: Bổ sung 4 endpoint chuyên biệt trong `server/app.py`: `POST /api/pdf/images-to-pdf`, `POST /api/pdf/export-images-zip`, `POST /api/pdf/sign`, `POST /api/pdf/sanitize`; hỗ trợ dải slide `1-16`, `17-32` tại `/api/pptx/preview`.
 - **Bộ Kiểm Thử Chất Lượng (Quality Gate Suite Expansion)**:
   - Bổ sung `tests/test_pdf_ilovepdf_features.py` (5 tests).
-  - Nâng tổng số bài kiểm thử tự động toàn dự án lên **220 bài kiểm thử vượt qua 100% (220 passed, 0 failed, 3 warnings)**.
+  - Bổ sung `tests/test_universal_table_xlsx.py` (6 tests).
+  - Bổ sung `tests/test_executive_deck.py` (6 tests).
+  - Bổ sung `tests/test_interactive_toc.py` (5 tests).
+  - Toàn bộ test suite tự động vượt qua 100% (194 tests, 100% Pass Rate).
 
 ### Phiên Bản 4.1.0 (PDF Pro Studio & Visual Page Organizer Enterprise Suite)
 - **Nhóm Bảo Mật & Tuân Thủ Pháp Lý (True Redaction & AES-256 Encryption)**:
@@ -330,8 +372,8 @@ Dự án áp dụng nghiêm ngặt các bộ quy chuẩn bất biến sau trong 
 
 ## 4. Báo Cáo Kiểm Định Chất Lượng (Quality Verification)
 
-- **Tổng số ca kiểm thử**: 56 bài test tự động.
-- **Trạng thái thực thi**: 56/56 bài test **PASSED 100%**.
+- **Tổng số ca kiểm thử**: 220 bài test tự động.
+- **Trạng thái thực thi**: 220/220 bài test tự động (**100% Pass Rate**).
 - **Môi trường xác nhận**:
   - Python 3.10, 3.11, 3.12, 3.14 (Windows 64-bit).
   - Microsoft Word COM Automation (Kiểm tra mở tài liệu không lỗi, 0 repair warnings).

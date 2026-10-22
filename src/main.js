@@ -46,6 +46,10 @@ import {
   Box,
 } from 'lucide';
 
+import { DIAGRAM_PRESETS } from './modules/constants.js';
+import { initHistoryDrawer } from './modules/history_drawer.js';
+import { initMathStudio } from './modules/math_studio.js';
+
 const studioIcons = {
   Sparkles,
   Presentation,
@@ -129,232 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
     diagramCode: '',
   };
 
-  // Preset Diagram Templates (12 Standard Technical Types)
-  const DIAGRAM_PRESETS = {
-    mermaid_sequence: `sequenceDiagram
-  autonumber
-  actor User as Khách Hàng
-  participant Web as Web Studio (Vite)
-  participant API as Python API Server
-  participant Engine as Office Engine (OpenXML)
-
-  User->>Web: Tải lên tài liệu<br/>PDF / DOCX
-  Web->>API: POST /api/upload<br/>(Multipart)
-  API-->>Web: Trả về file_path<br/>& metadata
-  Web->>API: POST /api/pdf-to-pptx<br/>(Theme: Thesis Blue)
-  API->>Engine: Bóc tách AST &<br/>Render 16:9 Slide
-  Engine-->>API: Trả về tệp<br/>presentation.pptx
-  API-->>Web: 200 OK + Spec JSON<br/>& Tải Tệp
-  Web-->>User: Hiển thị bộ thẻ Slide<br/>& Nút Tải Về`,
-
-    plantuml_c4: `@startuml
-!include <C4/C4_Context>
-title Sơ Đồ Kiến Trúc Hệ Thống (C4 Context)
-
-Person(user, "Chuyên Viên / Giảng Viên", "Người soạn thảo tài liệu kỹ thuật & slide thuyết trình")
-System(studio, "Antigravity Office Studio", "Nền tảng chuyển đổi tài liệu & biên tập slide đa năng")
-System_Ext(ms_office, "Microsoft Office / 365", "Đọc và trình chiếu tệp PPTX, DOCX chuẩn OpenXML")
-System_Ext(pdf_reader, "Trình Đọc PDF", "Hiển thị tài liệu phân giải cao 300+ DPI")
-
-Rel(user, studio, "Tải lên DOCX/PDF & Tùy chọn Theme")
-Rel(studio, ms_office, "Xuất bản tệp 16:9 Zero-Overflow")
-Rel(studio, pdf_reader, "Xuất bản PDF chất lượng cao")
-@enduml`,
-
-    mermaid_erd: `erDiagram
-  DOCUMENT ||--o{ SLIDE : contains
-  SLIDE ||--o{ BLOCK : composed_of
-  BLOCK ||--o| TABLE_DATA : renders
-  DOCUMENT {
-    string id PK
-    string filename
-    string original_format
-    int page_count
-  }
-  SLIDE {
-    int slide_index PK
-    string title
-    string layout_type
-    string background_color
-  }
-  BLOCK {
-    string block_id PK
-    string block_type
-    string content
-  }
-  TABLE_DATA {
-    string table_id PK
-    int row_count
-    int col_count
-  }`,
-
-    mermaid_flowchart: `flowchart TD
-  Start([Bắt Đầu Tiến Trình]) --> Step1[Nhận Yêu Cầu Xử Lý Tài Liệu]
-  Step1 --> Check{"Kiểm Tra Hợp Lệ?"}
-  Check -->|Hợp Lệ| Process[Tiến Hành Bóc Tách OpenXML AST]
-  Check -->|Không Hợp Lệ| Error[Thông Báo Lỗi Định Dạng]
-  Process --> DB[(Ghi Dữ Liệu Vào DB)]
-  DB --> Success([Hoàn Tất & Xuất Bản 300+ DPI])
-  Error --> EndFail([Kết Thúc Thất Bại])`,
-
-    plantuml_usecase: `@startuml
-left to right direction
-actor "Khách Hàng" as User
-actor "Quản Trị Viên" as Admin
-
-rectangle "Hệ Thống Office Studio" {
-  usecase "Tải Lên Tài Liệu" as UC1
-  usecase "Chuyển Đổi DOCX sang PPTX" as UC2
-  usecase "Kiểm Tra Lỗi QA 12 Cổng" as UC3
-  usecase "Cấu Hình Theme Trình Bày" as UC4
-  usecase "Quản Lý Người Dùng" as UC5
-}
-
-User --> UC1
-User --> UC2
-User --> UC3
-UC2 ..> UC4 : <<include>>
-Admin --> UC3
-Admin --> UC5
-@enduml`,
-
-    plantuml_swimlane: `@startuml
-|Người Dùng|
-start
-:Tải lên tệp Word/PDF;
-
-|Hệ Thống Web Studio|
-:Tiếp nhận và lưu trữ tạm thời;
-:Gửi yêu cầu phân tích tới API;
-
-|Bộ Máy Xử Lý Office Engine|
-:Phân tích cấu trúc bảng & styles;
-if (Bảng vượt quá lề in?) then (Có)
-  :Tự động căn chỉnh độ rộng cột;
-else (Không)
-  :Giữ nguyên bố cục;
-endif
-:Tạo tài liệu PPTX 16:9;
-
-|Hệ Thống Web Studio|
-:Trả về đường dẫn tải tệp;
-
-|Người Dùng|
-:Tải về và kiểm tra tài liệu;
-stop
-@enduml`,
-
-    mermaid_state: `stateDiagram-v2
-  [*] --> Draft : Tạo mới tài liệu
-  Draft --> InReview : Nộp bản thảo
-  InReview --> Approved : Duyệt hợp lệ
-  InReview --> Rejected : Yêu cầu sửa đổi
-  Rejected --> Draft : Chỉnh sửa nội dung
-  Approved --> Published : Xuất bản 300 DPI
-  Published --> Archived : Lưu trữ hệ thống
-  Archived --> [*]`,
-
-    plantuml_class: `@startuml
-class DocumentNode {
-  +String id
-  +int pageIndex
-  +render(): Image
-}
-
-class SlideModel {
-  +String title
-  +String themeName
-  +List<CardDef> cards
-  +buildPresentation(): void
-}
-
-class TableModel {
-  +int rowCount
-  +int colCount
-  +applyOpenXmlInvariants(): void
-}
-
-DocumentNode <|-- SlideModel
-DocumentNode <|-- TableModel
-@enduml`,
-
-    mermaid_mindmap: `mindmap
-  root((Office Studio))
-    Document Processing
-      PDF Lossless
-      DOCX Repair
-      Markdown AST
-    Technical Diagrams
-      Mermaid
-      PlantUML C4
-      Draw.io mxGraph
-      SVG Canvas Spec
-    Presentations
-      16:9 Widescreen
-      Thesis Themes
-      Auto-Card Layout`,
-
-    canvas_flow: JSON.stringify({
-      "canvas": { "width": 1400, "height": 770 },
-      "nodes": [
-        { "id": "user", "title": "Client Actor", "type": "actor", "x": 80, "y": 280, "width": 70, "height": 100, "icon": "user" },
-        { "id": "gateway", "title": "API Gateway", "type": "primary", "x": 260, "y": 290, "width": 180, "height": 80, "icon": "shield" },
-        { "id": "decision", "title": "Auth Valid?", "type": "decision", "x": 540, "y": 280, "width": 140, "height": 100 },
-        { "id": "cloud_svc", "title": "External Cloud AI", "type": "cloud", "x": 780, "y": 120, "width": 180, "height": 90, "icon": "cloud" },
-        { "id": "doc_worker", "title": "Document Worker", "type": "component", "x": 780, "y": 300, "width": 180, "height": 80, "icon": "server" },
-        { "id": "msg_queue", "title": "Async Task Queue", "type": "queue", "x": 780, "y": 480, "width": 180, "height": 70 },
-        { "id": "database", "title": "Primary Database", "type": "database", "x": 1080, "y": 300, "width": 140, "height": 90, "icon": "database" },
-        { "id": "finish", "title": "Completed", "type": "terminator", "x": 1080, "y": 490, "width": 140, "height": 60, "icon": "zap" }
-      ],
-      "edges": [
-        { "source": "user", "target": "gateway", "label": "Gửi Yêu Cầu", "exit_port": "right", "entry_port": "left" },
-        { "source": "gateway", "target": "decision", "label": "Xác Thực JWT", "exit_port": "right", "entry_port": "left" },
-        { "source": "decision", "target": "cloud_svc", "label": "AI Prompt", "exit_port": "top", "entry_port": "left" },
-        { "source": "decision", "target": "doc_worker", "label": "Hợp Lệ", "exit_port": "right", "entry_port": "left" },
-        { "source": "decision", "target": "msg_queue", "label": "Hàng Đợi Batch", "exit_port": "bottom", "entry_port": "left" },
-        { "source": "doc_worker", "target": "database", "label": "Ghi AST OpenXML", "exit_port": "right", "entry_port": "left" },
-        { "source": "msg_queue", "target": "finish", "label": "Hoàn Tất Xử Lý", "exit_port": "right", "entry_port": "left" }
-      ]
-    }, null, 2),
-
-    drawio_overview: `<mxfile host="Antigravity Studio" version="21.0.0">
-  <diagram id="arch" name="Enterprise Architecture">
-    <mxGraphModel dx="1400" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="800" background="#FFFFFF">
-      <root>
-        <mxCell id="0"/>
-        <mxCell id="1" parent="0"/>
-        <mxCell id="actor1" value="End User" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#FFFFFF;strokeColor=#1E293B;strokeWidth=1.8;" vertex="1" parent="1">
-          <mxGeometry x="120" y="240" width="60" height="90" as="geometry"/>
-        </mxCell>
-        <mxCell id="hub" value="Antigravity Gateway Hub" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0051E2;strokeColor=#003DB3;fontColor=#FFFFFF;fontStyle=1;fontSize=14;" vertex="1" parent="1">
-          <mxGeometry x="320" y="250" width="220" height="70" as="geometry"/>
-        </mxCell>
-        <mxCell id="dec1" value="Is Valid?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#D97706;strokeWidth=1.8;fontSize=13;" vertex="1" parent="1">
-          <mxGeometry x="640" y="240" width="130" height="90" as="geometry"/>
-        </mxCell>
-        <mxCell id="cloud1" value="External AI Cloud" style="ellipse;shape=cloud;whiteSpace=wrap;html=1;fillColor=#F8FAFC;strokeColor=#0284C7;strokeWidth=1.8;fontSize=13;" vertex="1" parent="1">
-          <mxGeometry x="900" y="110" width="180" height="95" as="geometry"/>
-        </mxCell>
-        <mxCell id="db1" value="PostgreSQL DB" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#F8FAFC;strokeColor=#2563EB;strokeWidth=1.8;fontSize=13;" vertex="1" parent="1">
-          <mxGeometry x="920" y="360" width="140" height="100" as="geometry"/>
-        </mxCell>
-        <mxCell id="e1" edge="1" parent="1" source="actor1" target="hub" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.8;strokeColor=#475569;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
-          <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-        <mxCell id="e2" edge="1" parent="1" source="hub" target="dec1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.8;strokeColor=#475569;exitX=1;exitY=0.5;entryX=0;entryY=0.5;">
-          <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-        <mxCell id="e3" value="AI Request" edge="1" parent="1" source="dec1" target="cloud1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.8;strokeColor=#0284C7;exitX=0.5;exitY=0;entryX=0;entryY=0.5;labelBackgroundColor=#ffffff;">
-          <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-        <mxCell id="e4" value="Store AST" edge="1" parent="1" source="dec1" target="db1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeWidth=1.8;strokeColor=#2563EB;exitX=0.5;exitY=1;entryX=0;entryY=0.5;labelBackgroundColor=#ffffff;">
-          <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-      </root>
-    </mxGraphModel>
-  </diagram>
-</mxfile>`,
-  };
+  // DIAGRAM_PRESETS imported from ./modules/constants.js
 
   // =========================================================================
   // 1. THEME CONTROLLER
@@ -609,6 +388,18 @@ DocumentNode <|-- TableModel
     });
   });
 
+  // Deck Scope selector radio buttons (Executive Deck Sizing)
+  const scopeCards = document.querySelectorAll('.scope-card');
+  scopeCards.forEach((card) => {
+    card.addEventListener('click', () => {
+      scopeCards.forEach((c) => c.classList.remove('active'));
+      card.classList.add('active');
+      const radio = card.querySelector('input[type="radio"]');
+      if (radio) radio.checked = true;
+      state.pptxDeckScope = card.getAttribute('data-scope-val') || 'auto';
+    });
+  });
+
   // Master Slide Template Selector
   const btnBrowseTemplate = document.getElementById('btn-browse-template');
   const pptxTemplateFileInput = document.getElementById('pptx-template-file-input');
@@ -721,6 +512,9 @@ DocumentNode <|-- TableModel
   state.pptxSlidePreviews = [];
   state.currentPreviewIndex = 0;
   state.activeDeckView = 'cards';
+  state.pptxDeckScope = 'auto';
+  state.totalSlideCount = 0;
+  state.previewBatchLoaded = 0;
 
   // Toggle View: Cards vs Gallery
   const deckViewSwitcher = document.getElementById('deck-view-switcher');
@@ -743,29 +537,42 @@ DocumentNode <|-- TableModel
     });
   });
 
-  // Export Slide Previews Action (1080p)
+  // Export Slide Previews Action (1080p) with Batch Progressive Loading
   const btnExportPreviews = document.getElementById('btn-export-previews');
   const galleryCountBadge = document.getElementById('gallery-count-badge');
+  const loadMoreContainer = document.getElementById('gallery-load-more-container');
+  const btnLoadMorePreviews = document.getElementById('btn-load-more-previews');
+  const loadMoreText = document.getElementById('load-more-text');
 
-  async function exportSlidePreviews() {
+  async function exportSlidePreviews(batchRange = null) {
     if (!state.currentPptxPath && !state.currentPptxFile) {
       showToast('Chưa có tệp PowerPoint để xuất ảnh xem trước!', 'error');
       return;
     }
 
-    if (btnExportPreviews) {
+    const total = state.totalSlideCount || 0;
+    const isBatchMode = total > 16;
+    let slidesArg = 'all';
+
+    if (batchRange) {
+      slidesArg = batchRange;
+    } else if (isBatchMode) {
+      slidesArg = '1-16';
+    }
+
+    if (btnExportPreviews && !batchRange) {
       btnExportPreviews.disabled = true;
       btnExportPreviews.innerHTML = '<span>⏳ Đang render 1080p...</span>';
     }
 
     try {
-      showToast('Đang xuất ảnh xem trước chuẩn 1080p bằng Win32 COM / headless...', 'info');
+      showToast(`Đang xuất ảnh xem trước (phạm vi: ${slidesArg}) chuẩn 1080p...`, 'info');
       const res = await fetch('/api/pptx/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           pptx_path: state.currentPptxPath || state.currentPptxFile,
-          slides: 'all',
+          slides: slidesArg,
         }),
       });
 
@@ -775,15 +582,36 @@ DocumentNode <|-- TableModel
       }
 
       const data = await res.json();
-      state.pptxSlidePreviews = data.previews || [];
+      const newPreviews = data.previews || [];
+
+      if (batchRange) {
+        state.pptxSlidePreviews = state.pptxSlidePreviews.concat(newPreviews);
+      } else {
+        state.pptxSlidePreviews = newPreviews;
+      }
+
+      state.previewBatchLoaded = state.pptxSlidePreviews.length;
       if (galleryCountBadge) galleryCountBadge.textContent = state.pptxSlidePreviews.length;
       renderSlideGallery(state.pptxSlidePreviews);
       setDeckView('gallery');
+
+      if (loadMoreContainer) {
+        if (total > state.previewBatchLoaded) {
+          loadMoreContainer.style.display = 'block';
+          if (loadMoreText) {
+            const nextBatchEnd = Math.min(state.previewBatchLoaded + 16, total);
+            loadMoreText.textContent = `Tải tiếp slides ${state.previewBatchLoaded + 1}–${nextBatchEnd} (còn ${total - state.previewBatchLoaded} slides)...`;
+          }
+        } else {
+          loadMoreContainer.style.display = 'none';
+        }
+      }
+
       showToast(`Đã xuất thành công ${state.pptxSlidePreviews.length} ảnh slide xem trước 1080p!`, 'success');
     } catch (err) {
       showToast(`Lỗi xuất ảnh xem trước: ${err.message}`, 'error');
     } finally {
-      if (btnExportPreviews) {
+      if (btnExportPreviews && !batchRange) {
         btnExportPreviews.disabled = false;
         btnExportPreviews.innerHTML = '<span><i data-lucide="images"></i> Xuất Thư Viện Ảnh (1080p)</span>';
         refreshLucideIcons();
@@ -792,7 +620,18 @@ DocumentNode <|-- TableModel
   }
 
   if (btnExportPreviews) {
-    btnExportPreviews.addEventListener('click', exportSlidePreviews);
+    btnExportPreviews.addEventListener('click', () => exportSlidePreviews());
+  }
+
+  if (btnLoadMorePreviews) {
+    btnLoadMorePreviews.addEventListener('click', async () => {
+      const start = state.previewBatchLoaded + 1;
+      const end = Math.min(state.previewBatchLoaded + 16, state.totalSlideCount || (start + 15));
+      btnLoadMorePreviews.disabled = true;
+      if (loadMoreText) loadMoreText.textContent = '⏳ Đang tải thêm slides...';
+      await exportSlidePreviews(`${start}-${end}`);
+      btnLoadMorePreviews.disabled = false;
+    });
   }
 
   // Render Slide Gallery Thumbnails
@@ -982,6 +821,7 @@ DocumentNode <|-- TableModel
 
         let payload = {
           theme: state.pptxTheme,
+          deck_scope: state.pptxDeckScope || 'auto',
           template_pptx: state.templateServerPath || null,
           template_path: state.templateServerPath || null,
           source_path: state.pptxServerPath,
@@ -1025,6 +865,8 @@ DocumentNode <|-- TableModel
 
         state.currentPptxFile = pptxFile;
         state.currentPptxPath = data.pptx_path;
+        state.totalSlideCount = (data.spec && data.spec.slides) ? data.spec.slides.length : (data.slides_count || 0);
+        state.previewBatchLoaded = 0;
         state.pptxSlidePreviews = [];
         if (galleryCountBadge) galleryCountBadge.textContent = '0';
         if (deckViewSwitcher) deckViewSwitcher.style.display = 'flex';
@@ -1331,7 +1173,23 @@ DocumentNode <|-- TableModel
     });
   }
 
-  function handleXlsxMutFile(file) {
+  const btnPresetCellPatch = document.getElementById('btn-preset-cell-patch');
+  const PRESET_MUT_CELL_PATCH = {
+    target_sheet: "F1",
+    cell_patches: [
+      { cell: "C7", value: 100 },
+      { cell: "D7", formula: "=SUM(D2:D6)" },
+      { cell: "E7", value: "Hoàn tất kiểm định" }
+    ]
+  };
+
+  if (btnPresetCellPatch && xlsxMutSpecInput) {
+    btnPresetCellPatch.addEventListener('click', () => {
+      xlsxMutSpecInput.value = JSON.stringify(PRESET_MUT_CELL_PATCH, null, 2);
+    });
+  }
+
+  async function handleXlsxMutFile(file) {
     if (!file) return;
     xlsxMutFile = file;
     xlsxMutServerPath = null;
@@ -1344,6 +1202,26 @@ DocumentNode <|-- TableModel
     if (xlsxMutFileInfo) xlsxMutFileInfo.style.display = 'flex';
     if (btnRunXlsxMutate) btnRunXlsxMutate.disabled = false;
     showToast(`Đã chọn template Excel: ${file.name}`, 'info');
+
+    // Auto-discover sheets to assist user
+    try {
+      const up = await uploadFileToServer(file);
+      xlsxMutServerPath = up.filepath || up.file_path || (up.first_file && up.first_file.file_path);
+      const readRes = await fetch('/api/xlsx/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file_path: xlsxMutServerPath, engine: 'openpyxl' })
+      });
+      if (readRes.ok) {
+        const readData = await readRes.json();
+        const sheetNames = readData.sheet_names || [];
+        if (sheetNames.length > 0) {
+          showToast(`Tìm thấy ${sheetNames.length} trang tính: ${sheetNames.slice(0, 3).join(', ')}${sheetNames.length > 3 ? '...' : ''}`, 'info', 3000);
+        }
+      }
+    } catch (e) {
+      // Non-blocking discovery
+    }
   }
 
   function clearXlsxMutFile() {
@@ -1705,6 +1583,7 @@ DocumentNode <|-- TableModel
 
   // Target Format Matrix Selection
   const matrixCards = document.querySelectorAll('.matrix-card');
+  const xlsxExtractionHint = document.getElementById('xlsx-extraction-hint');
   matrixCards.forEach((card) => {
     card.addEventListener('click', () => {
       matrixCards.forEach((c) => c.classList.remove('active'));
@@ -1712,6 +1591,9 @@ DocumentNode <|-- TableModel
       const radio = card.querySelector('input[type="radio"]');
       if (radio) radio.checked = true;
       state.targetFormat = card.getAttribute('data-target') || '.docx';
+      if (xlsxExtractionHint) {
+        xlsxExtractionHint.style.display = state.targetFormat === '.xlsx' ? 'flex' : 'none';
+      }
     });
   });
 
@@ -3276,384 +3158,346 @@ DocumentNode <|-- TableModel
     });
   }
 
-  // =========================================================================
-  // 10. HISTORY DRAWER & RECENT FILES CONTROLLER
-  // =========================================================================
-  const btnToggleHistory = document.getElementById('btn-toggle-history');
-  const btnCloseHistory = document.getElementById('btn-close-history');
-  const drawerBackdrop = document.getElementById('drawer-backdrop');
-  const historyDrawer = document.getElementById('history-drawer');
-  const btnClearHistory = document.getElementById('btn-clear-history');
-  const historyListContainer = document.getElementById('history-list-container');
-  const historyBadgeCount = document.getElementById('history-badge-count');
+  // -------------------------------------------------------------------------
+  // SUB-TAB 7: DOCX QUICK PATCH & INSPECTOR (Two-Way Sync Controller)
+  // -------------------------------------------------------------------------
+  function initDocxQuickPatch() {
+    const patchDropZone = document.getElementById('doc-patch-drop-zone');
+    const patchFileInput = document.getElementById('doc-patch-file-input');
+    const btnBrowsePatch = document.getElementById('btn-browse-doc-patch');
+    const patchFileInfo = document.getElementById('doc-patch-file-info');
+    const patchFileName = document.getElementById('doc-patch-file-name');
+    const patchFileSize = document.getElementById('doc-patch-file-size');
+    const btnRemovePatch = document.getElementById('btn-remove-doc-patch');
 
-  function openHistoryDrawer() {
-    if (historyDrawer) historyDrawer.classList.add('open');
-    if (drawerBackdrop) drawerBackdrop.classList.add('active');
-    loadHistory();
-  }
+    const btnToggleMode = document.getElementById('btn-toggle-patch-mode');
+    const toggleLabel = document.getElementById('toggle-patch-mode-label');
+    const formView = document.getElementById('doc-patch-form-view');
+    const formContainer = document.getElementById('doc-patch-form-container');
+    const jsonView = document.getElementById('doc-patch-json-view');
+    const jsonInput = document.getElementById('doc-patch-json-input');
 
-  function closeHistoryDrawer() {
-    if (historyDrawer) historyDrawer.classList.remove('open');
-    if (drawerBackdrop) drawerBackdrop.classList.remove('active');
-  }
+    const btnRunPatch = document.getElementById('btn-run-docx-patch');
+    const progressContainer = document.getElementById('doc-patch-progress-container');
+    const progressFill = document.getElementById('doc-patch-progress-fill');
+    const progressStatus = document.getElementById('doc-patch-progress-status');
 
-  if (btnToggleHistory) btnToggleHistory.addEventListener('click', openHistoryDrawer);
-  if (btnCloseHistory) btnCloseHistory.addEventListener('click', closeHistoryDrawer);
-  if (drawerBackdrop) drawerBackdrop.addEventListener('click', closeHistoryDrawer);
+    const statsBox = document.getElementById('doc-patch-stats-box');
+    const tokenCount = document.getElementById('doc-patch-token-count');
+    const tokensPillList = document.getElementById('doc-patch-tokens-pill-list');
 
-  function getTaskTypeIcon(taskType) {
-    switch (taskType) {
-      case 'convert': return '<i data-lucide="refresh-cw"></i>';
-      case 'docx_to_pptx': return '<i data-lucide="presentation"></i>';
-      case 'pdf_to_pptx': return '<i data-lucide="file-check"></i>';
-      case 'diagram_render': return '<i data-lucide="network"></i>';
-      case 'math_export': return '<i data-lucide="sigma"></i>';
-      case 'mutate_excel': return '<i data-lucide="table"></i>';
-      default: return '<i data-lucide="file-text"></i>';
-    }
-  }
+    const emptyState = document.getElementById('doc-patch-empty-state');
+    const resultBox = document.getElementById('doc-patch-result-box');
+    const resultFilename = document.getElementById('doc-patch-result-filename');
+    const resultTime = document.getElementById('doc-patch-result-time');
+    const btnDownload = document.getElementById('btn-download-docx-patched');
 
-  async function loadHistory() {
-    try {
-      const res = await fetch('/api/history');
-      if (!res.ok) return;
-      const data = await res.json();
-      const items = data.items || [];
+    let currentFile = null;
+    let serverPath = null;
+    let patchData = {};
+    let isJsonMode = false;
 
-      if (historyBadgeCount) {
-        historyBadgeCount.textContent = items.length;
-      }
-
-      if (!historyListContainer) return;
-
-      if (items.length === 0) {
-        historyListContainer.innerHTML = `
-          <div class="history-empty" id="history-empty-state">
-            <span class="empty-icon"><i data-lucide="folder-open"></i></span>
-            <p>Chưa có tệp nào được xử lý gần đây.</p>
+    function renderFormFields() {
+      if (!formContainer) return;
+      const keys = Object.keys(patchData);
+      if (keys.length === 0) {
+        formContainer.innerHTML = `
+          <div style="padding: 14px; text-align: center; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px dashed var(--border-color, rgba(255,255,255,0.1));">
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 10px;">
+              Chưa phát hiện biến tự động. Bạn có thể thêm trường dữ liệu tùy chỉnh hoặc nhập JSON.
+            </p>
+            <button type="button" class="btn-sm-ghost" id="btn-add-custom-patch-key">
+              <i data-lucide="plus"></i> <span>+ Thêm Biến Mới</span>
+            </button>
           </div>
         `;
+        const btnAdd = formContainer.querySelector('#btn-add-custom-patch-key');
+        if (btnAdd) {
+          btnAdd.addEventListener('click', () => {
+            const newKey = prompt('Nhập tên biến (VD: HO_TEN hoặc {{HO_TEN}}):');
+            if (newKey) {
+              const cleanKey = newKey.trim();
+              patchData[cleanKey] = '';
+              syncToUi();
+            }
+          });
+        }
         refreshLucideIcons();
         return;
       }
 
-      historyListContainer.innerHTML = items.map((item) => {
-        const icon = getTaskTypeIcon(item.task_type);
-        const sizeStr = item.file_size > 0 ? formatBytes(item.file_size) : '';
-        const dateStr = item.created_at || '';
-        const downloadUrl = item.download_url || `/api/download/${item.output_filename}`;
-
+      formContainer.innerHTML = keys.map((key) => {
+        const displayLabel = key.startsWith('{{') ? key : `{{${key}}}`;
+        const val = patchData[key] || '';
         return `
-          <div class="history-item-card" data-id="${item.id}">
-            <div class="history-item-info">
-              <div class="history-item-title" title="${item.output_filename}">
-                ${icon} ${item.output_filename}
-              </div>
-              <div class="history-item-meta">
-                <span class="history-item-type-badge">${item.task_type}</span>
-                ${sizeStr ? `<span>${sizeStr}</span> • ` : ''}
-                <span>${dateStr}</span>
-              </div>
+          <div class="form-group" style="margin-bottom: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <label class="form-label" style="margin: 0; font-family: var(--font-mono, monospace); font-weight: 600; color: var(--accent-color, #38bdf8); font-size: 0.85rem;">
+                ${displayLabel}
+              </label>
+              <button type="button" class="btn-remove-patch-row" data-key="${key}" title="Xóa biến này" style="background: none; border: none; color: #ef4444; cursor: pointer; padding: 2px;">
+                <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+              </button>
             </div>
-            <div class="history-item-ops">
-              <a href="${downloadUrl}" class="btn-hist-action" title="Tải xuống tệp" download="${item.output_filename}"><i data-lucide="download"></i></a>
-              <button class="btn-hist-action danger btn-delete-single-history" data-id="${item.id}" title="Xóa lịch sử"><i data-lucide="trash-2"></i></button>
-            </div>
+            <input type="text" class="form-input patch-field" data-key="${key}" value="${String(val).replace(/"/g, '&quot;')}" placeholder="Nhập giá trị thay thế cho ${displayLabel}..." />
           </div>
         `;
       }).join('');
-      refreshLucideIcons();
 
-      // Attach delete handlers
-      const deleteButtons = historyListContainer.querySelectorAll('.btn-delete-single-history');
-      deleteButtons.forEach((btn) => {
-        btn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          const id = btn.getAttribute('data-id');
-          if (!id) return;
-          try {
-            const delRes = await fetch(`/api/history/${id}`, { method: 'DELETE' });
-            if (delRes.ok) {
-              loadHistory();
-            }
-          } catch (err) {
-            console.error('Lỗi khi xóa mục lịch sử:', err);
+      // Wire change events
+      formContainer.querySelectorAll('.patch-field').forEach((input) => {
+        input.addEventListener('input', (e) => {
+          const k = e.target.getAttribute('data-key');
+          patchData[k] = e.target.value;
+          if (jsonInput) {
+            jsonInput.value = JSON.stringify(patchData, null, 2);
           }
         });
       });
 
-    } catch (err) {
-      console.error('Lỗi khi tải lịch sử:', err);
-    }
-  }
-
-  if (btnClearHistory) {
-    btnClearHistory.addEventListener('click', async () => {
-      if (!confirm('Bạn có chắc chắn muốn xóa toàn bộ lịch sử không?')) return;
-      try {
-        const res = await fetch('/api/history', { method: 'DELETE' });
-        if (res.ok) {
-          loadHistory();
-          showToast('Đã xóa sạch lịch sử chuyển đổi!', 'info');
-        }
-      } catch (err) {
-        showToast('Không thể xóa lịch sử', 'error');
-      }
-    });
-  }
-
-  // Load history count on startup
-  loadHistory();
-
-  // =========================================================================
-  // 11. TAB 5: MATH & EQUATION STUDIO CONTROLLER
-  // =========================================================================
-  const mathDocTitle = document.getElementById('math-doc-title');
-  const mathPresetSelect = document.getElementById('math-preset-select');
-  const mathLatexInput = document.getElementById('math-latex-input');
-  const btnExportMathDocx = document.getElementById('btn-export-math-docx');
-  const previewPaperTitle = document.getElementById('preview-paper-title');
-  const previewPaperContent = document.getElementById('preview-paper-content');
-  const mathDownloadActions = document.getElementById('math-download-actions');
-  const btnDownloadMathDocx = document.getElementById('btn-download-math-docx');
-  const symbolButtons = document.querySelectorAll('.btn-symbol');
-
-  const MATH_PRESETS = {
-    kinematics: `Vận tốc dài và gia tốc tiếp tuyến của cơ cấu truyền động được mô tả bởi:
-$$v(t) = v_{ref} + a \\cdot t$$
-Trong đó vận tốc góc thỏa mãn quan hệ:
-$$\\omega = 2\\pi f = \\frac{v}{r}$$
-Với góc lệch cực đại $\\Delta \\theta \\le 5^{\\degree}$ và gia tốc trọng trường $g \\approx 9.81\\text{ m/s}^{2}$.`,
-
-    physics: `Công suất tiêu thụ danh định của động cơ điện:
-$$P = U \\cdot I \\cdot \\cos(\\phi)$$
-Năng lượng tích lũy trong cuộn cảm và tụ điện:
-$$W_L = \\frac{1}{2} L \\cdot I^2$$
-$$W_C = \\frac{1}{2} C \\cdot U^2$$
-Với dung sai điện áp cho phép $\\pm 5\\%$.`,
-
-    calculus: `Đạo hàm bậc nhất theo định nghĩa giới hạn vi phân:
-$$f'(x) = \\lim_{\\Delta x \\to 0} \\frac{f(x + \\Delta x) - f(x)}{\\Delta x}$$
-Tích phân diện tích dưới đường cong chuẩn hóa:
-$$S = \\int_{a}^{b} \\sqrt{1 + [f'(x)]^2} \\, dx$$`,
-
-    circle: `Diện tích và chu vi hình tròn bán kính $R$:
-$$S = \\pi R^{2}$$
-$$C = 2\\pi R$$
-Bán kính hiệu dụng đối với tiết diện vành khuyên:
-$$R_{eff} = \\sqrt{R_1^2 - R_2^2}$$`,
-  };
-
-  // Helper to replace LaTeX tokens with HTML elements
-  function formatLatexToHtml(latex) {
-    if (!latex) return '';
-
-    const replacements = [
-      [/\\alpha/g, 'α'],
-      [/\\beta/g, 'β'],
-      [/\\gamma/g, 'γ'],
-      [/\\delta/g, 'δ'],
-      [/\\Delta/g, 'Δ'],
-      [/\\omega/g, 'ω'],
-      [/\\Omega/g, 'Ω'],
-      [/\\pi/g, 'π'],
-      [/\\sigma/g, 'σ'],
-      [/\\theta/g, 'θ'],
-      [/\\mu/g, 'μ'],
-      [/\\lambda/g, 'λ'],
-      [/\\phi/g, 'ϕ'],
-      [/\\Phi/g, 'Φ'],
-      [/\\approx/g, '≈'],
-      [/\\le/g, '≤'],
-      [/\\ge/g, '≥'],
-      [/\\pm/g, '±'],
-      [/\\cdot/g, '·'],
-      [/\\degree/g, '°'],
-      [/\\lim/g, 'lim'],
-      [/\\cos/g, 'cos'],
-      [/\\sin/g, 'sin'],
-      [/\\int/g, '∫'],
-      [/\\to/g, '→'],
-    ];
-
-    let s = latex;
-
-    // Apply token replacements first so symbols inside fractions or sub/sup are converted
-    for (const [pattern, repl] of replacements) {
-      s = s.replace(pattern, repl);
-    }
-
-    // Text: \text{...}
-    s = s.replace(/\\text\{([^{}]+)\}/g, '<span style="font-family: var(--font-sans); font-style: normal;">$1</span>');
-
-    // Fractions: \frac{num}{den}
-    s = s.replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, (match, num, den) => {
-      return `<span class="math-fraction-view"><span class="math-frac-num">${formatLatexToHtml(num)}</span><span class="math-frac-den">${formatLatexToHtml(den)}</span></span>`;
-    });
-
-    // Square root: \sqrt{rad}
-    s = s.replace(/\\sqrt\{([^{}]+)\}/g, (match, rad) => {
-      return `<span class="math-sqrt-view"><span class="math-sqrt-sym">√</span><span class="math-sqrt-rad">${formatLatexToHtml(rad)}</span></span>`;
-    });
-
-    // Superscripts: ^{...} or ^x
-    s = s.replace(/\^\{([^{}]+)\}/g, '<sup>$1</sup>');
-    s = s.replace(/\^([0-9a-zA-Z]+)/g, '<sup>$1</sup>');
-
-    // Subscripts: _{...} or _x
-    s = s.replace(/_\{([^{}]+)\}/g, '<sub>$1</sub>');
-    s = s.replace(/_([0-9a-zA-Z]+)/g, '<sub>$1</sub>');
-
-    return s;
-  }
-
-  function updateMathPreview() {
-    if (previewPaperTitle && mathDocTitle) {
-      previewPaperTitle.textContent = mathDocTitle.value.trim() || 'Báo Cáo Kỹ Thuật & Công Thức Toán';
-    }
-
-    if (!previewPaperContent || !mathLatexInput) return;
-
-    const raw = mathLatexInput.value.trim();
-    if (!raw) {
-      previewPaperContent.innerHTML = '<p class="math-paragraph" style="color: #94a3b8; font-style: italic;">Nhập văn bản hoặc công thức toán vào ô bên trái để xem trước tại đây...</p>';
-      return;
-    }
-
-    const lines = raw.split(/\r?\n/);
-    let html = '';
-
-    lines.forEach((line) => {
-      const trimmed = line.trim();
-      if (!trimmed) {
-        html += '<p style="margin-bottom: 8px;"></p>';
-        return;
-      }
-
-      // Check for display math: $$...$$
-      if (trimmed.startsWith('$$') && trimmed.endsWith('$$') && trimmed.length >= 4) {
-        const formula = trimmed.slice(2, -2).trim();
-        html += `<div class="math-display-block">${formatLatexToHtml(formula)}</div>`;
-      } else {
-        // Inline math parsing $...$
-        let renderedLine = trimmed.replace(/\$([^$]+)\$/g, (match, formula) => {
-          return `<span class="math-inline-elem">${formatLatexToHtml(formula)}</span>`;
+      // Wire row deletion
+      formContainer.querySelectorAll('.btn-remove-patch-row').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const k = btn.getAttribute('data-key');
+          delete patchData[k];
+          syncToUi();
         });
-        html += `<p class="math-paragraph">${renderedLine}</p>`;
-      }
-    });
+      });
 
-    previewPaperContent.innerHTML = html;
-  }
-
-  // Symbol palette click -> insert at textarea cursor
-  symbolButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const insertText = btn.getAttribute('data-insert');
-      if (!insertText || !mathLatexInput) return;
-
-      const start = mathLatexInput.selectionStart;
-      const end = mathLatexInput.selectionEnd;
-      const cur = mathLatexInput.value;
-
-      mathLatexInput.value = cur.substring(0, start) + insertText + cur.substring(end);
-      mathLatexInput.focus();
-      mathLatexInput.selectionStart = mathLatexInput.selectionEnd = start + insertText.length;
-
-      updateMathPreview();
-    });
-  });
-
-  if (mathLatexInput) {
-    mathLatexInput.addEventListener('input', updateMathPreview);
-  }
-
-  if (mathDocTitle) {
-    mathDocTitle.addEventListener('input', updateMathPreview);
-  }
-
-  if (mathPresetSelect && mathLatexInput) {
-    mathPresetSelect.addEventListener('change', () => {
-      const preset = MATH_PRESETS[mathPresetSelect.value];
-      if (preset) {
-        mathLatexInput.value = preset;
-        updateMathPreview();
-      }
-    });
-
-    // Initialize with kinematics preset if empty
-    if (!mathLatexInput.value) {
-      mathLatexInput.value = MATH_PRESETS.kinematics;
+      refreshLucideIcons();
     }
-  }
 
-  // Initial render of preview
-  updateMathPreview();
-
-  // 1-Click Export to DOCX
-  if (btnExportMathDocx) {
-    btnExportMathDocx.addEventListener('click', async () => {
-      const latex = mathLatexInput ? mathLatexInput.value.trim() : '';
-      const title = mathDocTitle ? mathDocTitle.value.trim() : 'Công Thức Toán Học';
-
-      if (!latex) {
-        showToast('Vui lòng nhập công thức toán trước khi xuất!', 'error');
-        return;
+    function syncToUi() {
+      renderFormFields();
+      if (jsonInput) {
+        jsonInput.value = JSON.stringify(patchData, null, 2);
       }
+    }
 
-      btnExportMathDocx.disabled = true;
-      btnExportMathDocx.innerHTML = '<span>⏳</span><span>ĐANG BIÊN DỊCH WORD OMML...</span>';
+    if (jsonInput) {
+      jsonInput.addEventListener('input', () => {
+        try {
+          const parsed = JSON.parse(jsonInput.value);
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            patchData = parsed;
+            renderFormFields();
+          }
+        } catch (e) {
+          // User is typing invalid JSON, do not disrupt
+        }
+      });
+    }
+
+    if (btnToggleMode) {
+      btnToggleMode.addEventListener('click', () => {
+        isJsonMode = !isJsonMode;
+        if (isJsonMode) {
+          if (formView) formView.style.display = 'none';
+          if (jsonView) jsonView.style.display = 'block';
+          if (toggleLabel) toggleLabel.textContent = 'Chuyển sang Chế Độ Form';
+          btnToggleMode.innerHTML = '<i data-lucide="layout-grid"></i> <span id="toggle-patch-mode-label">Chuyển sang Chế Độ Form</span>';
+        } else {
+          if (formView) formView.style.display = 'block';
+          if (jsonView) jsonView.style.display = 'none';
+          if (toggleLabel) toggleLabel.textContent = 'Chuyển sang JSON Editor';
+          btnToggleMode.innerHTML = '<i data-lucide="code"></i> <span id="toggle-patch-mode-label">Chuyển sang JSON Editor</span>';
+        }
+        refreshLucideIcons();
+      });
+    }
+
+    async function handleFile(file) {
+      if (!file) return;
+      currentFile = file;
+      serverPath = null;
+      if (patchFileName) patchFileName.textContent = file.name;
+      if (patchFileSize) patchFileSize.textContent = formatBytes(file.size);
+      if (patchDropZone) {
+        const dropContent = patchDropZone.querySelector('.drop-zone-content');
+        if (dropContent) dropContent.style.display = 'none';
+      }
+      if (patchFileInfo) patchFileInfo.style.display = 'flex';
+      if (btnRunPatch) btnRunPatch.disabled = true;
+
+      // Upload and inspect tokens automatically
+      if (progressContainer) progressContainer.style.display = 'block';
+      if (progressFill) progressFill.style.width = '30%';
+      if (progressStatus) progressStatus.textContent = 'Đang tải file Word và quét token {{placeholders}}...';
 
       try {
-        const res = await fetch('/api/math/export', {
+        const up = await uploadFileToServer(file);
+        serverPath = up.filepath || up.file_path || (up.first_file && up.first_file.file_path);
+
+        if (progressFill) progressFill.style.width = '70%';
+        if (progressStatus) progressStatus.textContent = 'Đang bóc tách cây AST biến...';
+
+        const res = await fetch('/api/docx/inspect-tokens', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: title,
-            latex: latex,
-          }),
+          body: JSON.stringify({ template_path: serverPath }),
         });
 
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || `Xuất Word thất bại (${res.status})`);
+          throw new Error(err.error || 'Không thể bóc tách biến từ tệp Word');
         }
 
         const data = await res.json();
-        const downloadUrl = data.download_url || `/api/download/${data.filename}`;
+        const vars = data.variables || [];
+        patchData = {};
+        vars.forEach((v) => {
+          patchData[v] = '';
+        });
 
-        if (btnDownloadMathDocx) {
-          btnDownloadMathDocx.href = downloadUrl;
-          btnDownloadMathDocx.download = data.filename;
+        syncToUi();
+
+        // Render detected tokens badge & pills
+        if (statsBox) statsBox.style.display = 'block';
+        if (tokenCount) tokenCount.textContent = `${vars.length} biến`;
+        if (tokensPillList) {
+          if (vars.length > 0) {
+            tokensPillList.innerHTML = vars.map((v) => `<span class="tag-badge">{{${v}}}</span>`).join('');
+          } else {
+            tokensPillList.innerHTML = '<span style="font-size: 0.8rem; color: var(--text-muted); font-style: italic;">Không tìm thấy placeholder dạng {{TOKEN}} trong file</span>';
+          }
         }
 
-        if (mathDownloadActions) {
-          mathDownloadActions.style.display = 'flex';
-        }
-
-        showToast(`Xuất tệp Word thành công: ${data.filename}`, 'success');
-
-        // Automatically trigger file download
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        a.download = data.filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-
-        // Update history drawer
-        loadHistory();
-
+        if (btnRunPatch) btnRunPatch.disabled = false;
+        showToast(`Đã nhận diện ${vars.length} placeholder từ ${file.name}`, 'info');
       } catch (err) {
         showToast(`Lỗi: ${err.message}`, 'error', 6000);
       } finally {
-        btnExportMathDocx.disabled = false;
-        btnExportMathDocx.innerHTML = '<span class="btn-icon"><i data-lucide="download"></i></span><span class="btn-text">Xuất Tệp Word (.docx) Chuẩn OMML</span>';
-        refreshLucideIcons();
+        if (progressContainer) progressContainer.style.display = 'none';
       }
-    });
+    }
+
+    function clearFile() {
+      currentFile = null;
+      serverPath = null;
+      patchData = {};
+      syncToUi();
+      if (patchFileInput) patchFileInput.value = '';
+      if (patchFileInfo) patchFileInfo.style.display = 'none';
+      if (patchDropZone) {
+        const dropContent = patchDropZone.querySelector('.drop-zone-content');
+        if (dropContent) dropContent.style.display = 'block';
+      }
+      if (statsBox) statsBox.style.display = 'none';
+      if (btnRunPatch) btnRunPatch.disabled = true;
+    }
+
+    if (btnBrowsePatch && patchFileInput) {
+      btnBrowsePatch.addEventListener('click', (e) => {
+        e.stopPropagation();
+        patchFileInput.click();
+      });
+    }
+
+    if (patchDropZone && patchFileInput) {
+      patchDropZone.addEventListener('click', () => patchFileInput.click());
+      patchDropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        patchDropZone.classList.add('dragover');
+      });
+      patchDropZone.addEventListener('dragleave', () => patchDropZone.classList.remove('dragover'));
+      patchDropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        patchDropZone.classList.remove('dragover');
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          handleFile(e.dataTransfer.files[0]);
+        }
+      });
+      patchFileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+          handleFile(e.target.files[0]);
+        }
+      });
+    }
+
+    if (btnRemovePatch) {
+      btnRemovePatch.addEventListener('click', (e) => {
+        e.stopPropagation();
+        clearFile();
+      });
+    }
+
+    if (btnRunPatch) {
+      btnRunPatch.addEventListener('click', async () => {
+        if (!currentFile || !serverPath) return;
+
+        // If in JSON mode, ensure latest json input is parsed
+        if (isJsonMode && jsonInput) {
+          try {
+            patchData = JSON.parse(jsonInput.value);
+          } catch (e) {
+            showToast('JSON không hợp lệ: ' + e.message, 'error');
+            return;
+          }
+        }
+
+        btnRunPatch.disabled = true;
+        if (progressContainer) progressContainer.style.display = 'block';
+        if (progressFill) progressFill.style.width = '40%';
+        if (progressStatus) progressStatus.textContent = 'Đang áp dụng thay thế văn bản OpenXML bảo toàn style...';
+
+        try {
+          const res = await fetch('/api/docx/patch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              template_path: serverPath,
+              text_replacements: patchData,
+            }),
+          });
+
+          if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error || `Quick Patch thất bại (${res.status})`);
+          }
+
+          const data = await res.json();
+          if (progressFill) progressFill.style.width = '100%';
+
+          if (resultFilename) resultFilename.textContent = data.filename || 'patched.docx';
+          if (resultTime) resultTime.textContent = new Date().toLocaleTimeString();
+          if (btnDownload) btnDownload.setAttribute('href', data.download_url || `/api/download/${data.filename}`);
+
+          if (emptyState) emptyState.style.display = 'none';
+          if (resultBox) resultBox.style.display = 'block';
+
+          showToast('Vá văn bản Word thành công bảo toàn 100% định dạng (ERR_DOCX_002)!', 'success');
+
+          setTimeout(() => {
+            if (progressContainer) progressContainer.style.display = 'none';
+          }, 1200);
+        } catch (err) {
+          showToast(`Lỗi: ${err.message}`, 'error', 6000);
+          if (progressStatus) progressStatus.textContent = `Thất bại: ${err.message}`;
+        } finally {
+          btnRunPatch.disabled = false;
+        }
+      });
+    }
   }
+
+  // =========================================================================
+  // 10. HISTORY DRAWER & RECENT FILES CONTROLLER (Modularized)
+  // =========================================================================
+  const { loadHistory, openHistoryDrawer, closeHistoryDrawer } = initHistoryDrawer({
+    formatBytes,
+    refreshLucideIcons,
+    showToast,
+  });
+
+  // =========================================================================
+  // 11. TAB 5: MATH & EQUATION STUDIO CONTROLLER (Modularized)
+  // =========================================================================
+  initMathStudio({ showToast, refreshLucideIcons, loadHistory });
+
+  // =========================================================================
+  // 12. TAB 2 & 3: DOCX QUICK PATCH & ATOMIC CONTROLLERS
+  // =========================================================================
+  initDocxQuickPatch();
 
   // Initial Lucide icon generation
   refreshLucideIcons();
