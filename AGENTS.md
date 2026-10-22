@@ -17,7 +17,7 @@ The workspace includes preconfigured Antigravity customizations:
 - **Skill 2**: [technical-diagrams](.agents/skills/technical-diagrams/SKILL.md) — Declarative diagram rendering (`spec-render`), orthogonal Manhattan routing, multi-line wrapping, and collision prevention.
 - **Rule 1**: [rule_technical_diagram_standards.md](.agents/rules/rule_technical_diagram_standards.md) — Mandatory standards for English screen names, codebase-truth action labels, multi-line wrapping (`\n`), and automated AABB collision detection.
 - **Rule 2**: [rule_decoupled_document_converter.md](.agents/rules/rule_decoupled_document_converter.md) — Mandatory standards for table OpenXML invariants (`cantSplit`, `tblHeader`, `vAlign="center"`) and decoupled styling.
-- **Rule 3**: [rule_feature_lifecycle_and_doc_sync.md](.agents/rules/rule_feature_lifecycle_and_doc_sync.md) — Mandatory standards for updating `CHANGELOG.md` and `ARCHITECTURE.md` after completing any feature (`ERR_DOC_SYNC_001`).
+- **Rule 3**: [rule_feature_lifecycle_and_doc_sync.md](.agents/rules/rule_feature_lifecycle_and_doc_sync.md) — Mandatory standards for updating `CHANGELOG.md`, `ARCHITECTURE.md`, and Core Docs Triad (`BAO_CAO_TIEN_HOA` & `HUONG_DAN_SU_DUNG` in MD/DOCX/PDF) after completing any feature (`ERR_DOC_SYNC_001`).
 - **Rule 4**: [rule_version_synchronization_and_release_invariants.md](.agents/rules/rule_version_synchronization_and_release_invariants.md) — 9-anchor synchronization and automated build on version bumps (`ERR_VER_001`).
 
 ---
@@ -58,6 +58,7 @@ When user requests you to perform document tasks or draw diagrams, run these com
 | **Insert Excel Rows & Shift Formulas** | `python ai_tools_cli.py xlsx-insert-rows <file.xlsx> --sheet <sheet> --start-row <row> --count <n>` |
 | **Inspect Word Template Tokens** | `python ai_tools_cli.py docx-tokens <tpl.docx> [--json]` |
 | **Atomic Word Text Replace** | `python ai_tools_cli.py docx-replace <doc.docx> --data <patch.json>` |
+| **Sync Core Docs Triad (MD->DOCX+PDF)** | `python tools/sync_core_docs.py [--build|--check]` |
 | **Launch Desktop GUI** | `python main.py` |
 
 ---

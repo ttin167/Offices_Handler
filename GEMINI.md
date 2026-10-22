@@ -153,7 +153,7 @@ Khi bắt đầu làm bất kỳ tác vụ nào thuộc domain dưới đây, **
 | `ERR_DIAG_002` | **Zero-Template 60-30-10** | Vẽ không có mẫu: 60% nền trung tính, 30% thẻ slate/trắng, 10% màu nhấn. Khoảng cách $\ge$ 40px. |
 | `ERR_CONV_004` | **Zombie Lock Files Cleanup** | Tự động quét và thu gom sạch file rác `.~lock.*` và `~$*` trước/sau khi chạy. |
 | `ERR_VER_001` | **Version Desync Invariant** | Luôn đồng bộ 100% version giữa Terminal/BE/Manifest và Frontend/index.html qua tools/bump_version.py + npm run build. |
-| `ERR_DOC_SYNC_001` | **Feature & Documentation Invariant** | Mọi tính năng sau khi triển khai/sửa đổi bắt buộc cập nhật CHANGELOG.md và ARCHITECTURE.md kèm số lượng test thực tế. |
+| `ERR_DOC_SYNC_001` | **Feature & Documentation Invariant** | Mọi tính năng sau khi triển khai/sửa đổi bắt buộc cập nhật CHANGELOG.md, ARCHITECTURE.md và bộ đôi Core Docs (`BAO_CAO_TIEN_HOA` & `HUONG_DAN_SU_DUNG` kèm MD/DOCX/PDF) qua `python tools/sync_core_docs.py --build`. |
 | `CLI Exit` | **CI/CD Exit Codes** | `0` = Clean 100%; `1` = Warning (Aesthetic); `2` = Critical (Corrupt XML / Break). |
 
 ---

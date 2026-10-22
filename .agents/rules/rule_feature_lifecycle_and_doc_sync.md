@@ -45,6 +45,23 @@ Khi nhiệm vụ có yêu cầu nâng phiên bản (ví dụ: `4.2.0` $\to$ `4.3
 2. **Tạo Section Mới Trong `CHANGELOG.md`**: Ghi rõ ngày phát hành và danh mục thay đổi.
 3. **Cập nhật Phiên Bản trong `ARCHITECTURE.md`**: Đổi số phiên bản ở đầu trang.
 
+### D. Đồng Bộ Bộ Đôi Tài Liệu Cốt Lõi (Core Technical & User Documentation Triad: MD -> DOCX & PDF)
+Bên cạnh `CHANGELOG.md` và `ARCHITECTURE.md`, hệ sinh thái quy định **BỘ ĐÔI TÀI LIỆU CỐT LÕI (CORE DOCS)** bắt buộc phải duy trì tính toàn vẹn và đồng bộ theo thời gian thực:
+1. **Tài liệu Kiến trúc**: `docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V4.md` (Báo cáo tiến hóa kiến trúc đa tầng, ma trận so sánh các phiên bản v1 $\to$ v4+, các phân hệ Core và quy chuẩn bất biến).
+2. **Tài liệu Hướng dẫn sử dụng**: `docs/HUONG_DAN_SU_DUNG_CHI_TIET_TUNG_TINH_NANG.md` (Cẩm nang thao tác cho người dùng cuối qua Web Studio, Desktop GUI, AI CLI, và MCP Server).
+
+**Quy chuẩn Bộ Ba Định Dạng (Triad Invariant)**:
+- Mỗi khi có tính năng mới, thay đổi API, bổ sung lệnh CLI hoặc cập nhật giao diện, AI Agent **BẮT BUỘC** cập nhật nội dung vào 2 file Markdown trên.
+- Đồng thời, **BẮT BUỘC** recompile tự động ra cả bản Word (`.docx`) và PDF (`.pdf`) để bộ tài liệu luôn sẵn sàng in ấn/xuất bản chuẩn quốc tế.
+- Lệnh đồng bộ tự động 1-click:
+  ```bash
+  python tools/sync_core_docs.py --build
+  ```
+- Lệnh kiểm tra đối soát tính đồng bộ:
+  ```bash
+  python tools/sync_core_docs.py --check
+  ```
+
 ---
 
 ## 3. Kiểm Chuẩn Bắt Buộc (Quality Gate Audit)
