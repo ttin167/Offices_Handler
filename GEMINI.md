@@ -216,6 +216,7 @@ Khi bắt đầu làm bất kỳ tác vụ nào thuộc domain dưới đây, **
 
 - **ARCHITECTURE.md**: đọc trước khi tạo file mới hoặc restructure module.
 - **`.agent_scratchpad.md`**: update trước khi kết thúc mỗi response khi task > 3 steps.
+- **Auto README & Skills Sync**: BẮT BUỘC tự động cập nhật `README.md` (badges, bảng skills suite, highlights) mỗi khi có nâng cấp kỹ năng hoặc bump version (`python tools/bump_version.py --sync-readme`).
 - **Max 1 fix attempt per error**: nếu fix fail → STOP, giải thích root cause, chờ feedback.
 - **Không truncate code** với `// rest of code unchanged` khi replace file content.
 - **Guard clauses**: early return thay vì nested if.

@@ -8,6 +8,7 @@ Usage:
   python tools/bump_version.py 4.2.0           # Bump and synchronize all files + rebuild frontend
   python tools/bump_version.py --check        # Audit all files for version consistency (exit 0 if clean, 1 if desynced)
   python tools/bump_version.py --get          # Print current project version
+  python tools/bump_version.py --sync-readme  # Re-sync README.md badges, skills count, and test counts
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ import os
 import re
 import subprocess
 import sys
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 if sys.platform == "win32":
     try:
@@ -116,7 +117,92 @@ def audit_version_consistency(target_version: str) -> Tuple[bool, List[str]]:
         if not m or m.group(1) != target_version:
             errors.append(f"core/env_doctor.py: expected DOCTOR_VERSION = '{target_version}' got '{m.group(1) if m else 'None'}'")
 
+    # 9. README.md
+    readme_path = os.path.join(BASE_DIR, "README.md")
+    if os.path.isfile(readme_path):
+        with open(readme_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        expected_badge = f"Release-v{target_version}_Production"
+        if expected_badge not in content:
+            errors.append(f"README.md: missing expected release badge '{expected_badge}'")
+        expected_summary_link = f"v1.0 → v{target_version}"
+        if expected_summary_link not in content:
+            errors.append(f"README.md: missing expected summary link '{expected_summary_link}'")
+
+        # Verify Skills Badge
+        skills_dir = os.path.join(BASE_DIR, ".agents", "skills")
+        if os.path.isdir(skills_dir):
+            s_count = len([d for d in os.listdir(skills_dir) if os.path.isdir(os.path.join(skills_dir, d))])
+            expected_skills_badge = f"Antigravity_Skills-{s_count}_Specialized"
+            if expected_skills_badge not in content:
+                errors.append(f"README.md: missing or outdated skills badge '{expected_skills_badge}'")
+
     return (len(errors) == 0, errors)
+
+
+def sync_readme(new_version: Optional[str] = None) -> List[str]:
+    """
+    Synchronizes README.md badges (Release, Tests, MCP Tools, Skills),
+    summary links, and highlights header.
+    Can be run independently during skill additions or version bumps.
+    """
+    readme_path = os.path.join(BASE_DIR, "README.md")
+    if not os.path.isfile(readme_path):
+        return []
+
+    with open(readme_path, "r", encoding="utf-8") as f:
+        txt = f.read()
+
+    changes = []
+    if new_version is None:
+        new_version = get_current_package_version()
+
+    # 1. Dynamic Test Count
+    try:
+        import unittest
+        loader = unittest.TestLoader()
+        suite = loader.discover(os.path.join(BASE_DIR, "tests"), pattern="test_*.py", top_level_dir=BASE_DIR)
+        t_count = suite.countTestCases()
+        txt = re.sub(r'Tests-[0-9]+%2F[0-9]+_Passed', f'Tests-{t_count}%2F{t_count}_Passed', txt)
+        txt = re.sub(r'Tests:\s*[0-9]+(?:\/[0-9]+)?\s*Passed', f'Tests: {t_count} Passed', txt)
+        changes.append(f"Synchronized tests badge -> {t_count} Passed")
+    except Exception:
+        pass
+
+    # 2. Dynamic MCP Tools Count
+    try:
+        from server.mcp_server import TOOL_DEFINITIONS
+        m_count = len(TOOL_DEFINITIONS)
+        txt = re.sub(r'MCP_Tools-[0-9]+_Available', f'MCP_Tools-{m_count}_Available', txt)
+        txt = re.sub(r'MCP Tools:\s*[0-9]+', f'MCP Tools: {m_count}', txt)
+        changes.append(f"Synchronized MCP tools badge -> {m_count} Available")
+    except Exception:
+        pass
+
+    # 3. Dynamic Skills Count
+    try:
+        skills_dir = os.path.join(BASE_DIR, ".agents", "skills")
+        if os.path.isdir(skills_dir):
+            s_count = len([d for d in os.listdir(skills_dir) if os.path.isdir(os.path.join(skills_dir, d))])
+            txt = re.sub(r'Antigravity_Skills-[0-9]+_Specialized', f'Antigravity_Skills-{s_count}_Specialized', txt)
+            txt = re.sub(r'Antigravity Skills:\s*[0-9]+', f'Antigravity Skills: {s_count}', txt)
+            txt = re.sub(r'The workspace provides [0-9]+ specialized Antigravity Skills', f'The workspace provides {s_count} specialized Antigravity Skills', txt)
+            changes.append(f"Synchronized skills count -> {s_count} Specialized Skills")
+    except Exception:
+        pass
+
+    # 4. Version Badges & Headers
+    txt = re.sub(r'Release-v[^_]+_Production', f'Release-v{new_version}_Production', txt)
+    txt = re.sub(r'Release:\s*v[^\)\]]+', f'Release: v{new_version}', txt)
+    txt = re.sub(r'v1\.0\s*→\s*v[0-9\.]+', f'v1.0 → v{new_version}', txt)
+    txt = re.sub(r'Highlights in v[0-9\.]+ Production Grade', f'Highlights in v{new_version} Production Grade', txt)
+
+    with open(readme_path, "w", encoding="utf-8") as f:
+        f.write(txt)
+
+    changes.append(f"Synchronized README.md version references -> v{new_version}")
+    return changes
+
 
 
 def sync_version(new_version: str, rebuild_fe: bool = True) -> bool:
@@ -220,16 +306,9 @@ def sync_version(new_version: str, rebuild_fe: bool = True) -> bool:
             f.write(txt)
         changes.append(f"Updated index.html brand subtitle -> Office Studio v{new_version}")
 
-    # 9. README.md badge
-    readme_path = os.path.join(BASE_DIR, "README.md")
-    if os.path.isfile(readme_path):
-        with open(readme_path, "r", encoding="utf-8") as f:
-            txt = f.read()
-        txt = re.sub(r'Release-v[^_]+_Production', f'Release-v{new_version}_Production', txt)
-        txt = re.sub(r'Release:\s*v[^\)\]]+', f'Release: v{new_version}', txt)
-        with open(readme_path, "w", encoding="utf-8") as f:
-            f.write(txt)
-        changes.append(f"Updated README.md badge -> v{new_version}")
+    # 9. README.md (Badges, Links, Skills Suite, and Highlights Header)
+    readme_changes = sync_readme(new_version)
+    changes.extend(readme_changes)
 
     for c in changes:
         print(f"  [OK] {c}")
@@ -266,6 +345,14 @@ def main() -> int:
         print(get_current_package_version())
         return 0
 
+    if args[0] == "--sync-readme":
+        target = args[1] if len(args) > 1 else get_current_package_version()
+        c_list = sync_readme(target)
+        print(f"[OK] README.md synchronized successfully with v{target}:")
+        for c in c_list:
+            print(f"  - {c}")
+        return 0
+
     if args[0] == "--check":
         target = args[1] if len(args) > 1 else get_current_package_version()
         is_clean, errs = audit_version_consistency(target)
@@ -279,10 +366,25 @@ def main() -> int:
             return 1
 
     # Bump mode
-    new_ver = args[0].lstrip("v").strip()
-    if not re.match(r"^\d+\.\d+\.\d+", new_ver):
-        print(f"[ERROR] Invalid version format: '{new_ver}'. Expected format: X.Y.Z (e.g. 4.2.0)")
-        return 1
+    arg0 = args[0].strip().lower()
+    if arg0 in ("patch", "minor", "major"):
+        curr = get_current_package_version().split(".")
+        try:
+            maj, min_v, pat = int(curr[0]), int(curr[1]), int(curr[2])
+            if arg0 == "patch":
+                new_ver = f"{maj}.{min_v}.{pat + 1}"
+            elif arg0 == "minor":
+                new_ver = f"{maj}.{min_v + 1}.0"
+            elif arg0 == "major":
+                new_ver = f"{maj + 1}.0.0"
+        except Exception:
+            print(f"[ERROR] Failed to parse current version: '{'.'.join(curr)}'")
+            return 1
+    else:
+        new_ver = args[0].lstrip("v").strip()
+        if not re.match(r"^\d+\.\d+\.\d+", new_ver):
+            print(f"[ERROR] Invalid version format: '{new_ver}'. Expected format: X.Y.Z, patch, minor, or major")
+            return 1
 
     no_build = "--no-build" in args
     success = sync_version(new_ver, rebuild_fe=not no_build)

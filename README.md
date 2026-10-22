@@ -4,13 +4,14 @@
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Release: v4.2.0](https://img.shields.io/badge/Release-v4.2.0_Production-success.svg)](CHANGELOG.md)
-[![Tests: 200 Passed](https://img.shields.io/badge/Tests-200%2F200_Passed-brightgreen.svg)](tests/)
-[![MCP Tools: 19](https://img.shields.io/badge/MCP_Tools-19_Available-blue.svg)](server/mcp_server.py)
+[![Release: v4.3.0](https://img.shields.io/badge/Release-v4.3.0_Production-success.svg)](CHANGELOG.md)
+[![Tests: 229 Passed](https://img.shields.io/badge/Tests-229%2F229_Passed-brightgreen.svg)](tests/)
+[![MCP Tools: 20](https://img.shields.io/badge/MCP_Tools-20_Available-blue.svg)](server/mcp_server.py)
+[![Antigravity Skills: 5](https://img.shields.io/badge/Antigravity_Skills-5_Specialized-indigo.svg)](.agents/skills/)
 [![Antigravity IDE Ready](https://img.shields.io/badge/Antigravity_AI-Compatible-orange.svg)](AGENTS.md)
 [![Resolution: 300+ DPI](https://img.shields.io/badge/DPI-300%2B_Vector_Grade-purple.svg)](spec_diagram_engine.py)
 
-> 🚀 **Xem toàn bộ lộ trình tiến hóa & so sánh tính năng v1.0 → v4.2.0 tại [CHANGELOG.md](CHANGELOG.md)**.
+> 🚀 **Xem toàn bộ lộ trình tiến hóa & so sánh tính năng v1.0 → v4.3.0 tại [CHANGELOG.md](CHANGELOG.md)**.
 
 ---
 
@@ -20,14 +21,38 @@
 
 It bridges the gap between raw document conversion, OpenXML Word standard compliance, and publication-quality technical diagram generation.
 
-### 🆕 Highlights in v4.2.0 Production Grade
-- **Atomic Office Tools Suite (8 AI Agent Tools)**: Programmatic fine-grained inspection and manipulation of Word (.docx) and Excel (.xlsx) at cell/run level via MCP JSON-RPC 2.0 (19 tools) and CLI (`xlsx-set`, `xlsx-insert-rows`, `docx-tokens`, `docx-replace`), guaranteeing invariants `ERR_XLSX_004` (merged-cell safe targeting), `ERR_XLSX_007` (leading-zero string preservation `'@'`), and `ERR_DOCX_002` (run formatting preservation).
+### 🧠 Antigravity AI Skills & Customizations Suite
+
+The workspace provides 5 specialized Antigravity Skills in `.agents/skills/` designed for autonomous AI agents and developers:
+
+| Skill | Directory | Core Capabilities |
+|---|---|---|
+| **doc-handler** | [`.agents/skills/doc-handler/`](.agents/skills/doc-handler/SKILL.md) | Bidirectional PDF ↔ Word ↔ Decoupled Markdown conversion, OpenXML table repair (`cantSplit`, `tblHeader`), and TOC dot-leader normalization. |
+| **excel-automation** | [`.agents/skills/excel-automation/`](.agents/skills/excel-automation/SKILL.md) | Template-driven OpenXML Excel processing, format token extraction, live dynamic KPI linking, 6 enterprise subsystems, Big Data streaming ($\le 50$MB RAM), and 4 edge-case guards (`ERR_XLSX_009`–`ERR_XLSX_014`). |
+| **felo-slides** | [`.agents/skills/felo-slides/`](.agents/skills/felo-slides/SKILL.md) | 16:9 widescreen presentation synthesis, Slide Master inheritance, aspect-ratio locked diagram injection (`PPTX_INV_01`–`PPTX_INV_13`). |
+| **mxgraph-diagram-engineering** | [`.agents/skills/mxgraph-diagram-engineering/`](.agents/skills/mxgraph-diagram-engineering/SKILL.md) | Draw.io (`.drawio` / native mxGraphModel XML) generation, orthogonal routing, monochrome academic line-art, fractional perimeter port anchoring (`MX_INV_01`–`MX_INV_20`). |
+| **technical-diagrams** | [`.agents/skills/technical-diagrams/`](.agents/skills/technical-diagrams/SKILL.md) | Declarative 3-engine rendering (Canvas, Mermaid, PlantUML), 12 diagram types, 300+ DPI vector SVG / raster PNG, 1.6:1–1.85:1 aspect ratio, AABB collision avoidance, Word/DOCX auto-injection. |
+
+> 💡 **Auto-Sync Invariant (`ERR_DOC_SYNC_001` / `ERR_VER_001`)**: Khi có nâng cấp kỹ năng, thêm skill mới hoặc bump version, `README.md` sẽ được tự động đồng bộ huy hiệu (badges), bảng kỹ năng và các điểm nhấn phiên bản qua `tools/bump_version.py`.
+
+### 🆕 Highlights in v4.3.0 Production Grade (Formula Playbook & Enterprise Excel Suite)
+- **Enterprise Excel Data Suite & Edge Cases Hardening (`core.xlsx`)**: Full compliance with invariants `ERR_XLSX_009` through `ERR_XLSX_014`:
+  - *Data Loss & 15-Digit Limit Guard (`ERR_XLSX_009`)*: Enforces string `'@'` format for credit cards, CCCD (12 digits), and bank accounts (16–19 digits); regex parsing of Vietnamese dates (`26/05/2026`, `ngày 26 tháng 05 năm 2026`) into `datetime.date` + `DD/MM/YYYY`; converts accounting negatives `(100.000)` to `-100000` and dashes `-` to `0` with accounting format; normalizes Vietnamese locale decimals `20.000,50` $\rightarrow$ `20000.50`.
+  - *XML Illegal Byte Sanitization & 32k Limit (`ERR_XLSX_010`)*: Strips ASCII control bytes `[\x00-\x08\x0b\x0c\x0e-\x1f]` preventing corrupt OpenXML workbooks; truncates strings $> 32,000$ characters with ellipsis.
+  - *Modern Formula Compatibility (`ERR_XLSX_011`)*: Automatically prefixes dynamic array and recent formulas (`XLOOKUP`, `CONCAT`, `TEXTJOIN`, `UNIQUE`, `FILTER`, `SORT`, `SORTBY`, etc.) with `_xlfn.` preventing `#NAME?` in Excel 2016/2019; preserves Regex AST Reference Shifting (`ERR_XLSX_002`).
+  - *Usability & Line Auto-Scaling (`ERR_XLSX_012`)*: Enforces visible gridlines `showGridLines = True`, AutoFilter range `auto_filter.ref`, and leaves data row heights as `None` so Excel dynamically fits multiline text without vertical clipping.
+  - *Selective Formula & Cell Protection (`ERR_XLSX_013`)*: Automatically locks formula cells and headers (`locked=True`), leaving designated input ranges editable before enabling sheet protection.
+  - *RAM-Constrained Big Data Streaming (`ERR_XLSX_014`)*: Module `core.xlsx.streaming` (`stream_read_xlsx` & `stream_write_xlsx`) maintains RAM consumption strictly $\le 50\text{MB}$ when processing workbooks exceeding 10 MB or 30,000 rows on Render.com 512MB RAM free tier.
+  - *6 Enterprise Subsystems*: Corporate pastel conditional formatting (red, green, yellow status highlights), in-cell Data Bars & 3-point Color Scales, Data Validation (dropdowns, CCCD 12-digit, year 2026), native in-sheet OpenXML charts (`BarChart`, `LineChart`, `PieChart` with safe `ERR_DIAG_003` placement), and Executive Index Dashboard with 2-way hyperlink navigation.
+- **Excel Formula Playbook & Live Interactive Catalog (`core.xlsx.formula_playbook`)**: 32+ essential Excel functions documented across 4 comprehensive dimensions (Syntax, Sample formula, Real-world use case, Architectural reason why Excel chose this function); 1-click export to 2-sheet workbook (`Formula_Playbook` + `Live_Interactive_Formulas` with live calculating `=SUMIFS`, `=COUNTIFS`, `=AVERAGEIFS`, `=XLOOKUP`, `=IFS`, `=TEXTJOIN`).
+- **Atomic Office Tools Suite (8 AI Agent Tools)**: Programmatic fine-grained inspection and manipulation of Word (.docx) and Excel (.xlsx) at cell/run level via MCP JSON-RPC 2.0 (20 tools) and CLI (`xlsx-set`, `xlsx-insert-rows`, `docx-tokens`, `docx-replace`), guaranteeing invariants `ERR_XLSX_004` (merged-cell safe targeting), `ERR_XLSX_007` (leading-zero string preservation `'@'`), and `ERR_DOCX_002` (run formatting preservation).
 - **DOCX Quick Patch Studio**: Interactive Web Studio sub-tab with real-time **Two-Way Synchronization** between visual input form and JSON code editor, automatic AST token discovery, and one-click template patching.
 - **PDF Pro Studio Suite (16 Tools)**: Complete Stirling-PDF alternative — true byte/pixel redaction (`ERR_PDF_001`), AES-256 permission encryption, $N$-cut overlapping page-spanning stamp (dấu giáp lai `ERR_PDF_002`), vector bake & raster flattening (`flatten`), visual page organizer with drag & drop, 300 DPI image export, and rotation-compensated digital signing.
 - **Batch Mail Merge (`docx-mail-merge`)**: High-speed variable and table templating for Microsoft Word documents with nested block repetition and zero formatting loss.
 - **Legal Redline Diff (`docx-diff`)**: Native OpenXML track changes comparison (`<w:ins>` / `<w:del>`) generating audit-compliant legal redlines between document revisions.
 - **Vietnamese OCR & Scan Recovery (`ocr-scan`)**: Dual-pass HSV color filtering for red corporate seal extraction, deskew correction, and high-accuracy Tesseract OCR with `vie+eng` dictionaries.
 - **Render Cloud Ready & Web Studio API**: Asynchronous SSE job queue (`server/job_manager.py`), REST endpoints for all tools, and live multi-format preview.
+
 
 ### Why does this tool exist?
 1. **Office Document Engines Lose Formatting**: Standard PDF-to-Word tools mangle Table of Contents (TOC) tab stops, split table rows awkwardly across page breaks, and fail to vertically center text.

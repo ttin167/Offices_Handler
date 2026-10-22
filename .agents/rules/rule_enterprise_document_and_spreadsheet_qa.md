@@ -25,6 +25,13 @@
   $$\text{Row Height} = \max(\text{min\_h}, \text{total\_lines} \times \text{line\_h}) \quad \text{kết hợp} \quad \text{wrap\_text=True}$$
 * **`ERR_XLSX_006` (DrawingML & Package Integrity)**: Luôn load trực tiếp template gốc để sửa đổi (`load_workbook(..., data_only=False)`). Tuyệt đối không tạo mới bằng `Workbook()` rỗng làm mất logo và shapes ở Cover sheet.
 * **`ERR_XLSX_007` (Data Type Coercion & Leading-Zero Loss)**: Cột mang ngữ nghĩa định danh (ID, Code, Mã) bắt buộc gán `number_format = '@'` và truyền kiểu chuỗi tường minh.
+* **`ERR_XLSX_008` (Print-Ready Page Setup)**: Thiết lập in ấn chuẩn A4 Landscape, `fitToPage = True`, `fitToWidth = 1`, `fitToHeight = 0` chống tràn lề trang in.
+* **`ERR_XLSX_009` (15-Digit Precision & Accounting Negative Guard)**: CCCD (12 số), thẻ ngân hàng (16-19 số), số tài khoản ép kiểu `str` và gán `number_format = '@'`. Parse ngày tiếng Việt sang `datetime.date` + `'DD/MM/YYYY'`. Chuyển số âm `(100.000)` thành float âm `-100000`, gạch ngang `-` thành `0` với format kế toán. Chuẩn hóa Locale thập phân VN `20.000,50` $\rightarrow$ `20000.50`.
+* **`ERR_XLSX_010` (XML Illegal Character Sanitization & 32k Limit)**: Khử sạch ký tự điều khiển ASCII `[\x00-\x08\x0b\x0c\x0e-\x1f]`. Cắt tỉa chuỗi tối đa 32.000 ký tự kèm hậu tố `... [Xem tiếp tài liệu gốc]`.
+* **`ERR_XLSX_011` (_xlfn Modern Formula Compatibility & Reference Shifting)**: Tự động thêm tiền tố `_xlfn.` cho các hàm OpenXML mới (`XLOOKUP`, `CONCAT`, `TEXTJOIN`, `UNIQUE`, `FILTER`, `SORT`, `SORTBY`, v.v.) chống lỗi `#NAME?` trên Excel 2016/2019. Duy trì Regex AST Reference Shifting (`ERR_XLSX_002`).
+* **`ERR_XLSX_012` (Gridlines, AutoFilter & Unlocked Row Height)**: Bật hiển thị đường lưới `ws.views.sheetView[0].showGridLines = True`. Tự động gắn vùng lọc `ws.auto_filter.ref`. Để `ws.row_dimensions[r].height = None` cho dòng dữ liệu cho phép Excel tự co giãn theo dòng `\n`.
+* **`ERR_XLSX_013` (Selective Formula & Structure Protection)**: Mọi ô chứa công thức (`=...`) và Header mặc định khóa `locked=True`. Chỉ mở khóa `locked=False` cho vùng nhập liệu được chỉ định trước khi kích hoạt `ws.protection.enable()`.
+* **`ERR_XLSX_014` (RAM-Constrained Streaming Threshold)**: Tự động chuyển đổi sang `read_only=True` khi đọc và `write_only=True` khi ghi nếu kích thước tệp $> 10\text{MB}$ hoặc số dòng $> 30.000$, đảm bảo trần RAM $\le 50\text{MB}$.
 
 ### B. Domain WORD (DOCX) — Tính Toàn vẹn OpenXML & Bảng Biểu
 * **`ERR_DOCX_001` (The Last Paragraph Rule)**: Mọi cell trong bảng (`<w:tc>`) bắt buộc phải kết thúc bằng tối thiểu một đoạn văn (`<w:p>`). Không bao giờ để ô trống rỗng làm Word báo file hỏng.

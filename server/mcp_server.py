@@ -63,7 +63,7 @@ except (ImportError, ValueError):
 
 MCP_PROTOCOL_VERSION = "2024-11-05"
 SERVER_NAME = "antigravity-doc-handler"
-SERVER_VERSION = "4.2.0"
+SERVER_VERSION = "4.3.0"
 
 TOOL_DEFINITIONS = [
     {
@@ -645,6 +645,24 @@ TOOL_DEFINITIONS = [
                 }
             },
             "required": ["doc_path", "headers", "rows"]
+        }
+    },
+    {
+        "name": "xlsx_formula_helper",
+        "description": "Look up Excel formulas, syntax templates, real-world use cases, and technical architectural rationales across 32+ curated formulas.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "category": {
+                    "type": "string",
+                    "description": "Optional category filter: 'lookup', 'aggregation', 'text', 'logic', 'dynamic', 'financial', or 'all'",
+                    "default": "all"
+                },
+                "search": {
+                    "type": "string",
+                    "description": "Optional search query by function name, keywords, or scenario"
+                }
+            }
         }
     }
 ]
@@ -1260,6 +1278,24 @@ def execute_docx_insert_table(args: Dict[str, Any]) -> Dict[str, Any]:
     return {"success": True, "output_path": out_path, "total_rows": len(rows) + 1, "cols": len(headers)}
 
 
+def execute_xlsx_formula_helper(args: Dict[str, Any]) -> Dict[str, Any]:
+    cat = args.get("category", "all")
+    search = args.get("search")
+    try:
+        from core.xlsx.formula_playbook import get_formula_catalog
+    except (ImportError, ValueError):
+        from formula_playbook import get_formula_catalog  # type: ignore
+
+    formulas = get_formula_catalog(category=cat, search=search)
+    return {
+        "success": True,
+        "category": cat,
+        "search": search,
+        "total_count": len(formulas),
+        "formulas": formulas,
+    }
+
+
 TOOL_DISPATCHER = {
     "doc_convert": execute_doc_convert,
     "doc_inspect": execute_doc_inspect,
@@ -1281,6 +1317,7 @@ TOOL_DISPATCHER = {
     "docx_replace_text": execute_docx_replace_text,
     "docx_insert_paragraph": execute_docx_insert_paragraph,
     "docx_insert_table": execute_docx_insert_table,
+    "xlsx_formula_helper": execute_xlsx_formula_helper,
 }
 
 

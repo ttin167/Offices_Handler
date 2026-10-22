@@ -114,3 +114,5 @@ Every skill must include at minimum:
 4. **Set `RequestFeedback = true`** — never modify rule/skill files before user approval.
 5. **Execute** only after explicit approval (or auto-approval via review policy).
 6. **Sync** to both repos if the rule applies to the tool sub-repository as well.
+7. **README & AGENTS Sync** — Bắt buộc tự động đồng bộ `README.md` (huy hiệu `Antigravity_Skills-N_Specialized` & bảng kỹ năng) và `AGENTS.md` (danh mục kỹ năng/rules) mỗi khi tạo mới hoặc nâng cấp kỹ năng/quy chuẩn (chạy `python tools/bump_version.py --sync-readme`).
+

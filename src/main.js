@@ -44,11 +44,19 @@ import {
   HelpCircle,
   Cloud,
   Box,
+  Calculator,
+  Search,
+  Copy,
+  Check,
+  BookOpen,
+  Briefcase,
+  Lightbulb,
 } from 'lucide';
 
 import { DIAGRAM_PRESETS } from './modules/constants.js';
 import { initHistoryDrawer } from './modules/history_drawer.js';
 import { initMathStudio } from './modules/math_studio.js';
+import { initFormulaPlaybook } from './modules/formula_playbook.js';
 
 const studioIcons = {
   Sparkles,
@@ -95,6 +103,13 @@ const studioIcons = {
   HelpCircle,
   Cloud,
   Box,
+  Calculator,
+  Search,
+  Copy,
+  Check,
+  BookOpen,
+  Briefcase,
+  Lightbulb,
 };
 
 /**
@@ -897,6 +912,7 @@ document.addEventListener('DOMContentLoaded', () => {
     validator: document.getElementById('subpanel-validator'),
     mutator: document.getElementById('subpanel-mutator'),
     inspector: document.getElementById('subpanel-inspector'),
+    formulas: document.getElementById('subpanel-formulas'),
   };
 
   subTabBtns.forEach((btn) => {
@@ -2294,6 +2310,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnApplyReorganize = document.getElementById('btn-apply-reorganize');
   const btnApplyRedact = document.getElementById('btn-apply-redact');
   const btnApplyProtect = document.getElementById('btn-apply-protect');
+  const btnApplySign = document.getElementById('btn-apply-sign');
   const btnApplyGiaplai = document.getElementById('btn-apply-giaplai');
   const btnApplyNormalize = document.getElementById('btn-apply-normalize');
   const btnApplyExtractTables = document.getElementById('btn-apply-extract-tables');
@@ -2308,6 +2325,37 @@ document.addEventListener('DOMContentLoaded', () => {
   const pdfProExtraDetailRow = document.getElementById('pdf-pro-extra-detail-row');
   const pdfProExtraDetail = document.getElementById('pdf-pro-extra-detail');
   const btnDownloadPdfPro = document.getElementById('btn-download-pdf-pro');
+
+  // Electronic Signature & Stamp elements
+  let signMode = 'draw';
+  let signInkColor = '#0033aa';
+  let hasDrawnSignature = false;
+  let signStampServerPath = null;
+  let signSelectedPos = 'bottom-right';
+
+  const signModeTabs = document.querySelectorAll('.sign-mode-tab');
+  const signModePanelDraw = document.getElementById('sign-mode-panel-draw');
+  const signModePanelUpload = document.getElementById('sign-mode-panel-upload');
+  const signCanvas = document.getElementById('signature-pad-canvas');
+  const signCanvasHint = document.getElementById('signature-canvas-hint');
+  const btnClearSignature = document.getElementById('btn-clear-signature');
+  const signColorDots = document.querySelectorAll('.sign-color-dot');
+  const signStampDropZone = document.getElementById('sign-stamp-drop-zone');
+  const signStampFileInput = document.getElementById('sign-stamp-file-input');
+  const signStampFileInfo = document.getElementById('sign-stamp-file-info');
+  const signStampFileName = document.getElementById('sign-stamp-file-name');
+  const btnRemoveSignStamp = document.getElementById('btn-remove-sign-stamp');
+  const signTargetPageSelect = document.getElementById('sign-target-page-select');
+  const signCustomPageGroup = document.getElementById('sign-custom-page-group');
+  const signCustomPageInput = document.getElementById('sign-custom-page-input');
+  const signPosBtns = document.querySelectorAll('.sign-pos-btn');
+  const signScaleSlider = document.getElementById('sign-scale-slider');
+  const signScaleDisplay = document.getElementById('sign-scale-display');
+  const signOptMetadata = document.getElementById('sign-opt-metadata');
+  const signMetadataFields = document.getElementById('sign-metadata-fields');
+  const signMetaTitle = document.getElementById('sign-meta-title');
+  const signMetaName = document.getElementById('sign-meta-name');
+  const signMetaDate = document.getElementById('sign-meta-date');
 
   // Giap lai stamp upload elements
   const giaplaiStampDropZone = document.getElementById('giaplai-stamp-drop-zone');
@@ -2349,6 +2397,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnApplyReorganize) btnApplyReorganize.disabled = kept === 0;
   }
 
+  function updateSignApplyButtonState() {
+    if (!btnApplySign) return;
+    const hasSourcePdf = Boolean(pdfProServerPath);
+    const hasSignatureContent = signMode === 'draw' ? hasDrawnSignature : Boolean(signStampServerPath);
+    btnApplySign.disabled = !(hasSourcePdf && hasSignatureContent);
+  }
+
   function setPdfToolButtonsEnabled(enabled) {
     if (btnApplyReorganize) btnApplyReorganize.disabled = !enabled;
     if (btnApplyRedact) btnApplyRedact.disabled = !enabled;
@@ -2356,6 +2411,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnApplyNormalize) btnApplyNormalize.disabled = !enabled;
     if (btnApplyExtractTables) btnApplyExtractTables.disabled = !enabled;
     if (btnApplyGiaplai) btnApplyGiaplai.disabled = !(enabled && giapLaiStampServerPath);
+    updateSignApplyButtonState();
   }
 
   function renderPdfThumbnails() {
@@ -2793,6 +2849,275 @@ document.addEventListener('DOMContentLoaded', () => {
       );
     });
   }
+
+  // 7. Electronic Signature & Stamp Logic
+  let isDrawingSign = false;
+  let lastSignX = 0;
+  let lastSignY = 0;
+
+  function initSignatureCanvas() {
+    if (!signCanvas) return;
+    const ctx = signCanvas.getContext('2d');
+    if (!ctx) return;
+
+    function getCanvasCoordinates(e) {
+      const rect = signCanvas.getBoundingClientRect();
+      const scaleX = signCanvas.width / rect.width;
+      const scaleY = signCanvas.height / rect.height;
+
+      if (e.touches && e.touches.length > 0) {
+        return {
+          x: (e.touches[0].clientX - rect.left) * scaleX,
+          y: (e.touches[0].clientY - rect.top) * scaleY,
+        };
+      }
+      return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY,
+      };
+    }
+
+    function startDrawing(e) {
+      isDrawingSign = true;
+      const pos = getCanvasCoordinates(e);
+      lastSignX = pos.x;
+      lastSignY = pos.y;
+      if (signCanvasHint) signCanvasHint.style.opacity = '0';
+    }
+
+    function draw(e) {
+      if (!isDrawingSign) return;
+      const pos = getCanvasCoordinates(e);
+
+      ctx.beginPath();
+      ctx.moveTo(lastSignX, lastSignY);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.strokeStyle = signInkColor;
+      ctx.lineWidth = 2.8;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+
+      lastSignX = pos.x;
+      lastSignY = pos.y;
+      hasDrawnSignature = true;
+      updateSignApplyButtonState();
+    }
+
+    function stopDrawing() {
+      isDrawingSign = false;
+    }
+
+    signCanvas.addEventListener('mousedown', startDrawing);
+    signCanvas.addEventListener('mousemove', draw);
+    signCanvas.addEventListener('mouseup', stopDrawing);
+    signCanvas.addEventListener('mouseleave', stopDrawing);
+
+    signCanvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      startDrawing(e);
+    }, { passive: false });
+
+    signCanvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      draw(e);
+    }, { passive: false });
+
+    signCanvas.addEventListener('touchend', stopDrawing);
+    signCanvas.addEventListener('touchcancel', stopDrawing);
+  }
+
+  function clearSignatureCanvas() {
+    if (!signCanvas) return;
+    const ctx = signCanvas.getContext('2d');
+    if (ctx) ctx.clearRect(0, 0, signCanvas.width, signCanvas.height);
+    hasDrawnSignature = false;
+    if (signCanvasHint) signCanvasHint.style.opacity = '1';
+    updateSignApplyButtonState();
+  }
+
+  if (btnClearSignature) {
+    btnClearSignature.addEventListener('click', clearSignatureCanvas);
+  }
+
+  // Color picker
+  signColorDots.forEach((dot) => {
+    dot.addEventListener('click', () => {
+      signColorDots.forEach((d) => d.classList.remove('active'));
+      dot.classList.add('active');
+      signInkColor = dot.getAttribute('data-color') || '#0033aa';
+    });
+  });
+
+  // Mode Switcher (Draw vs Upload)
+  signModeTabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      signModeTabs.forEach((t) => t.classList.remove('active'));
+      tab.classList.add('active');
+      signMode = tab.getAttribute('data-sign-mode') || 'draw';
+
+      if (signMode === 'draw') {
+        if (signModePanelDraw) signModePanelDraw.style.display = 'block';
+        if (signModePanelUpload) signModePanelUpload.style.display = 'none';
+      } else {
+        if (signModePanelDraw) signModePanelDraw.style.display = 'none';
+        if (signModePanelUpload) signModePanelUpload.style.display = 'block';
+      }
+      updateSignApplyButtonState();
+      refreshLucideIcons();
+    });
+  });
+
+  // Preset Position buttons
+  signPosBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      signPosBtns.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      signSelectedPos = btn.getAttribute('data-pos') || 'bottom-right';
+    });
+  });
+
+  // Scale slider
+  if (signScaleSlider && signScaleDisplay) {
+    signScaleSlider.addEventListener('input', () => {
+      signScaleDisplay.textContent = `${signScaleSlider.value}%`;
+    });
+  }
+
+  // Target page select
+  if (signTargetPageSelect) {
+    signTargetPageSelect.addEventListener('change', () => {
+      if (signCustomPageGroup) {
+        signCustomPageGroup.style.display = signTargetPageSelect.value === 'custom' ? 'block' : 'none';
+      }
+    });
+  }
+
+  // Metadata Toggle
+  if (signOptMetadata && signMetadataFields) {
+    signOptMetadata.addEventListener('change', () => {
+      signMetadataFields.style.display = signOptMetadata.checked ? 'flex' : 'none';
+      if (signOptMetadata.checked && signMetaDate && !signMetaDate.value) {
+        const today = new Date();
+        const d = String(today.getDate()).padStart(2, '0');
+        const m = String(today.getMonth() + 1).padStart(2, '0');
+        const y = today.getFullYear();
+        signMetaDate.value = `Ngày ${d} tháng ${m} năm ${y}`;
+      }
+    });
+  }
+
+  // Stamp / Signature Image Upload
+  if (signStampDropZone && signStampFileInput) {
+    signStampDropZone.addEventListener('click', () => signStampFileInput.click());
+
+    signStampFileInput.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      try {
+        const upRes = await uploadFileToServer(file);
+        signStampServerPath = upRes.filepath || upRes.file_path;
+
+        if (signStampFileName) signStampFileName.textContent = file.name;
+        const dropContent = signStampDropZone.querySelector('.drop-zone-content');
+        if (dropContent) dropContent.style.display = 'none';
+        if (signStampFileInfo) signStampFileInfo.style.display = 'flex';
+
+        updateSignApplyButtonState();
+        showToast('Đã tải ảnh con dấu/chữ ký thành công!', 'success');
+      } catch (err) {
+        showToast(`Tải ảnh thất bại: ${err.message}`, 'error');
+      }
+    });
+  }
+
+  if (btnRemoveSignStamp) {
+    btnRemoveSignStamp.addEventListener('click', (e) => {
+      e.stopPropagation();
+      signStampServerPath = null;
+      if (signStampFileInput) signStampFileInput.value = '';
+      if (signStampFileInfo) signStampFileInfo.style.display = 'none';
+      const dropContent = signStampDropZone?.querySelector('.drop-zone-content');
+      if (dropContent) dropContent.style.display = 'flex';
+      updateSignApplyButtonState();
+    });
+  }
+
+  // Action Button Apply Sign
+  if (btnApplySign) {
+    btnApplySign.addEventListener('click', () => {
+      const pageSelection = signTargetPageSelect?.value || 'last';
+      let targetPage = pageSelection;
+      if (pageSelection === 'custom') {
+        const customVal = signCustomPageInput?.value?.trim() || '1';
+        targetPage = customVal;
+      }
+
+      const scalePct = parseInt(signScaleSlider?.value || '25', 10) / 100.0;
+      const wPct = scalePct;
+      const hPct = scalePct * 0.6;
+
+      let xPct = 0.68;
+      let yPct = 0.76;
+
+      const hasMeta = signOptMetadata?.checked;
+      const metaOffset = hasMeta ? 0.08 : 0.0;
+
+      if (signSelectedPos === 'bottom-right') {
+        xPct = Math.max(0.05, 0.95 - wPct);
+        yPct = Math.max(0.05, 0.95 - hPct - metaOffset);
+      } else if (signSelectedPos === 'bottom-left') {
+        xPct = 0.08;
+        yPct = Math.max(0.05, 0.95 - hPct - metaOffset);
+      } else if (signSelectedPos === 'center') {
+        xPct = Math.max(0.05, (1.0 - wPct) / 2.0);
+        yPct = 0.45;
+      } else if (signSelectedPos === 'top-right') {
+        xPct = Math.max(0.05, 0.95 - wPct);
+        yPct = 0.08;
+      }
+
+      const sigObj = {
+        page: targetPage,
+        x_pct: xPct,
+        y_pct: yPct,
+        w_pct: wPct,
+        h_pct: hPct,
+      };
+
+      if (signMode === 'draw') {
+        if (!signCanvas || !hasDrawnSignature) {
+          showToast('Vui lòng ký tên vào khung vẽ trước!', 'warning');
+          return;
+        }
+        sigObj.image_base64 = signCanvas.toDataURL('image/png');
+      } else {
+        if (!signStampServerPath) {
+          showToast('Vui lòng tải lên ảnh chữ ký / con dấu!', 'warning');
+          return;
+        }
+        sigObj.image_path = signStampServerPath;
+      }
+
+      if (hasMeta) {
+        sigObj.signer_title = signMetaTitle?.value?.trim() || '';
+        sigObj.signer_name = signMetaName?.value?.trim() || '';
+        sigObj.signer_date = signMetaDate?.value?.trim() || '';
+      }
+
+      executePdfProAction(
+        'sign',
+        {
+          signatures: [sigObj],
+        },
+        'Ký tên & Đóng dấu điện tử',
+        btnApplySign
+      );
+    });
+  }
+
+  initSignatureCanvas();
 
   // =========================================================================
   // 8. TAB 3: DIAGRAM STUDIO CONTROLLER
@@ -3498,6 +3823,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // 12. TAB 2 & 3: DOCX QUICK PATCH & ATOMIC CONTROLLERS
   // =========================================================================
   initDocxQuickPatch();
+
+  // =========================================================================
+  // 13. SPREADSHEET STUDIO: EXCEL FORMULA PLAYBOOK CONTROLLER
+  // =========================================================================
+  initFormulaPlaybook({ showToast, refreshLucideIcons });
 
   // Initial Lucide icon generation
   refreshLucideIcons();

@@ -85,8 +85,9 @@ class TestMCPServer(unittest.TestCase):
             "docx_replace_text",
             "docx_insert_paragraph",
             "docx_insert_table",
+            "xlsx_formula_helper",
         ]
-        self.assertEqual(len(tools), 19)
+        self.assertEqual(len(tools), 20)
         for expected in expected_tools:
             self.assertIn(expected, tool_names)
 

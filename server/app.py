@@ -34,7 +34,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-APP_VERSION = "4.2.0"
+APP_VERSION = "4.3.0"
 
 # Import core handlers
 try:
@@ -353,6 +353,44 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
             elif path == "/api/history":
                 items = get_recent_history(limit=50)
                 self._send_json({"items": items, "total": len(items)})
+
+            elif path == "/api/xlsx/formulas":
+                query_params = urllib.parse.parse_qs(parsed_url.query)
+                cat = query_params.get("category", ["all"])[0]
+                q = query_params.get("search", [None])[0]
+                try:
+                    from core.xlsx.formula_playbook import get_formula_catalog
+                except (ImportError, ValueError):
+                    try:
+                        from formula_playbook import get_formula_catalog  # type: ignore
+                    except (ImportError, ValueError):
+                        self._send_json({"error": "Failed to import formula playbook"}, status=500)
+                        return
+                items = get_formula_catalog(category=cat, search=q)
+                self._send_json({"success": True, "count": len(items), "formulas": items})
+                return
+
+            elif path == "/api/xlsx/formulas/export":
+                try:
+                    from core.xlsx.formula_playbook import generate_formula_playbook_xlsx
+                except (ImportError, ValueError):
+                    try:
+                        from formula_playbook import generate_formula_playbook_xlsx  # type: ignore
+                    except (ImportError, ValueError):
+                        self._send_json({"error": "Failed to import formula playbook"}, status=500)
+                        return
+                export_filename = "Excel_Formula_Playbook.xlsx"
+                dest = os.path.join(OUTPUT_DIR, export_filename)
+                ok, res = generate_formula_playbook_xlsx(dest)
+                if not ok:
+                    self._send_json({"success": False, "error": res}, status=500)
+                    return
+                try:
+                    record_history("xlsx-playbook", export_filename, export_filename, res)
+                except Exception:
+                    pass
+                self._serve_file(export_filename, as_attachment=True)
+                return
 
             elif path.startswith("/api/download/"):
                 filename = urllib.parse.unquote(path[len("/api/download/"):])
@@ -1378,12 +1416,21 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                             sig_obj["image_base64"] = payload["image_base64"]
                         elif "image_path" in payload:
                             sig_obj["image_path"] = resolve_file_path(payload["image_path"])
-                        sig_obj["page"] = int(payload.get("page", 1))
+                        sig_obj["page"] = payload.get("page", "last")
+                        if "pages" in payload:
+                            sig_obj["pages"] = payload["pages"]
                         sig_obj["x_pct"] = float(payload.get("x_pct", 0.65))
                         sig_obj["y_pct"] = float(payload.get("y_pct", 0.75))
                         sig_obj["w_pct"] = float(payload.get("w_pct", 0.25))
                         sig_obj["h_pct"] = float(payload.get("h_pct", 0.15))
+                        sig_obj["signer_name"] = payload.get("signer_name", "")
+                        sig_obj["signer_title"] = payload.get("signer_title", "")
+                        sig_obj["signer_date"] = payload.get("signer_date", "")
                         signatures = [sig_obj]
+                    else:
+                        for s in signatures:
+                            if "image_path" in s and s["image_path"]:
+                                s["image_path"] = resolve_file_path(s["image_path"])
 
                     out_file = os.path.join(OUTPUT_DIR, f"{base_name}_signed.pdf")
                     details = sign_pdf_with_stamp(src, out_file, signatures)
@@ -1502,12 +1549,21 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                         sig_obj["image_base64"] = payload["image_base64"]
                     elif "image_path" in payload:
                         sig_obj["image_path"] = resolve_file_path(payload["image_path"])
-                    sig_obj["page"] = int(payload.get("page", 1))
+                    sig_obj["page"] = payload.get("page", "last")
+                    if "pages" in payload:
+                        sig_obj["pages"] = payload["pages"]
                     sig_obj["x_pct"] = float(payload.get("x_pct", 0.65))
                     sig_obj["y_pct"] = float(payload.get("y_pct", 0.75))
                     sig_obj["w_pct"] = float(payload.get("w_pct", 0.25))
                     sig_obj["h_pct"] = float(payload.get("h_pct", 0.15))
+                    sig_obj["signer_name"] = payload.get("signer_name", "")
+                    sig_obj["signer_title"] = payload.get("signer_title", "")
+                    sig_obj["signer_date"] = payload.get("signer_date", "")
                     signatures = [sig_obj]
+                else:
+                    for s in signatures:
+                        if "image_path" in s and s["image_path"]:
+                            s["image_path"] = resolve_file_path(s["image_path"])
 
                 out_name = f"{base_name}_signed.pdf"
                 out_file = os.path.join(OUTPUT_DIR, out_name)

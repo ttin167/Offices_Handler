@@ -22,6 +22,7 @@ try:
     import openpyxl
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
+    from openpyxl.worksheet.views import SheetView
 except ImportError:
     openpyxl = None  # type: ignore
 
@@ -41,9 +42,19 @@ except ImportError:
         fitz = None  # type: ignore
 
 try:
-    from core.xlsx.writer import apply_worksheet_print_setup
+    from core.xlsx.writer import (
+        apply_worksheet_print_setup,
+        sanitize_xml_string,
+        parse_vietnamese_date,
+        parse_accounting_and_localized_number,
+        UniversalExcelEngine,
+    )
 except ImportError:
     apply_worksheet_print_setup = None  # type: ignore
+    sanitize_xml_string = None  # type: ignore
+    parse_vietnamese_date = None  # type: ignore
+    parse_accounting_and_localized_number = None  # type: ignore
+    UniversalExcelEngine = None  # type: ignore
 
 
 # ---------------------------------------------------------------------------
@@ -147,21 +158,38 @@ def _apply_cell_value_and_format(
     """
     Sets cell value, styling, and number format adhering to:
     - ERR_XLSX_007: String '@' format for codes, CCCD, tax IDs, phone numbers.
+    - ERR_XLSX_009: 15-Digit precision guard, Vietnamese dates, and accounting numbers.
+    - ERR_XLSX_010: Illegal XML character sanitization and 32k length cutoff.
     - Right-align for pure numbers, Left-align for text, Center for headers.
     """
-    val_clean = val_str.strip()
+    clean_raw = sanitize_xml_string(val_str) if sanitize_xml_string else val_str
+    val_clean = str(clean_raw).strip()
 
     is_leading_zero_code = bool(re.match(r"^0\d+$", val_clean)) and len(val_clean) > 1
-    is_card_or_cccd = bool(re.match(r"^\d{9,19}$", val_clean))
+    is_card_or_cccd = bool(re.match(r"^\d{9,30}$", val_clean)) and (len(val_clean) >= 12 or is_leading_zero_code)
 
     if is_leading_zero_code or is_card_or_cccd:
         cell.number_format = "@"
         cell.value = val_clean
-    elif not is_header and re.match(r"^-?\d+(?:\.\d+)?$", val_clean):
-        try:
-            cell.value = float(val_clean) if "." in val_clean else int(val_clean)
-        except ValueError:
-            cell.value = val_clean
+    elif not is_header:
+        # Check Vietnamese date (ERR_XLSX_009)
+        date_obj = parse_vietnamese_date(val_clean) if parse_vietnamese_date else None
+        if date_obj is not None:
+            cell.value = date_obj
+            cell.number_format = "DD/MM/YYYY"
+        else:
+            # Check accounting numbers & localized decimals (ERR_XLSX_009)
+            acc_val, acc_fmt = parse_accounting_and_localized_number(val_clean) if parse_accounting_and_localized_number else (None, None)
+            if acc_val is not None:
+                cell.value = acc_val
+                cell.number_format = acc_fmt or "#,##0"
+            elif re.match(r"^-?\d+(?:\.\d+)?$", val_clean):
+                try:
+                    cell.value = float(val_clean) if "." in val_clean else int(val_clean)
+                except ValueError:
+                    cell.value = val_clean
+            else:
+                cell.value = val_clean
     else:
         cell.value = val_clean
 
@@ -172,7 +200,7 @@ def _apply_cell_value_and_format(
     else:
         cell.fill = ALT_FILL if row_idx % 2 == 0 else WHITE_FILL
         cell.font = DATA_FONT
-        align_h = "right" if isinstance(cell.value, (int, float)) else "left"
+        align_h = "right" if isinstance(cell.value, (int, float)) and getattr(cell, "number_format", "@") != "@" else "left"
         cell.alignment = Alignment(horizontal=align_h, vertical="center", wrap_text=True)
 
     cell.border = THIN_BORDER
@@ -187,8 +215,8 @@ def _format_merged_cell_range(
     is_header: bool = False,
 ) -> None:
     """
-    Synchronizes borders and fills across all cells in a merged range
-    without setting .value (strictly enforcing ERR_XLSX_004).
+    Synchronizes borders, fills, and alignment across all cells in a merged range
+    without setting .value on MergedCell objects (strictly enforcing ERR_XLSX_004).
     """
     for r in range(start_row, end_row + 1):
         for c in range(start_col, end_col + 1):
@@ -197,9 +225,11 @@ def _format_merged_cell_range(
             if is_header:
                 cell.fill = HEADER_FILL
                 cell.font = HEADER_FONT
+                cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
             else:
                 cell.fill = ALT_FILL if start_row % 2 == 0 else WHITE_FILL
                 cell.font = DATA_FONT
+
 
 
 # ---------------------------------------------------------------------------
@@ -416,6 +446,19 @@ def extract_docx_tables_to_xlsx(
             col_letter = get_column_letter(c_idx)
             ws.column_dimensions[col_letter].width = max(12, width)
 
+        # Usability polish (ERR_XLSX_012)
+        if not ws.views.sheetView:
+            ws.views.sheetView.append(SheetView())
+        ws.views.sheetView[0].showGridLines = True
+        ws.freeze_panes = "A2"
+        if ws.max_column >= 1 and ws.max_row >= 1:
+            ws.auto_filter.ref = f"A1:{get_column_letter(ws.max_column)}{ws.max_row}"
+
+        # Unlocked data row heights for multiline auto-fit (ERR_XLSX_012)
+        for r_dim_idx in range(2, ws.max_row + 1):
+            ws.row_dimensions[r_dim_idx].height = None
+        ws.row_dimensions[1].height = 26
+
         ws.page_setup.paperSize = ws.PAPERSIZE_A4
         if apply_worksheet_print_setup:
             apply_worksheet_print_setup(ws, orientation="landscape")
@@ -427,6 +470,13 @@ def extract_docx_tables_to_xlsx(
     if total_extracted_tables == 0:
         return False, "Tài liệu không chứa cấu trúc bảng biểu để trích xuất sang Excel.", 0
 
+    # Auto generate Index Dashboard for multi-sheet workbooks (ERR_XLSX_012 / Enterprise Subsystem 6)
+    if total_extracted_tables >= 3 and UniversalExcelEngine:
+        try:
+            UniversalExcelEngine(wb).create_index_dashboard(title="Mục Lục & Bảng Biểu Trích Xuất (DOCX)")
+        except Exception:
+            pass
+
     dest = os.path.abspath(output_path)
     out_dir = os.path.dirname(dest)
     if out_dir:
@@ -434,6 +484,213 @@ def extract_docx_tables_to_xlsx(
 
     wb.save(dest)
     return True, dest, total_extracted_tables
+
+
+# ---------------------------------------------------------------------------
+# Helper: Ghost Column Pruning & Matrix Optimization
+# ---------------------------------------------------------------------------
+
+def _prune_ghost_columns(matrix: List[List[Any]]) -> List[List[Any]]:
+    """
+    Detects and eliminates 'ghost columns' (columns that contain only empty/whitespace/None
+    values across all rows of the table).
+    """
+    if not matrix or not matrix[0]:
+        return matrix
+
+    num_cols = len(matrix[0])
+    non_empty_col_indices: List[int] = []
+    for c in range(num_cols):
+        is_empty = True
+        for row in matrix:
+            if c < len(row):
+                val = row[c]
+                if val is not None and str(val).strip() != "":
+                    is_empty = False
+                    break
+        if not is_empty:
+            non_empty_col_indices.append(c)
+
+    if len(non_empty_col_indices) == num_cols:
+        return matrix
+
+    pruned_matrix: List[List[Any]] = []
+    for row in matrix:
+        pruned_row = [row[c] if c < len(row) else None for c in non_empty_col_indices]
+        pruned_matrix.append(pruned_row)
+
+    return pruned_matrix
+
+
+def _detect_table_header_structure(rows: List[List[Any]]) -> Tuple[int, List[Tuple[int, int, int, int]]]:
+    """
+    Analyzes the top rows of a tabular dataset to detect 1-tier vs 2-tier headers and
+    compute the exact cell merge coordinates (start_row, start_col, end_row, end_col) (1-indexed).
+
+    Returns:
+        (header_depth, list_of_merge_tuples)
+    """
+    if len(rows) < 3:
+        return 1, []
+
+    r0, r1 = rows[0], rows[1]
+    num_cols = len(r0)
+    if len(r1) != num_cols or num_cols < 2:
+        return 1, []
+
+    h_merges: List[Tuple[int, int, int, int]] = []
+    v_merges: List[Tuple[int, int, int, int]] = []
+
+    c = 0
+    while c < num_cols:
+        val0 = str(r0[c] or "").strip()
+        val1 = str(r1[c] or "").strip()
+
+        # Check for horizontal span in row 0
+        span_len = 1
+        for next_c in range(c + 1, num_cols):
+            next_val0 = str(r0[next_c] or "").strip()
+            if not next_val0:
+                span_len += 1
+            else:
+                break
+
+        if span_len > 1 and val0:
+            # Check if row 1 has non-empty sub-labels underneath this span
+            sub_labels = [str(r1[k] or "").strip() for k in range(c, c + span_len)]
+            if any(sub_labels):
+                h_merges.append((1, c + 1, 1, c + span_len))
+                c += span_len
+                continue
+
+        # Check for vertical span (rowspan = 2)
+        if val0 and (not val1 or val1.lower() == val0.lower()):
+            v_merges.append((1, c + 1, 2, c + 1))
+            c += 1
+        else:
+            c += 1
+
+    if h_merges:
+        return 2, v_merges + h_merges
+
+    return 1, []
+
+
+def _normalize_row_for_comparison(row: List[Any]) -> List[str]:
+    """Normalizes cell text for robust header signature comparison."""
+    return [re.sub(r"\s+", " ", str(c or "").strip().lower()) for c in row]
+
+
+def _stitch_multipage_tables(raw_page_tables: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Stitches continuous tables that span across consecutive PDF pages:
+    - Verifies column count symmetry and header signature matching (1-tier or 2-tier).
+    - Drops repeated header rows on continuation pages.
+    - Preserves independent tables if column count or header signatures differ.
+    """
+    if not raw_page_tables:
+        return []
+
+    stitched_groups: List[Dict[str, Any]] = []
+
+    for item in raw_page_tables:
+        rows = item.get("rows", [])
+        if not rows:
+            continue
+
+        pno = item.get("page", 0)
+        t_idx = item.get("table_idx", 1)
+
+        if not stitched_groups:
+            depth, merges = _detect_table_header_structure(rows)
+            stitched_groups.append({
+                "page_start": pno,
+                "table_idx": t_idx,
+                "rows": [list(r) for r in rows],
+                "header_depth": depth,
+                "merges": merges,
+                "header_sig_0": _normalize_row_for_comparison(rows[0]) if len(rows) > 0 else [],
+                "header_sig_1": _normalize_row_for_comparison(rows[1]) if len(rows) > 1 else [],
+            })
+            continue
+
+        prev_group = stitched_groups[-1]
+        prev_rows = prev_group["rows"]
+        prev_cols = len(prev_rows[0]) if prev_rows else 0
+        curr_cols = len(rows[0]) if rows else 0
+
+        is_continuation = False
+        data_start_idx = 0
+
+        if curr_cols == prev_cols and curr_cols > 0:
+            curr_sig_0 = _normalize_row_for_comparison(rows[0])
+            curr_sig_1 = _normalize_row_for_comparison(rows[1]) if len(rows) > 1 else []
+
+            prev_sig_0 = prev_group["header_sig_0"]
+            prev_sig_1 = prev_group["header_sig_1"]
+
+            # Case 1: 2-Tier header match
+            if prev_group["header_depth"] == 2 and len(rows) >= 2:
+                if curr_sig_0 == prev_sig_0 and curr_sig_1 == prev_sig_1:
+                    is_continuation = True
+                    data_start_idx = 2
+
+            # Case 2: 1-Tier header match
+            if not is_continuation and len(rows) >= 1:
+                if curr_sig_0 == prev_sig_0:
+                    is_continuation = True
+                    data_start_idx = 1
+
+        if is_continuation:
+            for row in rows[data_start_idx:]:
+                prev_rows.append(list(row))
+        else:
+            depth, merges = _detect_table_header_structure(rows)
+            stitched_groups.append({
+                "page_start": pno,
+                "table_idx": t_idx,
+                "rows": [list(r) for r in rows],
+                "header_depth": depth,
+                "merges": merges,
+                "header_sig_0": _normalize_row_for_comparison(rows[0]) if len(rows) > 0 else [],
+                "header_sig_1": _normalize_row_for_comparison(rows[1]) if len(rows) > 1 else [],
+            })
+
+    return stitched_groups
+
+
+def _derive_pdf_sheet_title(
+    pdf_path: str,
+    group_idx: int,
+    total_groups: int,
+    existing_names: Set[str],
+) -> str:
+    """
+    Derives an elegant, concise sheet title from the PDF filename or context.
+    E.g.: '20260526_Bieu phi dich vu tai khoan_ban tieng Viet.pdf' -> 'Bieu_Phi_Dich_Vu'
+    """
+    base = os.path.splitext(os.path.basename(pdf_path))[0]
+    clean = re.sub(r"^\d{4}[-_]?\d{2}[-_]?\d{2}[-_]?", "", base)
+    clean = re.sub(
+        r"[-_](?:ban[-_]tieng[-_]viet|tieng[-_]viet|converted|final|v\d+).*",
+        "",
+        clean,
+        flags=re.IGNORECASE,
+    )
+    clean = clean.strip(" _-")
+
+    clean_lower = clean.lower()
+    if "bieu phi" in clean_lower or "biểu phí" in clean_lower:
+        raw_name = "Bieu_Phi_Dich_Vu"
+    elif clean:
+        raw_name = clean
+    else:
+        raw_name = f"Bang_{group_idx}"
+
+    if total_groups > 1 and raw_name != f"Bang_{group_idx}":
+        raw_name = f"{raw_name}_{group_idx}"
+
+    return _sanitize_sheet_title(raw_name, existing_names, group_idx)
 
 
 # ---------------------------------------------------------------------------
@@ -445,7 +702,9 @@ def extract_pdf_tables_to_xlsx(
     output_path: str,
 ) -> Tuple[bool, str, int]:
     """
-    Extracts all structured tables from PDF using PyMuPDF's C++ table finder.
+    Extracts all structured tables from PDF using PyMuPDF's C++ table finder
+    with strict vector lines strategy, ghost column pruning, multipage stitching,
+    and 2-tier header reconstruction (ERR_XLSX_004, ERR_XLSX_007, ERR_XLSX_008).
     """
     if openpyxl is None:
         return False, "Thư viện 'openpyxl' chưa được cài đặt.", 0
@@ -457,15 +716,16 @@ def extract_pdf_tables_to_xlsx(
         return False, f"Tệp PDF nguồn không tồn tại: {src}", 0
 
     doc = fitz.open(src)
-    wb = openpyxl.Workbook()
-    wb.remove(wb.active)
-
-    existing_sheet_names: Set[str] = set()
-    total_extracted_tables = 0
+    raw_page_tables: List[Dict[str, Any]] = []
 
     for pno in range(len(doc)):
         page = doc[pno]
-        tabs = page.find_tables()
+        # Primary strategy: lines_strict to prevent ghost columns on vector borders
+        tabs = page.find_tables(strategy="lines_strict")
+        if not tabs or len(tabs.tables) == 0:
+            # Fallback strategy: default lines heuristic
+            tabs = page.find_tables()
+
         if not tabs or len(tabs.tables) == 0:
             continue
 
@@ -474,37 +734,113 @@ def extract_pdf_tables_to_xlsx(
             if not raw_rows or len(raw_rows) == 0:
                 continue
 
-            raw_title = f"Trang_{pno + 1}_Bang_{t_idx}"
-            sheet_title = _sanitize_sheet_title(raw_title, existing_sheet_names, total_extracted_tables + 1)
-            ws = wb.create_sheet(title=sheet_title)
+            clean_rows = _prune_ghost_columns(raw_rows)
+            if not clean_rows or len(clean_rows) == 0:
+                continue
 
-            col_widths: Dict[int, int] = {}
-
-            for r_idx, row in enumerate(raw_rows, start=1):
-                is_header = (r_idx == 1)
-
-                for c_idx, val in enumerate(row, start=1):
-                    val_str = str(val).strip() if val is not None else ""
-                    cell = ws.cell(row=r_idx, column=c_idx)
-                    _apply_cell_value_and_format(cell, val_str, is_header=is_header, row_idx=r_idx)
-                    col_widths[c_idx] = max(col_widths.get(c_idx, 10), min(50, len(val_str) + 3))
-
-            for c_idx, width in col_widths.items():
-                col_letter = get_column_letter(c_idx)
-                ws.column_dimensions[col_letter].width = max(12, width)
-
-            ws.page_setup.paperSize = ws.PAPERSIZE_A4
-            if apply_worksheet_print_setup:
-                apply_worksheet_print_setup(ws, orientation="landscape")
-            else:
-                ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
-
-            total_extracted_tables += 1
+            raw_page_tables.append({
+                "page": pno,
+                "table_idx": t_idx,
+                "rows": clean_rows,
+                "bbox": getattr(tab, "bbox", None),
+            })
 
     doc.close()
 
-    if total_extracted_tables == 0:
+    if not raw_page_tables:
         return False, "Tài liệu không chứa cấu trúc bảng biểu để trích xuất sang Excel.", 0
+
+    # Stitch tables across pages
+    stitched_groups = _stitch_multipage_tables(raw_page_tables)
+    if not stitched_groups:
+        return False, "Tài liệu không chứa cấu trúc bảng biểu để trích xuất sang Excel.", 0
+
+    wb = openpyxl.Workbook()
+    wb.remove(wb.active)
+
+    existing_sheet_names: Set[str] = set()
+    total_extracted_tables = len(stitched_groups)
+
+    for g_idx, group in enumerate(stitched_groups, start=1):
+        sheet_title = _derive_pdf_sheet_title(src, g_idx, total_extracted_tables, existing_sheet_names)
+        ws = wb.create_sheet(title=sheet_title)
+
+        rows = group["rows"]
+        header_depth = group.get("header_depth", 1)
+        merges = group.get("merges", [])
+        col_widths: Dict[int, int] = {}
+
+        # 1. Write cell values and styles
+        for r_idx, row in enumerate(rows, start=1):
+            is_header = (r_idx <= header_depth)
+
+            for c_idx, val in enumerate(row, start=1):
+                val_str = str(val).strip() if val is not None else ""
+                cell = ws.cell(row=r_idx, column=c_idx)
+                _apply_cell_value_and_format(cell, val_str, is_header=is_header, row_idx=r_idx)
+                if val_str:
+                    lines = val_str.split("\n")
+                    max_line_len = max(len(l) for l in lines)
+                    col_widths[c_idx] = max(col_widths.get(c_idx, 10), min(50, max_line_len + 3))
+
+        # 2. Reconstruct merged cell ranges safely (ERR_XLSX_004)
+        for m in merges:
+            start_r, start_c, end_r, end_c = m
+            ws.merge_cells(
+                start_row=start_r,
+                start_column=start_c,
+                end_row=end_r,
+                end_column=end_c,
+            )
+            _format_merged_cell_range(
+                ws,
+                start_r,
+                start_c,
+                end_r,
+                end_c,
+                is_header=True,
+            )
+
+        # 3. Freeze panes at header boundary & Usability Polish (ERR_XLSX_012)
+        if header_depth == 2:
+            ws.freeze_panes = "A3"
+            h_row = 2
+        elif header_depth == 1:
+            ws.freeze_panes = "A2"
+            h_row = 1
+        else:
+            ws.freeze_panes = "A2"
+            h_row = 1
+
+        if not ws.views.sheetView:
+            ws.views.sheetView.append(SheetView())
+        ws.views.sheetView[0].showGridLines = True
+
+        if ws.max_column >= 1 and ws.max_row >= h_row:
+            ws.auto_filter.ref = f"A{h_row}:{get_column_letter(ws.max_column)}{ws.max_row}"
+
+        # Unlocked data row heights for multiline auto-fit (ERR_XLSX_012)
+        for r_dim_idx in range(h_row + 1, ws.max_row + 1):
+            ws.row_dimensions[r_dim_idx].height = None
+
+        # 4. Auto column dimensions
+        for c_idx, width in col_widths.items():
+            col_letter = get_column_letter(c_idx)
+            ws.column_dimensions[col_letter].width = max(12, width)
+
+        # 5. Print setup (A4 landscape) (ERR_XLSX_008)
+        ws.page_setup.paperSize = ws.PAPERSIZE_A4
+        if apply_worksheet_print_setup:
+            apply_worksheet_print_setup(ws, orientation="landscape")
+        else:
+            ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
+
+    # Auto generate Index Dashboard for multi-sheet workbooks (Enterprise Subsystem 6)
+    if total_extracted_tables >= 3 and UniversalExcelEngine:
+        try:
+            UniversalExcelEngine(wb).create_index_dashboard(title="Mục Lục & Bảng Biểu Trích Xuất (PDF)")
+        except Exception:
+            pass
 
     dest = os.path.abspath(output_path)
     out_dir = os.path.dirname(dest)
@@ -568,6 +904,17 @@ def extract_md_tables_to_xlsx(
             col_letter = get_column_letter(c_idx)
             ws.column_dimensions[col_letter].width = max(12, width)
 
+        # Usability polish (ERR_XLSX_012)
+        if not ws.views.sheetView:
+            ws.views.sheetView.append(SheetView())
+        ws.views.sheetView[0].showGridLines = True
+        ws.freeze_panes = "A2"
+        if ws.max_column >= 1 and ws.max_row >= 1:
+            ws.auto_filter.ref = f"A1:{get_column_letter(ws.max_column)}{ws.max_row}"
+
+        for r_dim_idx in range(2, ws.max_row + 1):
+            ws.row_dimensions[r_dim_idx].height = None
+
         ws.page_setup.paperSize = ws.PAPERSIZE_A4
         if apply_worksheet_print_setup:
             apply_worksheet_print_setup(ws, orientation="landscape")
@@ -601,6 +948,13 @@ def extract_md_tables_to_xlsx(
 
     if total_extracted_tables == 0:
         return False, "Tài liệu không chứa cấu trúc bảng biểu để trích xuất sang Excel.", 0
+
+    # Auto generate Index Dashboard for multi-sheet workbooks (Enterprise Subsystem 6)
+    if total_extracted_tables >= 3 and UniversalExcelEngine:
+        try:
+            UniversalExcelEngine(wb).create_index_dashboard(title="Mục Lục & Bảng Biểu Trích Xuất (Markdown)")
+        except Exception:
+            pass
 
     dest = os.path.abspath(output_path)
     out_dir = os.path.dirname(dest)

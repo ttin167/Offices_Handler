@@ -1,6 +1,6 @@
 {
   "name": "antigravity-office-studio",
-  "version": "4.2.0",
+  "version": "4.3.0",
   "private": true,
   "type": "module",
   "description": "Publication-Grade Universal Office & Presentation Web Studio",
@@ -10,7 +10,10 @@
     "dev:server": "python web_api_server.py",
     "build": "vite build",
     "preview": "vite preview",
-    "bump": "python tools/bump_version.py"
+    "bump": "python tools/bump_version.py",
+    "bump:patch": "python tools/bump_version.py patch",
+    "bump:minor": "python tools/bump_version.py minor",
+    "bump:check": "python tools/bump_version.py --check"
   },
   "devDependencies": {
     "vite": "^6.2.0"

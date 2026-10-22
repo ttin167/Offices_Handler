@@ -11,7 +11,7 @@ import process from 'process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-let pkgVersion = '4.2.0';
+let pkgVersion = '4.3.0';
 try {
   const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
   if (pkg && pkg.version) {

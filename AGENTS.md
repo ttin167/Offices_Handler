@@ -14,11 +14,21 @@ Welcome, AI Agent! This file is your operational manual for `antigravity-doc-han
 
 The workspace includes preconfigured Antigravity customizations:
 - **Skill 1**: [doc-handler](.agents/skills/doc-handler/SKILL.md) — PDF/Word/Markdown conversion, OpenXML table repair, document inspection, and JSON supremacy mental model.
-- **Skill 2**: [technical-diagrams](.agents/skills/technical-diagrams/SKILL.md) — Declarative diagram rendering (`spec-render`), orthogonal Manhattan routing, multi-line wrapping, and collision prevention.
-- **Rule 1**: [rule_technical_diagram_standards.md](.agents/rules/rule_technical_diagram_standards.md) — Mandatory standards for English screen names, codebase-truth action labels, multi-line wrapping (`\n`), and automated AABB collision detection.
-- **Rule 2**: [rule_decoupled_document_converter.md](.agents/rules/rule_decoupled_document_converter.md) — Mandatory standards for table OpenXML invariants (`cantSplit`, `tblHeader`, `vAlign="center"`) and decoupled styling.
-- **Rule 3**: [rule_feature_lifecycle_and_doc_sync.md](.agents/rules/rule_feature_lifecycle_and_doc_sync.md) — Mandatory standards for updating `CHANGELOG.md`, `ARCHITECTURE.md`, and Core Docs Triad (`BAO_CAO_TIEN_HOA` & `HUONG_DAN_SU_DUNG` in MD/DOCX/PDF) after completing any feature (`ERR_DOC_SYNC_001`).
+- **Skill 2**: [excel-automation](.agents/skills/excel-automation/SKILL.md) — Template-driven OpenXML Excel processing, token extraction, live KPI linking, 6 enterprise subsystems, and streaming mode.
+- **Skill 3**: [felo-slides](.agents/skills/felo-slides/SKILL.md) — 16:9 widescreen presentation synthesis, Slide Master inheritance, and locked aspect-ratio diagram injection.
+- **Skill 4**: [mxgraph-diagram-engineering](.agents/skills/mxgraph-diagram-engineering/SKILL.md) — Draw.io (.drawio / XML) pure mxGraphModel generation, layout, orthogonal routing, and monochrome line-art.
+- **Skill 5**: [technical-diagrams](.agents/skills/technical-diagrams/SKILL.md) — Declarative diagram rendering (Canvas, Mermaid, PlantUML), orthogonal Manhattan routing, and collision prevention.
+- **Rule 1**: [rule_technical_diagram_standards.md](.agents/rules/rule_technical_diagram_standards.md) — English screen names, codebase-truth action labels, multi-line wrapping (`\n`), and automated AABB collision detection.
+- **Rule 2**: [rule_decoupled_document_converter.md](.agents/rules/rule_decoupled_document_converter.md) — Table OpenXML invariants (`cantSplit`, `tblHeader`, `vAlign="center"`) and decoupled styling.
+- **Rule 3**: [rule_feature_lifecycle_and_doc_sync.md](.agents/rules/rule_feature_lifecycle_and_doc_sync.md) — Documentation synchronization (`CHANGELOG.md`, `ARCHITECTURE.md`, `README.md`, and Core Docs Triad) on feature completions (`ERR_DOC_SYNC_001`).
 - **Rule 4**: [rule_version_synchronization_and_release_invariants.md](.agents/rules/rule_version_synchronization_and_release_invariants.md) — 9-anchor synchronization and automated build on version bumps (`ERR_VER_001`).
+- **Rule 5**: [rule_database_erd_standards.md](.agents/rules/rule_database_erd_standards.md) — Crow's foot notation, table sizing, and relational database ERD invariants.
+- **Rule 6**: [rule_excel_template_preservation_and_ux.md](.agents/rules/rule_excel_template_preservation_and_ux.md) — Invariants E1–E14, token extraction, and live dynamic formulas.
+- **Rule 7**: [rule_enterprise_document_and_spreadsheet_qa.md](.agents/rules/rule_enterprise_document_and_spreadsheet_qa.md) — Document & spreadsheet QA invariants (`ERR_XLSX_001`–`014`, `ERR_DOCX_001`–`005`).
+- **Rule 8**: [rule_mxgraph_drawio_diagram_standards.md](.agents/rules/rule_mxgraph_drawio_diagram_standards.md) — Draw.io mxGraphModel invariants (`MX_INV_01`–`20`).
+- **Rule 9**: [rule_learning_and_skill_authoring.md](.agents/rules/rule_learning_and_skill_authoring.md) — Meta-rule for authoring rules and skills, auto-updating `README.md` and `AGENTS.md`.
+- **Rule 10**: [rule_context_recovery_protocol.md](.agents/rules/rule_context_recovery_protocol.md) — Recovery invariants and checkpoint protocols.
+- **Rule 11**: [rule_quality_gate_and_verification.md](.agents/rules/rule_quality_gate_and_verification.md) — Mandatory multi-layer quality gate audit before task completion.
 
 ---
 

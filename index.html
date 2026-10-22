@@ -22,7 +22,7 @@
           <div class="logo-icon"><i data-lucide="sparkles"></i></div>
           <div class="brand-text">
             <span class="brand-title">ANTIGRAVITY</span>
-            <span class="brand-subtitle">Office Studio v4.2.0</span>
+            <span class="brand-subtitle">Office Studio v4.3.0</span>
           </div>
         </div>
         <div class="badge-status" id="server-status-badge">
@@ -395,6 +395,10 @@
             <span class="sub-tab-icon"><i data-lucide="scan-search"></i></span>
             <span>JSON Snapshot Inspector</span>
           </button>
+          <button class="sub-tab-btn" data-subtab="formulas">
+            <span class="sub-tab-icon"><i data-lucide="calculator"></i></span>
+            <span>Formula Playbook &amp; Live Demo</span>
+          </button>
         </div>
 
         <!-- Sub-panel 1: 12 Quality Gates Validator -->
@@ -603,6 +607,67 @@
                 </div>
                 <textarea id="xlsx-ins-json-output" class="code-textarea" rows="18" readonly></textarea>
               </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sub-panel 4: Formula Playbook & Live Demo -->
+        <div class="sub-panel" id="subpanel-formulas" style="display: none;">
+          <div class="formula-playbook-header glass-panel">
+            <div class="formula-header-top">
+              <div class="formula-header-info">
+                <h2 class="card-section-title" style="margin: 0;">Cẩm Nang 32+ Công Thức Excel Tinh Hoa &amp; Live Demo</h2>
+                <p class="formula-header-desc">
+                  Tra cứu chuyên sâu theo 4 chiều: <strong>Tên hàm</strong>, <strong>Công thức mẫu</strong>, <strong>Dùng trong trường hợp nào</strong>, và <strong>Tại sao lại chọn hàm đó của Excel</strong> (so sánh trực diện với hàm cổ điển). Tệp Excel xuất ra gồm 2 Sheets: Playbook &amp; Live Interactive Formulas tính toán trực tiếp.
+                </p>
+              </div>
+              <div class="formula-header-actions">
+                <button type="button" class="btn-primary glow-btn" id="btn-export-formula-playbook">
+                  <span class="btn-icon"><i data-lucide="download"></i></span>
+                  <span>XUẤT SỔ TÍNH EXCEL (2 SHEETS)</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Controls: Search bar & Category filter pills -->
+            <div class="formula-controls-row">
+              <div class="formula-search-box">
+                <span class="search-icon"><i data-lucide="search"></i></span>
+                <input type="text" id="formula-search-input" class="form-input" placeholder="Tìm theo tên hàm (XLOOKUP, SUMIFS...), từ khóa hoặc bài toán thực tế..." />
+                <button type="button" class="btn-clear-search" id="btn-clear-formula-search" title="Xóa tìm kiếm" style="display: none;">
+                  <i data-lucide="x"></i>
+                </button>
+              </div>
+              <div class="formula-category-pills" id="formula-category-pills">
+                <button type="button" class="category-pill active" data-category="all">Tất Cả (32)</button>
+                <button type="button" class="category-pill" data-category="lookup">Tra Cứu &amp; Tham Chiếu (6)</button>
+                <button type="button" class="category-pill" data-category="aggregation">Tổng Hợp &amp; Thống Kê (6)</button>
+                <button type="button" class="category-pill" data-category="text">Xử Lý Chuỗi &amp; Text (5)</button>
+                <button type="button" class="category-pill" data-category="logic">Logic &amp; Điều Kiện (5)</button>
+                <button type="button" class="category-pill" data-category="dynamic">Mảng Động &amp; Filter (5)</button>
+                <button type="button" class="category-pill" data-category="financial">Tài Chính &amp; Ngày Tháng (5)</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Formula Cards Grid Container -->
+          <div class="formula-cards-container">
+            <div class="formula-stats-bar">
+              <span class="formula-count-text">Hiển thị <strong id="formula-filtered-count">32</strong> công thức tinh hoa</span>
+              <div class="formula-tip-badge">
+                <i data-lucide="info"></i>
+                <span>Bấm <strong>"Copy"</strong> để dán trực tiếp vào bảng tính hoặc bấm <strong>"Xuất Sổ Tính Excel"</strong> để xem bảng 2 Sheets đang chạy công thức sống động.</span>
+              </div>
+            </div>
+
+            <div class="formula-grid" id="formula-cards-grid">
+              <!-- Dynamically populated cards -->
+            </div>
+
+            <div class="empty-state-deck" id="formula-empty-state" style="display: none;">
+              <div class="empty-illustration"><i data-lucide="search"></i></div>
+              <div class="empty-title">Không Tìm Thấy Công Thức Phù Hợp</div>
+              <p class="empty-desc">Không có hàm nào khớp với từ khóa tìm kiếm. Thử tìm với tên hàm tiếng Anh như <code>XLOOKUP</code>, <code>SUMIFS</code>, <code>INDEX</code> hoặc bấm chọn nhóm <strong>"Tất Cả"</strong>.</p>
             </div>
           </div>
         </div>
@@ -1114,6 +1179,9 @@
                 <button type="button" class="pdf-action-pill" data-action="protect">
                   <i data-lucide="lock"></i> Mã Hóa AES-256
                 </button>
+                <button type="button" class="pdf-action-pill" data-action="sign">
+                  <i data-lucide="pen-tool"></i> Ký Tên &amp; Con Dấu
+                </button>
                 <button type="button" class="pdf-action-pill" data-action="giap_lai">
                   <i data-lucide="stamp"></i> Đóng Dấu Giáp Lai
                 </button>
@@ -1247,6 +1315,135 @@
                   <button type="button" class="btn-primary glow-btn" id="btn-apply-protect" disabled>
                     <span class="btn-icon"><i data-lucide="shield-check"></i></span>
                     <span>MÃ HÓA AES-256 PDF</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Action Card: Electronic Signature & Stamp -->
+              <div class="pdf-action-card" id="pdf-action-pane-sign" style="display: none;">
+                <div class="action-card-header">
+                  <div class="action-card-title"><i data-lucide="pen-tool"></i> Chèn Chữ Ký Số &amp; Con Dấu Điện Tử</div>
+                  <div class="action-card-desc">Ký trực tiếp bằng bảng vẽ cảm ứng mượt mà hoặc tải lên ảnh con dấu/chữ ký PNG tách nền trong suốt.</div>
+                </div>
+
+                <!-- Mode Switcher Tabs -->
+                <div class="sign-mode-tabs" id="sign-mode-tabs">
+                  <button type="button" class="sign-mode-tab active" data-sign-mode="draw">
+                    <i data-lucide="edit-3"></i> Vẽ Chữ Ký Tay
+                  </button>
+                  <button type="button" class="sign-mode-tab" data-sign-mode="upload">
+                    <i data-lucide="upload"></i> Tải Lên Ảnh Con Dấu / Chữ Ký
+                  </button>
+                </div>
+
+                <!-- Sub-Mode 1: Draw Pad -->
+                <div class="sign-mode-panel active" id="sign-mode-panel-draw">
+                  <div class="sign-pad-toolbar">
+                    <div class="sign-color-picker" id="sign-color-picker">
+                      <span class="color-label">Màu mực:</span>
+                      <button type="button" class="sign-color-dot active" data-color="#0033aa" style="background: #0033aa;" title="Xanh dương (Chuẩn hợp đồng)"></button>
+                      <button type="button" class="sign-color-dot" data-color="#111827" style="background: #111827;" title="Đen"></button>
+                      <button type="button" class="sign-color-dot" data-color="#dc2626" style="background: #dc2626;" title="Đỏ"></button>
+                    </div>
+                    <button type="button" class="btn-sm-ghost" id="btn-clear-signature">
+                      <i data-lucide="rotate-ccw"></i> Xóa Nét
+                    </button>
+                  </div>
+                  <div class="signature-canvas-wrapper" id="signature-canvas-wrapper">
+                    <canvas id="signature-pad-canvas" width="480" height="150"></canvas>
+                    <div class="canvas-hint" id="signature-canvas-hint">Ký tên vào khung này (chuột hoặc cảm ứng)</div>
+                  </div>
+                </div>
+
+                <!-- Sub-Mode 2: Image Upload -->
+                <div class="sign-mode-panel" id="sign-mode-panel-upload" style="display: none;">
+                  <div class="drop-zone drop-zone-sm" id="sign-stamp-drop-zone">
+                    <input type="file" id="sign-stamp-file-input" accept="image/png,image/jpeg,image/webp" class="hidden-input" />
+                    <div class="drop-zone-content">
+                      <div class="drop-icon"><i data-lucide="image"></i></div>
+                      <div class="drop-text-primary">Chọn ảnh chữ ký hoặc con dấu tròn</div>
+                      <div class="drop-text-sub">Khuyên dùng định dạng PNG nền trong suốt</div>
+                    </div>
+                    <div class="file-loaded-info" id="sign-stamp-file-info" style="display: none;">
+                      <span class="file-badge">STAMP / SIGN</span>
+                      <span class="file-name" id="sign-stamp-file-name">signature.png</span>
+                      <button type="button" class="btn-remove-file" id="btn-remove-sign-stamp" title="Gỡ ảnh"><i data-lucide="x"></i></button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Page Targeting Configuration -->
+                <div class="form-group" style="margin-top: 16px;">
+                  <label class="form-label" for="sign-target-page-select">Trang văn bản cần ký:</label>
+                  <select id="sign-target-page-select" class="form-select">
+                    <option value="last" selected>Trang cuối cùng (Chuẩn hợp đồng &amp; biên bản)</option>
+                    <option value="first">Trang đầu tiên (Bìa hồ sơ)</option>
+                    <option value="all">Tất cả các trang</option>
+                    <option value="custom">Chỉ định danh sách trang cụ thể...</option>
+                  </select>
+                </div>
+                <div class="form-group" id="sign-custom-page-group" style="display: none;">
+                  <label class="form-label" for="sign-custom-page-input">Nhập danh sách trang (cách nhau bởi dấu phẩy hoặc gạch ngang):</label>
+                  <input type="text" id="sign-custom-page-input" class="form-input" placeholder="VD: 1, 3, 5 hoặc 2-4" />
+                </div>
+
+                <!-- Position & Size Presets -->
+                <div class="form-group">
+                  <label class="form-label">Vị trí đóng dấu &amp; ký:</label>
+                  <div class="sign-position-grid" id="sign-position-grid">
+                    <button type="button" class="sign-pos-btn active" data-pos="bottom-right">
+                      <i data-lucide="arrow-down-right"></i> Góc Dưới Phải
+                    </button>
+                    <button type="button" class="sign-pos-btn" data-pos="bottom-left">
+                      <i data-lucide="arrow-down-left"></i> Góc Dưới Trái
+                    </button>
+                    <button type="button" class="sign-pos-btn" data-pos="center">
+                      <i data-lucide="crosshair"></i> Giữa Trang
+                    </button>
+                    <button type="button" class="sign-pos-btn" data-pos="top-right">
+                      <i data-lucide="arrow-up-right"></i> Góc Trên Phải
+                    </button>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <div class="range-header">
+                    <label class="form-label" for="sign-scale-slider" style="margin-bottom: 0;">Tỉ lệ kích thước chữ ký:</label>
+                    <span class="range-val-badge" id="sign-scale-display">25%</span>
+                  </div>
+                  <input type="range" id="sign-scale-slider" class="form-range" min="12" max="45" value="25" />
+                </div>
+
+                <!-- Signer Metadata Annotations -->
+                <div class="switches-container">
+                  <label class="switch-card">
+                    <input type="checkbox" id="sign-opt-metadata" />
+                    <div class="switch-content">
+                      <span class="switch-title">In kèm Họ tên &amp; Thông tin người ký</span>
+                      <span class="switch-desc">Tự động in chức danh, họ tên và ngày ký ngay ngắn dưới chữ ký</span>
+                    </div>
+                  </label>
+                </div>
+
+                <div class="sign-metadata-box" id="sign-metadata-fields" style="display: none;">
+                  <div class="form-group">
+                    <label class="form-label" for="sign-meta-title">Chức danh người ký (Tùy chọn):</label>
+                    <input type="text" id="sign-meta-title" class="form-input" placeholder="VD: Giám Đốc, Đại Diện Pháp Luật, Kế Toán Trưởng..." />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="sign-meta-name">Họ và tên người ký:</label>
+                    <input type="text" id="sign-meta-name" class="form-input" placeholder="VD: Nguyễn Văn A" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="sign-meta-date">Ngày ký (Mặc định ngày hôm nay):</label>
+                    <input type="text" id="sign-meta-date" class="form-input" placeholder="VD: 22/10/2026 hoặc Ngày 22 tháng 10 năm 2026" />
+                  </div>
+                </div>
+
+                <div class="action-buttons-group">
+                  <button type="button" class="btn-primary glow-btn" id="btn-apply-sign" disabled>
+                    <span class="btn-icon"><i data-lucide="pen-tool"></i></span>
+                    <span>KÝ TÊN &amp; ĐÓNG DẤU TÀI LIỆU</span>
                   </button>
                 </div>
               </div>

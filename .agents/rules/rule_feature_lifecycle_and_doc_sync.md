@@ -62,28 +62,45 @@ Bên cạnh `CHANGELOG.md` và `ARCHITECTURE.md`, hệ sinh thái quy định **
   python tools/sync_core_docs.py --check
   ```
 
+### E. Đồng Bộ `README.md` & Hệ Thống Kỹ Năng (README & Skills Synchronization)
+`README.md` là bộ mặt công khai của repository, chứa các huy hiệu (badges), bảng năng lực kỹ năng của AI Agent và điểm nhấn phiên bản:
+1. **Khi nâng cấp kỹ năng hoặc thêm skill mới (`.agents/skills/`)**:
+   - Cập nhật số lượng kỹ năng trên badge `Antigravity_Skills-N_Specialized`.
+   - Bổ sung/cập nhật dòng tương ứng trong bảng `## 🧠 Antigravity AI Skills & Customizations Suite`.
+   - Cập nhật danh mục kỹ năng trong [AGENTS.md](AGENTS.md).
+2. **Khi nâng cấp phiên bản (Version Bump)**:
+   - Cập nhật badge phiên bản `Release-vX.Y.Z_Production`, số lượng test cases tự động, số lượng công cụ MCP.
+   - Cập nhật tiêu đề mục `### 🆕 Highlights in vX.Y.Z Production Grade`.
+   - Cập nhật liên kết chuyển tiếp tới `CHANGELOG.md (v1.0 → vX.Y.Z)`.
+3. **Lệnh đồng bộ 1-click**:
+   ```bash
+   python tools/bump_version.py --sync-readme
+   ```
+
 ---
 
 ## 3. Kiểm Chuẩn Bắt Buộc (Quality Gate Audit)
 
-Trước khi bàn giao kết quả cho người dùng, Agent **BẮT BUỘC** thực hiện kiểm tra 3 lớp:
+Trước khi bàn giao kết quả cho người dùng, Agent **BẮT BUỘC** thực hiện kiểm tra 4 lớp:
 1. **Lớp 1 - Kiểm thử tự động**: Chạy toàn bộ test suite để đảm bảo không phát sinh regression:
    ```bash
    python -m unittest discover -s tests
    ```
    *Bắt buộc 100% Pass Rate.*
-2. **Lớp 2 - Kiểm tra đồng bộ phiên bản**: Nếu có đổi version, chạy kiểm tra đối soát 9 điểm neo:
+2. **Lớp 2 - Kiểm tra đồng bộ phiên bản & README**: Chạy kiểm tra đối soát 9 điểm neo:
    ```bash
    python tools/bump_version.py --check
    ```
    *Bắt buộc trả về `[OK] Invariant ERR_VER_001 PASSED`.*
-3. **Lớp 3 - Khớp số liệu tài liệu**: Số lượng test và số phiên bản được ghi trong `CHANGELOG.md`, `ARCHITECTURE.md` và `README.md` phải khớp 100% với con số thực tế chạy được ở Lớp 1.
+3. **Lớp 3 - Khớp số liệu tài liệu**: Số lượng test, số lượng kỹ năng, số lượng MCP tools và số phiên bản được ghi trong `CHANGELOG.md`, `ARCHITECTURE.md` và `README.md` phải khớp 100% với con số thực tế chạy được ở Lớp 1.
+4. **Lớp 4 - Tính toàn vẹn Core Docs Triad**: Kiểm tra bộ đôi tài liệu cốt lõi qua `python tools/sync_core_docs.py --check`.
 
 ---
 
 ## 4. Các Hành Vi Bị Nghiêm Cấm (Anti-Patterns)
 
-1. ❌ **"Code xong báo xong" mà quên cập nhật tài liệu**: Báo hoàn tất cho người dùng mà không cập nhật `CHANGELOG.md` và `ARCHITECTURE.md`.
-2. ❌ **Đoán mò số lượng bài kiểm thử**: Tự bịa hoặc đoán số lượng test ghi vào tài liệu thay vì chạy lệnh `python -m unittest discover -s tests` để lấy số thực tế.
-3. ❌ **Nâng version thủ công rải rác**: Tự sửa tay số phiên bản ở 1-2 file dẫn đến Version Desync giữa Frontend, Backend và CLI.
-4. ❌ **Bỏ quên Frontend Build**: Sửa đổi tính năng Web Studio mà không chạy `npm run build` để cập nhật `dist/`.
+1. ❌ **"Code xong báo xong" mà quên cập nhật tài liệu**: Báo hoàn tất cho người dùng mà không cập nhật `CHANGELOG.md`, `ARCHITECTURE.md` và `README.md`.
+2. ❌ **Quên cập nhật `README.md` khi nâng cấp kỹ năng hoặc nâng version**: Để `README.md` mang số liệu cũ, badge lệch hoặc thiếu vắng các kỹ năng mới được trang bị trong `.agents/skills/`.
+3. ❌ **Đoán mò số lượng bài kiểm thử**: Tự bịa hoặc đoán số lượng test ghi vào tài liệu thay vì chạy lệnh `python -m unittest discover -s tests` để lấy số thực tế.
+4. ❌ **Nâng version thủ công rải rác**: Tự sửa tay số phiên bản ở 1-2 file dẫn đến Version Desync giữa Frontend, Backend và CLI.
+5. ❌ **Bỏ quên Frontend Build**: Sửa đổi tính năng Web Studio mà không chạy `npm run build` để cập nhật `dist/`.

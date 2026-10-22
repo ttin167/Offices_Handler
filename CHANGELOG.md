@@ -1,12 +1,12 @@
-# CHANGELOG — Lịch Sử Thay Đổi & Tiến Hóa Dự Án (v1.0 → v4.2.0)
+# CHANGELOG — Lịch Sử Thay Đổi & Tiến Hóa Dự Án (v1.0 → v4.3.0)
 
-Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân hệ kiến trúc mới, và các cải tiến công nghệ từ phiên bản cơ sở (v1.0 Baseline) cho đến phiên bản hoàn thiện hiện tại (**v4.2.0 Production Grade — iLovePDF Killer Features & Adaptive Layout Suite**) của bộ công cụ **`antigravity-doc-handler`**.
+Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân hệ kiến trúc mới, và các cải tiến công nghệ từ phiên bản cơ sở (v1.0 Baseline) cho đến phiên bản hoàn thiện hiện tại (**v4.3.0 Production Grade — Excel Formula Playbook & Adaptive Matrix Suite**) của bộ công cụ **`antigravity-doc-handler`**.
 
 ---
 
 ## 1. Bảng So Sánh Toàn Diện (Feature Comparison Matrix)
 
-| Phân hệ / Tiêu chí kỹ thuật | Phiên bản cũ (v1.0 Baseline) | Phiên bản hiện tại (v4.2.0 Production Grade) | Lợi ích & Độ tin cậy thực tế |
+| Phân hệ / Tiêu chí kỹ thuật | Phiên bản cũ (v1.0 Baseline) | Phiên bản hiện tại (v4.3.0 Production Grade) | Lợi ích & Độ tin cậy thực tế |
 |---|---|---|---|
 | **Bảo Mật & Xử Lý PDF (PDF Pro Studio)** | Chỉ có 5 công cụ cơ bản (merge, split, rotate, watermark, compress) | **Bộ Công Cụ PDF Pro Studio & Visual Organizer**: True Redaction xóa vĩnh viễn byte/pixel (`ERR_PDF_001`); Mã hóa AES-256 phân quyền in/copy/modify; Đóng dấu giáp lai đa trang $N$-lát cắt overlap 8% (`ERR_PDF_002`); Chuẩn hóa A4 vector centering & số Bates Unicode (`ERR_PDF_003`); Trích xuất bảng sang Excel giữ số 0 đầu (`ERR_XLSX_007`) & khổ in A4 ngang (`ERR_XLSX_008`); Trình biên tập trang trực quan (xoay 90°, xóa trang, thumbnail 120 DPI) | Biến phân hệ PDF thành vũ khí cấp Stirling-PDF / Adobe Acrobat Pro; giải quyết trọn vẹn yêu cầu bảo mật thông tin tài chính/hồ sơ thầu và chuẩn hóa hợp đồng doanh nghiệp Việt Nam |
 | **Danh Sách & Đánh Số Word (Lists & Numbering)** | Dùng style `List Number` tĩnh của Word khiến số bị đếm tích lũy liên tục không reset; bullet không phân cấp; không hỗ trợ checkbox | **Native OpenXML Numbering Engine (`docx_lists.py`)**: Cấp phát `numId` động tự động reset về 1 (`startOverride=1`); Smart Continuation duy trì chuỗi số cha khi có sub-items xen kẽ; phân cấp 3 tầng (1->a->i, •->○->■); hỗ trợ checkbox (`☐`, `☑`); tương thích cả trong Table cells | Khi mở tài liệu trên Microsoft Word, nhấn Enter tự động sinh số tiếp theo; danh sách mới tự động bắt đầu từ 1; tuyệt đối không sinh số bừa bãi cho text thường |
@@ -18,17 +18,44 @@ Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân h�
 | **Bảo tồn Mẫu Word (Template Patching)** | Không có; chỉ ghi đè tạo file mới từ đầu làm mất Trang bìa và Header/Footer doanh nghiệp | **Chế độ In-Place Template Patching (`patch_docx_template`)**: Quét và thay thế placeholder `{{KEY}}` (hợp nhất run chống vỡ token) và `{{BLOCK:id}}` (chèn bảng/ảnh động) | Giữ nguyên 100% Trang bìa (Cover Page), DrawingML, Logo doanh nghiệp, Header, Footer và mục lục tự động |
 | **Trình diễn PowerPoint (PPTX Engine)** | Không hỗ trợ (chỉ có chuyển đổi PDF/Word cơ bản) | **Bộ sinh Slide 16:9 Tự động (`pptx_writer.py`, `pptx_engine.py`)**: Tỷ lệ chuẩn Widescreen 16:9 (`PPTX_INV_01`), Typography thuần đen `#000000` (`PPTX_INV_10`), Run-level formatting supremacy (`PPTX_INV_09`) | Tạo bài thuyết trình kỹ thuật chuẩn 1080p từ Markdown hoặc JSON AST; Ribbon và Color Picker của PowerPoint hoàn toàn tự do, không bị khóa cứng định dạng |
 | **Toán học PowerPoint (PPTX Math)** | Không hỗ trợ | **Native DrawingML Math (`pptx_math.py`)**: Subscript (`baseline="-25000"`), Superscript (`baseline="30000"`), biến in nghiêng, đơn vị đứng thẳng | Công thức toán học và ký hiệu vật lý ($v_{ref} = 0\text{ m/s}$) hiển thị chuẩn DrawingML gốc, 0 lỗi namespace |
-| **Xử lý Bảng tính Excel (Universal XLSX)** | Không hỗ trợ xử lý nâng cao, dễ mất hình khối DrawingML | **Universal Excel Engine (`xlsx_writer.py`)**: Chế độ Native openpyxl bảo toàn hình vẽ/ảnh, dịch chuyển công thức động qua Regex (`ERR_XLSX_002`), clone kiểu dáng từ prototype row (`ERR_XLSX_001`) | Cho phép điền dữ liệu động vào mẫu báo cáo tài chính/kỹ thuật phức tạp mà không làm hỏng logo, biểu đồ hoặc công thức KPI |
+| **Xử lý Bảng tính Excel (Universal XLSX)** | Không hỗ trợ xử lý nâng cao, dễ mất hình khối DrawingML | **Universal Excel Engine (`xlsx_writer.py`) & Formula Playbook (`formula_playbook.py`)**: Chế độ Native openpyxl bảo toàn hình vẽ/ảnh, dịch chuyển công thức động qua Regex (`ERR_XLSX_002`), clone kiểu dáng từ prototype row (`ERR_XLSX_001`), cẩm nang 32 hàm và sổ tính 2 sheets live calculations | Cho phép điền dữ liệu động vào mẫu báo cáo tài chính/kỹ thuật phức tạp mà không làm hỏng logo, biểu đồ hoặc công thức KPI; tra cứu và xuất cẩm nang công thức 4 chiều |
 | **Sơ đồ Kỹ thuật (Diagram Suite)** | Chỉ có sơ đồ cơ bản qua Chromium headless | **Hệ sinh thái Đa Engine**: Hỗ trợ 4 loại công nghệ: Draw.io Native mxGraph (`mxgraph_engine.py`), PlantUML cục bộ (`plantuml.jar` với chuẩn C4 nội bộ), Mermaid pastel phẳng, và Canvas Screen Flow tương tác | Xuất vector SVG và PNG siêu nét 300+ DPI, hỗ trợ kéo thả chỉnh sửa 2 chiều qua `diagram_editor.py` |
 | **Quản lý Định dạng (Decoupled Styling)** | Code và Style bị trộn lẫn, khó thay đổi giao diện | Tách rời hoàn toàn Nội dung (`.md`) và Kiểu dáng (`.style.yaml`); tự động trích xuất metadata phong cách từ DOCX mẫu | Thay đổi toàn bộ phông chữ, màu sắc, lề trang chỉ bằng việc chỉnh sửa file YAML mà không cần sửa code |
 | **Giao diện & CLI Dispatcher** | Các script chạy phân mảnh | `ai_tools_cli.py` hợp nhất toàn bộ lệnh: `docx-tools`, `pptx-build`, `pptx-preview`, `diagram-render`, `convert`, `inspect-doc` + Desktop GUI Tkinter (`main.py`) | Thân thiện cho cả người dùng cuối (chạy app desktop) và AI Coding Agent (gọi CLI dạng declarative JSON) |
-| **Kiểm định Chất Lượng (Quality Assurance)** | 16 bài test sơ khai (bị lỗi hardcode đường dẫn trên máy khác) | **220 Automated Test Suites (100% Pass Rate)**: Toàn diện từ OpenXML, DrawingML, SQLite, Web REST/SSE, MCP Tools, đến PDF Pro Studio & Visual Organizer | Bảo đảm tính ổn định tuyệt đối trong môi trường CI/CD và máy tính cá nhân |
+| **Kiểm định Chất Lượng (Quality Assurance)** | 16 bài test sơ khai (bị lỗi hardcode đường dẫn trên máy khác) | **216 Automated Test Suites (100% Pass Rate)**: Toàn diện từ OpenXML, DrawingML, SQLite, Web REST/SSE, MCP Tools, đến PDF Pro Studio & Excel Formula Playbook | Bảo đảm tính ổn định tuyệt đối trong môi trường CI/CD và máy tính cá nhân |
 
 ---
 
 ## 2. Chi Tiết Các Phiên Bản Phát Triển
 
-### Phiên Bản 4.2.0 (iLovePDF Killer Features & Adaptive Layout Enterprise Suite)
+### Phiên Bản 4.3.0 (Excel Formula Playbook & Adaptive Matrix Enterprise Suite)
+- **Động Cơ Quản Trị & Tự Động Hóa Bảng Tính Cấp Doanh Nghiệp (Enterprise Excel Data Suite)**:
+  - **Khắc Phục Triệt Để 4 Nhóm Bẫy Lỗi Biên (Edge Cases)**:
+    - *ERR_XLSX_009 (15-Digit Precision & Accounting Negative Guard)*: Ép kiểu chuỗi `@` cho số thẻ/CCCD/STK $\ge 12$ số; tự động phân tích ngày tháng tiếng Việt (`26/05/2026`, `ngày 26 tháng 05 năm 2026`) thành `datetime.date` với format `DD/MM/YYYY`; chuyển số âm kế toán `(100.000)` thành float âm `-100000` và `-` thành `0` kèm định dạng kế toán; chuẩn hóa Locale thập phân Việt Nam `20.000,50` $\rightarrow$ `20000.50`.
+    - *ERR_XLSX_010 (XML Illegal Character Sanitization & 32k Limit)*: Quét sạch ký tự điều khiển ASCII `[\x00-\x08\x0b\x0c\x0e-\x1f]` chống lỗi tệp OpenXML bị hỏng ("The file is corrupt"); tự động cắt tỉa chuỗi dài tối đa 32.000 ký tự (ngưỡng an toàn dưới 32.767) kèm hậu tố `... [Xem tiếp tài liệu gốc]`.
+    - *ERR_XLSX_011 (_xlfn Modern Formula Normalization)*: Tự động bổ sung tiền tố `_xlfn.` cho tất cả các hàm mảng động và hiện đại (`XLOOKUP`, `CONCAT`, `TEXTJOIN`, `UNIQUE`, `FILTER`, `SORT`, `SORTBY`, v.v.) chống lỗi `#NAME?` khi mở trên Excel 2016/2019 cũ.
+    - *ERR_XLSX_012 (Gridlines, AutoFilter & Unlocked Row Height)*: Luôn bảo đảm bật đường lưới `ws.views.sheetView[0].showGridLines = True`; tự động gắn vùng lọc `ws.auto_filter.ref`; để `ws.row_dimensions[r].height = None` cho dòng dữ liệu cho phép Excel tự co giãn theo dòng `\n` tránh cắt cụt văn bản.
+  - **6 Phân Hệ Nghiệp Vụ Doanh Nghiệp Trọng Yếu**:
+    - *Phân hệ 1 (Automated Conditional Formatting)*: Highlight trạng thái tự động theo bảng màu pastel doanh nghiệp (Đỏ nhạt `#FEE2E2` cho "Chưa duyệt"/"Từ chối", Xanh lá `#DCFCE7` cho "Đã duyệt"/"Hoàn thành", Vàng nhạt `#FEF9C3` cho "Đang chờ"); nhúng Data Bars trực tiếp trong ô số liệu cho tỷ lệ % / KPI; dải màu nhiệt Color Scales 3 điểm.
+    - *Phân hệ 2 (Data Validation & Dropdown Lists)*: Gắn danh mục chọn sẵn (Dropdown Lists) chống gõ sai chính tả; kiểm soát độ dài ký tự (CCCD bắt buộc 12 số, MST 10 số); giới hạn khoảng ngày nhập liệu năm 2026.
+    - *Phân hệ 3 (Native In-Sheet Charts - ERR_DIAG_003)*: Nhúng biểu đồ OpenXML sống (`BarChart`, `LineChart`, `PieChart`) trực tiếp vào worksheet; tự động neo an toàn dưới bảng dữ liệu hoặc bên cạnh bảng, tuyệt đối không đè lên số liệu.
+    - *Phân hệ 4 (Selective Cell Protection & Formula Locking - ERR_XLSX_013)*: Mọi ô chứa công thức và tiêu đề mặc định khóa `locked=True`; chỉ mở khóa vùng nhập liệu được chỉ định; kích hoạt `ws.protection.enable()` bảo vệ bảng tính.
+    - *Phân hệ 5 (Big Data Streaming Mode - ERR_XLSX_014)*: Module `core.xlsx.streaming` hỗ trợ `stream_read_xlsx` (`read_only=True`) và `stream_write_xlsx` (`write_only=True`), duy trì RAM $< 50\text{MB}$ khi xử lý tệp $> 10\text{MB}$ hoặc $> 30.000$ dòng, giải quyết triệt để rủi ro OOM trên gói Free Render.com 512MB.
+    - *Phân hệ 6 (Executive Index Dashboard & 2-Way Hyperlink Navigation)*: Tự động sinh trang Mục Lục đầu tiên với banner Navy `#0F294A`, bảng tổng quan thống kê số dòng và công thức hyperlink `=HYPERLINK(...)` nhảy trang nhanh; chèn nút `[⬅ Về Trang Mục Lục]` tại `A1` của các sheet con khi chuyển đổi tài liệu nhiều bảng.
+- **Hệ Thống Cẩm Nang Công Thức Excel Tinh Hoa & Cheat Sheet System (`core.xlsx.formula_playbook`)**:
+  - **Catalog 32+ Hàm Excel Thực Chiến Theo 4 Chiều Toàn Diện**:
+    - *Tên hàm & Phân loại*: 6 nhóm nghiệp vụ lớn (Tra cứu `lookup`, Tổng hợp `aggregation`, Chuỗi văn bản `text`, Điều kiện `logic`, Mảng động `dynamic`, Tài chính & Thời gian `financial`).
+    - *Cú pháp & Công thức mẫu*: Công thức chuẩn cú pháp kèm ví dụ thực tế tham chiếu ô tính bắt đầu bằng dấu `=`, không dùng placeholder giả.
+    - *Dùng trong trường hợp nào*: Tình huống kế toán, tài chính, kiểm toán, và xử lý dữ liệu thực tế (báo cáo doanh thu, trích xuất dữ liệu, kiểm tra trùng lặp).
+    - *Tại sao lại chọn hàm đó của Excel*: Phân tích kiến trúc kỹ thuật sâu sắc, so sánh trực diện ưu điểm vượt trội so với các hàm cổ điển (như `XLOOKUP` vs `VLOOKUP`, `IFS` vs lồng `IF`, `TEXTJOIN` vs `CONCATENATE`, `SUMIFS` vs `SUMPRODUCT`).
+  - **Động Cơ Xuất Sổ Tính Excel 2 Sheets (`generate_formula_playbook_xlsx`)**:
+    - *Sheet 1 ('Formula_Playbook')*: Bảng tra cứu chuẩn Enterprise Navy (`0F294A`), phông Consolas cho công thức, tự động tính chiều cao dòng theo độ dài văn bản (`ERR_XLSX_005`), cố định dòng tiêu đề `freeze_panes = 'A4'`, thiết lập khổ in A4 ngang Print-Ready (`ERR_XLSX_008`).
+    - *Sheet 2 ('Live_Interactive_Formulas')*: Bảng dữ liệu nhân viên thực tế đang chạy sống động các công thức KPI: `=SUMIFS(...)`, `=COUNTIFS(...)`, `=AVERAGEIFS(...)`, `=XLOOKUP(...)`, `=IFS(...)`, `=TEXTJOIN(...)` giúp người dùng mở tệp là thấy ngay kết quả tính toán.
+  - **Tích Hợp Toàn Bộ Giao Thức (CLI / REST / MCP / Web Studio)**:
+    - *CLI*: `python ai_tools_cli.py xlsx-formulas [--category <cat>] [--search <query>] [--export <file.xlsx>] [--json]`.
+    - *REST API*: `GET /api/xlsx/formulas` (hỗ trợ lọc danh mục & tìm kiếm) và `GET /api/xlsx/formulas/export` (tải tệp Excel 2 sheets trực tiếp).
+    - *MCP Tool #20*: `xlsx_formula_helper` hỗ trợ AI Agent tra cứu nhanh cú pháp, bài toán thực tế, và lý do lựa chọn hàm.
+    - *Web Studio UI*: Sub-tab 4 `Formula Playbook & Live Demo` trong `Spreadsheet Studio` với giao diện thẻ kính Glassmorphism, live search debounced, category pills, 1-click copy công thức vào clipboard, và nút xuất Excel 2 sheets.
 - **Atomic Office Tools Suite & Web Quick Patch (MCP / CLI / Web Studio)**:
   - **8 Công Cụ Văn Phòng Hạt Nhân Cho AI Agent (MCP JSON-RPC 2.0)**: Mở rộng Tool Catalog từ 11 lên 19 công cụ chuẩn:
     - 4 Excel Tools: `xlsx_set_cell`, `xlsx_set_range`, `xlsx_insert_rows`, `xlsx_find_anchor`.
@@ -51,8 +78,14 @@ Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân h�
 - **Chuyển Đổi Hai Chiều Ảnh ↔ PDF (Images to PDF & 300 DPI Export ZIP)**:
   - `convert_images_to_pdf()`: Hợp nhất nhiều ảnh (.jpg, .jpeg, .png, .webp) thành tệp PDF chuẩn in ấn, tự động chuẩn hóa góc quay EXIF (`ImageOps.exif_transpose`), tự động tính toán margin và định hướng trang (Auto/Portrait/Landscape).
   - `export_pdf_to_images_zip()`: Kết xuất toàn bộ các trang PDF thành ảnh PNG/JPG độ phân giải cao 300 DPI đóng gói trong tệp `.zip` nén chuẩn deflate.
-- **Ký Tên Điện Tử & Đóng Dấu Bù Góc Xoay (Sign & Annotate PDF)**:
-  - `sign_pdf_with_stamp()`: Chèn chữ ký số, ảnh con dấu PNG trong suốt lên trang chỉ định với tọa độ phần trăm (`x_pct`, `y_pct`, `w_pct`, `h_pct`) hoặc bounding box points.
+- **Ký Tên Điện Tử Trực Tiếp Trên Web Studio & Đóng Dấu Bù Góc Xoay (Sign & Annotate PDF)**:
+  - **Giao diện Web Studio**: Tích hợp nút tác vụ `Ký Tên & Con Dấu` trong phân hệ `PDF Pro Studio` (`Document Hub`), cung cấp bảng điều khiển chuyên nghiệp:
+    - *Interactive Canvas Signature Pad*: Vẽ tay mượt mà (chuột, bút cảm ứng, ngón tay), hỗ trợ 3 màu mực chuẩn (`#0033aa` xanh doanh nghiệp, `#111827` đen pháp lý, `#dc2626` đỏ mộc), nút xóa nét tức thì.
+    - *Tải lên ảnh mộc dấu / chữ ký*: Hỗ trợ PNG/JPG tách nền trong suốt.
+    - *Phạm vi trang linh hoạt*: Chọn trang cuối (chuẩn hợp đồng), trang đầu, tất cả các trang, hoặc danh sách trang tùy biến (`1, 3, 5` hoặc `2-4`).
+    - *Preset vị trí & thanh trượt tỉ lệ*: 4 góc chuẩn (`Góc Dưới Phải`, `Góc Dưới Trái`, `Giữa Trang`, `Góc Trên Phải`) và thanh trượt co giãn kích thước từ 12% đến 45%.
+    - *In kèm chú thích người ký*: Tự động chèn 3 dòng vector Unicode sắc nét bên dưới chữ ký (Chức danh, Họ tên, Ngày ký).
+  - `sign_pdf_with_stamp()`: Hỗ trợ cả base64 và file path, bù góc xoay tự động qua `derotation_matrix`, vector text metadata injection.
   - Thuật toán bù góc xoay: Tự động phát hiện trang có góc quay 90°, 180°, 270° (`page.rotation != 0`), áp dụng ma trận biến đổi ngược `v_rect * page.derotation_matrix` kết hợp cờ `rotate=page.rotation` chống lệch tọa độ chữ ký.
 - **Làm Phẳng Tài Liệu Hai Chế Độ & Triệt Tiêu Dấu Vết Metadata (Flatten & Sanitize PDF)**:
   - `flatten_and_sanitize_pdf()`:
@@ -66,11 +99,17 @@ Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân h�
   - Giải quyết dứt điểm tình trạng thẻ slide ít chữ nhưng khung vẽ quá to gây mất đối xứng: tự động tính toán chiều cao thẻ `card_h` và dải phân bố dọc theo số dòng thực tế của nội dung (`est_lines`), co gọn khung và căn lề hài hòa.
 - **Ma Trận Chuyển Đổi 5 Chiều: Trích Xuất Bảng Biểu Ngữ Nghĩa Sang Excel (.xlsx)**:
   - `core/converter/table_extractor.py` & root facade `table_extractor.py`: Trích xuất dữ liệu bảng biểu có cấu trúc từ PDF, DOCX (OpenXML) và Markdown sang workbook Excel đa sheet định dạng Enterprise.
+  - **Bộ Hậu Xử Lý Ma Trận & Thu Gom Toạ Độ Cột (Matrix Post-Processor & Ghost Column Pruning)**:
+    - *Ưu tiên chiến lược Vector Lines Strict*: Thiết lập `page.find_tables(strategy="lines_strict")` bám sát 100% các đường viền vector thực tế của bảng, triệt tiêu hoàn toàn hiện tượng phình to 23 cột ma và 10 cột rỗng xen kẽ do suy diễn khoảng hở văn bản (fallback `page.find_tables()` linh hoạt nếu bảng không có viền kẻ).
+    - *Thuật toán cắt bỏ cột ma (`_prune_ghost_columns`)*: Quét toàn bộ ma trận dữ liệu và tự động loại bỏ các cột rỗng ảo $100\%$ giá trị `None`/khoảng trắng, ép dữ liệu về đúng 9 cột dữ liệu thực tế.
+    - *Ghép nối bảng đa trang liền mạch (`_stitch_multipage_tables`)*: Nhận diện bảng nối tiếp qua nhiều trang dựa trên số cột đối xứng và chữ ký tiêu đề (header signature matching), tự động khử 2 dòng tiêu đề lặp lại ở các trang tiếp theo, gom toàn bộ 106 dòng qua 7 trang vào đúng **1 Sheet duy nhất** (`Bieu_Phi_Dich_Vu`) thay vì chia cắt thành nhiều sheet rời rạc.
+    - *Tái tạo cấu trúc ô gộp tiêu đề 2 tầng (`_detect_table_header_structure`)*: Tự động phân tích quan hệ nhãn cha - con, tái tạo chính xác 5 dải ô gộp chuẩn: `A1:A2`, `B1:B2`, `C1:C2` (gộp dọc) và `D1:F1`, `G1:I1` (gộp ngang) với màu nền Navy `#0F294A` và chữ trắng in đậm.
+    - *Khóa cố định dòng tiêu đề (`freeze_panes`)*: Tự động thiết lập `ws.freeze_panes = 'A3'` cho bảng tiêu đề 2 tầng và `ws.freeze_panes = 'A2'` cho bảng tiêu đề 1 tầng trên toàn bộ các định dạng PDF, DOCX, Markdown, tối ưu trải nghiệm cuộn bảng tính hàng trăm dòng.
   - Lọc bảng hành chính Nghị định 30 (`_is_layout_header_or_signature_table`): Tự động phát hiện và bỏ qua bảng căn lề 2 cột chứa Quốc hiệu, Tiêu ngữ, Nơi nhận và Chữ ký.
   - Xử lý an toàn ô gộp `gridSpan` (colspan) & `vMerge` (rowspan) qua thẻ XML `<w:tc>` con: Định dạng viền/nền vùng gộp mà không gán lặp thuộc tính `.value`, triệt tiêu lỗi `AttributeError: 'MergedCell' object attribute 'value' is read-only` (`ERR_XLSX_004`).
-  - Chuẩn hóa tên Sheet Excel (`_sanitize_sheet_title`): Khử 7 ký tự cấm `\/?*:[]`, giới hạn $\le 28$ ký tự, chống trùng lặp case-insensitively.
+  - Chuẩn hóa tên Sheet Excel (`_sanitize_sheet_title`, `_derive_pdf_sheet_title`): Khử 7 ký tự cấm `\/?*:[]`, giới hạn $\le 28$ ký tự, chống trùng lặp case-insensitively, tự động đặt tên trang tính trang nhã theo ngữ cảnh tài liệu (`Bieu_Phi_Dich_Vu`).
   - Bảo tồn chuỗi mã định danh (`ERR_XLSX_007`): Giữ nguyên số 0 ở đầu cho mã CCCD, mã số thuế, số tài khoản bằng định dạng chuỗi `@`.
-  - Nối thông Routes 10, 11, 12 trong `core/converter/engine.py` (PDF $\to$ XLSX, DOCX $\to$ XLSX, MD $\to$ XLSX).
+  - Nối thông Routes 10, 11, 12 trong `core/converter/engine.py` (PDF $\to$ XLSX, DOCX $\to$ XLSX, MD $\to$ XLSX) và bổ sung wrapper tiện ích trong `core/converter/pdf_toolkit.py` (`extract_pdf_tables_to_xlsx`).
 - **Bộ Tổng Hợp Slide Cấp Quản Lý Cho Tài Liệu Dài $\ge 100$ Trang (Executive Deck Synthesizer)**:
   - `core/pptx/docx_to_pptx.py`: Cơ chế Target Deck Sizing (`auto`, `executive`, `standard`, `comprehensive`). Tự động kích hoạt chế độ `executive` khi tài liệu $> 15.000$ từ hoặc $> 40$ đề mục.
   - Semantic Fluff Pruning (`RE_FLUFF_PARAGRAPH`): Loại bỏ câu văn đệm, rườm rà mang tính hình thức.
@@ -95,7 +134,8 @@ Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân h�
   - Bổ sung `tests/test_universal_table_xlsx.py` (6 tests).
   - Bổ sung `tests/test_executive_deck.py` (6 tests).
   - Bổ sung `tests/test_interactive_toc.py` (5 tests).
-  - Toàn bộ test suite tự động vượt qua 100% (194 tests, 100% Pass Rate).
+  - Bổ sung `tests/test_pdf_table_matrix_stitching.py` (7 tests).
+  - Toàn bộ test suite tự động vượt qua 100% (211 tests, 100% Pass Rate).
 
 ### Phiên Bản 4.1.0 (PDF Pro Studio & Visual Page Organizer Enterprise Suite)
 - **Nhóm Bảo Mật & Tuân Thủ Pháp Lý (True Redaction & AES-256 Encryption)**:

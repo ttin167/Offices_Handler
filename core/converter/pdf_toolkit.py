@@ -1072,6 +1072,61 @@ def export_pdf_to_images_zip(
     }
 
 
+def _resolve_signature_pages(page_spec: Any, total_pages: int) -> List[int]:
+    """
+    Resolves diverse page specifications into valid 0-based page indices.
+    Accepts: 'last' (default), 'first', 'all', int, list of ints, or range strings '1, 3, 5'.
+    """
+    if total_pages <= 0:
+        return []
+    if page_spec is None or page_spec == "" or page_spec == "last" or page_spec == -1:
+        return [total_pages - 1]
+    if page_spec == "first":
+        return [0]
+    if page_spec == "all":
+        return list(range(total_pages))
+    if isinstance(page_spec, int):
+        idx = page_spec - 1 if page_spec > 0 else total_pages + page_spec
+        return [idx] if 0 <= idx < total_pages else []
+    if isinstance(page_spec, (list, tuple)):
+        res = []
+        for p in page_spec:
+            res.extend(_resolve_signature_pages(p, total_pages))
+        return sorted(list(set(res)))
+
+    s = str(page_spec).strip().lower()
+    if s == "last":
+        return [total_pages - 1]
+    if s == "all":
+        return list(range(total_pages))
+    if s == "first":
+        return [0]
+
+    res = []
+    for part in re.split(r"[,;]+", s):
+        part = part.strip()
+        if not part:
+            continue
+        if "-" in part:
+            subparts = part.split("-", 1)
+            try:
+                start_p = int(subparts[0].strip())
+                end_p = int(subparts[1].strip())
+                for p in range(start_p, end_p + 1):
+                    if 1 <= p <= total_pages:
+                        res.append(p - 1)
+            except ValueError:
+                pass
+        else:
+            try:
+                p = int(part)
+                if 1 <= p <= total_pages:
+                    res.append(p - 1)
+            except ValueError:
+                pass
+    return sorted(list(set(res))) if res else [total_pages - 1]
+
+
 def sign_pdf_with_stamp(
     pdf_path: str,
     output_path: str,
@@ -1084,6 +1139,8 @@ def sign_pdf_with_stamp(
     - Coordinates can be passed as:
       - x_pct, y_pct, w_pct, h_pct (0.0 to 1.0 of visual page dimensions)
       - rect: [x0, y0, x1, y1] in points.
+    - Flexible page selection: 'last' (default), 'first', 'all', int, or custom page list '1, 3, 5'.
+    - Optional signer metadata text annotations ('signer_name', 'signer_title', 'signer_date').
     """
     src = os.path.abspath(pdf_path)
     if not os.path.isfile(src):
@@ -1100,39 +1157,13 @@ def sign_pdf_with_stamp(
     doc = fitz.open(src)
     total_pages = len(doc)
     applied_count = 0
+    ttf_font = _find_system_font()
 
     for sig in signatures:
-        pno = int(sig.get("page", 1)) - 1
-        if not (0 <= pno < total_pages):
-            continue
+        page_spec = sig.get("pages") if sig.get("pages") is not None else sig.get("page", "last")
+        target_pnos = _resolve_signature_pages(page_spec, total_pages)
 
-        page = doc[pno]
-        vw = page.rect.width
-        vh = page.rect.height
-
-        # Determine visual rectangle
-        if "x_pct" in sig and "y_pct" in sig:
-            x_pct = float(sig.get("x_pct", 0.65))
-            y_pct = float(sig.get("y_pct", 0.75))
-            w_pct = float(sig.get("w_pct", 0.25))
-            h_pct = float(sig.get("h_pct", 0.15))
-            v_rect = fitz.Rect(x_pct * vw, y_pct * vh, (x_pct + w_pct) * vw, (y_pct + h_pct) * vh)
-        elif "rect" in sig and isinstance(sig["rect"], (list, tuple)) and len(sig["rect"]) == 4:
-            r = sig["rect"]
-            v_rect = fitz.Rect(float(r[0]), float(r[1]), float(r[2]), float(r[3]))
-        else:
-            v_rect = fitz.Rect(vw * 0.65, vh * 0.75, vw * 0.95, vh * 0.90)
-
-        # Coordinate transformation for page.rotation
-        rot = page.rotation
-        if rot != 0:
-            target_rect = v_rect * page.derotation_matrix
-            insert_rot = rot
-        else:
-            target_rect = v_rect
-            insert_rot = 0
-
-        # Retrieve image content
+        # Retrieve image content once per signature spec
         img_bytes = None
         img_file = None
 
@@ -1153,12 +1184,80 @@ def sign_pdf_with_stamp(
         if not img_bytes and not img_file:
             continue
 
-        if img_bytes:
-            page.insert_image(target_rect, stream=img_bytes, rotate=insert_rot, keep_proportion=True, overlay=True)
-        else:
-            page.insert_image(target_rect, filename=img_file, rotate=insert_rot, keep_proportion=True, overlay=True)
+        # Extract text annotations if requested
+        meta_lines = []
+        signer_title = str(sig.get("signer_title") or sig.get("title") or "").strip()
+        signer_name = str(sig.get("signer_name") or sig.get("name") or "").strip()
+        signer_date = str(sig.get("signer_date") or sig.get("date") or "").strip()
+        if signer_title:
+            meta_lines.append(signer_title)
+        if signer_name:
+            meta_lines.append(signer_name)
+        if signer_date:
+            meta_lines.append(signer_date)
 
-        applied_count += 1
+        for pno in target_pnos:
+            if not (0 <= pno < total_pages):
+                continue
+
+            page = doc[pno]
+            vw = page.rect.width
+            vh = page.rect.height
+
+            # Determine visual rectangle
+            if "x_pct" in sig and "y_pct" in sig:
+                x_pct = float(sig.get("x_pct", 0.65))
+                y_pct = float(sig.get("y_pct", 0.75))
+                w_pct = float(sig.get("w_pct", 0.25))
+                h_pct = float(sig.get("h_pct", 0.15))
+                v_rect = fitz.Rect(x_pct * vw, y_pct * vh, (x_pct + w_pct) * vw, (y_pct + h_pct) * vh)
+            elif "rect" in sig and isinstance(sig["rect"], (list, tuple)) and len(sig["rect"]) == 4:
+                r = sig["rect"]
+                v_rect = fitz.Rect(float(r[0]), float(r[1]), float(r[2]), float(r[3]))
+            else:
+                v_rect = fitz.Rect(vw * 0.65, vh * 0.75, vw * 0.95, vh * 0.90)
+
+            # Coordinate transformation for page.rotation
+            rot = page.rotation
+            if rot != 0:
+                target_rect = v_rect * page.derotation_matrix
+                insert_rot = rot
+            else:
+                target_rect = v_rect
+                insert_rot = 0
+
+            if img_bytes:
+                page.insert_image(target_rect, stream=img_bytes, rotate=insert_rot, keep_proportion=True, overlay=True)
+            else:
+                page.insert_image(target_rect, filename=img_file, rotate=insert_rot, keep_proportion=True, overlay=True)
+
+            # Insert signer metadata if specified
+            if meta_lines:
+                text_top = v_rect.y1 + 4
+                text_bottom = min(vh - 8, text_top + len(meta_lines) * 14 + 6)
+                text_left = max(8.0, v_rect.x0 - 20.0)
+                text_right = min(vw - 8.0, v_rect.x1 + 20.0)
+                v_text_rect = fitz.Rect(text_left, text_top, text_right, text_bottom)
+
+                target_text_rect = v_text_rect * page.derotation_matrix if rot != 0 else v_text_rect
+                fontname = "helv"
+                if ttf_font:
+                    try:
+                        page.insert_font(fontname="sig_meta_font", fontfile=ttf_font)
+                        fontname = "sig_meta_font"
+                    except Exception:
+                        pass
+                page.insert_textbox(
+                    target_text_rect,
+                    "\n".join(meta_lines),
+                    fontname=fontname,
+                    fontsize=9.0,
+                    color=(0.12, 0.16, 0.22),
+                    align=fitz.TEXT_ALIGN_CENTER,
+                    rotate=insert_rot,
+                )
+
+            applied_count += 1
 
     doc.save(dest, garbage=3, deflate=True)
     doc.close()
@@ -1261,4 +1360,33 @@ def flatten_and_sanitize_pdf(
         "total_pages": total_pages,
         "sanitized": sanitize_metadata,
     }
+
+
+def extract_pdf_tables_to_xlsx(
+    pdf_path: str,
+    output_path: str,
+) -> Dict[str, Any]:
+    """
+    Convenience wrapper around core.converter.table_extractor.extract_pdf_tables_to_xlsx.
+    Extracts tabular data from PDF into an enterprise-grade Excel workbook with
+    multi-page stitching, ghost column pruning, and 2-tier header reconstruction.
+    """
+    from core.converter.table_extractor import extract_pdf_tables_to_xlsx as _extract_tables
+
+    ok, res, count = _extract_tables(pdf_path, output_path)
+    if not ok:
+        return {
+            "success": False,
+            "error": res,
+            "output_path": "",
+            "tables_extracted": 0,
+        }
+
+    return {
+        "success": True,
+        "output_path": res,
+        "filename": os.path.basename(res),
+        "tables_extracted": count,
+    }
+
 

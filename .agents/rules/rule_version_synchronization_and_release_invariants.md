@@ -31,7 +31,7 @@ Mỗi khi nâng cấp phiên bản `X.Y.Z`, toàn bộ các tệp sau bắt bu�
 | 6 | `server/mcp_server.py` | `SERVER_VERSION = "X.Y.Z"` | Định danh phiên bản giao thức Model Context Protocol |
 | 7 | `core/env_doctor.py` | `DOCTOR_VERSION = "X.Y.Z"` | Banner chẩn đoán `ai_tools_cli.py doctor` |
 | 8 | `index.html` | `.brand-subtitle` (`Office Studio vX.Y.Z`) | Hiển thị tĩnh trên Header khi tải trang ban đầu |
-| 9 | `README.md` | Badge `Release-vX.Y.Z_Production` | Huy hiệu phát hành trên kho mã nguồn |
+| 9 | `README.md` | Badges (`Release-vX.Y.Z_Production`, Tests, MCP Tools), Highlights header, Link `CHANGELOG.md (v1.0 -> vX.Y.Z)` | Huy hiệu, số liệu kiểm thử & điểm nhấn phát hành trên kho mã nguồn |
 
 Đồng thời cập nhật tương ứng tại:
 - `CHANGELOG.md`: Mục phiên bản mới ở đầu phần 2 và bảng so sánh phần 1.

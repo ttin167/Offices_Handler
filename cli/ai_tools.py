@@ -1935,6 +1935,53 @@ def cmd_docx_replace(args: argparse.Namespace) -> int:
         return 2
 
 
+def cmd_xlsx_formulas(args: argparse.Namespace) -> int:
+    try:
+        from core.xlsx.formula_playbook import get_formula_catalog, generate_formula_playbook_xlsx
+    except (ImportError, ValueError):
+        try:
+            from formula_playbook import get_formula_catalog, generate_formula_playbook_xlsx  # type: ignore
+        except (ImportError, ValueError):
+            print("[ERROR] Failed to import core.xlsx.formula_playbook", file=sys.stderr)
+            return 1
+
+    if getattr(args, "export", None):
+        dest = os.path.abspath(args.export)
+        ok, res = generate_formula_playbook_xlsx(dest)
+        if ok:
+            print(f"[OK] Exported Excel Formula Playbook -> {res}")
+            return 0
+        else:
+            print(f"[ERROR] Failed to export formula playbook: {res}", file=sys.stderr)
+            return 1
+
+    cat = getattr(args, "category", "all")
+    search = getattr(args, "search", None)
+    items = get_formula_catalog(category=cat, search=search)
+
+    if getattr(args, "json", False):
+        print(json.dumps(items, ensure_ascii=False, indent=2))
+        return 0
+
+    print("=" * 80)
+    print(f" EXCEL FORMULA PLAYBOOK & CHEAT SHEET ({len(items)} functions)")
+    if cat != "all":
+        print(f" Category: {cat}")
+    if search:
+        print(f" Search: {search}")
+    print("=" * 80)
+
+    for idx, item in enumerate(items, start=1):
+        print(f"\n[{idx:02d}] {item['name']}  |  {item['category_vi']}")
+        print(f"  Cú Pháp:   {item['template']}")
+        print(f"  Ví Dụ:     {item['example']}")
+        print(f"  Khi Nào:   {item['when_to_use']}")
+        print(f"  Tại Sao:   {item['why_choose']}")
+        print("-" * 80)
+
+    return 0
+
+
 # ---------------------------------------------------------------------------
 # Argument parser
 # ---------------------------------------------------------------------------
@@ -2388,6 +2435,14 @@ Examples:
     p_drp.add_argument("--data", required=True, help="Path to JSON file or raw JSON string with token replacements")
     p_drp.add_argument("-o", "--output", default=None, help="Output .docx path (default: in-place safe save)")
     p_drp.set_defaults(func=cmd_docx_replace)
+
+    # --- xlsx-formulas (Excel Formula Playbook & Cheat Sheet) ---
+    p_xf = sub.add_parser("xlsx-formulas", help="Browse, filter, and export the Excel Formula Playbook & Cheat Sheet")
+    p_xf.add_argument("--category", choices=["all", "lookup", "aggregation", "text", "logic", "dynamic", "financial"], default="all", help="Filter by formula category")
+    p_xf.add_argument("--search", default=None, help="Search by function name, keywords, or use cases")
+    p_xf.add_argument("--export", default=None, help="Export dual-sheet cheat sheet Excel file (.xlsx)")
+    p_xf.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+    p_xf.set_defaults(func=cmd_xlsx_formulas)
 
     return parser
 

@@ -10,12 +10,20 @@ Engine Standards & Invariants:
 - ERR_XLSX_005: 2D Freeze Panes & Dynamic Line Auto-Scaling (row height based on wrapped lines).
 - ERR_XLSX_006: DrawingML & Package Integrity Preservation (in-place template mutation preserves logos/shapes).
 - ERR_XLSX_007: Data Type Coercion & Leading-Zero Loss Guard (Identifier columns strictly set to '@' string format).
+- ERR_XLSX_008: Print-Ready Page Setup (A4 Landscape, fitToPage, fitToWidth=1, margin overflow protection).
+- ERR_XLSX_009: 15-Digit Precision & Accounting Negative Guard (CCCD/cards/STK as '@' string, date parsing, (100k) -> -100k, '-' -> 0, Vietnamese locale decimal).
+- ERR_XLSX_010: XML Illegal Character Sanitization & 32k Limit (strips ASCII control bytes, truncates > 32,000 chars with ellipsis).
+- ERR_XLSX_011: _xlfn Modern Formula Compatibility (Dynamic Array & Modern formulas prefixed with _xlfn.).
+- ERR_XLSX_012: Gridlines, AutoFilter & Unlocked Row Height (showGridLines=True, auto_filter.ref, data row height unlocked for auto-fit).
+- ERR_XLSX_013: Selective Formula & Structure Protection (Formula cells & headers locked, input ranges unlocked, sheet protection enabled).
+- ERR_XLSX_014: RAM-Constrained Streaming Threshold (Streaming mode when >10MB or >30k rows maintaining <50MB RAM).
 - E1-E14: Enterprise UX and template invariants.
 """
 
 from __future__ import annotations
 
 import copy
+import datetime
 import json
 import os
 import re
@@ -23,7 +31,11 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 import openpyxl
 from openpyxl.cell.cell import Cell, MergedCell
-from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+from openpyxl.styles import PatternFill, Font, Alignment, Border, Side, Protection
+from openpyxl.formatting.rule import CellIsRule, FormulaRule, ColorScaleRule, DataBarRule
+from openpyxl.worksheet.datavalidation import DataValidation
+from openpyxl.chart import BarChart, LineChart, PieChart, Reference, Series
+from openpyxl.worksheet.views import SheetView
 from openpyxl.utils import get_column_letter, coordinate_to_tuple, column_index_from_string
 from openpyxl.worksheet.worksheet import Worksheet
 
@@ -38,6 +50,10 @@ __all__ = [
     "write_xlsx",
     "write_xlsx_from_json_file",
     "apply_worksheet_print_setup",
+    "sanitize_xml_string",
+    "parse_vietnamese_date",
+    "parse_accounting_and_localized_number",
+    "normalize_modern_formula",
 ]
 
 
@@ -161,6 +177,152 @@ def shift_formula_string(
 
 
 
+# ---------------------------------------------------------------------------
+# Data Coercion, XML Sanitization & Modern Formula Normalization (ERR_XLSX_009..011)
+# ---------------------------------------------------------------------------
+
+CLEAN_XML_REGEX = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+
+MODERN_FORMULA_NAMES = (
+    "XLOOKUP", "XMATCH", "CONCAT", "TEXTJOIN", "UNIQUE", "FILTER",
+    "SORT", "SORTBY", "SEQUENCE", "RANDARRAY", "LET", "LAMBDA",
+    "SINGLE", "XIRR", "XNPV"
+)
+
+MODERN_FORMULA_REGEX = re.compile(
+    r"(?<!_xlfn\.)(?<![A-Za-z0-9_])(" + "|".join(MODERN_FORMULA_NAMES) + r")\b",
+    re.IGNORECASE
+)
+
+
+def sanitize_xml_string(raw: Any) -> Any:
+    """
+    Sanitizes raw string to prevent OpenXML corruption (ERR_XLSX_010):
+    - Strips illegal ASCII control characters (\x00-\x08, \x0b, \x0c, \x0e-\x1f).
+    - Truncates strings exceeding 32,000 characters (staying safe below 32,767 limit).
+    """
+    if not isinstance(raw, str):
+        return raw
+    clean_text = CLEAN_XML_REGEX.sub("", raw)
+    if len(clean_text) > 32000:
+        clean_text = clean_text[:32000] + " ... [Xem tiếp tài liệu gốc]"
+    return clean_text
+
+
+def parse_vietnamese_date(val_str: str) -> Optional[datetime.date]:
+    """
+    Parses Vietnamese dates into Python datetime.date (ERR_XLSX_009):
+    - '26/05/2026', '26-05-2026', '26.05.2026'
+    - 'ngày 26 tháng 05 năm 2026', 'Ngày 26 tháng 5 năm 2026'
+    """
+    if not val_str or not isinstance(val_str, str):
+        return None
+    s = val_str.strip()
+
+    # Pattern 1: DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY
+    m1 = re.match(r"^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$", s)
+    if m1:
+        d, m, y = int(m1.group(1)), int(m1.group(2)), int(m1.group(3))
+        try:
+            return datetime.date(y, m, d)
+        except ValueError:
+            return None
+
+    # Pattern 2: 'ngày DD tháng MM năm YYYY'
+    m2 = re.match(r"^(?:ngày\s+)?(\d{1,2})\s+tháng\s+(\d{1,2})\s+năm\s+(\d{4})$", s, re.IGNORECASE)
+    if m2:
+        d, m, y = int(m2.group(1)), int(m2.group(2)), int(m2.group(3))
+        try:
+            return datetime.date(y, m, d)
+        except ValueError:
+            return None
+
+    return None
+
+
+def parse_accounting_and_localized_number(val_str: str) -> Tuple[Optional[Union[int, float]], Optional[str]]:
+    """
+    Parses accounting negatives, dashes, and Vietnamese localized numbers (ERR_XLSX_009):
+    - Dash '-' -> 0 with accounting format
+    - '(100.000)' -> -100000 with accounting format
+    - '20.000,50' -> 20000.50
+    """
+    if not val_str or not isinstance(val_str, str):
+        return None, None
+    s = val_str.strip()
+
+    # 1. Pure Dash represented as zero in accounting
+    if s in ("-", "–", "—", "- ", " -"):
+        return 0, '_(* #,##0_);_(* (#,##0);_(* "-"_);_(@_)'
+
+    # 2. Accounting negative in parentheses: '(100.000)' or '(20,000.50)'
+    m_paren = re.match(r"^\(\s*([0-9.,\s]+)\s*\)$", s)
+    if m_paren:
+        inner_num_str = m_paren.group(1).strip()
+        val, _ = parse_accounting_and_localized_number(inner_num_str)
+        if val is not None:
+            neg_val = -abs(val)
+            fmt = '_(* #,##0.00_);_(* (#,##0.00);_(* "-"??_);_(@_)' if isinstance(neg_val, float) and (neg_val % 1 != 0) else '_(* #,##0_);_(* (#,##0);_(* "-"_);_(@_)'
+            return neg_val, fmt
+
+    # Strip currency suffixes and whitespace
+    clean_s = re.sub(r"[\s₫đVNDvnđVNĐ$€]+", "", s)
+
+    # 3. Vietnamese / European vs US decimal & thousand separator
+    if "." in clean_s and "," in clean_s:
+        dot_idx = clean_s.find(".")
+        comma_idx = clean_s.find(",")
+        if dot_idx < comma_idx:
+            # Vietnamese / European: 20.000,50 -> 20000.50
+            norm = clean_s.replace(".", "").replace(",", ".")
+            try:
+                return float(norm), "#,##0.00"
+            except ValueError:
+                pass
+        else:
+            # US Standard: 20,000.50 -> 20000.50
+            norm = clean_s.replace(",", "")
+            try:
+                return float(norm), "#,##0.00"
+            except ValueError:
+                pass
+
+    # 4. Single comma decimal: '20,50' or '20,5'
+    if "," in clean_s and "." not in clean_s:
+        if re.match(r"^-?\d+,\d{1,4}$", clean_s):
+            norm = clean_s.replace(",", ".")
+            try:
+                return float(norm), "#,##0.00"
+            except ValueError:
+                pass
+
+    # 5. Thousand dots without decimal: '100.000' or '1.000.000'
+    if "." in clean_s and "," not in clean_s:
+        if re.match(r"^-?\d{1,3}(?:\.\d{3})+$", clean_s):
+            norm = clean_s.replace(".", "")
+            try:
+                return int(norm), "#,##0"
+            except ValueError:
+                pass
+        elif re.match(r"^-?\d+\.\d{1,4}$", clean_s):
+            try:
+                return float(clean_s), "#,##0.00"
+            except ValueError:
+                pass
+
+    return None, None
+
+
+def normalize_modern_formula(formula: str) -> str:
+    """
+    Prefixes modern OpenXML dynamic array and recent formulas with '_xlfn.' (ERR_XLSX_011):
+    Prevents #NAME? errors when workbooks are opened in legacy Excel 2016/2019.
+    """
+    if not formula or not str(formula).startswith("="):
+        return formula
+    return MODERN_FORMULA_REGEX.sub(r"_xlfn.\1", formula)
+
+
 def safe_set_cell(
     ws: Worksheet,
     coordinate: str,
@@ -175,8 +337,12 @@ def safe_set_cell(
 ) -> Any:
     """
     Safely assign value, formula, and formatting to a cell.
-    If the target coordinate is inside a MergedCell, automatically targets
-    the Top-Left cell of the range to prevent AttributeError: MergedCell is read-only (ERR_XLSX_004).
+    Implements:
+    - ERR_XLSX_004: Safe Merged-Cell targeting Top-Left cell.
+    - ERR_XLSX_007: Identifier string formatting ('@') for leading zeros.
+    - ERR_XLSX_009: 15-Digit precision guard, Vietnamese dates, and accounting numbers.
+    - ERR_XLSX_010: Illegal XML character sanitization and 32k length cutoff.
+    - ERR_XLSX_011: Modern formula _xlfn. prefix compatibility.
     """
     target_coord = coordinate
     target_cell = ws[coordinate]
@@ -189,19 +355,44 @@ def safe_set_cell(
 
     cell = ws[target_coord]
 
-    # Value / Formula assignment
-    if formula and formula.startswith("="):
-        cell.value = formula
+    # Formula assignment
+    if formula and str(formula).startswith("="):
+        cell.value = normalize_modern_formula(str(formula))
     elif value is not None:
-        val_str = str(value)
-        # Leading zero loss guard (ERR_XLSX_007)
-        if number_format is None and val_str.startswith("0") and len(val_str) > 1 and val_str.isdigit():
-            cell.number_format = "@"
-            cell.value = val_str
-        else:
-            cell.value = value
+        sanitized_val = sanitize_xml_string(value)
 
-    # Number Format
+        # Check if value itself is a formula string
+        if isinstance(sanitized_val, str) and sanitized_val.startswith("="):
+            cell.value = normalize_modern_formula(sanitized_val)
+        elif isinstance(sanitized_val, str):
+            val_clean = sanitized_val.strip()
+
+            # 1. 15-Digit precision & Leading zero guard (ERR_XLSX_007 & ERR_XLSX_009)
+            is_digit_code = val_clean.isdigit()
+            is_long_id = is_digit_code and len(val_clean) >= 12
+            is_leading_zero = is_digit_code and val_clean.startswith("0") and len(val_clean) > 1
+
+            if is_long_id or is_leading_zero:
+                cell.number_format = "@"
+                cell.value = val_clean
+            else:
+                # 2. Vietnamese Date Parsing (ERR_XLSX_009)
+                date_val = parse_vietnamese_date(val_clean)
+                if date_val is not None:
+                    cell.value = date_val
+                    cell.number_format = number_format or "DD/MM/YYYY"
+                else:
+                    # 3. Accounting & Localized Numbers (ERR_XLSX_009)
+                    acc_val, acc_fmt = parse_accounting_and_localized_number(val_clean)
+                    if acc_val is not None:
+                        cell.value = acc_val
+                        cell.number_format = number_format or acc_fmt or "#,##0"
+                    else:
+                        cell.value = sanitized_val
+        else:
+            cell.value = sanitized_val
+
+    # Explicit Number Format override
     if number_format:
         cell.number_format = number_format
 
@@ -350,8 +541,15 @@ class UniversalExcelEngine:
         new_row_indices = list(range(start_row, start_row + count))
 
         # 3. Clone prototype row styling to all newly inserted rows
+        has_wrapped_text = any(
+            s.get("alignment") and getattr(s["alignment"], "wrap_text", False)
+            for s in proto_styles
+        )
         for new_r in new_row_indices:
-            if proto_h:
+            # Leave height as None if wrapped text is present so Excel auto-fits row height (ERR_XLSX_012)
+            if has_wrapped_text:
+                ws.row_dimensions[new_r].height = None
+            elif proto_h:
                 ws.row_dimensions[new_r].height = proto_h
 
             for c_idx, s in enumerate(proto_styles, start=1):
@@ -710,6 +908,405 @@ class UniversalExcelEngine:
         """Applies 2D Freeze Panes at specified coordinate (ERR_XLSX_005)."""
         ws = self.get_sheet(sheet_name)
         ws.freeze_panes = coordinate
+
+    def enable_gridlines(self, sheet_name: Optional[str] = None) -> None:
+        """Enforces visible gridlines across sheets to prevent blank white views (ERR_XLSX_012)."""
+        target_sheets = [sheet_name] if sheet_name else self.wb.sheetnames
+        for sname in target_sheets:
+            ws = self.get_sheet(sname)
+            if not ws.views.sheetView:
+                ws.views.sheetView.append(SheetView())
+            ws.views.sheetView[0].showGridLines = True
+
+    def set_autofilter(
+        self,
+        sheet_name: str,
+        header_row: int = 1,
+        last_col: Optional[int] = None,
+        max_row: Optional[int] = None,
+    ) -> None:
+        """Applies AutoFilter range across tabular data (ERR_XLSX_012)."""
+        ws = self.get_sheet(sheet_name)
+        c_end = last_col or ws.max_column
+        r_end = max_row or ws.max_row
+        if c_end >= 1 and r_end >= header_row:
+            col_letter = get_column_letter(c_end)
+            ws.auto_filter.ref = f"A{header_row}:{col_letter}{r_end}"
+
+    # -----------------------------------------------------------------------
+    # Subsystem 1: Automated Conditional Formatting
+    # -----------------------------------------------------------------------
+
+    def apply_status_highlights(
+        self,
+        sheet_name: str,
+        cell_range: str,
+        custom_rules: Optional[Dict[str, Dict[str, str]]] = None,
+    ) -> None:
+        """
+        Applies corporate pastel status highlights to categorical text columns:
+        - Danger/Warning (Red): Chưa duyệt, Từ chối, Quá hạn, Rủi ro, Thất bại, Lỗi
+        - Success (Green): Đã duyệt, Hoàn thành, Miễn phí, Thành công, Đạt
+        - In-progress (Yellow): Đang chờ, Đang xử lý, Chờ duyệt, Cảnh báo
+        """
+        ws = self.get_sheet(sheet_name)
+
+        # Standard Corporate Palette
+        default_rules = {
+            "danger": {
+                "keywords": ["chưa duyệt", "từ chối", "quá hạn", "rủi ro", "thất bại", "lỗi", "vi phạm"],
+                "fill": "FEE2E2",
+                "font_color": "991B1B",
+            },
+            "success": {
+                "keywords": ["đã duyệt", "hoàn thành", "miễn phí", "thành công", "đạt", "chấp thuận"],
+                "fill": "DCFCE7",
+                "font_color": "166534",
+            },
+            "warning": {
+                "keywords": ["đang chờ", "đang xử lý", "chờ duyệt", "cảnh báo"],
+                "fill": "FEF9C3",
+                "font_color": "854D0E",
+            },
+        }
+
+        active_rules = custom_rules or default_rules
+        for _, rule_cfg in active_rules.items():
+            fill_hex = rule_cfg.get("fill", "FFFFFF")
+            font_hex = rule_cfg.get("font_color", "000000")
+            p_fill = PatternFill(fill_type="solid", start_color=fill_hex, end_color=fill_hex)
+            p_font = Font(name="Segoe UI", color=font_hex, bold=True)
+
+            for kw in rule_cfg.get("keywords", []):
+                rule = CellIsRule(
+                    operator="equal",
+                    formula=[f'"{kw}"'],
+                    fill=p_fill,
+                    font=p_font,
+                    stopIfTrue=True
+                )
+                ws.conditional_formatting.add(cell_range, rule)
+
+    def apply_data_bars(self, sheet_name: str, cell_range: str, color: str = "3B82F6") -> None:
+        """Applies In-Cell Data Bars for percentage and quantitative metrics."""
+        ws = self.get_sheet(sheet_name)
+        norm_color = color.lstrip("#").upper()
+        rule = DataBarRule(
+            start_type="min",
+            end_type="max",
+            color=norm_color,
+            showValue="None",
+            minLength=None,
+            maxLength=None
+        )
+        ws.conditional_formatting.add(cell_range, rule)
+
+    def apply_color_scale(self, sheet_name: str, cell_range: str, scale_type: str = "green_yellow_red") -> None:
+        """Applies 3-Point Color Scale heatmaps across numeric cells."""
+        ws = self.get_sheet(sheet_name)
+        if scale_type == "green_yellow_red":
+            rule = ColorScaleRule(
+                start_type="min", start_color="F87171",
+                mid_type="percentile", mid_value=50, mid_color="FDE047",
+                end_type="max", end_color="4ADE80"
+            )
+        else:
+            rule = ColorScaleRule(
+                start_type="min", start_color="3B82F6",
+                mid_type="percentile", mid_value=50, mid_color="FFFFFF",
+                end_type="max", end_color="EF4444"
+            )
+        ws.conditional_formatting.add(cell_range, rule)
+
+    # -----------------------------------------------------------------------
+    # Subsystem 2: Data Validation & Dropdowns
+    # -----------------------------------------------------------------------
+
+    def add_dropdown_validation(
+        self,
+        sheet_name: str,
+        cell_range: str,
+        options: List[str],
+        prompt: Optional[str] = None,
+        error_msg: Optional[str] = None,
+    ) -> None:
+        """Attaches dropdown list validation preventing invalid keyboard inputs."""
+        ws = self.get_sheet(sheet_name)
+        opts_str = ",".join(options)
+        dv = DataValidation(
+            type="list",
+            formula1=f'"{opts_str}"',
+            allow_blank=True,
+            showInputMessage=bool(prompt),
+            showErrorMessage=bool(error_msg),
+        )
+        if prompt:
+            dv.prompt = prompt
+            dv.promptTitle = "Lựa chọn hợp lệ"
+        if error_msg:
+            dv.error = error_msg
+            dv.errorTitle = "Giá trị không hợp lệ"
+        ws.add_data_validation(dv)
+        dv.add(cell_range)
+
+    def add_length_validation(
+        self,
+        sheet_name: str,
+        cell_range: str,
+        exact_len: int = 12,
+        error_msg: Optional[str] = None,
+    ) -> None:
+        """Restricts text character length (e.g. CCCD 12 digits, Tax ID 10 digits)."""
+        ws = self.get_sheet(sheet_name)
+        dv = DataValidation(
+            type="textLength",
+            operator="equal",
+            formula1=exact_len,
+            allow_blank=True,
+            showErrorMessage=True,
+            errorTitle="Sai độ dài",
+            error=error_msg or f"Dữ liệu bắt buộc có đúng {exact_len} ký tự.",
+        )
+        ws.add_data_validation(dv)
+        dv.add(cell_range)
+
+    def add_date_validation(
+        self,
+        sheet_name: str,
+        cell_range: str,
+        start_date: str = "2026-01-01",
+        end_date: str = "2026-12-31",
+        error_msg: Optional[str] = None,
+    ) -> None:
+        """Restricts input dates to allowed calendar ranges."""
+        ws = self.get_sheet(sheet_name)
+        y1, m1, d1 = [int(p) for p in start_date.split("-")]
+        y2, m2, d2 = [int(p) for p in end_date.split("-")]
+        dv = DataValidation(
+            type="date",
+            operator="between",
+            formula1=f"DATE({y1},{m1},{d1})",
+            formula2=f"DATE({y2},{m2},{d2})",
+            allow_blank=True,
+            showErrorMessage=True,
+            errorTitle="Ngày không hợp lệ",
+            error=error_msg or f"Chỉ cho phép nhập ngày trong khoảng {start_date} đến {end_date}.",
+        )
+        ws.add_data_validation(dv)
+        dv.add(cell_range)
+
+    # -----------------------------------------------------------------------
+    # Subsystem 3: Native In-Sheet Charts (ERR_DIAG_003)
+    # -----------------------------------------------------------------------
+
+    def add_native_chart(
+        self,
+        sheet_name: str,
+        chart_type: str = "bar",
+        data_range: Optional[Tuple[int, int, int, int]] = None,
+        category_range: Optional[Tuple[int, int, int, int]] = None,
+        title: str = "",
+        target_cell: str = "auto",
+        width: float = 16.0,
+        height: float = 10.0,
+    ) -> Any:
+        """
+        Embeds live OpenXML native chart directly into worksheet adhering to ERR_DIAG_003.
+        Safe anchoring prevents overlapping tabular data.
+        data_range: (min_col, min_row, max_col, max_row)
+        category_range: (min_col, min_row, max_col, max_row)
+        """
+        ws = self.get_sheet(sheet_name)
+        c_type = chart_type.lower()
+        if c_type == "line":
+            chart = LineChart()
+        elif c_type == "pie":
+            chart = PieChart()
+        else:
+            chart = BarChart()
+            chart.type = "col"
+            chart.style = 10
+
+        chart.title = title
+        chart.width = width
+        chart.height = height
+
+        # Auto data discovery if not provided
+        d_min_c, d_min_r, d_max_c, d_max_r = data_range or (2, 1, min(ws.max_column, 5), min(ws.max_row, 30))
+        data_ref = Reference(ws, min_col=d_min_c, min_row=d_min_r, max_col=d_max_c, max_row=d_max_r)
+        chart.add_data(data_ref, titles_from_data=True)
+
+        if category_range:
+            c_min_c, c_min_r, c_max_c, c_max_r = category_range
+            cats_ref = Reference(ws, min_col=c_min_c, min_row=c_min_r, max_col=c_max_c, max_row=c_max_r)
+            chart.set_categories(cats_ref)
+        elif d_min_r > 1:
+            cats_ref = Reference(ws, min_col=1, min_row=d_min_r + 1, max_row=d_max_r)
+            chart.set_categories(cats_ref)
+
+        # Safe Anchor Discovery (ERR_DIAG_003)
+        if target_cell == "auto":
+            anchor = f"A{ws.max_row + 2}"
+        elif target_cell == "side":
+            anchor = f"{get_column_letter(ws.max_column + 2)}2"
+        else:
+            anchor = target_cell
+
+        ws.add_chart(chart, anchor)
+        return chart
+
+    # -----------------------------------------------------------------------
+    # Subsystem 4: Selective Protection & Formula Locking (ERR_XLSX_013)
+    # -----------------------------------------------------------------------
+
+    def protect_sheet_selective(
+        self,
+        sheet_name: str,
+        input_ranges: Optional[List[str]] = None,
+        password: Optional[str] = None,
+    ) -> None:
+        """
+        Enforces selective cell locking (ERR_XLSX_013):
+        Formula cells and header titles are locked; designated input ranges remain editable.
+        """
+        ws = self.get_sheet(sheet_name)
+        input_coords_set = set()
+
+        if input_ranges:
+            for r_str in input_ranges:
+                if ":" in r_str:
+                    for row_cells in ws[r_str]:
+                        for cell in row_cells:
+                            input_coords_set.add(cell.coordinate)
+                else:
+                    input_coords_set.add(r_str)
+
+        # Iterate all active cells
+        for row in ws.iter_rows():
+            for cell in row:
+                if cell.coordinate in input_coords_set:
+                    cell.protection = Protection(locked=False)
+                else:
+                    cell.protection = Protection(locked=True)
+
+        ws.protection.sheet = True
+        if password:
+            ws.protection.password = password
+        ws.protection.selectLockedCells = True
+        ws.protection.selectUnlockedCells = True
+        ws.protection.autoFilter = True
+        ws.protection.sort = True
+
+    # -----------------------------------------------------------------------
+    # Subsystem 6: Executive Index Dashboard & Navigation (ERR_XLSX_012)
+    # -----------------------------------------------------------------------
+
+    def create_index_dashboard(
+        self,
+        title: str = "Mục Lục & Điều Hướng Dữ Liệu",
+        descriptions: Optional[Dict[str, str]] = None,
+        back_links: bool = True,
+    ) -> Worksheet:
+        """
+        Generates an Executive Index Sheet at index 0 with 2-way hyperlink navigation:
+        - Index sheet lists all tables, row counts, descriptions, and jump links.
+        - Child sheets receive a '[⬅ Về Trang Mục Lục]' navigation link.
+        """
+        index_name = "Mục Lục"
+        if index_name in self.wb.sheetnames:
+            idx_sheet = self.wb[index_name]
+        else:
+            idx_sheet = self.wb.create_sheet(title=index_name, index=0)
+
+        # 1. Header Banner
+        idx_sheet["A1"] = title.upper()
+        idx_sheet["A1"].font = Font(name="Segoe UI", size=14, bold=True, color="FFFFFF")
+        idx_sheet["A1"].fill = PatternFill(fill_type="solid", start_color="0F294A", end_color="0F294A")
+        idx_sheet["A1"].alignment = Alignment(horizontal="left", vertical="center", indent=1)
+        idx_sheet.row_dimensions[1].height = 36
+
+        for col_i in range(2, 6):
+            c_cell = idx_sheet.cell(row=1, column=col_i)
+            c_cell.fill = PatternFill(fill_type="solid", start_color="0F294A", end_color="0F294A")
+
+        # 2. Table Column Headers
+        headers = ["STT", "Tên Phân Hệ / Sheet", "Số Dòng Dữ Liệu", "Mô Tả Nghiệp Vụ", "Thao Tác"]
+        for c_idx, h_text in enumerate(headers, start=1):
+            cell = idx_sheet.cell(row=3, column=c_idx, value=h_text)
+            cell.font = Font(name="Segoe UI", size=10, bold=True, color="FFFFFF")
+            cell.fill = PatternFill(fill_type="solid", start_color="1E3A8A", end_color="1E3A8A")
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            cell.border = Border(
+                top=Side(style="thin", color="CBD5E1"),
+                bottom=Side(style="thin", color="CBD5E1"),
+                left=Side(style="thin", color="CBD5E1"),
+                right=Side(style="thin", color="CBD5E1"),
+            )
+        idx_sheet.row_dimensions[3].height = 24
+
+        # 3. Populate Sheet Entries
+        child_sheets = [s for s in self.wb.sheetnames if s != index_name]
+        for s_idx, sname in enumerate(child_sheets, start=1):
+            row_idx = s_idx + 3
+            child_ws = self.wb[sname]
+            r_count = child_ws.max_row
+            desc = (descriptions or {}).get(sname, f"Bảng dữ liệu trích xuất phân hệ {sname}")
+
+            bg_color = "F8FAFC" if s_idx % 2 == 0 else "FFFFFF"
+            row_fill = PatternFill(fill_type="solid", start_color=bg_color, end_color=bg_color)
+            thin_border = Border(
+                top=Side(style="thin", color="E2E8F0"),
+                bottom=Side(style="thin", color="E2E8F0"),
+                left=Side(style="thin", color="E2E8F0"),
+                right=Side(style="thin", color="E2E8F0"),
+            )
+
+            # Cột 1: STT
+            c1 = idx_sheet.cell(row=row_idx, column=1, value=s_idx)
+            c1.alignment = Alignment(horizontal="center", vertical="center")
+
+            # Cột 2: Tên Sheet
+            c2 = idx_sheet.cell(row=row_idx, column=2, value=sname)
+            c2.alignment = Alignment(horizontal="left", vertical="center")
+            c2.font = Font(name="Segoe UI", size=10, bold=True)
+
+            # Cột 3: Số Dòng
+            c3 = idx_sheet.cell(row=row_idx, column=3, value=r_count)
+            c3.alignment = Alignment(horizontal="right", vertical="center")
+            c3.number_format = "#,##0"
+
+            # Cột 4: Mô tả
+            c4 = idx_sheet.cell(row=row_idx, column=4, value=desc)
+            c4.alignment = Alignment(horizontal="left", vertical="center")
+
+            # Cột 5: Hyperlink nhảy trang
+            c5 = idx_sheet.cell(row=row_idx, column=5)
+            c5.value = f'=HYPERLINK("#\'{sname}\'!A1", "👉 Mở Bảng")'
+            c5.alignment = Alignment(horizontal="center", vertical="center")
+            c5.font = Font(name="Segoe UI", size=10, bold=True, color="1D4ED8", underline="single")
+
+            for cell_item in [c1, c2, c3, c4, c5]:
+                cell_item.fill = row_fill
+                cell_item.border = thin_border
+
+            idx_sheet.row_dimensions[row_idx].height = 22
+
+            # 4. Attach back link to child sheet if requested
+            if back_links and child_ws.max_row >= 1:
+                child_ws["A1"].value = f'=HYPERLINK("#\'{index_name}\'!A1", "⬅ Về Trang Mục Lục")'
+                child_ws["A1"].font = Font(name="Segoe UI", size=9, bold=True, color="1D4ED8", underline="single")
+
+        # 5. Format Index Dimensions & Visibility
+        col_widths = {1: 8, 2: 26, 3: 16, 4: 42, 5: 16}
+        for c_num, width in col_widths.items():
+            idx_sheet.column_dimensions[get_column_letter(c_num)].width = width
+
+        if not idx_sheet.views.sheetView:
+            idx_sheet.views.sheetView.append(SheetView())
+        idx_sheet.views.sheetView[0].showGridLines = True
+        idx_sheet.freeze_panes = "A4"
+
+        return idx_sheet
 
     def apply_print_setup(
         self: Any,

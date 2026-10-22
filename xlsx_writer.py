@@ -14,8 +14,14 @@ if BASE_DIR not in sys.path:
 
 from core.xlsx.writer import *
 import core.xlsx.writer as _mod
+from core.xlsx.streaming import *
+import core.xlsx.streaming as _stream_mod
 
 for _k in dir(_mod):
     if not _k.startswith("__"):
         globals()[_k] = getattr(_mod, _k)
+
+for _k in dir(_stream_mod):
+    if not _k.startswith("__"):
+        globals()[_k] = getattr(_stream_mod, _k)
 
