@@ -17,7 +17,10 @@ import sys
 from typing import Dict, List, Optional, Tuple
 
 sys.stdout.reconfigure(encoding="utf-8")
-import fitz  # PyMuPDF
+try:
+    import pymupdf as fitz
+except ImportError:
+    import fitz
 
 
 def extract_figure_clip(

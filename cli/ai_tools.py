@@ -1700,6 +1700,70 @@ def cmd_qa_audit(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# doc-security (Cloudflare Harness Document Security & Sanitizer)
+# ---------------------------------------------------------------------------
+
+def cmd_doc_security(args: argparse.Namespace) -> int:
+    try:
+        from core.security.document_auditor import DocumentSecurityAuditor
+        from core.security.sanitizer import DocumentSanitizer
+    except ImportError:
+        import sys
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if base_dir not in sys.path:
+            sys.path.insert(0, base_dir)
+        from core.security.document_auditor import DocumentSecurityAuditor
+        from core.security.sanitizer import DocumentSanitizer
+
+    auditor = DocumentSecurityAuditor()
+    report = auditor.audit_file(args.file)
+
+    if getattr(args, "sanitize", False):
+        sanitizer = DocumentSanitizer()
+        out_p = getattr(args, "output", None)
+        san_res = sanitizer.sanitize(args.file, output_path=out_p)
+        print(f"[SECURITY SANITIZE] Cleaned file saved to: {san_res.get('output_file')}")
+        for act in san_res.get("actions_taken", []):
+            print(f"  + {act}")
+
+    if getattr(args, "format", "terminal") == "json":
+        import json
+        out_str = json.dumps(report.to_dict(), indent=2, ensure_ascii=False)
+        if getattr(args, "output", None) and not getattr(args, "sanitize", False):
+            with open(args.output, "w", encoding="utf-8") as f:
+                f.write(out_str)
+            print(f"Security report saved to: {args.output}")
+        else:
+            print(out_str)
+    else:
+        print("=" * 80)
+        print("       ENTERPRISE DOCUMENT SECURITY AUDIT (CLOUDFLARE HARNESS)")
+        print("=" * 80)
+        print(f"Target File: {report.target}")
+        print(f"Timestamp:   {report.timestamp}")
+        print(f"Status:      {'100% CLEAN' if report.is_clean else 'THREATS DETECTED'}")
+        print(f"Counts:      Critical: {report.critical_count} | Warning: {report.warning_count} | Info: {report.info_count}")
+        print("-" * 80)
+        for cat in ("confirmed", "needs_validation", "rejected"):
+            items = report.findings.get(cat, [])
+            if items:
+                print(f"[{cat.upper()} ({len(items)})]")
+                for item in items:
+                    sev = item.get("severity", "-")
+                    code = item.get("invariant_code", "-")
+                    title = item.get("title", "")
+                    evidence = item.get("evidence", "")
+                    print(f"  * [{sev}] {code} - {title}")
+                    if evidence:
+                        print(f"    Evidence: {evidence}")
+                    if item.get("fix_proposal"):
+                        print(f"    Fix: {item.get('fix_proposal')}")
+                print("-" * 80)
+
+    return 2 if report.critical_count > 0 else (1 if report.warning_count > 0 else 0)
+
+
+# ---------------------------------------------------------------------------
 # md-toc & convert
 # ---------------------------------------------------------------------------
 
@@ -1979,6 +2043,104 @@ def cmd_xlsx_formulas(args: argparse.Namespace) -> int:
         print(f"  Tại Sao:   {item['why_choose']}")
         print("-" * 80)
 
+    return 0
+
+
+def cmd_yearbook_layout(args: argparse.Namespace) -> int:
+    try:
+        from core.yearbook import YearbookLayoutEngine, get_default_mock_spec
+    except (ImportError, ValueError):
+        print("[ERROR] Failed to import core.yearbook", file=sys.stderr)
+        return 1
+
+    photo_inputs = getattr(args, "photos", []) or []
+    collected_photos: list[str] = []
+    for item in photo_inputs:
+        if os.path.isdir(item):
+            for fname in sorted(os.listdir(item)):
+                fpath = os.path.join(item, fname)
+                if os.path.isfile(fpath) and os.path.splitext(fname)[1].lower() in (".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff"):
+                    collected_photos.append(os.path.abspath(fpath))
+        elif os.path.isfile(item):
+            collected_photos.append(os.path.abspath(item))
+
+    title = getattr(args, "title", "KỶ YẾU TỐT NGHIỆP 2026")
+    subtitle = getattr(args, "subtitle", "Hành Trình Rực Rỡ & Những Năm Tháng Thanh Xuân")
+    author = getattr(args, "author", "Biện Trung Tín")
+    degree = getattr(args, "degree", "Cử Nhân Kỹ Thuật Phần Mềm")
+    date_str = getattr(args, "date", "Tháng 11 / 2026")
+    preset = getattr(args, "preset", "photobook_square_25x25")
+    bleed_mm = float(getattr(args, "bleed", 3.0))
+
+    if not collected_photos and getattr(args, "mock", False):
+        spec = get_default_mock_spec(
+            title=title,
+            subtitle=subtitle,
+            author=author,
+            degree=degree,
+            date_str=date_str,
+            preset_key=preset,
+            bleed_mm=bleed_mm
+        )
+    else:
+        spec = YearbookLayoutEngine.auto_layout(
+            photo_paths=collected_photos,
+            title=title,
+            subtitle=subtitle,
+            author=author,
+            degree=degree,
+            date_str=date_str,
+            preset_key=preset,
+            bleed_mm=bleed_mm,
+        )
+
+    out_path = args.output
+    if out_path:
+        os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
+        with open(out_path, "w", encoding="utf-8") as f:
+            json.dump(spec, f, ensure_ascii=False, indent=2)
+        print(f"[OK] Generated Yearbook spec with {len(spec.get('pages', []))} spread(s) -> {out_path}")
+    else:
+        print(json.dumps(spec, ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_yearbook_build(args: argparse.Namespace) -> int:
+    try:
+        from core.yearbook import YearbookPressEngine, YearbookHandoffPackager
+    except (ImportError, ValueError):
+        print("[ERROR] Failed to import core.yearbook", file=sys.stderr)
+        return 1
+
+    spec_path = os.path.abspath(args.spec)
+    if not os.path.isfile(spec_path):
+        print(f"[ERROR] Spec file not found: {spec_path}", file=sys.stderr)
+        return 1
+
+    with open(spec_path, "r", encoding="utf-8") as f:
+        spec = json.load(f)
+
+    out_path = args.output
+    if not out_path:
+        out_path = f"{os.path.splitext(spec_path)[0]}_bundle.zip"
+
+    export_type = "handoff_zip"
+    if getattr(args, "print_ready", False):
+        export_type = "print_pdf"
+    elif getattr(args, "spread_preview", False):
+        export_type = "spread_pdf"
+    elif getattr(args, "export_type", None):
+        export_type = args.export_type.lower()
+
+    if export_type == "print_pdf":
+        actual_out = YearbookPressEngine.export_print_ready_pdf(spec, out_path)
+        print(f"[OK] Rendered 300 DPI Print-Ready PDF -> {actual_out}")
+    elif export_type == "spread_pdf":
+        actual_out = YearbookPressEngine.export_spread_preview_pdf(spec, out_path)
+        print(f"[OK] Rendered Spread Preview PDF -> {actual_out}")
+    else:
+        actual_out = YearbookHandoffPackager.export_handoff_bundle(spec, out_path)
+        print(f"[OK] Assembled Designer Handoff Bundle ZIP -> {actual_out}")
     return 0
 
 
@@ -2382,6 +2544,18 @@ Examples:
     p_qa.add_argument("--format", choices=["terminal", "json", "sarif"], default="terminal",
                       help="Output report format")
     p_qa.add_argument("-o", "--output", default=None, help="Optional output file path for the report/log")
+    p_qa.add_argument("--security", action="store_true", help="Enable Gate 13: Enterprise Document Security & PII Audit (Cloudflare Harness)")
+    p_qa.add_argument("--sanitize", action="store_true", help="Sanitize detected security threats and PII")
+    p_qa.set_defaults(func=cmd_qa_audit)
+
+    # --- doc-security (Cloudflare Harness Document Security & Sanitizer) ---
+    p_sec = sub.add_parser("doc-security", help="Audit & sanitize document security threats, DDE/formulas, and PII (Cloudflare Harness)")
+    p_sec.add_argument("file", help="Path to document to audit (.docx, .xlsx, .pptx, .pdf, .csv, .drawio)")
+    p_sec.add_argument("--sanitize", action="store_true", help="Sanitize and defuse detected security threats")
+    p_sec.add_argument("-o", "--output", default=None, help="Output path for sanitized file or JSON report")
+    p_sec.add_argument("--format", choices=["terminal", "json"], default="terminal", help="Report format")
+    p_sec.set_defaults(func=cmd_doc_security)
+
     # --- convert (Unified Converter Dispatcher) ---
     p_conv = sub.add_parser("convert", help="Universal multi-format document conversion (PDF ↔ DOCX ↔ MD ↔ PPTX ↔ XLSX)")
     p_conv.add_argument("input", help="Source file path (.pdf, .docx, .md)")
@@ -2443,6 +2617,32 @@ Examples:
     p_xf.add_argument("--export", default=None, help="Export dual-sheet cheat sheet Excel file (.xlsx)")
     p_xf.add_argument("--json", action="store_true", help="Output machine-readable JSON")
     p_xf.set_defaults(func=cmd_xlsx_formulas)
+
+    # --- yearbook-layout (Digital Yearbook Auto-Layout) ---
+    p_yl = sub.add_parser("yearbook-layout", help="Generate declarative Yearbook Project Spec JSON from photos directory or list")
+    p_yl.add_argument("photos", nargs="*", default=[], help="Image file paths or directory of photos")
+    p_yl.add_argument("-o", "--output", default=None, help="Output spec .json path")
+    p_yl.add_argument("--title", default="KỶ YẾU TỐT NGHIỆP 2026", help="Album title")
+    p_yl.add_argument("--subtitle", default="Hành Trình Rực Rỡ & Những Năm Tháng Thanh Xuân", help="Album subtitle")
+    p_yl.add_argument("--author", default="Biện Trung Tín", help="Owner / Graduate name")
+    p_yl.add_argument("--degree", default="Cử Nhân Kỹ Thuật Phần Mềm", help="Academic degree / major")
+    p_yl.add_argument("--date", default="Tháng 11 / 2026", help="Graduation date string")
+    p_yl.add_argument("--preset", default="photobook_square_25x25",
+                      choices=["photobook_square_25x25", "a4_landscape", "a4_portrait", "magazine_b5"],
+                      help="Photobook dimension preset")
+    p_yl.add_argument("--bleed", type=float, default=3.0, help="Pre-press bleed margin in mm (default: 3.0)")
+    p_yl.add_argument("--mock", action="store_true", help="Generate complete mock demonstration album if no photos given")
+    p_yl.set_defaults(func=cmd_yearbook_layout)
+
+    # --- yearbook-build (Pre-press PDF & Handoff Bundle Packager) ---
+    p_yb = sub.add_parser("yearbook-build", help="Build print-ready PDF (300 DPI, Bleed, Crop Marks) or Designer Handoff ZIP")
+    p_yb.add_argument("spec", help="Path to yearbook project spec .json file")
+    p_yb.add_argument("-o", "--output", default=None, help="Output destination (.zip or .pdf)")
+    p_yb.add_argument("--print-ready", action="store_true", help="Export single-page 300 DPI print-ready PDF with Bleed & Crop Marks")
+    p_yb.add_argument("--spread-preview", action="store_true", help="Export 2-page spread preview PDF for client inspection")
+    p_yb.add_argument("--handoff", action="store_true", help="Export full 5-in-1 Designer Handoff Bundle (.zip)")
+    p_yb.add_argument("--export-type", choices=["handoff_zip", "print_pdf", "spread_pdf"], default="handoff_zip", help="Explicit export type")
+    p_yb.set_defaults(func=cmd_yearbook_build)
 
     return parser
 

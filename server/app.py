@@ -34,7 +34,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-APP_VERSION = "4.3.0"
+APP_VERSION = "4.5.0"
 
 # Import core handlers
 try:
@@ -56,6 +56,14 @@ try:
         convert_images_to_pdf, export_pdf_to_images_zip, sign_pdf_with_stamp, flatten_and_sanitize_pdf
     )
     from core.xlsx.writer import apply_worksheet_print_setup, UniversalExcelEngine
+    from core.yearbook import (
+        YearbookLayoutEngine,
+        YearbookPressEngine,
+        YearbookHandoffPackager,
+        PRESETS as YEARBOOK_PRESETS,
+        SPREAD_TEMPLATES as YEARBOOK_TEMPLATES,
+        get_default_mock_spec,
+    )
 except (ImportError, ValueError):
     from converter_engine import convert_universal  # type: ignore
     from docx_to_pptx import convert_docx_to_pptx, convert_pdf_to_pptx  # type: ignore
@@ -307,6 +315,8 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                         "pdf-normalize-a4",
                         "pdf-table-extract",
                         "pdf-organizer",
+                        "yearbook-studio",
+                        "photobook-press",
                     ],
                     "themes": list(THEMES.keys()),
                     "formats": [".docx", ".pptx", ".pdf", ".md", ".xlsx"],
@@ -353,6 +363,18 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
             elif path == "/api/history":
                 items = get_recent_history(limit=50)
                 self._send_json({"items": items, "total": len(items)})
+
+            elif path == "/api/yearbook/mock-album":
+                self._send_json({"success": True, "spec": get_default_mock_spec()})
+                return
+
+            elif path == "/api/yearbook/presets":
+                self._send_json({
+                    "success": True,
+                    "presets": YEARBOOK_PRESETS,
+                    "templates": YEARBOOK_TEMPLATES,
+                })
+                return
 
             elif path == "/api/xlsx/formulas":
                 query_params = urllib.parse.parse_qs(parsed_url.query)
@@ -1827,9 +1849,31 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                         self._send_json({"success": False, "error": "Diagram diagnostic engine could not be loaded"}, status=500)
                         return
                     issues, metrics = DiagramDiagnosticEngine.diagnose_diagram_file(src)
+                elif ext == ".pdf":
+                    # PDF can be scanned by Security Engine
+                    pass
                 else:
                     self._send_json({"success": False, "error": f"Unsupported format for QA audit: '{ext}'"}, status=400)
                     return
+
+                # Gate 13: Enterprise Document Security Scan (if requested or by default)
+                security_flag = bool(payload.get("security", False))
+                if security_flag:
+                    try:
+                        from tools.unified_qa_diagnostic import DocumentSecurityDiagnosticEngine
+                        sec_issues, sec_metrics = DocumentSecurityDiagnosticEngine.diagnose(src)
+                        issues.extend(sec_issues)
+                        metrics["security"] = sec_metrics
+                        if repair_flag and sec_issues:
+                            if not out_name:
+                                out_name = f"repaired_{os.path.basename(src)}"
+                                out_path = os.path.join(OUTPUT_DIR, out_name)
+                            s_ok, s_acts = DocumentSecurityDiagnosticEngine.repair(out_path if (out_path and os.path.exists(out_path)) else src, out_path)
+                            if s_ok:
+                                repaired = True
+                                repair_actions.extend(s_acts)
+                    except Exception as e:
+                        metrics["security_error"] = str(e)
 
                 elap = round(time.time() - t0, 3)
                 critical_count = sum(1 for i in issues if getattr(i, "severity", "").upper() == "CRITICAL")
@@ -1848,12 +1892,158 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     "issues": [i.to_dict() if hasattr(i, "to_dict") else vars(i) for i in issues],
                     "repaired": repaired,
                     "repair_actions": repair_actions,
+                    "security_scanned": security_flag,
                 }
                 if repaired and out_name:
                     res["download_url"] = f"/api/download/{urllib.parse.quote(out_name)}"
                     res["repaired_file"] = out_name
 
                 self._send_json(res)
+                return
+
+            # Endpoint 21b: Document Security Audit & Sanitizer (Cloudflare Harness)
+            elif path == "/api/security/scan":
+                payload = self._read_body_json()
+                src_param = payload.get("file_path") or payload.get("filepath") or payload.get("filename")
+                src = resolve_file_path(src_param)
+                if not src:
+                    self._send_json({"success": False, "error": f"Target document not found: {src_param}"}, status=400)
+                    return
+
+                try:
+                    from core.security.document_auditor import DocumentSecurityAuditor
+                    auditor = DocumentSecurityAuditor()
+                    report = auditor.audit_file(src)
+                    self._send_json({"success": True, "report": report.to_dict()})
+                except Exception as e:
+                    self._send_json({"success": False, "error": str(e)}, status=500)
+                return
+
+            elif path == "/api/security/sanitize":
+                payload = self._read_body_json()
+                src_param = payload.get("file_path") or payload.get("filepath") or payload.get("filename")
+                src = resolve_file_path(src_param)
+                if not src:
+                    self._send_json({"success": False, "error": f"Target document not found: {src_param}"}, status=400)
+                    return
+
+                defuse = bool(payload.get("defuse_formulas", True))
+                strip_meta = bool(payload.get("strip_metadata", True))
+                unhide = bool(payload.get("unhide_sheets", True))
+
+                base_name = os.path.basename(src)
+                out_name = f"sanitized_{base_name}"
+                out_path = os.path.join(OUTPUT_DIR, out_name)
+
+                try:
+                    from core.security.sanitizer import DocumentSanitizer
+                    sanitizer = DocumentSanitizer()
+                    res = sanitizer.sanitize(
+                        src,
+                        output_path=out_path,
+                        defuse_formulas=defuse,
+                        strip_metadata=strip_meta,
+                        unhide_sheets=unhide,
+                    )
+                    res["download_url"] = f"/api/download/{urllib.parse.quote(out_name)}"
+                    res["sanitized_file"] = out_name
+                    self._send_json(res)
+                except Exception as e:
+                    self._send_json({"success": False, "error": str(e)}, status=500)
+                return
+
+            # Endpoint 22: Digital Yearbook & Photobook Studio
+            elif path == "/api/yearbook/auto-layout":
+                payload = self._read_body_json()
+                raw_photos = payload.get("photos", [])
+                resolved_photos: list[str] = []
+                for p in raw_photos:
+                    res_p = resolve_file_path(p) if isinstance(p, str) else None
+                    if res_p:
+                        resolved_photos.append(res_p)
+
+                title = payload.get("title", "KỶ YẾU TỐT NGHIỆP 2026")
+                subtitle = payload.get("subtitle", "Hành Trình Rực Rỡ & Những Năm Tháng Thanh Xuân")
+                author = payload.get("author", "Biện Trung Tín")
+                degree = payload.get("degree", "Cử Nhân Kỹ Thuật Phần Mềm")
+                date_str = payload.get("date", "Tháng 11 / 2026")
+                preset = payload.get("preset", "photobook_square_25x25")
+                bleed_mm = float(payload.get("bleed_mm", 3.0))
+
+                spec = YearbookLayoutEngine.auto_layout(
+                    photo_paths=resolved_photos,
+                    title=title,
+                    subtitle=subtitle,
+                    author=author,
+                    degree=degree,
+                    date_str=date_str,
+                    preset_key=preset,
+                    bleed_mm=bleed_mm,
+                )
+                self._send_json({"success": True, "spec": spec})
+                return
+
+            elif path == "/api/yearbook/render-preview":
+                payload = self._read_body_json()
+                spec = payload.get("spec")
+                if not spec or not isinstance(spec, dict):
+                    self._send_json({"success": False, "error": "spec object is required"}, status=400)
+                    return
+
+                spread_idx = int(payload.get("spread_index", 0))
+                dpi = int(payload.get("dpi", 150))
+                thumb_fname = f"yearbook_spread_{spread_idx:02d}_{int(time.time()*1000)}.png"
+                thumb_path = os.path.join(OUTPUT_DIR, thumb_fname)
+
+                YearbookPressEngine.render_spread_thumbnail_png(spec, spread_idx, thumb_path, dpi=dpi)
+                self._send_json({
+                    "success": True,
+                    "filename": thumb_fname,
+                    "preview_url": f"/api/preview/{thumb_fname}",
+                    "spread_index": spread_idx,
+                })
+                return
+
+            elif path == "/api/yearbook/export":
+                payload = self._read_body_json()
+                spec = payload.get("spec")
+                if not spec or not isinstance(spec, dict):
+                    self._send_json({"success": False, "error": "spec object is required"}, status=400)
+                    return
+
+                export_type = payload.get("export_type", "handoff_zip").lower()
+                import re
+                clean_title = re.sub(r'[^\w\d\-_]', '_', spec.get("title", "Yearbook"))
+                t0 = time.time()
+
+                if export_type in ("print_pdf", "print_ready", "pdf_print"):
+                    out_name = f"{clean_title}_Print_Ready_300DPI.pdf"
+                    out_path = os.path.join(OUTPUT_DIR, out_name)
+                    YearbookPressEngine.export_print_ready_pdf(spec, out_path)
+                elif export_type in ("spread_pdf", "spread_preview", "pdf_spread"):
+                    out_name = f"{clean_title}_Spread_Preview.pdf"
+                    out_path = os.path.join(OUTPUT_DIR, out_name)
+                    YearbookPressEngine.export_spread_preview_pdf(spec, out_path)
+                else:
+                    out_name = f"{clean_title}_Designer_Handoff_Bundle.zip"
+                    out_path = os.path.join(OUTPUT_DIR, out_name)
+                    YearbookHandoffPackager.export_handoff_bundle(spec, out_path)
+
+                elap = round(time.time() - t0, 2)
+                file_sz = os.path.getsize(out_path) if os.path.isfile(out_path) else 0
+                try:
+                    record_history("yearbook_export", f"{clean_title} ({export_type})", out_name, out_path, file_sz)
+                except Exception:
+                    pass
+
+                self._send_json({
+                    "success": True,
+                    "filename": out_name,
+                    "download_url": f"/api/download/{urllib.parse.quote(out_name)}",
+                    "file_size_bytes": file_sz,
+                    "elapsed": elap,
+                    "export_type": export_type,
+                })
                 return
 
             else:
@@ -2216,6 +2406,39 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     "download_url": f"/api/download/{out_name}",
                     "preview_url": f"/api/preview/{out_name}",
                     "dimensions_px": diag_res["dimensions_px"],
+                }
+
+            elif act in ("yearbook_export", "yearbook-export"):
+                spec = payload.get("spec")
+                if not spec:
+                    raise ValueError("spec is required for yearbook export")
+                cb(10.0, "Đang khởi tạo động cơ xuất bản kỷ yếu...")
+                export_type = payload.get("export_type", "handoff_zip").lower()
+                import re
+                clean_title = re.sub(r'[^\w\d\-_]', '_', spec.get("title", "Yearbook"))
+                if export_type in ("print_pdf", "print_ready", "pdf_print"):
+                    out_name = f"{clean_title}_Print_Ready_300DPI.pdf"
+                    out_path = os.path.join(OUTPUT_DIR, out_name)
+                    cb(30.0, "Đang kết xuất PDF đơn trang chuẩn in 300 DPI...")
+                    YearbookPressEngine.export_print_ready_pdf(spec, out_path)
+                elif export_type in ("spread_pdf", "spread_preview", "pdf_spread"):
+                    out_name = f"{clean_title}_Spread_Preview.pdf"
+                    out_path = os.path.join(OUTPUT_DIR, out_name)
+                    cb(30.0, "Đang kết xuất PDF xem trước mở phẳng 2 trang...")
+                    YearbookPressEngine.export_spread_preview_pdf(spec, out_path)
+                else:
+                    out_name = f"{clean_title}_Designer_Handoff_Bundle.zip"
+                    out_path = os.path.join(OUTPUT_DIR, out_name)
+                    cb(30.0, "Đang đóng gói hồ sơ Designer Handoff 5-trong-1...")
+                    YearbookHandoffPackager.export_handoff_bundle(spec, out_path)
+
+                cb(100.0, "Đã hoàn tất xuất bản Kỷ yếu!")
+                file_sz = os.path.getsize(out_path) if os.path.isfile(out_path) else 0
+                record_history("yearbook_export", f"{clean_title} ({export_type})", out_name, out_path, file_sz)
+                return {
+                    "filename": out_name,
+                    "download_url": f"/api/download/{out_name}",
+                    "file_size": file_sz,
                 }
 
             else:

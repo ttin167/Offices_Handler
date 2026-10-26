@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "antigravity-doc-handler"
-version = "4.3.0"
+version = "4.5.0"
 description = "Universal Office Document Studio & Precision Technical Diagram Engine for Antigravity AI and Developers"
 readme = "README.md"
 authors = [{ name = "YukiiMin" }]

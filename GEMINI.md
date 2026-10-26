@@ -37,6 +37,7 @@ Khi bắt đầu làm bất kỳ tác vụ nào thuộc domain dưới đây, **
 | Document converter, PDF export | `rule_decoupled_document_converter.md` |
 | Excel Template, openpyxl, Spreadsheet Data Injection, Matrix UX | `rule_excel_template_preservation_and_ux.md` |
 | Docx/Excel QA, unified_qa_diagnostic, OpenXML, DrawingML, Table borders | `rule_enterprise_document_and_spreadsheet_qa.md` |
+| Security audit, Cloudflare, Macro scan, Formula/DDE Injection, PII scrubbing, XXE | `rule_security_audit_standards.md` |
 | Version bump, release mới, cập nhật phiên bản, package.json, changelog | `rule_version_synchronization_and_release_invariants.md` |
 | Feature completion, hoàn tất tính năng, cập nhật changelog, architecture, doc sync | `rule_feature_lifecycle_and_doc_sync.md` |
 | `/learn` invoked, writing new Rule, writing new Skill | `rule_learning_and_skill_authoring.md` |
@@ -203,6 +204,18 @@ Khi bắt đầu làm bất kỳ tác vụ nào thuộc domain dưới đây, **
 | `PPTX_INV_12` | **Native DrawingML Math Subscript** | Ký hiệu vật lý/công thức ($v_{\text{ref}} = 0\text{ m/s}$) dùng Native DrawingML Subscript (`baseline="-25000"`, `i="1"` cho biến số, `b="0"` cho đơn vị). CẤM chèn raw `<a14:m>` gây hỏng namespace. |
 | `PPTX_INV_13` | **AlternateContent Ghost Shape Pruning** | Khi thay thế hoặc cập nhật card/shape kỹ thuật, bắt buộc duyệt `spTree` dọn sạch khối `<mc:AlternateContent>` cũ nằm ngầm phía sau, ngăn chặn ghost data và mã màu rác. |
 
+
+---
+
+## Codebase & Document Security Invariants (ERR_SEC_001–005)
+
+| Mã Lỗi | Tên Bất Biến | Nguyên Tắc Bắt Buộc |
+|---|---|---|
+| `ERR_SEC_001` | **Macro & Malicious Code Execution** | Quét toàn diện `vbaProject.bin`, `vbaData.xml`, XLM macros và PDF `/Launch`, `/JavaScript`. Cảnh báo hoặc strip luồng macro chưa kiểm chứng. |
+| `ERR_SEC_002` | **Formula & DDE Injection (CSV/Excel)** | Mọi ô bắt đầu bằng `=`, `+`, `-`, `@` gọi `cmd|`, `powershell|`, `mshta|`, `WEBSERVICE`, `HYPERLINK` phải được hóa giải bằng cách thêm tiền tố nháy đơn `'`. |
+| `ERR_SEC_003` | **Dangerous OLE Package Embeddings** | Quét OLE objects dưới `embeddings/oleObject*.bin`, phát hiện header PE (`MZ`) hoặc phần mở rộng thực thi `.exe`, `.bat`, `.ps1`. |
+| `ERR_SEC_004` | **Hidden PII & Sensitive Metadata Leakage** | Xóa metadata tác giả (`dc:creator`, `cp:lastModifiedBy`), ghi chú nội bộ, và phục hồi sheet `veryHidden` trước khi bàn giao tài liệu. |
+| `ERR_SEC_005` | **Safe XML & Zip Slip Defense** | Chống path traversal `../` trong tên tệp ZIP; vô hiệu hóa DTD external entities (`<!ENTITY`, `SYSTEM`) để ngăn chặn XXE injection. |
 
 ---
 

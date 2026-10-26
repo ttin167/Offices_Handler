@@ -86,8 +86,11 @@ class TestMCPServer(unittest.TestCase):
             "docx_insert_paragraph",
             "docx_insert_table",
             "xlsx_formula_helper",
+            "yearbook_auto_layout",
+            "yearbook_export",
+            "doc_security_audit",
         ]
-        self.assertEqual(len(tools), 20)
+        self.assertEqual(len(tools), 23)
         for expected in expected_tools:
             self.assertIn(expected, tool_names)
 
@@ -194,6 +197,42 @@ class TestMCPServer(unittest.TestCase):
                         os.remove(p)
                     except Exception:
                         pass
+
+    def test_10_tools_call_doc_security_audit(self):
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False, encoding="utf-8") as f:
+            f.write("Name,Formula\nTest,=cmd|' /C calc'!A1\n")
+            csv_path = f.name
+
+        try:
+            req = {
+                "jsonrpc": "2.0",
+                "id": 103,
+                "method": "tools/call",
+                "params": {
+                    "name": "doc_security_audit",
+                    "arguments": {
+                        "file_path": csv_path,
+                        "sanitize": True
+                    }
+                }
+            }
+            res = handle_rpc_request(req)
+            self.assertIsNotNone(res)
+            self.assertEqual(res["id"], 103)
+            self.assertIn("result", res)
+            self.assertFalse(res["result"]["isError"])
+            data = json.loads(res["result"]["content"][0]["text"])
+            self.assertTrue(data.get("success"))
+            self.assertFalse(data.get("is_clean"))
+            self.assertGreaterEqual(data.get("critical_count", 0), 1)
+            self.assertIn("sanitization", data)
+            san_path = data["sanitization"].get("output_path")
+            if san_path and os.path.exists(san_path):
+                os.remove(san_path)
+        finally:
+            if os.path.exists(csv_path):
+                os.remove(csv_path)
 
 
 if __name__ == "__main__":

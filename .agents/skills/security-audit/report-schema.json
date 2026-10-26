@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CloudflareSecurityAuditFindings",
+  "type": "object",
+  "required": ["version", "target", "timestamp", "findings"],
+  "properties": {
+    "version": { "type": "string" },
+    "target": { "type": "string" },
+    "timestamp": { "type": "string" },
+    "findings": {
+      "type": "object",
+      "required": ["confirmed", "needs_validation", "rejected"],
+      "properties": {
+        "confirmed": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "title", "severity", "attack_class", "file", "line_range", "evidence", "fix_proposal"],
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "severity": { "type": "string", "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"] },
+              "attack_class": { "type": "string" },
+              "file": { "type": "string" },
+              "line_range": { "type": "string" },
+              "evidence": { "type": "string" },
+              "fix_proposal": { "type": "string" }
+            }
+          }
+        },
+        "needs_validation": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "title", "attack_class", "file", "unresolved_fact", "validation_plan"],
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "attack_class": { "type": "string" },
+              "file": { "type": "string" },
+              "unresolved_fact": { "type": "string" },
+              "validation_plan": { "type": "string" }
+            }
+          }
+        },
+        "rejected": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "title", "attack_class", "file", "disprove_rationale"],
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "attack_class": { "type": "string" },
+              "file": { "type": "string" },
+              "disprove_rationale": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

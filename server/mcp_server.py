@@ -63,7 +63,7 @@ except (ImportError, ValueError):
 
 MCP_PROTOCOL_VERSION = "2024-11-05"
 SERVER_NAME = "antigravity-doc-handler"
-SERVER_VERSION = "4.3.0"
+SERVER_VERSION = "4.5.0"
 
 TOOL_DEFINITIONS = [
     {
@@ -663,6 +663,113 @@ TOOL_DEFINITIONS = [
                     "description": "Optional search query by function name, keywords, or scenario"
                 }
             }
+        }
+    },
+    {
+        "name": "yearbook_auto_layout",
+        "description": "Smart auto-layout and aspect-ratio clustering for graduation yearbooks and photobooks into 9 editorial spread templates.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "photos": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of photo file paths or directory path"
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Album title",
+                    "default": "KỶ YẾU TỐT NGHIỆP 2026"
+                },
+                "subtitle": {
+                    "type": "string",
+                    "description": "Album subtitle"
+                },
+                "author": {
+                    "type": "string",
+                    "description": "Graduate / Owner name",
+                    "default": "Biện Trung Tín"
+                },
+                "degree": {
+                    "type": "string",
+                    "description": "Academic degree / major"
+                },
+                "date": {
+                    "type": "string",
+                    "description": "Graduation date string"
+                },
+                "preset": {
+                    "type": "string",
+                    "description": "Preset key: 'photobook_square_25x25', 'a4_landscape', 'a4_portrait', 'magazine_b5'",
+                    "default": "photobook_square_25x25"
+                },
+                "bleed_mm": {
+                    "type": "number",
+                    "description": "Pre-press bleed margin in mm (default: 3.0)",
+                    "default": 3.0
+                }
+            }
+        }
+    },
+    {
+        "name": "yearbook_export",
+        "description": "Build industrial print-ready PDF (300 DPI, 3mm Bleed, Crop Marks) or full 5-in-1 Designer Handoff Bundle (.zip).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "spec": {
+                    "type": "object",
+                    "description": "Yearbook Project Spec JSON object"
+                },
+                "output_path": {
+                    "type": "string",
+                    "description": "Destination file path (.zip or .pdf)"
+                },
+                "export_type": {
+                    "type": "string",
+                    "description": "Export type: 'handoff_zip', 'print_pdf', or 'spread_pdf'",
+                    "default": "handoff_zip"
+                }
+            },
+            "required": ["spec", "output_path"]
+        }
+    },
+    {
+        "name": "doc_security_audit",
+        "description": "Audit & sanitize document security threats, malicious formulas/DDE, OLE binaries, Zip Slip, XXE, and sensitive PII leaks (Cloudflare Harness ERR_SEC_001–005).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to document to audit (.docx, .xlsx, .pptx, .pdf, .csv, .drawio, .xml, .zip)"
+                },
+                "sanitize": {
+                    "type": "boolean",
+                    "description": "Whether to sanitize/defuse detected threats",
+                    "default": False
+                },
+                "output_path": {
+                    "type": "string",
+                    "description": "Optional destination path for sanitized file"
+                },
+                "defuse_formulas": {
+                    "type": "boolean",
+                    "description": "Defuse formula/DDE injection by prepending apostrophe",
+                    "default": True
+                },
+                "strip_metadata": {
+                    "type": "boolean",
+                    "description": "Strip author and sensitive metadata from OpenXML core properties",
+                    "default": True
+                },
+                "unhide_sheets": {
+                    "type": "boolean",
+                    "description": "Unhide veryHidden sheets in Excel workbooks",
+                    "default": True
+                }
+            },
+            "required": ["file_path"]
         }
     }
 ]
@@ -1296,6 +1403,105 @@ def execute_xlsx_formula_helper(args: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def execute_yearbook_auto_layout(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.yearbook import YearbookLayoutEngine, get_default_mock_spec
+
+    photos = args.get("photos", [])
+    title = args.get("title", "KỶ YẾU TỐT NGHIỆP 2026")
+    subtitle = args.get("subtitle", "Hành Trình Rực Rỡ & Những Năm Tháng Thanh Xuân")
+    author = args.get("author", "Biện Trung Tín")
+    degree = args.get("degree", "Cử Nhân Kỹ Thuật Phần Mềm")
+    date_str = args.get("date", "Tháng 11 / 2026")
+    preset = args.get("preset", "photobook_square_25x25")
+    bleed_mm = float(args.get("bleed_mm", 3.0))
+
+    if not photos:
+        spec = get_default_mock_spec(
+            title=title, subtitle=subtitle, author=author, degree=degree,
+            date_str=date_str, preset_key=preset, bleed_mm=bleed_mm
+        )
+    else:
+        spec = YearbookLayoutEngine.auto_layout(
+            photo_paths=photos,
+            title=title,
+            subtitle=subtitle,
+            author=author,
+            degree=degree,
+            date_str=date_str,
+            preset_key=preset,
+            bleed_mm=bleed_mm,
+        )
+
+    return {
+        "success": True,
+        "total_spreads": len(spec.get("pages", [])),
+        "spec": spec,
+    }
+
+
+def execute_yearbook_export(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.yearbook import YearbookPressEngine, YearbookHandoffPackager
+
+    spec = args.get("spec")
+    if not spec:
+        raise ValueError("spec is required")
+    out_path = args.get("output_path")
+    if not out_path:
+        raise ValueError("output_path is required")
+
+    export_type = args.get("export_type", "handoff_zip").lower()
+    if export_type == "print_pdf":
+        actual_out = YearbookPressEngine.export_print_ready_pdf(spec, out_path)
+    elif export_type == "spread_pdf":
+        actual_out = YearbookPressEngine.export_spread_preview_pdf(spec, out_path)
+    else:
+        actual_out = YearbookHandoffPackager.export_handoff_bundle(spec, out_path)
+
+    return {
+        "success": True,
+        "export_type": export_type,
+        "output_path": actual_out,
+        "file_size": os.path.getsize(actual_out) if os.path.isfile(actual_out) else 0,
+    }
+
+
+def execute_doc_security_audit(args: Dict[str, Any]) -> Dict[str, Any]:
+    file_path = args.get("file_path")
+    if not file_path:
+        raise ValueError("file_path is required")
+    abs_path = os.path.abspath(file_path)
+    if not os.path.exists(abs_path):
+        raise FileNotFoundError(f"File not found: {abs_path}")
+
+    from core.security.document_auditor import DocumentSecurityAuditor
+    auditor = DocumentSecurityAuditor()
+    report = auditor.audit_file(abs_path)
+
+    result = {
+        "success": True,
+        "target": report.target,
+        "is_clean": report.is_clean,
+        "critical_count": report.critical_count,
+        "warning_count": report.warning_count,
+        "info_count": report.info_count,
+        "report": report.to_dict(),
+    }
+
+    if args.get("sanitize", False):
+        from core.security.sanitizer import DocumentSanitizer
+        sanitizer = DocumentSanitizer()
+        san_res = sanitizer.sanitize(
+            abs_path,
+            output_path=args.get("output_path"),
+            defuse_formulas=args.get("defuse_formulas", True),
+            strip_metadata=args.get("strip_metadata", True),
+            unhide_sheets=args.get("unhide_sheets", True),
+        )
+        result["sanitization"] = san_res
+
+    return result
+
+
 TOOL_DISPATCHER = {
     "doc_convert": execute_doc_convert,
     "doc_inspect": execute_doc_inspect,
@@ -1318,6 +1524,11 @@ TOOL_DISPATCHER = {
     "docx_insert_paragraph": execute_docx_insert_paragraph,
     "docx_insert_table": execute_docx_insert_table,
     "xlsx_formula_helper": execute_xlsx_formula_helper,
+    # Yearbook Studio Tools
+    "yearbook_auto_layout": execute_yearbook_auto_layout,
+    "yearbook_export": execute_yearbook_export,
+    # Cloudflare Security Audit Tool
+    "doc_security_audit": execute_doc_security_audit,
 }
 
 

@@ -4,14 +4,14 @@
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Release: v4.3.0](https://img.shields.io/badge/Release-v4.3.0_Production-success.svg)](CHANGELOG.md)
-[![Tests: 229 Passed](https://img.shields.io/badge/Tests-229%2F229_Passed-brightgreen.svg)](tests/)
-[![MCP Tools: 20](https://img.shields.io/badge/MCP_Tools-20_Available-blue.svg)](server/mcp_server.py)
-[![Antigravity Skills: 5](https://img.shields.io/badge/Antigravity_Skills-5_Specialized-indigo.svg)](.agents/skills/)
+[![Release: v4.5.0](https://img.shields.io/badge/Release-v4.5.0_Production-success.svg)](CHANGELOG.md)
+[![Tests: 230 Passed](https://img.shields.io/badge/Tests-230%2F230_Passed-brightgreen.svg)](tests/)
+[![MCP Tools: 23](https://img.shields.io/badge/MCP_Tools-23_Available-blue.svg)](server/mcp_server.py)
+[![Antigravity Skills: 6](https://img.shields.io/badge/Antigravity_Skills-6_Specialized-indigo.svg)](.agents/skills/)
 [![Antigravity IDE Ready](https://img.shields.io/badge/Antigravity_AI-Compatible-orange.svg)](AGENTS.md)
 [![Resolution: 300+ DPI](https://img.shields.io/badge/DPI-300%2B_Vector_Grade-purple.svg)](spec_diagram_engine.py)
 
-> 🚀 **Xem toàn bộ lộ trình tiến hóa & so sánh tính năng v1.0 → v4.3.0 tại [CHANGELOG.md](CHANGELOG.md)**.
+> 🚀 **Xem toàn bộ lộ trình tiến hóa & so sánh tính năng v1.0 → v4.5.0 tại [CHANGELOG.md](CHANGELOG.md)**.
 
 ---
 
@@ -23,7 +23,7 @@ It bridges the gap between raw document conversion, OpenXML Word standard compli
 
 ### 🧠 Antigravity AI Skills & Customizations Suite
 
-The workspace provides 5 specialized Antigravity Skills in `.agents/skills/` designed for autonomous AI agents and developers:
+The workspace provides 6 specialized Antigravity Skills in `.agents/skills/` designed for autonomous AI agents and developers:
 
 | Skill | Directory | Core Capabilities |
 |---|---|---|
@@ -35,7 +35,7 @@ The workspace provides 5 specialized Antigravity Skills in `.agents/skills/` des
 
 > 💡 **Auto-Sync Invariant (`ERR_DOC_SYNC_001` / `ERR_VER_001`)**: Khi có nâng cấp kỹ năng, thêm skill mới hoặc bump version, `README.md` sẽ được tự động đồng bộ huy hiệu (badges), bảng kỹ năng và các điểm nhấn phiên bản qua `tools/bump_version.py`.
 
-### 🆕 Highlights in v4.3.0 Production Grade (Formula Playbook & Enterprise Excel Suite)
+### 🆕 Highlights in v4.5.0 Production Grade (Formula Playbook & Enterprise Excel Suite)
 - **Enterprise Excel Data Suite & Edge Cases Hardening (`core.xlsx`)**: Full compliance with invariants `ERR_XLSX_009` through `ERR_XLSX_014`:
   - *Data Loss & 15-Digit Limit Guard (`ERR_XLSX_009`)*: Enforces string `'@'` format for credit cards, CCCD (12 digits), and bank accounts (16–19 digits); regex parsing of Vietnamese dates (`26/05/2026`, `ngày 26 tháng 05 năm 2026`) into `datetime.date` + `DD/MM/YYYY`; converts accounting negatives `(100.000)` to `-100000` and dashes `-` to `0` with accounting format; normalizes Vietnamese locale decimals `20.000,50` $\rightarrow$ `20000.50`.
   - *XML Illegal Byte Sanitization & 32k Limit (`ERR_XLSX_010`)*: Strips ASCII control bytes `[\x00-\x08\x0b\x0c\x0e-\x1f]` preventing corrupt OpenXML workbooks; truncates strings $> 32,000$ characters with ellipsis.

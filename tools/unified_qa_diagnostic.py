@@ -890,15 +890,64 @@ class DiagramAndConversionEngine:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 4. DOCUMENT SECURITY & SANITIZER DIAGNOSTIC ENGINE (GATE 13)
+# ─────────────────────────────────────────────────────────────────────────────
+class DocumentSecurityDiagnosticEngine:
+    """Enterprise Document Security & Sanitizer Engine (Gate 13).
+    Implements Cloudflare-seeded defensive security audit standards (ERR_SEC_001–005)."""
+
+    @classmethod
+    def diagnose(cls, file_path: str) -> Tuple[List[DiagnosticIssue], Dict[str, Any]]:
+        issues: List[DiagnosticIssue] = []
+        metrics: Dict[str, Any] = {"file": file_path}
+        try:
+            # Ensure workspace root is in sys.path
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            if base_dir not in sys.path:
+                sys.path.insert(0, base_dir)
+            from core.security.document_auditor import DocumentSecurityAuditor
+            auditor = DocumentSecurityAuditor()
+            report = auditor.audit_file(file_path)
+            metrics["security_report"] = report.to_dict()
+            for finding in report.findings.get("confirmed", []):
+                issues.append(DiagnosticIssue(
+                    code=finding.get("invariant_code", "ERR_SEC_001"),
+                    domain="SECURITY",
+                    severity=finding.get("severity", "CRITICAL"),
+                    message=f"[{finding.get('attack_class')}] {finding.get('title')}: {finding.get('evidence')}",
+                    location=finding.get("location", file_path),
+                    details=finding,
+                    fixable=True
+                ))
+        except Exception as e:
+            metrics["security_error"] = str(e)
+        return issues, metrics
+
+    @classmethod
+    def repair(cls, file_path: str, out_path: str) -> Tuple[bool, List[str]]:
+        try:
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            if base_dir not in sys.path:
+                sys.path.insert(0, base_dir)
+            from core.security.sanitizer import DocumentSanitizer
+            sanitizer = DocumentSanitizer()
+            res = sanitizer.sanitize(file_path, output_path=out_path)
+            return res.get("success", False), res.get("actions_taken", [])
+        except Exception as e:
+            return False, [f"Security sanitization failed: {e}"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Backward Compatibility Engine Aliases
 # ─────────────────────────────────────────────────────────────────────────────
 WordDiagnosticEngine = DocxDiagnosticEngine
 PowerPointDiagnosticEngine = PptxDiagnosticEngine
 DiagramDiagnosticEngine = DiagramAndConversionEngine
+SecurityDiagnosticEngine = DocumentSecurityDiagnosticEngine
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 4. MASTER CLI & REPORT FORMATTER
+# 5. MASTER CLI & REPORT FORMATTER
 # ─────────────────────────────────────────────────────────────────────────────
 def format_terminal_report(all_issues: List[DiagnosticIssue], all_metrics: Dict[str, Any]) -> str:
     lines: List[str] = []
@@ -934,7 +983,11 @@ def run_pipeline(args_or_argv: Optional[Any] = None) -> int:
     parser.add_argument("--docx", help="Path to Word document to diagnose", default=None)
     parser.add_argument("--pptx", help="Path to PowerPoint presentation to diagnose", default=None)
     parser.add_argument("--diagram", help="Path to Draw.io / vector diagram to diagnose", default=None)
+    parser.add_argument("--pdf", help="Path to PDF document to diagnose", default=None)
+    parser.add_argument("--file", help="Generic file path to diagnose", default=None)
     parser.add_argument("--all", help="Directory containing documents to diagnose", default=None)
+    parser.add_argument("--security", action="store_true", help="Enable Gate 13: Enterprise Document Security & PII Audit (Cloudflare Harness)")
+    parser.add_argument("--sanitize", action="store_true", help="Sanitize detected security threats, formula injections, and PII")
     parser.add_argument("--mode", choices=["diagnose", "audit-fix"], default="diagnose",
                         help="Operation mode: 'diagnose' (read-only audit) or 'audit-fix' (safe repair)")
     parser.add_argument("--in-place", action="store_true",
@@ -959,15 +1012,21 @@ def run_pipeline(args_or_argv: Optional[Any] = None) -> int:
         files_to_check.append(args.pptx)
     if getattr(args, "diagram", None):
         files_to_check.append(args.diagram)
+    if getattr(args, "pdf", None):
+        files_to_check.append(args.pdf)
+    if getattr(args, "file", None):
+        files_to_check.append(args.file)
     all_target = getattr(args, "all", None)
     if all_target and os.path.exists(all_target):
         files_to_check.extend(glob.glob(os.path.join(all_target, "**", "*.xlsx"), recursive=True))
         files_to_check.extend(glob.glob(os.path.join(all_target, "**", "*.docx"), recursive=True))
         files_to_check.extend(glob.glob(os.path.join(all_target, "**", "*.pptx"), recursive=True))
         files_to_check.extend(glob.glob(os.path.join(all_target, "**", "*.drawio"), recursive=True))
+        if getattr(args, "security", False):
+            files_to_check.extend(glob.glob(os.path.join(all_target, "**", "*.pdf"), recursive=True))
 
     if not files_to_check:
-        print("No target files specified. Use --xlsx, --docx, --pptx, --diagram, or --all.")
+        print("No target files specified. Use --xlsx, --docx, --pptx, --diagram, --pdf, --file, or --all.")
         return 0
 
     all_issues: List[DiagnosticIssue] = []
@@ -978,7 +1037,25 @@ def run_pipeline(args_or_argv: Optional[Any] = None) -> int:
             continue
         ext = os.path.splitext(file_path)[1].lower()
 
-        if ext == ".xlsx":
+        # Gate 13: Enterprise Document Security Scan (if --security flag is enabled)
+        if getattr(args, "security", False):
+            sec_issues, sec_metrics = DocumentSecurityDiagnosticEngine.diagnose(file_path)
+            all_issues.extend(sec_issues)
+            all_metrics["details"][file_path + ":security"] = sec_metrics
+
+            if (args.mode == "audit-fix" or getattr(args, "sanitize", False)) and sec_issues:
+                if args.in_place:
+                    shutil.copyfile(file_path, file_path + ".bak")
+                    sec_target = file_path
+                else:
+                    base, f_ext = os.path.splitext(file_path)
+                    sec_target = f"{base}_sanitized{f_ext}"
+                sec_ok, sec_acts = DocumentSecurityDiagnosticEngine.repair(file_path, sec_target)
+                print(f"[SECURITY SANITIZE] {file_path} -> {sec_target}: {'SUCCESS' if sec_ok else 'FAILED'}")
+                for s_act in sec_acts:
+                    print(f"  + {s_act}")
+
+        if ext in (".xlsx", ".xlsm"):
             issues, metrics = ExcelDiagnosticEngine.diagnose(file_path)
             all_issues.extend(issues)
             all_metrics["details"][file_path] = metrics
@@ -994,7 +1071,7 @@ def run_pipeline(args_or_argv: Optional[Any] = None) -> int:
                 for act in actions:
                     print(f"  + {act}")
 
-        elif ext == ".docx":
+        elif ext in (".docx", ".docm"):
             issues, metrics = DocxDiagnosticEngine.diagnose(file_path)
             all_issues.extend(issues)
             all_metrics["details"][file_path] = metrics
@@ -1010,7 +1087,7 @@ def run_pipeline(args_or_argv: Optional[Any] = None) -> int:
                 for act in actions:
                     print(f"  + {act}")
 
-        elif ext == ".pptx":
+        elif ext in (".pptx", ".pptm"):
             issues, metrics = PptxDiagnosticEngine.diagnose(file_path)
             all_issues.extend(issues)
             all_metrics["details"][file_path] = metrics

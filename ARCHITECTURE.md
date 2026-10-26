@@ -79,6 +79,13 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
     - `ocr_pipeline.py`: Pipeline bóc tách PDF/ảnh scan tiếng Việt (`vie+eng`), bộ lọc mộc đỏ HSV (`ERR_CONV_005`), nắn thẳng ảnh scan tự động (`deskew`).
     - `pdf_renderer.py`: Bộ chuyển đổi PDF phổ quát (`UniversalPdfRenderer`) với chuỗi ưu tiên: Win32 COM ➔ LibreOffice Headless ➔ PyMuPDF.
     - `pdf_toolkit.py`: Phân hệ PDF Pro Studio & iLovePDF Killer Features (True Redaction `ERR_PDF_001`, AES-256 Encryption, Dấu giáp lai đa trang overlap 8% `ERR_PDF_002`, Chuẩn hóa A4 vector `ERR_PDF_003`, Bóc bảng sang Excel `ERR_XLSX_007`, Tổ chức trang trực quan kèm chèn trang trắng A4, Chuyển đổi 2 chiều Ảnh ↔ PDF, Ký tên điện tử & đóng dấu bù góc xoay `page.derotation_matrix`, Làm phẳng 2 chế độ Vector Bake & Strict Raster kèm dọn sạch metadata ẩn `doc.scrub`).
+  - `core/yearbook/`:
+    - `layout_engine.py`: Động cơ dàn trang thông minh phân tích EXIF (`ERR_EXIF_001`), phân loại tỷ lệ ảnh (Landscape, Portrait, Square), tự động dàn trang 9 mẫu layout chuẩn tạp chí (`cover_hero`, `editorial_quote`, `symmetric_duo`, `magazine_grid_4`, `polaroid_scrapbook`, `mosaic_gallery_6`, `classroom_grid_8`, `megagrid_12`, `panoramic_spread`), thuật toán gom cụm mật độ cao cho 50–100+ ảnh, và sinh album mẫu Zero-Config Mock Album.
+    - `pdf_press_exporter.py`: Động cơ xuất xưởng in ấn công nghiệp 300+ DPI với lề xén 3mm Bleed, 4 cặp vạch cắt Crop Marks, bù trừ rãnh gáy sách Gutter, tự động nhúng font hệ thống Unicode tiếng Việt (`ERR_PDF_FONT_001`), cắt ảnh object-fit cover với top-bias 35% giữ nguyên gương mặt và mũ cử nhân (`ERR_IMG_CROP_001`), sinh bản PDF mở phẳng (Spread View) và thumbnail PNG.
+    - `handoff_packager.py`: Đóng gói hồ sơ bàn giao thợ thiết kế 5-trong-1 (.zip) với cơ chế stream đĩa trực tiếp (`ERR_RAM_001`), sinh bản Word DOCX Brief tuân thủ nghiêm ngặt các bất biến OpenXML bảng biểu (`<w:cantSplit/>`, `<w:tblHeader/>`, `<w:vAlign w:val="center"/>`, The Last Paragraph Rule).
+  - `core/security/`:
+    - `document_auditor.py`: Kiểm định an ninh tài liệu tĩnh dựa trên bộ kiểm tra phòng thủ Cloudflare Security Audit Harness, phân định 3 trạng thái phản biện đối nghịch (`confirmed`, `needs_validation`, `rejected`) cho 5 bất biến: `ERR_SEC_001` (Macro streams & PDF `/Launch`), `ERR_SEC_002` (Formula / DDE Injection), `ERR_SEC_003` (OLE MZ headers & PE binaries), `ERR_SEC_004` (PII author metadata & `veryHidden` sheets), `ERR_SEC_005` (Zip Slip `../` traversal & XXE DTD entities).
+    - `sanitizer.py`: Tẩy rửa và vô hiệu hóa mối đe dọa không phá hủy (Non-destructive Defuser): Thêm tiền tố nháy đơn `'` cho công thức nguy hiểm, tẩy rửa metadata tác giả từ `docProps/core.xml`, phục hồi hiển thị cho sheet `veryHidden`.
   - `core/env_doctor/`:
     - `run_doctor.py`: Tự động quét kiểm tra 12 thành phần môi trường (Python, LibreOffice, Tesseract, Chromium, PlantUML, font chữ) và xuất báo cáo JSON / Terminal kèm mã lệnh khắc phục 1-click.
   - `core/diagrams/`:
@@ -88,16 +95,18 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
     - `legacy/`: Các renderer kế thừa (`canvas`, `plantuml`, `mermaid`).
 
 ### 2.2. `server/` — Tầng Giao Thức & Cung Cấp Dịch Vụ (Web API, MCP, SSE)
-- `app.py`: REST API Server nhẹ nhàng dựa trên `http.server`, phục vụ Web Studio cổng `8000`. Cung cấp endpoints cho conversion, history, mail merge, ocr, diff, math, và static assets. Bổ sung trọn bộ PDF Pro Endpoints, Atomic Office Endpoints, và Formula Playbook Endpoints: `GET /api/xlsx/formulas`, `GET /api/xlsx/formulas/export`.
-- `mcp_server.py`: Model Context Protocol Server (STDIO JSON-RPC 2.0) tương thích với Claude Desktop, Cursor, và Antigravity IDE. Đăng ký **20 tools** chuẩn:
+- `app.py`: REST API Server nhẹ nhàng dựa trên `http.server`, phục vụ Web Studio cổng `8000`. Cung cấp endpoints cho conversion, history, mail merge, ocr, diff, math, static assets, trọn bộ PDF Pro Endpoints, Atomic Office Endpoints, Formula Playbook Endpoints, và trọn bộ Digital Yearbook Endpoints (`/api/yearbook/mock-album`, `/api/yearbook/presets`, `/api/yearbook/auto-layout`, `/api/yearbook/render-preview`, `/api/yearbook/export`).
+- `mcp_server.py`: Model Context Protocol Server (STDIO JSON-RPC 2.0) tương thích với Claude Desktop, Cursor, và Antigravity IDE. Đăng ký **23 tools** chuẩn:
   - Macro Tools (11): `env_doctor`, `doc_convert`, `doc_inspect`, `doc_insert_diagram`, `docx_patch`, `docx_apply_preset`, `docx_sanitize_vietnamese`, `pptx_synthesize`, `diagram_render`, `doc_mail_merge`, `doc_redline_diff`, `doc_ocr_scan`, `pdf_quick_tools`.
   - Atomic Office Tools (8): `xlsx_set_cell`, `xlsx_set_range`, `xlsx_insert_rows`, `xlsx_find_anchor`, `docx_inspect_placeholders`, `docx_replace_text`, `docx_insert_paragraph`, `docx_insert_table`.
   - Formula Playbook Tool (1): `xlsx_formula_helper`.
-- `job_manager.py`: Server-Sent Events (SSE) background task manager và job queue, cho phép theo dõi tiến trình OCR, mail merge, và render theo thời gian thực.
+  - Yearbook Studio Tools (2): `yearbook_auto_layout`, `yearbook_export`.
+  - Document Security Tool (1): `doc_security_audit`.
+- `job_manager.py`: Server-Sent Events (SSE) background task manager và job queue, cho phép theo dõi tiến trình OCR, mail merge, render và xuất bản kỷ yếu theo thời gian thực.
 - `db.py`: Zero-config SQLite database (`history.db`) lưu trữ lịch sử chuyển đổi và tải tệp.
 
 ### 2.3. `cli/` — Tầng Giao Diện Dòng Lệnh (CLI Layer)
-`cli/ai_tools.py` và facade tại root `ai_tools_cli.py` cung cấp 30 subcommands hoàn chỉnh cho AI Agents và terminal users:
+`cli/ai_tools.py` và facade tại root `ai_tools_cli.py` cung cấp 33 subcommands hoàn chỉnh cho AI Agents và terminal users:
 - `doctor`: Kiểm tra sức khỏe môi trường.
 - `convert`: Chuyển đổi phổ quát 5 định dạng (PDF, DOCX, MD, PPTX, XLSX).
 - `md-toc`: Tạo, xem trước và tự động đồng bộ hóa mục lục tương tác trực tiếp trong tệp Markdown.
@@ -105,18 +114,21 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
 - `docx-tokens`, `docx-replace`: Atomic Word CLI tools (quét biến & thay thế text bảo tồn OpenXML run).
 - `xlsx-set`, `xlsx-insert-rows`: Atomic Excel CLI tools (sửa ô hợp nhất & mở rộng dòng kèm dịch công thức).
 - `xlsx-formulas`: Cẩm nang tra cứu và xuất Excel Formula Playbook 2 sheets.
+- `yearbook-layout`, `yearbook-build`: Tự động dàn trang photobook và đóng gói ZIP bàn giao thợ thiết kế / nhà in.
+- `doc-security`: Kiểm tra và tẩy rửa an ninh tài liệu, formula injection, OLE PE binary, và PII (Cloudflare Harness).
 - `docx-mail-merge`: Trộn thư hàng loạt Word + Excel/JSON.
 - `docx-apply-preset`, `docx-sanitize-vietnamese`: Chuẩn hóa thể thức hành chính & chính tả.
 - `pptx-build`, `pptx-inspect`, `pptx-preview`, `pptx-insert-diagram`, `docx-to-pptx`, `pdf-to-pptx`: Quản lý thuyết trình PowerPoint.
 - `pdf-tools`: Bộ 16 công cụ PDF Pro Studio (`merge`, `split`, `rotate`, `clean`, `watermark`, `compress`, `redact`, `protect`, `normalize-a4`, `giap-lai`, `extract-tables`, `images-to-pdf`, `export-images-zip`, `sign`, `flatten`, `reorganize`).
 - `ocr-scan`: Bóc tách tài liệu scan và loại bỏ dấu mộc đỏ.
 - `diagram-render`, `plantuml-render`, `mermaid-render`, `spec-render`, `diagram-editor`: Sơ đồ kỹ thuật.
-- `qa-audit`: Master QA diagnostic and repair pipeline (`tools/unified_qa_diagnostic.py`).
+- `qa-audit`: Master QA diagnostic and repair pipeline 13 Cổng (`tools/unified_qa_diagnostic.py`).
 
 ### 2.4. `ui/` & `src/` — Tầng Giao Diện Người Dùng (Desktop GUI & Web Studio)
 - `ui/`: Desktop GUI Tkinter độc lập (`main.py`) hỗ trợ chạy offline không cần trình duyệt.
 - `src/`: Web Studio trên nền Vite ES6 modules và Vanilla CSS Glassmorphism:
-  - Tách rời theo module: `document_hub.js`, `presentation_studio.js`, `diagram_studio.js`, `mail_merge_studio.js`, `math_studio.js`, `history_drawer.js`.
+  - Tách rời theo module: `document_hub.js`, `presentation_studio.js`, `diagram_studio.js`, `mail_merge_studio.js`, `math_studio.js`, `formula_playbook.js`, `yearbook_studio.js`, `history_drawer.js`.
+
 
 ### 2.5. `tools/` — Tầng Tiện Ích QA & Giao Nộp (Diagnostics & Deliverables)
 - `tools/unified_qa_diagnostic.py`: Động cơ chẩn đoán toàn diện DOCX, XLSX, PPTX, Draw.io, và ảnh scan với khả năng tự sửa lỗi (Safe Non-destructive Repair).

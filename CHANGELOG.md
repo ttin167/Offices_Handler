@@ -1,13 +1,15 @@
-# CHANGELOG — Lịch Sử Thay Đổi & Tiến Hóa Dự Án (v1.0 → v4.3.0)
+# CHANGELOG — Lịch Sử Thay Đổi & Tiến Hóa Dự Án (v1.0 → v4.5.0)
 
-Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân hệ kiến trúc mới, và các cải tiến công nghệ từ phiên bản cơ sở (v1.0 Baseline) cho đến phiên bản hoàn thiện hiện tại (**v4.3.0 Production Grade — Excel Formula Playbook & Adaptive Matrix Suite**) của bộ công cụ **`antigravity-doc-handler`**.
+Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân hệ kiến trúc mới, và các cải tiến công nghệ từ phiên bản cơ sở (v1.0 Baseline) cho đến phiên bản hoàn thiện hiện tại (**v4.5.0 Production Grade — Cloudflare Defensive Security Audit & Document Sanitizer Suite**) của bộ công cụ **`antigravity-doc-handler`**.
 
 ---
 
 ## 1. Bảng So Sánh Toàn Diện (Feature Comparison Matrix)
 
-| Phân hệ / Tiêu chí kỹ thuật | Phiên bản cũ (v1.0 Baseline) | Phiên bản hiện tại (v4.3.0 Production Grade) | Lợi ích & Độ tin cậy thực tế |
+| Phân hệ / Tiêu chí kỹ thuật | Phiên bản cũ (v1.0 Baseline) | Phiên bản hiện tại (v4.5.0 Production Grade) | Lợi ích & Độ tin cậy thực tế |
 |---|---|---|---|
+| **Bảo Mật Tài Liệu & Cloudflare Audit (Document Security Suite)** | Không hỗ trợ kiểm tra tĩnh mã độc; file xuất có thể chứa macro độc hại hoặc DDE/Formula Injection | **Cloudflare Security Audit Harness & Document Sanitizer (`core/security/`)**: Tích hợp kép 2 cấp độ (Agentic Skill 6-phase + Core App Engine Gate 13); Mô hình Phản Biện Đối Nghịch (Adversarial Verifier) chia 3 trạng thái (`confirmed`, `needs_validation`, `rejected`); Khử 5 bất biến an ninh tài liệu: `ERR_SEC_001` (Macro & PDF Launch), `ERR_SEC_002` (Formula/DDE Injection defusing qua tiền tố `'`), `ERR_SEC_003` (OLE MZ headers & PE binaries), `ERR_SEC_004` (PII metadata scrubbing & phục hồi sheet `veryHidden`), `ERR_SEC_005` (Zip Slip `../` & XXE DTD entities); CLI `doc-security`, MCP tool #23 `doc_security_audit`, REST API `/api/security/*`, và công tắc Gate 13 trên Web Studio | Bảo vệ 100% doanh nghiệp và người dùng trước các cuộc tấn công khai thác qua tệp tin Office/PDF/CSV; khử hoàn toàn nguy cơ RCE và rò rỉ dữ liệu nhạy cảm mà không làm mất dữ liệu người dùng |
+| **Kỷ Yếu Kỹ Thuật Số & Nhà In (Yearbook & Photobook Studio)** | Không hỗ trợ; phải dùng các phần mềm thiết kế đồ họa đóng gói thủ công | **Digital Yearbook & Pre-Press Photobook Studio (`core/yearbook/`)**: Trình xem 3D Flipbook 2 trang đôi mở phẳng (Layflat 180°); Rãnh gáy sách mô phỏng độ sâu giấy thật; Kéo thả hoán đổi ảnh (Slot Swapping); Công tắc Vạch Xén In Ấn (Bleed 3mm Đỏ, Trim Xanh dương, Safe Zone Xanh lá); Động cơ in công nghiệp 300 DPI kèm Crop Marks và nhúng font Unicode tiếng Việt (`ERR_PDF_FONT_001`); Chuẩn hóa xoay EXIF (`ERR_EXIF_001`); Cắt ảnh thông minh top-bias 35% (`ERR_IMG_CROP_001`); Gói bàn giao thợ thiết kế 5-trong-1 (.zip) kèm file Word Brief chuẩn OpenXML (`cantSplit`, `tblHeader`, `vAlign="center"`) | Giải quyết bài toán kỷ yếu cử nhân tốt nghiệp và album ảnh số lượng lớn (50–100+ ảnh) từ trải nghiệm xem lật trang sống động trên Web đến tệp xuất xưởng gửi thẳng nhà in và thợ dàn trang |
 | **Bảo Mật & Xử Lý PDF (PDF Pro Studio)** | Chỉ có 5 công cụ cơ bản (merge, split, rotate, watermark, compress) | **Bộ Công Cụ PDF Pro Studio & Visual Organizer**: True Redaction xóa vĩnh viễn byte/pixel (`ERR_PDF_001`); Mã hóa AES-256 phân quyền in/copy/modify; Đóng dấu giáp lai đa trang $N$-lát cắt overlap 8% (`ERR_PDF_002`); Chuẩn hóa A4 vector centering & số Bates Unicode (`ERR_PDF_003`); Trích xuất bảng sang Excel giữ số 0 đầu (`ERR_XLSX_007`) & khổ in A4 ngang (`ERR_XLSX_008`); Trình biên tập trang trực quan (xoay 90°, xóa trang, thumbnail 120 DPI) | Biến phân hệ PDF thành vũ khí cấp Stirling-PDF / Adobe Acrobat Pro; giải quyết trọn vẹn yêu cầu bảo mật thông tin tài chính/hồ sơ thầu và chuẩn hóa hợp đồng doanh nghiệp Việt Nam |
 | **Danh Sách & Đánh Số Word (Lists & Numbering)** | Dùng style `List Number` tĩnh của Word khiến số bị đếm tích lũy liên tục không reset; bullet không phân cấp; không hỗ trợ checkbox | **Native OpenXML Numbering Engine (`docx_lists.py`)**: Cấp phát `numId` động tự động reset về 1 (`startOverride=1`); Smart Continuation duy trì chuỗi số cha khi có sub-items xen kẽ; phân cấp 3 tầng (1->a->i, •->○->■); hỗ trợ checkbox (`☐`, `☑`); tương thích cả trong Table cells | Khi mở tài liệu trên Microsoft Word, nhấn Enter tự động sinh số tiếp theo; danh sách mới tự động bắt đầu từ 1; tuyệt đối không sinh số bừa bãi cho text thường |
 | **Lưu Trữ Lịch Sử Tệp (History & Storage)** | Không có; chuyển đổi xong phải lưu thủ công | **Zero-Config SQLite Storage (`db_manager.py`)**: Tự động lưu ngầm lịch sử chuyển đổi vào `.web_outputs/studio_history.db`, tích hợp Drawer trượt trên Web Studio | 1-click tải lại tệp cũ hoặc xóa lịch sử; zero phụ thuộc bên ngoài; bảo vệ hoàn toàn file cá nhân trên Git |
@@ -21,14 +23,88 @@ Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân h�
 | **Xử lý Bảng tính Excel (Universal XLSX)** | Không hỗ trợ xử lý nâng cao, dễ mất hình khối DrawingML | **Universal Excel Engine (`xlsx_writer.py`) & Formula Playbook (`formula_playbook.py`)**: Chế độ Native openpyxl bảo toàn hình vẽ/ảnh, dịch chuyển công thức động qua Regex (`ERR_XLSX_002`), clone kiểu dáng từ prototype row (`ERR_XLSX_001`), cẩm nang 32 hàm và sổ tính 2 sheets live calculations | Cho phép điền dữ liệu động vào mẫu báo cáo tài chính/kỹ thuật phức tạp mà không làm hỏng logo, biểu đồ hoặc công thức KPI; tra cứu và xuất cẩm nang công thức 4 chiều |
 | **Sơ đồ Kỹ thuật (Diagram Suite)** | Chỉ có sơ đồ cơ bản qua Chromium headless | **Hệ sinh thái Đa Engine**: Hỗ trợ 4 loại công nghệ: Draw.io Native mxGraph (`mxgraph_engine.py`), PlantUML cục bộ (`plantuml.jar` với chuẩn C4 nội bộ), Mermaid pastel phẳng, và Canvas Screen Flow tương tác | Xuất vector SVG và PNG siêu nét 300+ DPI, hỗ trợ kéo thả chỉnh sửa 2 chiều qua `diagram_editor.py` |
 | **Quản lý Định dạng (Decoupled Styling)** | Code và Style bị trộn lẫn, khó thay đổi giao diện | Tách rời hoàn toàn Nội dung (`.md`) và Kiểu dáng (`.style.yaml`); tự động trích xuất metadata phong cách từ DOCX mẫu | Thay đổi toàn bộ phông chữ, màu sắc, lề trang chỉ bằng việc chỉnh sửa file YAML mà không cần sửa code |
-| **Giao diện & CLI Dispatcher** | Các script chạy phân mảnh | `ai_tools_cli.py` hợp nhất toàn bộ lệnh: `docx-tools`, `pptx-build`, `pptx-preview`, `diagram-render`, `convert`, `inspect-doc` + Desktop GUI Tkinter (`main.py`) | Thân thiện cho cả người dùng cuối (chạy app desktop) và AI Coding Agent (gọi CLI dạng declarative JSON) |
-| **Kiểm định Chất Lượng (Quality Assurance)** | 16 bài test sơ khai (bị lỗi hardcode đường dẫn trên máy khác) | **216 Automated Test Suites (100% Pass Rate)**: Toàn diện từ OpenXML, DrawingML, SQLite, Web REST/SSE, MCP Tools, đến PDF Pro Studio & Excel Formula Playbook | Bảo đảm tính ổn định tuyệt đối trong môi trường CI/CD và máy tính cá nhân |
+| **Giao diện & CLI Dispatcher** | Các script chạy phân mảnh | `ai_tools_cli.py` hợp nhất toàn bộ lệnh: `doc-security`, `yearbook-layout`, `yearbook-build`, `docx-tools`, `pptx-build`, `diagram-render`, `convert`, `inspect-doc` + Desktop GUI Tkinter (`main.py`) | Thân thiện cho cả người dùng cuối (chạy app desktop) và AI Coding Agent (gọi CLI dạng declarative JSON) |
+| **Kiểm định Chất Lượng (Quality Assurance)** | 16 bài test sơ khai (bị lỗi hardcode đường dẫn trên máy khác) | **305 Automated Test Suites (100% Pass Rate)**: Toàn diện từ OpenXML, DrawingML, SQLite, Web REST/SSE, MCP Tools, PDF Pro Studio, Formula Playbook, Digital Yearbook Studio, đến Document Security Suite | Bảo đảm tính ổn định tuyệt đối trong môi trường CI/CD và máy tính cá nhân |
 
 ---
 
 ## 2. Chi Tiết Các Phiên Bản Phát Triển
 
+### Phiên Bản 4.5.0 (Cloudflare Defensive Security Audit & Document Sanitizer Suite)
+- **Tích Hợp Kép Chuẩn Cloudflare Security Audit Harness (Dual-Level Integration)**:
+  - **Cấp Độ 1 (Agentic Skill & Rule Level - `.agents/`)**:
+    - **Skill `.agents/skills/security-audit/`**: Triển khai đầy đủ quy trình 6 giai đoạn của Cloudflare (`RECONNAISSANCE.md`, `HUNTING.md`, `VALIDATION-AND-REPORTING.md`, `ATTACK-CLASSES.md`, `OFFICE-AND-DOCUMENT-PARSERS.md`).
+    - **Mô hình Phản Biện Đối Nghịch (Adversarial Verifier Sub-Agent)**: Phân định kết quả kiểm tra nghiêm ngặt thành 3 trạng thái:
+      - `confirmed`: Lỗ hổng có vết taint trace hoàn chỉnh từ nguồn input đến sink thực thi, đã vượt qua thử thách phản biện.
+      - `needs_validation`: Nghi vấn khả nghi cần kiểm chứng thêm ở runtime (không gán nhầm mức độ nghiêm trọng bừa bãi).
+      - `rejected`: Mẫu kiểm tra đã được chứng minh vô hại kèm lý do phản biện cụ thể (`disprove_rationale`).
+    - **Bộ Validator Node.js Thuần (Zero-Dependency)**: `validate-findings.cjs` và `validate-coverage-ledger.cjs` chạy cục bộ không cần npm package bên ngoài.
+    - **Quy tắc `.agents/rules/rule_security_audit_standards.md`**: Thiết lập 5 bất biến bắt buộc `ERR_SEC_001`–`005` và nguyên tắc sandbox read-only.
+  - **Cấp Độ 2 (Core Application & Feature Level - `core/security/`)**:
+    - **`DocumentSecurityAuditor` (`core/security/document_auditor.py`)**: Động cơ kiểm tra tĩnh an ninh tài liệu phổ quát hỗ trợ DOCX, XLSX, PPTX, PDF, CSV, XML, DRAWIO, ZIP.
+      - `ERR_SEC_001 (Macro & Malicious Code Execution)`: Quét `vbaProject.bin`, `word/vbaData.xml`, XLM macros, và PDF `/Launch`, `/JavaScript`.
+      - `ERR_SEC_002 (Formula / DDE Injection)`: Dò tìm mọi ô bắt đầu bằng `=`, `+`, `-`, `@` gọi các hàm thực thi shell/mạng (`cmd|`, `powershell|`, `mshta|`, `cscript|`, `curl|`, `calc|`, `WEBSERVICE`, `HYPERLINK`).
+      - `ERR_SEC_003 (Dangerous OLE Packages)`: Kiểm tra nhị phân OLE objects dưới `embeddings/oleObject*.bin`, bóc tách 256 bytes đầu phát hiện chữ ký Windows Executable (`MZ` PE header).
+      - `ERR_SEC_004 (Hidden PII & Sensitive Metadata)`: Phát hiện tác giả `dc:creator`, `cp:lastModifiedBy`, ghi chú nội bộ `word/comments.xml`, và các sheet ẩn giấu cấp độ hệ thống `state="veryHidden"`.
+      - `ERR_SEC_005 (Zip Slip Traversal & XXE)`: Dò tìm đường dẫn thoát thư mục `../` trong tên tệp ZIP và các khai báo thực thể bên ngoài `<!ENTITY` / `SYSTEM` trong cấu trúc XML.
+    - **`DocumentSanitizer` (`core/security/sanitizer.py`)**: Động cơ tẩy rửa an toàn không phá hủy dữ liệu (Non-destructive Defuser):
+      - *Cơ chế Vô Hiệu Hóa Formula Injection*: Thêm tiền tố nháy đơn `'` vào đầu công thức (`'=cmd|' /C calc'!A1`), biến công thức nguy hiểm thành chuỗi ký tự hiển thị vô hại mà không xóa dữ liệu người dùng.
+      - *Tẩy Rửa Metadata Tác Giả*: Chuẩn hóa thông tin `dc:creator` và `cp:lastModifiedBy` trong `docProps/core.xml` thành định danh chung của hệ thống.
+      - *Phục Hồi Worksheet Ẩn*: Xóa thuộc tính `state="veryHidden"` trong `xl/workbook.xml`, đưa toàn bộ bảng tính về trạng thái hiển thị bình thường.
+  - **Tích Hợp Cổng 13 (Gate 13: Security & Sanitizer Shield) Vào `tools/unified_qa_diagnostic.py`**:
+    - Bổ sung `DocumentSecurityDiagnosticEngine` vào hệ thống chẩn đoán thống nhất.
+    - Hỗ trợ các cờ dòng lệnh `--security` và `--sanitize` trong lệnh `python ai_tools_cli.py qa-audit`.
+  - **Hợp Nhất CLI Subcommand Mới (`doc-security`)**:
+    - Đăng ký lệnh `python ai_tools_cli.py doc-security <doc> [--sanitize] [-o output] [--format {terminal,json}]`.
+  - **Cung Cấp REST API Endpoints Chuyên Biệt**:
+    - `POST /api/security/scan`: Quét an ninh tĩnh trả về báo cáo JSON 3 trạng thái.
+    - `POST /api/security/sanitize`: Tẩy rửa an toàn và trả về đường dẫn tải tệp sạch.
+    - Hỗ trợ tham số `security: true` trong endpoint `/api/qa/audit`.
+  - **Đăng Ký Model Context Protocol (MCP) Tool Thứ 23**:
+    - Bổ sung công cụ `doc_security_audit` vào `server/mcp_server.py` và facade tại root `mcp_server.py`.
+  - **Nâng Cấp Giao Diện Web Studio (Tab QA Panel)**:
+    - Bổ sung công tắc `[x] Kiểm định an ninh tài liệu & Tẩy rửa mã độc (Gate 13: Cloudflare Security & PII Shield)`.
+    - Hiển thị huy hiệu an ninh và danh sách chi tiết các nguy cơ an ninh phát hiện được.
+  - **Hệ Thống Kiểm Thử Tự Động (305 Tests, 100% Pass Rate)**:
+    - Bổ sung `tests/test_document_security.py` (15 test cases toàn diện) và mở rộng `tests/test_mcp_server.py` lên 23 tools.
+
+### Phiên Bản 4.4.0 (Digital Yearbook & Pre-Press Photobook Studio Suite)
+- **Phân Hệ Digital Yearbook & Pre-Press Photobook Studio (`core/yearbook/`)**:
+  - **Trình Xem 3D Flipbook Trực Quan Trên Web Studio (Tab 6)**:
+    - Hiển thị 2 trang đôi mở phẳng (Layflat Photobook) với rãnh gáy sách mô phỏng bóng đổ chân thực (Realistic Center Spine Gutter Shadow).
+    - Tương tác kéo thả hoàn chỉnh (HTML5 Drag & Drop): Kéo ảnh từ Khay ảnh (Photo Tray) vào khung (Slot), hoặc kéo ảnh giữa 2 khung để hoán đổi vị trí (Slot-to-Slot Swapping) tức thì.
+    - Sửa trực tiếp lời tựa (Inline Live Editable Caption): Bấm chuột vào dòng chữ dưới chân trang hoặc trên khung polaroid để sửa văn bản, tự động đồng bộ hai chiều với bảng điều khiển Inspector.
+    - Công tắc Vạch Xén In Ấn (Pre-Press Guides Overlay): Bật/tắt 3 đường biên kỹ thuật: Lề xén 3mm (Bleed - Đỏ), Vạch cắt thành phẩm (Trim line - Xanh dương), và Vùng an toàn (Safe zone - Xanh lá).
+    - Khởi tạo Zero-Config Mock Demo Album: Ngay khi mở giao diện, album mẫu 8 trang đôi cử nhân ("KỶ YẾU TỐT NGHIỆP 2026 - BIỆN TRUNG TÍN") được tự động nạp sẵn với hình ảnh vector mỹ thuật cao.
+  - **9 Mẫu Layout Chuẩn Tạp Chí (Editorial Layout Templates)**:
+    - `cover_hero` (1 ảnh): Bìa Kỷ Yếu Cử Nhân với Typography hoàng gia, niên khóa và lời đề tựa.
+    - `editorial_quote` (1 ảnh): Trang Mở Đầu với đoạn văn cảm nghĩ, tri ân gia đình, thầy cô và bạn bè.
+    - `symmetric_duo` (2 ảnh): Song Hành Cân Xứng cho ảnh chụp đôi cùng bạn thân hoặc cha mẹ.
+    - `magazine_grid_4` (4 ảnh): Tạp chí 4 khung gồm 1 ảnh Hero lớn dẫn hướng thị giác và 3 ảnh vệ tinh.
+    - `polaroid_scrapbook` (3 ảnh): Khung ảnh Polaroid viền trắng đổ bóng giấy, góc nghiêng tự nhiên kèm ghi chú lưu bút.
+    - `mosaic_gallery_6` (6 ảnh): Phòng Trưng Bày Mosaic đa sắc, cân đối giữa ảnh ngang 16:9 và ảnh vuông 1:1.
+    - `classroom_grid_8` (8 ảnh): Lưới Kỷ Yếu Tập Thể 2x4 chuẩn quốc tế cho nhóm đồ án và bạn bè.
+    - `megagrid_12` (12 ảnh): Đại Lưới 12 ô gom trọn 50–100+ ảnh selfie hậu trường và khoảnh khắc vui nhộn.
+    - `panoramic_spread` (1 ảnh): Ảnh Ngang Toàn Cảnh trải rộng xuyên suốt cả 2 trang mở phẳng không đứt gãy.
+  - **Bộ 4 Bất Biến Kỹ Thuật Công Nghiệp (Technical Invariants)**:
+    - *ERR_PDF_FONT_001 (Vietnamese Unicode Font Embedding)*: Tự động dò tìm và nhúng font hệ thống TTF Unicode (Arial, Times New Roman, LiberationSans, DejaVuSans), khử hoàn toàn lỗi rụng dấu tiếng Việt trên PyMuPDF.
+    - *ERR_EXIF_001 (EXIF Orientation Normalization)*: Chuẩn hóa góc quay hình ảnh máy ảnh và điện thoại qua `ImageOps.exif_transpose` trước khi xử lý, chống hiện tượng ảnh chụp dọc bị lật ngang.
+    - *ERR_IMG_CROP_001 (Top-Biased 35% Aspect Crop)*: Thuật toán cắt ảnh theo tỷ lệ khung hình với cơ chế `top_bias=0.35` bảo toàn 100% gương mặt và mũ tốt nghiệp, chống viền trắng letterbox.
+    - *ERR_RAM_001 (Streamed Disk Packaging)*: Cơ chế stream tệp trực tiếp từ đĩa vào file ZIP và dọn rác bộ nhớ định kỳ sau mỗi 4 trang đôi, duy trì mức tiêu thụ RAM $\le 50\text{MB}$ khi xử lý 50–100+ ảnh gốc dung lượng lớn.
+  - **Gói Bàn Giao Thợ Thiết Kế 5-trong-1 (Designer Handoff Bundle .zip)**:
+    - `01_Digital_Yearbook_Spread_Preview.pdf`: Bản PDF mở phẳng 2 trang đôi duyệt tổng thể bố cục.
+    - `02_Print_Ready_Pages_300DPI.pdf`: Bản PDF in ấn từng trang đơn chuẩn 300 DPI kèm Bleed 3mm và 4 cặp Crop Marks.
+    - `02_Original_Photos_Sorted/`: Thư mục ảnh gốc độ phân giải cao được phân loại và đổi tên có hệ thống (`Page_XX_Slot_YY.jpg`).
+    - `03_Design_Brief_And_Captions.docx`: Bản đặc tả thiết kế Word chuẩn OpenXML chứa bảng phân bổ chi tiết từng trang, tuân thủ tuyệt đối các bất biến `<w:cantSplit/>`, `<w:tblHeader/>`, `<w:vAlign w:val="center"/>` và The Last Paragraph Rule.
+    - `03_Designer_Handoff_Brief.md` & `04_Yearbook_Project_Spec.json`: Bản tóm tắt Markdown và hồ sơ đặc tả JSON cho thợ thiết kế.
+  - **Tích Hợp Toàn Diện Server, CLI & MCP**:
+    - REST API: 5 endpoints mới (`/api/yearbook/mock-album`, `/api/yearbook/presets`, `/api/yearbook/auto-layout`, `/api/yearbook/render-preview`, `/api/yearbook/export`) và background job runner.
+    - CLI Subcommands: `yearbook-layout` (tự động dàn trang từ ảnh hoặc cờ `--mock`) và `yearbook-build` (đóng gói ZIP handoff).
+    - Model Context Protocol (MCP): 2 công cụ mới `yearbook_auto_layout` và `yearbook_export` nâng tổng số MCP tools lên 22 công cụ.
+    - Kiểm thử: 15 bài test tự động chuyên sâu nâng tổng quy mô kiểm thử toàn hệ thống lên 289 tests (100% Passed).
+
 ### Phiên Bản 4.3.0 (Excel Formula Playbook & Adaptive Matrix Enterprise Suite)
+
 - **Động Cơ Quản Trị & Tự Động Hóa Bảng Tính Cấp Doanh Nghiệp (Enterprise Excel Data Suite)**:
   - **Khắc Phục Triệt Để 4 Nhóm Bẫy Lỗi Biên (Edge Cases)**:
     - *ERR_XLSX_009 (15-Digit Precision & Accounting Negative Guard)*: Ép kiểu chuỗi `@` cho số thẻ/CCCD/STK $\ge 12$ số; tự động phân tích ngày tháng tiếng Việt (`26/05/2026`, `ngày 26 tháng 05 năm 2026`) thành `datetime.date` với format `DD/MM/YYYY`; chuyển số âm kế toán `(100.000)` thành float âm `-100000` và `-` thành `0` kèm định dạng kế toán; chuẩn hóa Locale thập phân Việt Nam `20.000,50` $\rightarrow$ `20000.50`.

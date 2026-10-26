@@ -51,12 +51,18 @@ import {
   BookOpen,
   Briefcase,
   Lightbulb,
+  Printer,
+  Package,
+  Eye,
+  Sliders,
+  SlidersHorizontal,
 } from 'lucide';
 
 import { DIAGRAM_PRESETS } from './modules/constants.js';
 import { initHistoryDrawer } from './modules/history_drawer.js';
 import { initMathStudio } from './modules/math_studio.js';
 import { initFormulaPlaybook } from './modules/formula_playbook.js';
+import { initYearbookStudio } from './modules/yearbook_studio.js';
 
 const studioIcons = {
   Sparkles,
@@ -110,6 +116,11 @@ const studioIcons = {
   BookOpen,
   Briefcase,
   Lightbulb,
+  Printer,
+  Package,
+  Eye,
+  Sliders,
+  SlidersHorizontal,
 };
 
 /**
@@ -245,6 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
     documents: document.getElementById('panel-documents'),
     diagrams: document.getElementById('panel-diagrams'),
     math: document.getElementById('panel-math'),
+    yearbook: document.getElementById('panel-yearbook'),
   };
 
   navTabs.forEach((tab) => {
@@ -2215,11 +2227,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const repairToggle = document.getElementById('qa-repair-toggle');
         const doRepair = repairToggle ? repairToggle.checked : true;
+        const securityToggle = document.getElementById('qa-security-toggle');
+        const doSecurity = securityToggle ? securityToggle.checked : true;
 
         const res = await fetch('/api/qa/audit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ file_path: serverPath, repair: doRepair }),
+          body: JSON.stringify({ file_path: serverPath, repair: doRepair, security: doSecurity }),
         });
 
         if (!res.ok) {
@@ -2235,6 +2249,33 @@ document.addEventListener('DOMContentLoaded', () => {
         const warn = data.warning_count || 0;
         if (qaResCritical) qaResCritical.textContent = crit;
         if (qaResWarning) qaResWarning.textContent = warn;
+
+        const qaResSecurity = document.getElementById('qa-res-security');
+        const qaSecFindings = document.getElementById('qa-security-findings');
+        const secIssues = (data.issues || []).filter(i => (i.domain === 'SECURITY' || (i.code && i.code.startsWith('ERR_SEC'))));
+        if (qaResSecurity) {
+          if (!doSecurity) {
+            qaResSecurity.textContent = 'Bỏ qua (Tắt quét)';
+            qaResSecurity.style.color = '#94a3b8';
+          } else if (secIssues.length === 0) {
+            qaResSecurity.textContent = '✓ 100% Sạch — An toàn';
+            qaResSecurity.style.color = '#10b981';
+          } else {
+            qaResSecurity.textContent = `⚠ Phát hiện ${secIssues.length} nguy cơ (${secIssues.filter(i => (i.severity || '').toUpperCase() === 'CRITICAL').length} Critical)`;
+            qaResSecurity.style.color = '#ef4444';
+          }
+        }
+
+        if (qaSecFindings) {
+          if (secIssues.length > 0) {
+            qaSecFindings.style.display = 'block';
+            qaSecFindings.innerHTML = `<strong>Chi tiết nguy cơ an ninh (Gate 13):</strong><ul style="margin: 6px 0 0 16px; padding: 0;">` +
+              secIssues.map(i => `<li>[${escapeHtml(i.code || 'ERR_SEC')}] ${escapeHtml(i.message || '')}</li>`).join('') +
+              `</ul>`;
+          } else {
+            qaSecFindings.style.display = 'none';
+          }
+        }
 
         if (qaBadgeStatus) {
           if (crit === 0) {
@@ -3828,6 +3869,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // 13. SPREADSHEET STUDIO: EXCEL FORMULA PLAYBOOK CONTROLLER
   // =========================================================================
   initFormulaPlaybook({ showToast, refreshLucideIcons });
+
+  // =========================================================================
+  // 14. TAB 6: DIGITAL YEARBOOK & PRE-PRESS PHOTOBOOK STUDIO CONTROLLER
+  // =========================================================================
+  initYearbookStudio({ showToast, refreshLucideIcons, loadHistory });
 
   // Initial Lucide icon generation
   refreshLucideIcons();

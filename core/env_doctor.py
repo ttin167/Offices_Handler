@@ -259,23 +259,31 @@ class EnvironmentDoctor:
 
     def check_python_dependencies(self) -> Dict[str, Any]:
         """Verify core document processing Python libraries."""
-        deps = {
-            "docx": "python-docx",
-            "pptx": "python-pptx",
-            "openpyxl": "openpyxl",
-            "fitz": "PyMuPDF",
-            "PIL": "Pillow",
-            "yaml": "PyYAML",
-        }
+        deps = [
+            ("docx", "python-docx"),
+            ("pptx", "python-pptx"),
+            ("openpyxl", "openpyxl"),
+            ("pymupdf", "PyMuPDF"),
+            ("PIL", "Pillow"),
+            ("yaml", "PyYAML"),
+        ]
         installed = {}
         missing = []
 
-        for mod, pkg in deps.items():
+        for mod, pkg in deps:
             try:
                 m = __import__(mod)
                 ver = getattr(m, "__version__", "installed")
                 installed[pkg] = ver
             except ImportError:
+                if mod == "pymupdf":
+                    try:
+                        m = __import__("fitz")
+                        ver = getattr(m, "__version__", "installed")
+                        installed[pkg] = ver
+                        continue
+                    except ImportError:
+                        pass
                 missing.append(pkg)
 
         status = "healthy" if not missing else "critical"
@@ -343,7 +351,7 @@ def run_doctor() -> Dict[str, Any]:
     return EnvironmentDoctor().run_diagnostics()
 
 
-DOCTOR_VERSION = "4.3.0"
+DOCTOR_VERSION = "4.5.0"
 
 
 def format_doctor_report(report: Dict[str, Any]) -> str:
@@ -354,7 +362,7 @@ def format_doctor_report(report: Dict[str, Any]) -> str:
     lines = [
         "",
         "=" * 65,
-        f" {status_tag} ANTIGRAVITY OFFICE ENVIRONMENT DOCTOR (v4.3.0)",
+        f" {status_tag} ANTIGRAVITY OFFICE ENVIRONMENT DOCTOR (v4.5.0)",
         "=" * 65,
         f"OS Platform    : {report['platform']} (Python {report['python_version']})",
         f"Overall Status : {report['status'].upper()} ({report['elapsed_sec']}s)",

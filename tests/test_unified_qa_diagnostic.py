@@ -181,3 +181,25 @@ def test_unified_qa_pipeline_execution(tmp_path):
     code = run_pipeline(["--docx", docx_path, "--format", "json", "--output", out_json])
     assert code in (0, 1)
     assert os.path.isfile(out_json)
+
+
+def test_gate_13_security_diagnostic_in_qa_pipeline(tmp_path):
+    """Verifies Gate 13 security scan in unified QA diagnostic engine."""
+    from tools.unified_qa_diagnostic import DocumentSecurityDiagnosticEngine
+
+    csv_path = os.path.join(tmp_path, "injected.csv")
+    with open(csv_path, "w", encoding="utf-8") as f:
+        f.write("Col1,Col2\nVal1,=cmd|' /C calc'!A1\n")
+
+    issues, metrics = DocumentSecurityDiagnosticEngine.diagnose(csv_path)
+    codes = [i.code for i in issues]
+    assert "ERR_SEC_002" in codes
+    assert any(i.severity == "CRITICAL" for i in issues)
+
+    # Test repair
+    repaired_path = os.path.join(tmp_path, "injected_clean.csv")
+    ok, actions = DocumentSecurityDiagnosticEngine.repair(csv_path, repaired_path)
+    assert ok
+    assert len(actions) >= 1
+    assert os.path.exists(repaired_path)
+

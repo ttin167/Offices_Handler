@@ -18,6 +18,7 @@ The workspace includes preconfigured Antigravity customizations:
 - **Skill 3**: [felo-slides](.agents/skills/felo-slides/SKILL.md) — 16:9 widescreen presentation synthesis, Slide Master inheritance, and locked aspect-ratio diagram injection.
 - **Skill 4**: [mxgraph-diagram-engineering](.agents/skills/mxgraph-diagram-engineering/SKILL.md) — Draw.io (.drawio / XML) pure mxGraphModel generation, layout, orthogonal routing, and monochrome line-art.
 - **Skill 5**: [technical-diagrams](.agents/skills/technical-diagrams/SKILL.md) — Declarative diagram rendering (Canvas, Mermaid, PlantUML), orthogonal Manhattan routing, and collision prevention.
+- **Skill 6**: [security-audit](.agents/skills/security-audit/SKILL.md) — Cloudflare-seeded defensive security audit harness (Reconnaissance, Coverage-Led Hunting, Adversarial Validation, Structured Schema, Zero-Dependency Verification, Reporting).
 - **Rule 1**: [rule_technical_diagram_standards.md](.agents/rules/rule_technical_diagram_standards.md) — English screen names, codebase-truth action labels, multi-line wrapping (`\n`), and automated AABB collision detection.
 - **Rule 2**: [rule_decoupled_document_converter.md](.agents/rules/rule_decoupled_document_converter.md) — Table OpenXML invariants (`cantSplit`, `tblHeader`, `vAlign="center"`) and decoupled styling.
 - **Rule 3**: [rule_feature_lifecycle_and_doc_sync.md](.agents/rules/rule_feature_lifecycle_and_doc_sync.md) — Documentation synchronization (`CHANGELOG.md`, `ARCHITECTURE.md`, `README.md`, and Core Docs Triad) on feature completions (`ERR_DOC_SYNC_001`).
@@ -29,6 +30,7 @@ The workspace includes preconfigured Antigravity customizations:
 - **Rule 9**: [rule_learning_and_skill_authoring.md](.agents/rules/rule_learning_and_skill_authoring.md) — Meta-rule for authoring rules and skills, auto-updating `README.md` and `AGENTS.md`.
 - **Rule 10**: [rule_context_recovery_protocol.md](.agents/rules/rule_context_recovery_protocol.md) — Recovery invariants and checkpoint protocols.
 - **Rule 11**: [rule_quality_gate_and_verification.md](.agents/rules/rule_quality_gate_and_verification.md) — Mandatory multi-layer quality gate audit before task completion.
+- **Rule 12**: [rule_security_audit_standards.md](.agents/rules/rule_security_audit_standards.md) — Mandatory security principles, Adversarial Verifier protocol, and document safety invariants (`ERR_SEC_001`–`005`).
 
 ---
 
@@ -54,7 +56,8 @@ When user requests you to perform document tasks or draw diagrams, run these com
 | **Insert Image into DOCX** | `python -m ai_tools_cli insert-diagram <doc.docx> <img.png> -s "Heading" -c "Caption"` |
 | **Legal Redline Diff (Track Changes)** | `python ai_tools_cli.py docx-diff <v1.docx> <v2.docx> -o <diff.docx>` |
 | **Batch Mail Merge & Templating** | `python ai_tools_cli.py docx-mail-merge <tpl.docx> <data.json> -o <merged.docx>` |
-| **Unified QA Audit (12 Gates / OpenXML)** | `python ai_tools_cli.py qa-audit <doc.docx|sheet.xlsx> [--strict]` |
+| **Unified QA Audit (13 Gates / OpenXML)** | `python ai_tools_cli.py qa-audit <doc.docx|sheet.xlsx> [--security] [--sanitize] [--strict]` |
+| **Document Security Audit & Sanitizer** | `python ai_tools_cli.py doc-security <doc> [--sanitize] [-o clean_doc]` |
 | **Vietnamese OCR & Scan Recovery** | `python ai_tools_cli.py ocr-scan <scan.pdf> -o <out.md> [--lang vie+eng]` |
 | **Build 16:9 Presentation from Spec** | `python ai_tools_cli.py pptx-build <spec.json> -o <deck.pptx> [--template <tpl.pptx>]` |
 | **Export Slide PNG Previews for QA** | `python ai_tools_cli.py pptx-preview <deck.pptx> -o <preview_dir> [--slides 1,5,11]` |
@@ -97,6 +100,7 @@ When executing tasks programmatically via Python, MCP, or CLI, dispatch accordin
 | **Inspect Word Placeholders** | DOCX Template | `docx_inspect_placeholders(...)` | `ai_tools_cli.py docx-tokens` | `core.docx.mail_merge.inspect_template_tokens` |
 | **Atomic Word Text Patching** | DOCX + Replacements | `docx_replace_text(...)` | `ai_tools_cli.py docx-replace` | `core.docx.writer.patch_docx_template` |
 | **Atomic Word Paragraph/Table** | DOCX + Content | `docx_insert_paragraph(...)` / `docx_insert_table(...)` | (via MCP Tool) | `core.docx.writer` |
+| **Document Security Audit & Sanitizer** | Office Doc / CSV / Zip | `doc_security_audit(...)` | `ai_tools_cli.py doc-security` | `core.security.document_auditor`, `core.security.sanitizer` |
 
 ---
 

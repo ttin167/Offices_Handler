@@ -22,7 +22,7 @@
           <div class="logo-icon"><i data-lucide="sparkles"></i></div>
           <div class="brand-text">
             <span class="brand-title">ANTIGRAVITY</span>
-            <span class="brand-subtitle">Office Studio v4.3.0</span>
+            <span class="brand-subtitle">Office Studio v4.5.0</span>
           </div>
         </div>
         <div class="badge-status" id="server-status-badge">
@@ -57,6 +57,11 @@
           <span class="nav-icon"><i data-lucide="sigma"></i></span>
           <span>Math Studio</span>
           <span class="pill-badge">LaTeX to Word</span>
+        </button>
+        <button class="nav-tab" data-tab="yearbook">
+          <span class="nav-icon"><i data-lucide="book-open"></i></span>
+          <span>Yearbook Studio</span>
+          <span class="pill-badge">Digital &amp; Print</span>
         </button>
       </nav>
 
@@ -1092,10 +1097,10 @@
             <div class="config-card glass-panel">
               <h2 class="card-section-title">1. Chọn Tệp Cần Kiểm Định QA &amp; Sửa Lỗi Tự Động</h2>
               <div class="drop-zone" id="qa-drop-zone">
-                <input type="file" id="qa-file-input" accept=".docx,.xlsx,.pptx,.drawio" class="hidden-input" />
+                <input type="file" id="qa-file-input" accept=".docx,.xlsx,.pptx,.drawio,.pdf,.csv" class="hidden-input" />
                 <div class="drop-zone-content">
                   <div class="drop-icon"><i data-lucide="shield-alert"></i></div>
-                  <div class="drop-text-primary">Kéo thả DOCX, XLSX, PPTX, DRAWIO vào đây</div>
+                  <div class="drop-text-primary">Kéo thả DOCX, XLSX, PPTX, DRAWIO, PDF, CSV vào đây</div>
                   <div class="drop-text-sub">hoặc <button type="button" class="link-btn" id="btn-browse-qa">chọn file</button></div>
                 </div>
                 <div class="file-loaded-info" id="qa-file-info" style="display: none;">
@@ -1107,8 +1112,9 @@
               </div>
 
               <h2 class="card-section-title">2. Chế Độ Kiểm Chuẩn</h2>
-              <div class="form-group">
+              <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
                 <label class="form-label"><input type="checkbox" id="qa-repair-toggle" checked /> Tự động sửa lỗi an toàn (Non-destructive Safe Repair)</label>
+                <label class="form-label"><input type="checkbox" id="qa-security-toggle" checked /> Kiểm định an ninh tài liệu &amp; Tẩy rửa mã độc (Gate 13: Cloudflare Security &amp; PII Shield)</label>
               </div>
 
               <div class="action-buttons-group">
@@ -1131,16 +1137,18 @@
                 <div class="result-details">
                   <div class="result-row"><span class="lbl">Lỗi nghiêm trọng (Critical):</span> <strong id="qa-res-critical" style="color: #ef4444;">0</strong></div>
                   <div class="result-row"><span class="lbl">Cảnh báo thẩm mỹ (Warning):</span> <strong id="qa-res-warning" style="color: #f59e0b;">0</strong></div>
+                  <div class="result-row"><span class="lbl">An ninh tài liệu (Gate 13):</span> <strong id="qa-res-security" style="color: #10b981;">Đạt chuẩn</strong></div>
                   <div class="result-row"><span class="lbl">Hành động sửa đã áp dụng:</span> <span id="qa-res-repaired">-</span></div>
                 </div>
-                <div class="result-actions" id="qa-download-container" style="display: none;">
+                <div id="qa-security-findings" style="display: none; margin-top: 10px; font-size: 0.85rem; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px;"></div>
+                <div class="result-actions" id="qa-download-container" style="display: none; margin-top: 12px;">
                   <a href="#" class="btn-primary" id="btn-download-qa-repaired" download><i data-lucide="download"></i> Tải Tệp Đã Sửa</a>
                 </div>
               </div>
               <div class="empty-state-deck" id="qa-empty-state">
                 <div class="empty-illustration"><i data-lucide="shield-check"></i></div>
                 <div class="empty-title">Chưa Chạy Kiểm Định</div>
-                <p class="empty-desc">Tải lên tệp Word, Excel, PowerPoint hoặc Diagram để chạy kiểm định 35+ quy tắc chất lượng.</p>
+                <p class="empty-desc">Tải lên tệp Word, Excel, PowerPoint, PDF hoặc Diagram để chạy kiểm định 35+ quy tắc chất lượng &amp; an ninh Cloudflare.</p>
               </div>
             </div>
           </div>
@@ -1893,6 +1901,209 @@
               <i data-lucide="info"></i> <span>Công thức toán học sẽ được biên dịch trực tiếp thành các thẻ <strong>OpenXML Multi-Run</strong> và <strong>Native Office Math (OMML)</strong> cho Microsoft Word.</span>
             </div>
           </div>
+        </div>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- TAB 6: DIGITAL YEARBOOK & PRE-PRESS PHOTOBOOK STUDIO                -->
+      <!-- =================================================================== -->
+      <section class="tab-panel" id="panel-yearbook">
+        <div class="panel-hero">
+          <div class="hero-content">
+            <h1 class="hero-title">Kỷ Yếu Số &amp; Xưởng In Photobook Tốt Nghiệp</h1>
+            <p class="hero-desc">Tự động phân loại EXIF &amp; tỷ lệ ảnh, thông minh phân bổ vào 9 mẫu bố cục Editorial cao cấp. Xem trước Kỷ yếu số 3D lật trang sống động, kiểm soát vạch xén in ấn (Bleed 3mm, Trim line, Safe Zone) và 1-click xuất gói Designer Handoff Bundle (.zip) gửi thợ thiết kế / nhà in.</p>
+          </div>
+          <div class="hero-meta">
+            <span class="meta-tag"><i data-lucide="book-open"></i> 3D Flipbook Tương Tác</span>
+            <span class="meta-tag"><i data-lucide="shield-check"></i> Bleed 3mm &amp; Crop Marks</span>
+            <span class="meta-tag"><i data-lucide="package"></i> Designer Handoff .zip 5-in-1</span>
+            <span class="meta-tag"><i data-lucide="zap"></i> Hỗ Trợ 50–100+ Ảnh Tốt Nghiệp</span>
+          </div>
+        </div>
+
+        <div class="yearbook-studio-layout">
+          <!-- Column 1: Photo Tray & Album Config -->
+          <aside class="yearbook-sidebar-left glass-panel">
+            <div class="sidebar-section">
+              <h2 class="card-section-title"><i data-lucide="upload-cloud"></i> 1. Tệp Ảnh Nguồn</h2>
+              <div class="drop-zone yearbook-drop-zone" id="yearbook-drop-zone">
+                <input type="file" id="yearbook-file-input" accept="image/jpeg,image/png,image/webp" multiple class="hidden-input" />
+                <div class="drop-zone-content">
+                  <div class="drop-icon"><i data-lucide="images"></i></div>
+                  <div class="drop-text-primary">Kéo thả ảnh tốt nghiệp vào đây</div>
+                  <div class="drop-text-sub">hoặc <button type="button" class="link-btn" id="btn-browse-yearbook-photos">chọn nhiều ảnh (20–100+ tấm)</button></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Photo Tray -->
+            <div class="sidebar-section">
+              <div class="tray-header">
+                <h3 class="card-subtitle"><i data-lucide="layout-grid"></i> Khay Ảnh Đã Nạp (<span id="yearbook-tray-count">0</span>)</h3>
+                <button type="button" class="btn-text-sm" id="btn-clear-tray" title="Xóa toàn bộ ảnh trong khay">Làm trống</button>
+              </div>
+              <div class="yearbook-photo-tray" id="yearbook-photo-tray">
+                <div class="tray-empty-hint" id="tray-empty-hint">
+                  <i data-lucide="image"></i>
+                  <span>Chưa có ảnh tải lên. Album mẫu (Mock Demo) đang được kích hoạt.</span>
+                </div>
+              </div>
+              <button type="button" class="btn-primary-action btn-full mt-2" id="btn-yearbook-autolayout">
+                <i data-lucide="zap"></i> <span>⚡ Tự Động Dàn Trang Thông Minh</span>
+              </button>
+            </div>
+
+            <!-- Album Metadata & Print Presets -->
+            <div class="sidebar-section">
+              <h3 class="card-subtitle"><i data-lucide="book"></i> 2. Thông Số Album &amp; Khổ In</h3>
+              <div class="form-group">
+                <label class="form-label" for="yb-input-title">Tiêu Đề Album:</label>
+                <input type="text" id="yb-input-title" class="form-input" value="KỶ YẾU TỐT NGHIỆP 2026" />
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="yb-input-author">Họ Tên Cử Nhân / Chủ Sở Hữu:</label>
+                <input type="text" id="yb-input-author" class="form-input" value="Biện Trung Tín" />
+              </div>
+              <div class="form-row">
+                <div class="form-group col-half">
+                  <label class="form-label" for="yb-input-degree">Bằng Cấp / Ngành:</label>
+                  <input type="text" id="yb-input-degree" class="form-input" value="Kỹ Thuật Phần Mềm" />
+                </div>
+                <div class="form-group col-half">
+                  <label class="form-label" for="yb-input-date">Niên Khóa / Ngày:</label>
+                  <input type="text" id="yb-input-date" class="form-input" value="Tháng 11 / 2026" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="yb-select-preset">Khổ Thành Phẩm (Trim Size):</label>
+                <select id="yb-select-preset" class="form-input">
+                  <option value="photobook_square_25x25" selected>Photobook Vuông (25 x 25 cm) — Chuẩn Nhất</option>
+                  <option value="a4_landscape">Photobook A4 Ngang (29.7 x 21 cm)</option>
+                  <option value="a4_portrait">Magazine A4 Dọc (21 x 29.7 cm)</option>
+                  <option value="magazine_b5">Editorial B5 (19 x 26 cm)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <div class="slider-label-row">
+                  <label class="form-label" for="yb-slider-bleed">Lề Xén Nhà In (Bleed):</label>
+                  <span class="slider-val" id="yb-bleed-val">3.0 mm</span>
+                </div>
+                <input type="range" id="yb-slider-bleed" min="0" max="5" step="0.5" value="3.0" class="form-range" />
+              </div>
+            </div>
+          </aside>
+
+          <!-- Column 2: 3D Flipbook Stage & Interactive Workspace -->
+          <div class="yearbook-canvas-center glass-panel">
+            <!-- Center Top Toolbar -->
+            <div class="yearbook-toolbar">
+              <div class="toolbar-left">
+                <span class="badge-status-clean"><i data-lucide="sparkles"></i> 3D Flipbook Studio</span>
+                <span class="spread-indicator" id="yb-spread-indicator">Spread 1 / 8 (Trang 1–2)</span>
+              </div>
+              <div class="toolbar-center">
+                <button type="button" class="btn-icon-nav" id="btn-yb-prev-spread" title="Trang trước (Phím mũi tên Trái)"><i data-lucide="chevron-left"></i></button>
+                <input type="range" id="yb-spread-slider" min="1" max="8" value="1" class="form-range spread-scrubber" />
+                <button type="button" class="btn-icon-nav" id="btn-yb-next-spread" title="Trang sau (Phím mũi tên Phải)"><i data-lucide="chevron-right"></i></button>
+              </div>
+              <div class="toolbar-right">
+                <label class="toggle-switch-label" title="Bật/Tắt vạch xén Bleed 3mm, Trim line và Safe zone">
+                  <input type="checkbox" id="yb-toggle-prepress-guides" class="toggle-checkbox" />
+                  <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                  <span class="toggle-text"><i data-lucide="shield"></i> Vạch Xén In Ấn</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- 3D Flipbook Stage -->
+            <div class="yearbook-stage" id="yearbook-stage">
+              <div class="yearbook-book-container" id="yearbook-book-container">
+                <!-- Double page spread rendered by yearbook_studio.js -->
+              </div>
+            </div>
+
+            <!-- Center Bottom Quick Actions & Hints -->
+            <div class="yearbook-bottom-bar">
+              <div class="hint-text"><i data-lucide="info"></i> <span>Mẹo: Kéo ảnh từ khay vào khung để đổi ảnh • Bấm trực tiếp vào chữ Caption để sửa • Kéo ảnh giữa 2 khung để hoán đổi.</span></div>
+            </div>
+          </div>
+
+          <!-- Column 3: Spread Inspector & Export Hub -->
+          <aside class="yearbook-sidebar-right glass-panel">
+            <div class="sidebar-section">
+              <h2 class="card-section-title"><i data-lucide="sliders"></i> 3. Chỉnh Sửa Trang Này</h2>
+              <div class="form-group">
+                <label class="form-label" for="yb-select-layout">Mẫu Bố Cục (Spread Template):</label>
+                <select id="yb-select-layout" class="form-input">
+                  <option value="cover_hero">Bìa Kỷ Yếu Cử Nhân (Cover Hero - 1 ảnh)</option>
+                  <option value="editorial_quote">Trang Mở Đầu &amp; Lời Tri Ân (Editorial Quote - 1 ảnh)</option>
+                  <option value="symmetric_duo">Song Hành Cân Xứng (Symmetric Duo - 2 ảnh)</option>
+                  <option value="magazine_grid_4">Tạp Chí 4 Khung (Magazine Grid 4 - 4 ảnh)</option>
+                  <option value="polaroid_scrapbook">Khung Polaroid Lưu Bút (Polaroid - 3 ảnh)</option>
+                  <option value="mosaic_gallery_6">Phòng Trưng Bày Mosaic (Mosaic 6 - 6 ảnh)</option>
+                  <option value="classroom_grid_8">Lưới Kỷ Yếu Tập Thể (Classroom 8 - 8 ảnh)</option>
+                  <option value="megagrid_12">Đại Lưới 12 Khoảnh Khắc (Megagrid 12 - 12 ảnh)</option>
+                  <option value="panoramic_spread">Ảnh Ngang Toàn Cảnh (Panoramic - 1 ảnh)</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="yb-input-spread-caption">Lời Tựa In Dưới Chân Trang (Caption):</label>
+                <textarea id="yb-input-spread-caption" class="form-input" rows="2" placeholder="Nhập lời đề tựa in lên trang kỷ yếu..."></textarea>
+              </div>
+
+              <div class="form-group" id="yb-quote-group" style="display: none;">
+                <label class="form-label" for="yb-input-spread-quote">Đoạn Văn Cảm Nghĩ / Tri Ân (Quote):</label>
+                <textarea id="yb-input-spread-quote" class="form-input" rows="3" placeholder="Nhập đoạn văn tri ân gia đình, thầy cô..."></textarea>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="yb-input-spread-note">Ghi Chú Cho Thợ Thiết Kế (Designer Brief):</label>
+                <textarea id="yb-input-spread-note" class="form-input text-note" rows="2" placeholder="Ví dụ: Giữ tone màu da tự nhiên, xóa vật cản phía sau, chỉnh màu rực rỡ..."></textarea>
+              </div>
+
+              <div class="spread-action-btn-row">
+                <button type="button" class="btn-secondary-sm" id="btn-yb-add-spread"><i data-lucide="plus"></i> Thêm Trang</button>
+                <button type="button" class="btn-secondary-sm" id="btn-yb-duplicate-spread"><i data-lucide="copy"></i> Nhân Bản</button>
+                <button type="button" class="btn-danger-sm" id="btn-yb-delete-spread" title="Xóa trang đôi này"><i data-lucide="trash-2"></i></button>
+              </div>
+            </div>
+
+            <!-- Export Hub -->
+            <div class="sidebar-section export-hub">
+              <h2 class="card-section-title"><i data-lucide="download"></i> 4. Xuất Bản &amp; Đóng Gói</h2>
+              
+              <button type="button" class="btn-export-option btn-outline" id="btn-yb-export-spread-pdf">
+                <div class="export-opt-icon"><i data-lucide="eye"></i></div>
+                <div class="export-opt-info">
+                  <span class="export-opt-title">Tải PDF Mở Phẳng (Spread View)</span>
+                  <span class="export-opt-desc">Duyệt nhanh tổng thể bố cục album 2 trang đôi</span>
+                </div>
+              </button>
+
+              <button type="button" class="btn-export-option btn-outline" id="btn-yb-export-print-pdf">
+                <div class="export-opt-icon"><i data-lucide="printer"></i></div>
+                <div class="export-opt-info">
+                  <span class="export-opt-title">Xuất File In Chuẩn 300 DPI</span>
+                  <span class="export-opt-desc">Từng trang đơn + Bleed 3mm + Vạch cắt Crop Marks</span>
+                </div>
+              </button>
+
+              <button type="button" class="btn-export-option btn-highlight" id="btn-yb-export-handoff-zip">
+                <div class="export-opt-icon"><i data-lucide="package"></i></div>
+                <div class="export-opt-info">
+                  <span class="export-opt-title">Gói Designer Handoff (.zip)</span>
+                  <span class="export-opt-desc">Đủ 5 phần: PDF In + Ảnh gốc đổi tên + File Word Brief</span>
+                </div>
+              </button>
+
+              <div class="export-status-box" id="yb-export-status-box" style="display: none;">
+                <div class="status-spinner" id="yb-status-spinner"></div>
+                <div class="status-text" id="yb-status-text">Đang chuẩn bị gói hồ sơ...</div>
+                <a href="#" class="btn-download-result" id="yb-btn-download-result" download style="display: none;"><i data-lucide="download"></i> Tải Về Ngay</a>
+              </div>
+            </div>
+          </aside>
         </div>
       </section>
 
