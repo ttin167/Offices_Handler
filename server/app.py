@@ -21,6 +21,7 @@ import http.server
 import json
 import os
 import sys
+import threading
 import time
 import urllib.parse
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -1973,7 +1974,8 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                 raw_photos = payload.get("photos", [])
                 resolved_photos: list[str] = []
                 for p in raw_photos:
-                    res_p = resolve_file_path(p) if isinstance(p, str) else None
+                    p_str = p.get("filepath") or p.get("photo") or p.get("url") if isinstance(p, dict) else p
+                    res_p = resolve_file_path(p_str) if isinstance(p_str, str) else None
                     if res_p:
                         resolved_photos.append(res_p)
 
@@ -2044,6 +2046,10 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     out_name = f"{clean_title}_Spread_Preview.pdf"
                     out_path = os.path.join(OUTPUT_DIR, out_name)
                     YearbookPressEngine.export_spread_preview_pdf(spec, out_path)
+                elif export_type in ("digital_html", "standalone_html", "html"):
+                    out_name = f"{clean_title}_Interactive_Digital_Yearbook.html"
+                    out_path = os.path.join(OUTPUT_DIR, out_name)
+                    YearbookHandoffPackager.export_standalone_html(spec, out_path)
                 else:
                     out_name = f"{clean_title}_Designer_Handoff_Bundle.zip"
                     out_path = os.path.join(OUTPUT_DIR, out_name)
@@ -2342,6 +2348,8 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
             ".json": "application/json",
             ".md": "text/markdown; charset=utf-8",
             ".txt": "text/plain; charset=utf-8",
+            ".html": "text/html; charset=utf-8",
+            ".zip": "application/zip",
         }
         mime = mime_types.get(ext, "application/octet-stream")
 
@@ -2662,11 +2670,19 @@ def run_server(port: Optional[int] = None, host: Optional[str] = None) -> None:
     print(f"   Outputs directory: {OUTPUT_DIR}")
     if os.path.isdir(DIST_DIR):
         print(f"   Static bundle: Serving compiled Vite assets from {DIST_DIR}")
+    srv_thread = threading.Thread(target=httpd.serve_forever, name="OfficeApiBridgeThread", daemon=True)
+    srv_thread.start()
     try:
-        httpd.serve_forever()
+        while srv_thread.is_alive():
+            time.sleep(0.25)
     except KeyboardInterrupt:
         print("\n[Office API Bridge] Shutting down gracefully.")
-        httpd.server_close()
+    finally:
+        try:
+            httpd.shutdown()
+            httpd.server_close()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":

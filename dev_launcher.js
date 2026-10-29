@@ -9,7 +9,6 @@ import net from 'net';
 import { fileURLToPath } from 'url';
 import { spawn, spawnSync, execSync } from 'child_process';
 import process from 'process';
-import readline from 'readline';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -113,7 +112,7 @@ const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
 function startApiServer() {
   if (isShuttingDown) return;
   apiProcess = spawn(pythonCmd, ['web_api_server.py', '8000'], {
-    stdio: 'inherit',
+    stdio: ['ignore', 'inherit', 'inherit'],
     shell: false,
   });
 
@@ -132,18 +131,18 @@ function startApiServer() {
 }
 
 // 2. Spawn Vite Dev Server directly via Node (No cmd.exe / npx.cmd batch wrapper)
-// This eliminates the Windows "Terminate batch job (Y/N)?" prompt entirely.
+// Pipe stdin instead of inheriting so Vite never puts the parent terminal into raw mode or steals Ctrl+C.
 function startViteServer() {
   if (isShuttingDown) return;
   const viteBin = path.join(__dirname, 'node_modules', 'vite', 'bin', 'vite.js');
   if (fs.existsSync(viteBin)) {
     viteProcess = spawn(process.execPath, [viteBin], {
-      stdio: 'inherit',
+      stdio: ['pipe', 'inherit', 'inherit'],
       shell: false,
     });
   } else {
     viteProcess = spawn('npx', ['vite'], {
-      stdio: 'inherit',
+      stdio: ['pipe', 'inherit', 'inherit'],
       shell: process.platform === 'win32',
     });
   }
@@ -165,6 +164,14 @@ function startViteServer() {
 const cleanExit = () => {
   if (isShuttingDown) return;
   isShuttingDown = true;
+  try {
+    if (process.stdin.isTTY && typeof process.stdin.setRawMode === 'function') {
+      process.stdin.setRawMode(false);
+    }
+    process.stdin.pause();
+  } catch {
+    // Ignore stdin restore errors
+  }
   console.log('\n\x1b[33m%s\x1b[0m', '  [Shutting down] Closing API Bridge and Vite servers...');
   try {
     if (apiProcess && apiProcess.pid) killProcessTree(apiProcess.pid);
@@ -179,19 +186,28 @@ const cleanExit = () => {
   process.exit(0);
 };
 
-// Windows SIGINT Hook via Readline to intercept Ctrl+C cleanly before OS batch break handler
-if (process.platform === 'win32' && process.stdin.isTTY) {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-  rl.on('SIGINT', () => {
-    cleanExit();
+// Exclusive Terminal Keypress & Signal Handler:
+// Keeps full ownership of stdin so Ctrl+C (\x03) or 'q' triggers instant cleanExit(),
+// while forwarding other shortcuts ('h', 'r', 'u', 'c', 'o') to Vite's stdin pipe.
+if (process.stdin.isTTY) {
+  process.stdin.setRawMode(true);
+  process.stdin.resume();
+  process.stdin.setEncoding('utf8');
+  process.stdin.on('data', (key) => {
+    // \u0003 is Ctrl+C, \u0004 is Ctrl+D
+    if (key === '\u0003' || key === '\u0004' || key === 'q' || key === 'Q') {
+      cleanExit();
+      return;
+    }
+    if (viteProcess && viteProcess.stdin && !viteProcess.stdin.destroyed) {
+      viteProcess.stdin.write(key);
+    }
   });
 }
 
 process.on('SIGINT', cleanExit);
 process.on('SIGTERM', cleanExit);
+process.on('SIGBREAK', cleanExit);
 
 // Coordinated bootstrap: start Python API Bridge first, wait until port 8000 is listening, then start Vite
 async function bootstrap() {

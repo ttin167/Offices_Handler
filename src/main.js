@@ -56,6 +56,14 @@ import {
   Eye,
   Sliders,
   SlidersHorizontal,
+  GraduationCap,
+  Award,
+  Users,
+  Building,
+  UserCheck,
+  Pin,
+  Plus,
+  Book,
 } from 'lucide';
 
 import { DIAGRAM_PRESETS } from './modules/constants.js';
@@ -121,6 +129,14 @@ const studioIcons = {
   Eye,
   Sliders,
   SlidersHorizontal,
+  GraduationCap,
+  Award,
+  Users,
+  Building,
+  UserCheck,
+  Pin,
+  Plus,
+  Book,
 };
 
 /**

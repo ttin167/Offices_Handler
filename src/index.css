@@ -4755,3 +4755,240 @@ sup,
 
 
 
+
+/* ==========================================================================
+   HARDCOVER 3D FLIPBOOK & DUAL-MODE UPGRADE (StPageFlip + 3 Themes + QR)
+   ========================================================================== */
+.yb-mode-switcher {
+  display: inline-flex;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.yb-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.yb-mode-btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.yb-mode-btn.active {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.22), rgba(99, 102, 241, 0.24));
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* Paper Stack Thickness on Double Spreads */
+.yearbook-double-spread {
+  box-shadow:
+    -7px 0 0 -1px #f1f5f9,
+    -11px 0 0 -2px #cbd5e1,
+    -15px 0 0 -3px #94a3b8,
+    7px 0 0 -1px #f1f5f9,
+    11px 0 0 -2px #cbd5e1,
+    15px 0 0 -3px #94a3b8,
+    0 32px 75px -10px rgba(0, 0, 0, 0.85);
+}
+
+/* StPageFlip Exhibition Container */
+.yb-flipbook-exhibition-wrap {
+  width: 100%;
+  height: 100%;
+  min-height: 450px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.yb-stpageflip-stage {
+  margin: 0 auto;
+  box-shadow: 0 35px 85px rgba(0, 0, 0, 0.85);
+}
+
+/* Individual Page in StPageFlip */
+.stf__item .yb-flip-page {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  user-select: none;
+}
+
+/* Soft Inner Pages in 3D Flipbook */
+.yb-flip-page.yb-page-soft {
+  background: #FAF8F5;
+  color: #1E293B;
+  padding: 16px 18px 22px 18px;
+  border: 1px solid #E2E8F0;
+}
+
+.yb-flip-page.yb-page-soft.left-side {
+  background: linear-gradient(90deg, #EBE5DC 0%, #FAF8F5 12%, #FAF8F5 92%, #DFD8CE 100%);
+}
+
+.yb-flip-page.yb-page-soft.right-side {
+  background: linear-gradient(270deg, #EBE5DC 0%, #FAF8F5 12%, #FAF8F5 92%, #DFD8CE 100%);
+}
+
+/* Hardcover Pages (Front & Back Covers) */
+.yb-flip-page.yb-hardcover {
+  padding: 28px 24px 24px 34px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+}
+
+/* Theme 1: Navy Linen & Gold Foil */
+.yb-hardcover.theme-navy_gold_foil {
+  background:
+    radial-gradient(circle at 30% 20%, #1e3a8a 0%, #0f172a 75%, #090d16 100%);
+  border: 2px solid #334155;
+  color: #fef08a;
+  box-shadow:
+    inset 18px 0 26px rgba(0, 0, 0, 0.7),
+    inset 22px 0 2px rgba(250, 204, 21, 0.35);
+}
+
+.yb-hardcover.theme-navy_gold_foil .hc-foil-title {
+  background: linear-gradient(135deg, #fde68a 0%, #eab308 45%, #fef08a 75%, #ca8a04 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  text-align: center;
+  line-height: 1.3;
+}
+
+/* Theme 2: Minimalist Kinfolk Cream */
+.yb-hardcover.theme-kinfolk_cream {
+  background: linear-gradient(135deg, #FAF8F5 0%, #EFECE6 100%);
+  border: 2px solid #D6D0C4;
+  color: #1C1917;
+  box-shadow:
+    inset 18px 0 22px rgba(0, 0, 0, 0.16),
+    inset 22px 0 1px rgba(0, 0, 0, 0.12);
+}
+
+.yb-hardcover.theme-kinfolk_cream .hc-foil-title {
+  color: #1C1917;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  text-align: center;
+  line-height: 1.3;
+}
+
+/* Theme 3: Full-Bleed Portrait Cover */
+.yb-hardcover.theme-full_bleed_portrait {
+  background: #0f172a;
+  border: 2px solid #475569;
+  color: #ffffff;
+  padding: 0 !important;
+}
+
+.hc-full-bleed-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 26px;
+  box-sizing: border-box;
+}
+
+.hc-full-bleed-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.hc-full-bleed-bg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.hc-full-bleed-overlay {
+  position: relative;
+  z-index: 2;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.15) 0%, rgba(15, 23, 42, 0.88) 100%);
+  padding: 18px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(6px);
+  text-align: center;
+}
+
+/* Cover Cutout Window */
+.hc-cutout-window {
+  width: 185px;
+  height: 205px;
+  margin: 10px auto;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 2.5px solid rgba(234, 179, 8, 0.65);
+  box-shadow:
+    inset 0 4px 12px rgba(0, 0, 0, 0.55),
+    0 8px 20px rgba(0, 0, 0, 0.35);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hc-cutout-window img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Back Cover QR Code Box */
+.hc-qr-card {
+  background: #ffffff;
+  padding: 10px;
+  border-radius: 10px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  margin: 8px auto;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+}
+
+.hc-qr-caption {
+  font-size: 9px;
+  font-weight: 800;
+  color: #0F172A;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}

@@ -2007,6 +2007,18 @@
                   </div>
                   <input type="range" id="yb-slider-bleed" min="0" max="5" step="0.5" value="3.0" class="form-range" />
                 </div>
+                <div class="form-group">
+                  <label class="form-label" for="yb-select-cover-theme">Chất Liệu Bìa Cứng (Hardcover Theme):</label>
+                  <select id="yb-select-cover-theme" class="form-input">
+                    <option value="navy_gold_foil" selected>Bìa Vải Linen Xanh Navy &amp; Ép Kim Vàng</option>
+                    <option value="kinfolk_cream">Bìa Tạp Chí Kinfolk Kem Tối Giản</option>
+                    <option value="full_bleed_portrait">Bìa Tràn Viền Chân Dung Cử Nhân</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="yb-input-qr-url">Link Kho Ảnh QR Bìa Sau (Google Drive):</label>
+                  <input type="url" id="yb-input-qr-url" class="form-input" value="https://drive.google.com/drive/my-drive" placeholder="https://drive.google.com/..." />
+                </div>
               </div>
             </div>
           </aside>
@@ -2016,7 +2028,14 @@
             <!-- Center Top Toolbar -->
             <div class="yearbook-toolbar">
               <div class="toolbar-left">
-                <span class="badge-status-clean"><i data-lucide="sparkles"></i> 3D Flipbook Studio</span>
+                <div class="yb-mode-switcher" role="group" aria-label="Chế độ làm việc">
+                  <button type="button" class="yb-mode-btn active" id="btn-yb-mode-edit" data-ybmode="edit" title="Chế độ Thiết kế &amp; Kéo thả">
+                    <i data-lucide="sliders"></i> <span>Thiết Kế Bố Cục</span>
+                  </button>
+                  <button type="button" class="yb-mode-btn" id="btn-yb-mode-flipbook" data-ybmode="flipbook" title="Chế độ Lật sách 3D Bìa cứng &amp; Uốn góc giấy">
+                    <i data-lucide="book-open"></i> <span>✨ Triển Lãm 3D Flipbook</span>
+                  </button>
+                </div>
                 <span class="spread-indicator" id="yb-spread-indicator">Spread 1 / 8 (Trang 1–2)</span>
               </div>
               <div class="toolbar-center">
@@ -2025,10 +2044,13 @@
                 <button type="button" class="btn-icon-nav" id="btn-yb-next-spread" title="Trang sau (Phím mũi tên Phải)"><i data-lucide="chevron-right"></i></button>
               </div>
               <div class="toolbar-right">
-                <label class="toggle-switch-label" title="Bật/Tắt vạch xén Bleed 3mm, Trim line và Safe zone">
+                <button type="button" class="btn-icon-nav" id="btn-yb-toggle-sound" title="Bật/Tắt âm thanh lật giấy 3D" style="width:auto;padding:0 10px;font-size:11.5px;gap:5px;">
+                  <span>🔊 Âm Lật Giấy</span>
+                </button>
+                <label class="toggle-switch-label" id="yb-guides-label-wrap" title="Bật/Tắt vạch xén Bleed 3mm, Trim line và Safe zone">
                   <input type="checkbox" id="yb-toggle-prepress-guides" class="toggle-checkbox" />
                   <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                  <span class="toggle-text"><i data-lucide="shield"></i> Vạch Xén In Ấn</span>
+                  <span class="toggle-text"><i data-lucide="shield"></i> Vạch Xén</span>
                 </label>
               </div>
             </div>
@@ -2108,11 +2130,19 @@
                   </div>
                 </button>
 
+                <button type="button" class="btn-export-option btn-outline" id="btn-yb-export-digital-html">
+                  <div class="export-opt-icon"><i data-lucide="sparkles"></i></div>
+                  <div class="export-opt-info">
+                    <span class="export-opt-title">🌐 Kỷ Yếu Số Độc Lập (.html)</span>
+                    <span class="export-opt-desc">1 File 3D Bìa cứng + QR chia sẻ bạn bè</span>
+                  </div>
+                </button>
+
                 <button type="button" class="btn-export-option btn-highlight" id="btn-yb-export-handoff-zip">
                   <div class="export-opt-icon"><i data-lucide="package"></i></div>
                   <div class="export-opt-info">
                     <span class="export-opt-title">Gói Designer Handoff (.zip)</span>
-                    <span class="export-opt-desc">Đủ 5 phần: PDF In + Ảnh gốc + Word Brief</span>
+                    <span class="export-opt-desc">Đủ 6 phần: PDF In + Ảnh gốc + Word + 3D HTML</span>
                   </div>
                 </button>
               </div>

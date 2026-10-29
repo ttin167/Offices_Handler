@@ -120,6 +120,7 @@ def launch_native_web_studio(
     temp_profile_dir = tempfile.mkdtemp(prefix="antigravity_app_profile_")
     browser_exe = find_app_mode_browser()
     cmd = build_app_mode_browser_command(app_url, temp_profile_dir, browser_binary=browser_exe)
+    proc = None
 
     try:
         if dry_run:
@@ -136,11 +137,13 @@ def launch_native_web_studio(
 
         if browser_exe:
             proc = subprocess.Popen(cmd)
-            proc.wait()
+            # Poll with short intervals instead of blocking proc.wait() so Windows delivers Ctrl+C (KeyboardInterrupt) immediately
+            while proc.poll() is None:
+                time.sleep(0.25)
         else:
             webbrowser.open(app_url)
             while server_thread.is_alive():
-                time.sleep(1.0)
+                time.sleep(0.5)
 
         return {
             "success": True,
@@ -152,6 +155,14 @@ def launch_native_web_studio(
     except KeyboardInterrupt:
         return {"success": True, "url": app_url, "port": actual_port, "interrupted": True}
     finally:
+        if proc is not None and proc.poll() is None:
+            try:
+                if sys.platform == "win32":
+                    subprocess.run(["taskkill", "/pid", str(proc.pid), "/f", "/t"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                else:
+                    proc.terminate()
+            except Exception:
+                pass
         try:
             server.shutdown()
             server.server_close()

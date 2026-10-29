@@ -89,3 +89,10 @@ diagram_assets/*
 !diagram_assets/runner/
 !diagram_assets/runner/**
 diagram_assets/runner/__tmp_*
+
+# Personal Digital Yearbook & Photobook Studio (Local-only feature, excluded from GitHub)
+core/yearbook/
+src/modules/yearbook_studio.js
+tests/test_yearbook_studio.py
+*yearbook*
+*Yearbook*
