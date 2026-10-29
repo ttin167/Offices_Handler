@@ -386,6 +386,20 @@ def convert_universal(
                 progress_callback(100.0, f"Hoàn tất trích xuất {count} bảng sang Excel!")
             return True, res_path, time.time() - start_time
 
+        # Route 13: XLSX -> DOCX / MD / PDF (Excel-to-Brief Reporting Engine)
+        elif src_ext == ".xlsx" and dest_ext in (".docx", ".md", ".markdown", ".pdf"):
+            from core.xlsx.reporting import excel_to_brief
+            if progress_callback:
+                progress_callback(30.0, f"Đang tổng hợp báo cáo từ Excel sang {dest_ext.upper()}...")
+            res = excel_to_brief(
+                source_path,
+                output_path=target_path,
+                target_format=dest_ext.lstrip("."),
+            )
+            if progress_callback:
+                progress_callback(100.0, "Hoàn tất tổng hợp báo cáo từ bảng tính Excel!")
+            return True, res["output_path"], time.time() - start_time
+
         # Same format or unsupported
         elif src_ext == dest_ext:
             return False, f"Định dạng nguồn và đích trùng nhau: {src_ext}", 0.0

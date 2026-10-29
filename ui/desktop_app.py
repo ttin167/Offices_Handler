@@ -57,9 +57,25 @@ class UniversalDocStudioApp:
         header_frame.pack(fill=tk.X, side=tk.TOP)
         header_frame.pack_propagate(False)
 
+        btn_web_app = tk.Button(
+            master=header_frame,
+            text="🚀 Mở Full Web Studio (App Mode)",
+            font=("Segoe UI", 9, "bold"),
+            fg="#ffffff",
+            bg="#2563eb",
+            activebackground="#1d4ed8",
+            activeforeground="#ffffff",
+            relief=tk.FLAT,
+            padx=12,
+            pady=6,
+            cursor="hand2",
+            command=self._launch_native_web_app,
+        )
+        btn_web_app.pack(side=tk.RIGHT, padx=18, pady=18)
+
         title_label = tk.Label(
-            header_frame,
-            text="🔄 Universal Document Studio (PDF ↔ DOCX ↔ MD)",
+            master=header_frame,
+            text="🔄 Universal Document Studio (PDF ↔ DOCX ↔ MD ↔ XLSX)",
             font=("Segoe UI", 15, "bold"),
             fg="#f8fafc",
             bg="#0f172a"
@@ -67,8 +83,8 @@ class UniversalDocStudioApp:
         title_label.pack(anchor=tk.W, padx=20, pady=(8, 0))
 
         sub_label = tk.Label(
-            header_frame,
-            text="Bộ chuyển đổi 6 chiều giữ nguyên bố cục (Smart TOC, Bullets, Tables) & nhúng Style Meta (CSS/YAML) trong Markdown",
+            master=header_frame,
+            text="Bộ chuyển đổi đa chiều (Smart TOC, Tables, Excel-to-Brief, Deep CDR Security & PDF/A-2b)",
             font=("Segoe UI", 9),
             fg="#94a3b8",
             bg="#0f172a"
@@ -82,14 +98,17 @@ class UniversalDocStudioApp:
         self.tab_single = ttk.Frame(self.notebook, padding=12)
         self.tab_pptx = ttk.Frame(self.notebook, padding=12)
         self.tab_batch = ttk.Frame(self.notebook, padding=12)
+        self.tab_enterprise = ttk.Frame(self.notebook, padding=12)
 
         self.notebook.add(self.tab_single, text="  Chuyển đổi File đơn lẻ  ")
         self.notebook.add(self.tab_pptx, text="  Tạo Slide Thuyết Trình (Word ➔ PPTX)  ")
         self.notebook.add(self.tab_batch, text="  Chuyển đổi Hàng loạt (Batch)  ")
+        self.notebook.add(self.tab_enterprise, text="  🛡️ Bảo Mật CDR, Excel-to-Brief & PDF/A  ")
 
         self._build_single_tab()
         self._build_pptx_tab()
         self._build_batch_tab()
+        self._build_enterprise_tab()
         self._build_bottom_panel()
 
     def _build_single_tab(self) -> None:
@@ -108,7 +127,7 @@ class UniversalDocStudioApp:
         btn_browse_src.pack(side=tk.RIGHT)
 
         dnd_text = "💡 Kéo & thả file (.pdf, .docx, .md) trực tiếp vào ô trên hoặc bấm 'Chọn Tệp...'" if HAS_DND else "💡 Bấm 'Chọn Tệp...' để duyệt tệp"
-        lbl_hint = tk.Label(file_box, text=dnd_text, font=("Segoe UI", 8), fg="#64748b", bg=self.root["bg"])
+        lbl_hint = tk.Label(master=file_box, text=dnd_text, font=("Segoe UI", 8), fg="#64748b", bg=self.root["bg"])
         lbl_hint.pack(anchor=tk.W, pady=(4, 0))
 
         # Target Format & Output Path Section
@@ -155,7 +174,7 @@ class UniversalDocStudioApp:
 
         ttk.Label(e_row, text="Chế độ xử lý:").pack(side=tk.LEFT, padx=(0, 8))
         lbl_badge = tk.Label(
-            e_row,
+            master=e_row,
             text=" Flow Document Native + Smart Post-Processor v3 (Chuẩn ApowerPDF) ",
             bg="#ecfdf5",
             fg="#047857",
@@ -203,7 +222,7 @@ class UniversalDocStudioApp:
         btn_browse_src.pack(side=tk.RIGHT)
 
         dnd_text = "💡 Kéo & thả file Word (.docx) trực tiếp vào ô trên hoặc bấm 'Chọn Tệp Word...'" if HAS_DND else "💡 Bấm 'Chọn Tệp Word...' để duyệt tệp"
-        lbl_hint = tk.Label(file_box, text=dnd_text, font=("Segoe UI", 8), fg="#64748b", bg=self.root["bg"])
+        lbl_hint = tk.Label(master=file_box, text=dnd_text, font=("Segoe UI", 8), fg="#64748b", bg=self.root["bg"])
         lbl_hint.pack(anchor=tk.W, pady=(4, 0))
 
         # Presentation Settings Section
@@ -317,7 +336,7 @@ class UniversalDocStudioApp:
         btn_row.pack(fill=tk.X, pady=(0, 8))
 
         self.btn_convert = tk.Button(
-            btn_row,
+            master=btn_row,
             text="🚀 BẮT ĐẦU CHUYỂN ĐỔI",
             command=self._start_conversion,
             bg="#2563eb",
@@ -339,7 +358,7 @@ class UniversalDocStudioApp:
         self.btn_open_dir.pack(side=tk.LEFT)
 
         self.btn_diagram_editor = tk.Button(
-            btn_row,
+            master=btn_row,
             text="📐 Canvas Diagram Editor",
             command=self._open_diagram_editor,
             bg="#0f172a",
@@ -634,7 +653,7 @@ class UniversalDocStudioApp:
     def _run_pptx_thread(self, src: str, out: str, spec_out: Optional[str], theme: str, tpl: Optional[str]) -> None:
         try:
             try:
-                from .docx_to_pptx import convert_docx_to_pptx
+                from core.pptx.docx_to_pptx import convert_docx_to_pptx
             except (ImportError, ValueError):
                 from docx_to_pptx import convert_docx_to_pptx
 
@@ -778,7 +797,7 @@ class UniversalDocStudioApp:
         """Launch the Precision Diagram Canvas Editor in a child window."""
         try:
             try:
-                from .diagram_editor import DiagramEditorApp
+                from core.diagrams.editor import DiagramEditorApp
             except (ImportError, ValueError):
                 from diagram_editor import DiagramEditorApp  # type: ignore
 
@@ -790,6 +809,98 @@ class UniversalDocStudioApp:
             DiagramEditorApp(master=self.root, spec_path=spec_path or None)
         except Exception as err:
             messagebox.showerror("Lỗi khởi động Editor", f"Không thể mở Diagram Canvas Editor:\n{err}")
+
+    def _launch_native_web_app(self) -> None:
+        """Launches the Native App Mode Web Studio in a background thread."""
+        from .webview_launcher import launch_native_web_studio
+
+        self.log("[WEB STUDIO] Đang khởi động Native App Mode (Edge/Chrome --app)...")
+        threading.Thread(target=launch_native_web_studio, daemon=True).start()
+
+    def _build_enterprise_tab(self) -> None:
+        """Builds the v4.6 Enterprise Quick Actions Tab (Deep CDR, Excel-to-Brief, PDF/A, Code-to-Diagram)."""
+        box = ttk.LabelFrame(
+            self.tab_enterprise,
+            text=" Tác Vụ Doanh Nghiệp Nhanh (Deep CDR, PII Redact, Excel-to-Brief, PDF/A-2b) ",
+            padding=12,
+        )
+        box.pack(fill=tk.BOTH, expand=True)
+
+        row1 = ttk.Frame(box)
+        row1.pack(fill=tk.X, pady=(0, 10))
+        ttk.Label(row1, text="Tệp mục tiêu:").pack(side=tk.LEFT, padx=(0, 8))
+        self.ent_src_var = tk.StringVar()
+        ttk.Entry(row1, textvariable=self.ent_src_var, font=("Segoe UI", 9)).pack(
+            side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 8)
+        )
+        ttk.Button(
+            row1,
+            text="Chọn Tệp...",
+            command=lambda: self.ent_src_var.set(
+                filedialog.askopenfilename(title="Chọn tài liệu cần xử lý") or self.ent_src_var.get()
+            ),
+        ).pack(side=tk.RIGHT)
+
+        btn_grid = ttk.Frame(box)
+        btn_grid.pack(fill=tk.X, pady=8)
+
+        ttk.Button(
+            btn_grid,
+            text="🛡️ Deep CDR & Che Mờ PII",
+            command=self._run_quick_cdr_pii,
+        ).pack(side=tk.LEFT, padx=(0, 8))
+
+        ttk.Button(
+            btn_grid,
+            text="📊 Excel ➔ Word Brief (.docx)",
+            command=self._run_quick_excel_brief,
+        ).pack(side=tk.LEFT, padx=(0, 8))
+
+        ttk.Button(
+            btn_grid,
+            text="🔏 Ký Số PAdES & Xuất PDF/A-2b",
+            command=self._run_quick_pdfa_sign,
+        ).pack(side=tk.LEFT, padx=(0, 8))
+
+    def _run_quick_cdr_pii(self) -> None:
+        src = self.ent_src_var.get().strip()
+        if not src or not os.path.isfile(src):
+            messagebox.showwarning("Thiếu tệp", "Vui lòng chọn tệp cần tẩy rửa Deep CDR & PII.")
+            return
+        from core.security.sanitizer import sanitize_document
+
+        res = sanitize_document(src, deep_cdr=True, redact_pii=True)
+        if res.get("success"):
+            self.last_output_path = res["output_file"]
+            self.log(f"[DEEP CDR] Đã tạo tệp sạch: {res['output_file']}")
+            messagebox.showinfo("Hoàn tất Deep CDR", f"Tệp sạch đã lưu tại:\n{res['output_file']}")
+
+    def _run_quick_excel_brief(self) -> None:
+        src = self.ent_src_var.get().strip()
+        if not src or not os.path.isfile(src) or not src.lower().endswith(".xlsx"):
+            messagebox.showwarning("Thiếu tệp Excel", "Vui lòng chọn tệp .xlsx để xuất báo cáo Word Brief.")
+            return
+        from core.xlsx.reporting import excel_to_brief
+
+        res = excel_to_brief(src, target_format="docx")
+        self.last_output_path = res["output_path"]
+        self.log(f"[EXCEL-TO-BRIEF] Hoàn tất: {res['output_path']}")
+        messagebox.showinfo("Hoàn tất Excel-to-Brief", f"Báo cáo Word đã lưu tại:\n{res['output_path']}")
+
+    def _run_quick_pdfa_sign(self) -> None:
+        src = self.ent_src_var.get().strip()
+        if not src or not os.path.isfile(src) or not src.lower().endswith(".pdf"):
+            messagebox.showwarning("Thiếu tệp PDF", "Vui lòng chọn tệp .pdf để ký số PAdES và chuẩn hóa PDF/A-2b.")
+            return
+        from core.converter.pdf_toolkit import convert_to_pdfa, crypto_sign_pdf
+
+        signed_path = f"{os.path.splitext(src)[0]}_signed.pdf"
+        pdfa_path = f"{os.path.splitext(src)[0]}_signed_pdfa2b.pdf"
+        crypto_sign_pdf(src, signed_path)
+        res = convert_to_pdfa(signed_path, pdfa_path, part=2, conformance="B")
+        self.last_output_path = res["output_path"]
+        self.log(f"[PDF/A-2b & PAdES] Hoàn tất: {res['output_path']}")
+        messagebox.showinfo("Hoàn tất Ký Số & PDF/A-2b", f"Tệp lưu trữ đã lưu tại:\n{res['output_path']}")
 
 
 def launch_gui(initial_file: Optional[str] = None) -> None:

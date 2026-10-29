@@ -1,8 +1,8 @@
 # Architecture Guide — Antigravity Universal Office Studio
 
-> **Phiên bản**: 4.3.0 (Target Layered Modular Architecture v4.3)  
+> **Phiên bản**: 4.6.0 (Enterprise Omni-Pipeline, Deep CDR, Cryptographic PAdES/PDF-A & AST Code-to-Diagram Architecture v4.6)  
 > **Tiêu chuẩn**: Zero-Regression, 100% Backward Compatibility, Strict Layer Isolation, Clean-Room MIT Compliance  
-> **Test Suite**: 216 Automated Tests (100% Pass Rate)
+> **Test Suite**: 313+ Automated Tests (100% Pass Rate) | **MCP Tools**: 28 Tools
 
 ---
 
@@ -13,27 +13,27 @@ Hệ thống được tổ chức theo mô hình phân tầng chặt chẽ (Clea
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                              1. Presentation & Client Layer                            │
-│   Web Studio (src/ - Vite ES6 + Vanilla Glassmorphic) │ Desktop GUI (ui/ - Tkinter)    │
+│   Web Studio (src/ - Vite ES6 + Glassmorphic) │ Desktop GUI & App Mode (ui/)           │
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
                                             │
                                             ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                              2. Interface & Protocol Layer                             │
-│   Web REST API (server/app.py :8000)      │ Model Context Protocol (server/mcp_server) │
-│   SSE Task Manager (server/job_manager)   │ AI Unified CLI (cli/ai_tools.py)           │
+│   Web REST API (server/app.py :8000)      │ Model Context Protocol (28 Tools)          │
+│   SSE Task Manager (server/job_manager)   │ AI Unified CLI (cli/ai_tools + v46_cmds)   │
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
                                             │
                                             ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                            3. Core Document & Automation Engine                        │
-│  core/docx/     │ core/pptx/     │ core/xlsx/     │ core/converter/ │ core/pdf/        │
-│  core/diagrams/ │ core/env_doctor│                                                     │
+│  core/docx/     │ core/pptx/     │ core/xlsx/     │ core/converter/ │ core/pipeline/   │
+│  core/diagrams/ │ core/security/ │ core/yearbook/ │ core/env_doctor │                  │
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
                                             │
                                             ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                          4. Storage, Cache & Diagnostic Layer                          │
-│   SQLite (history.db / db.py) │ In-Memory SSE Queue │ Unified QA Diagnostic Engine     │
+│   SQLite (history.db / db.py) │ In-Memory SSE Queue │ Unified QA Diagnostic (13 Gates) │
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
                                             │
                                             ▼
@@ -85,12 +85,15 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
     - `handoff_packager.py`: Đóng gói hồ sơ bàn giao thợ thiết kế 5-trong-1 (.zip) với cơ chế stream đĩa trực tiếp (`ERR_RAM_001`), sinh bản Word DOCX Brief tuân thủ nghiêm ngặt các bất biến OpenXML bảng biểu (`<w:cantSplit/>`, `<w:tblHeader/>`, `<w:vAlign w:val="center"/>`, The Last Paragraph Rule).
   - `core/security/`:
     - `document_auditor.py`: Kiểm định an ninh tài liệu tĩnh dựa trên bộ kiểm tra phòng thủ Cloudflare Security Audit Harness, phân định 3 trạng thái phản biện đối nghịch (`confirmed`, `needs_validation`, `rejected`) cho 5 bất biến: `ERR_SEC_001` (Macro streams & PDF `/Launch`), `ERR_SEC_002` (Formula / DDE Injection), `ERR_SEC_003` (OLE MZ headers & PE binaries), `ERR_SEC_004` (PII author metadata & `veryHidden` sheets), `ERR_SEC_005` (Zip Slip `../` traversal & XXE DTD entities).
-    - `sanitizer.py`: Tẩy rửa và vô hiệu hóa mối đe dọa không phá hủy (Non-destructive Defuser): Thêm tiền tố nháy đơn `'` cho công thức nguy hiểm, tẩy rửa metadata tác giả từ `docProps/core.xml`, phục hồi hiển thị cho sheet `veryHidden`.
+    - `sanitizer.py`: Tẩy rửa và vô hiệu hóa mối đe dọa không phá hủy (Non-destructive Defuser & Deep CDR `ERR_SEC_006` + Smart Vietnamese PII Redactor `ERR_SEC_007`): Thêm tiền tố nháy đơn `'` cho công thức nguy hiểm, bóc gỡ `vbaProject.bin` & OLE PE (`MZ`), tự động chuyển đổi `macroEnabled.main+xml` sang chuẩn OpenXML, dọn sạch `.rels`, và che mờ thông minh CCCD/SĐT/STK/MST/Email không phạm vào số liệu tài chính BCTC.
+  - `core/pipeline/`:
+    - `engine.py`: Động cơ đường ống công việc khai báo đa bước (`WorkflowPipeline`, `run_pipeline`, `run_bulk_directory_pipeline`) tuân thủ `ERR_PIPE_001` (giới hạn `MAX_JOB_WORKERS=2` bảo vệ container 512MB RAM và dọn sạch 100% tệp trung gian `step_*_temp.*` trong khối `try...finally`).
   - `core/env_doctor/`:
     - `run_doctor.py`: Tự động quét kiểm tra 12 thành phần môi trường (Python, LibreOffice, Tesseract, Chromium, PlantUML, font chữ) và xuất báo cáo JSON / Terminal kèm mã lệnh khắc phục 1-click.
   - `core/diagrams/`:
     - `bridge.py`: Điều phối sơ đồ thống nhất.
-    - `mxgraph.py`: Bộ sinh sơ đồ cấu trúc Draw.io XML native (`MX_INV_01`..`20`).
+    - `mxgraph.py`: Bộ sinh sơ đồ cấu trúc Draw.io XML native (`MX_INV_01`..`20`) và tự động nhúng vào `.docx` / `.pptx`.
+    - `code_to_diagram.py`: Bộ quét mã nguồn tĩnh Python AST & SQL/Prisma DDL sinh sơ đồ Class/ERD tự động kèm bộ xuất Vector SVG thuần Python (`export_mxgraph_to_svg`).
     - `editor.py`: Trình biên tập Canvas tương tác 2 chiều.
     - `legacy/`: Các renderer kế thừa (`canvas`, `plantuml`, `mermaid`).
 

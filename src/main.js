@@ -2229,11 +2229,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const doRepair = repairToggle ? repairToggle.checked : true;
         const securityToggle = document.getElementById('qa-security-toggle');
         const doSecurity = securityToggle ? securityToggle.checked : true;
+        const deepCdrToggle = document.getElementById('qa-deep-cdr-toggle');
+        const doDeepCdr = deepCdrToggle ? deepCdrToggle.checked : true;
+        const redactPiiToggle = document.getElementById('qa-redact-pii-toggle');
+        const doRedactPii = redactPiiToggle ? redactPiiToggle.checked : false;
 
         const res = await fetch('/api/qa/audit', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ file_path: serverPath, repair: doRepair, security: doSecurity }),
+          body: JSON.stringify({
+            file_path: serverPath,
+            repair: doRepair,
+            security: doSecurity,
+            deep_cdr: doDeepCdr,
+            redact_pii: doRedactPii,
+          }),
         });
 
         if (!res.ok) {

@@ -26,6 +26,10 @@ if BASE_DIR not in sys.path:
 
 def main() -> int:
     if len(sys.argv) > 1:
+        if sys.argv[1] in ("--web-app", "--app"):
+            from ui.webview_launcher import launch_native_web_studio
+            launch_native_web_studio()
+            return 0
         from cli.ai_tools import main as run_cli
         return run_cli()
     else:

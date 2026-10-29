@@ -21,9 +21,10 @@ import argparse
 import datetime
 import json
 import os
+import re
 import sys
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 if sys.platform == "win32":
     try:
@@ -66,6 +67,90 @@ def get_current_package_version() -> str:
             return data.get("version", "4.3.0")
     except Exception:
         return "4.3.0"
+
+
+def get_expected_mcp_tools_count() -> int:
+    """Reads live count of MCP tools registered in server/mcp_server.py."""
+    try:
+        from server.mcp_server import TOOL_DEFINITIONS
+        return len(TOOL_DEFINITIONS)
+    except Exception:
+        return 28
+
+
+def get_expected_tests_count() -> int:
+    """Extracts live automated test count from README.md or fallback."""
+    readme_path = os.path.join(BASE_DIR, "README.md")
+    try:
+        with open(readme_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        m = re.search(r'Tests-([0-9]+)%2F[0-9]+_Passed', content)
+        if m:
+            return int(m.group(1))
+    except Exception:
+        pass
+    return 313
+
+
+def audit_semantic_body_parity(pkg_ver: str) -> Tuple[bool, List[str]]:
+    """
+    Enforces Semantic Content Parity (ERR_DOC_SYNC_001 Section D):
+    Verifies that Markdown body text actually matches the target system version,
+    real test suite counts, MCP tool counts, and includes dedicated feature sections.
+    Prevents 'title-only' version bumps where body tables and text remain outdated.
+    """
+    errors: List[str] = []
+    mcp_count = get_expected_mcp_tools_count()
+    test_count = get_expected_tests_count()
+
+    # 1. Audit BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V4.md
+    arch_md = os.path.join(BASE_DIR, "docs", "BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V4.md")
+    if os.path.isfile(arch_md):
+        with open(arch_md, "r", encoding="utf-8") as f:
+            arch_text = f.read()
+
+        # Check Section 2 comparison header
+        if f"v{pkg_ver} Production Grade" not in arch_text:
+            errors.append(f"docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V4.md: Section 2 table missing 'v{pkg_ver} Production Grade'")
+
+        # Detect obsolete versions in Section 2 comparison title
+        obsolete_match = re.search(r'## 2\.\s+BẢNG MA TRẬN SO SÁNH TOÀN DIỆN.*v(4\.[0-9]+\.[0-9]+)', arch_text, re.IGNORECASE)
+        if obsolete_match and obsolete_match.group(1) != pkg_ver:
+            errors.append(f"docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V4.md: Section 2 header still references old version 'v{obsolete_match.group(1)}' instead of 'v{pkg_ver}'")
+
+        # Check Conclusion mentions current version
+        if f"({pkg_ver} Production Grade)" not in arch_text and f"(v{pkg_ver} Production Grade)" not in arch_text:
+            errors.append(f"docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V4.md: Conclusion missing '(v{pkg_ver} Production Grade)'")
+
+        # Check MCP tools count
+        mcp_pattern = rf'(?:{mcp_count}\s+MCP\s+Tools|MCP\s+{mcp_count}-Tool)'
+        if not re.search(mcp_pattern, arch_text, re.IGNORECASE):
+            errors.append(f"docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V4.md: Body missing reference to current {mcp_count} MCP Tools Catalog")
+
+        # Check Automated test count
+        test_pattern = rf'(?:{test_count}\+|{test_count}/{test_count})'
+        if not re.search(test_pattern, arch_text):
+            errors.append(f"docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V4.md: Body missing reference to current test count ({test_count}+)")
+
+        # Check dedicated feature section for current version
+        feature_section_pattern = rf'v{re.escape(pkg_ver)}'
+        if not re.search(rf'##\s+[0-9]+\..*{feature_section_pattern}', arch_text):
+            errors.append(f"docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V4.md: Missing dedicated feature chapter heading for 'v{pkg_ver}'")
+
+    # 2. Audit HUONG_DAN_SU_DUNG_CHI_TIET_TUNG_TINH_NANG.md
+    guide_md = os.path.join(BASE_DIR, "docs", "HUONG_DAN_SU_DUNG_CHI_TIET_TUNG_TINH_NANG.md")
+    if os.path.isfile(guide_md):
+        with open(guide_md, "r", encoding="utf-8") as f:
+            guide_text = f.read()
+
+        if f"v{pkg_ver}" not in guide_text:
+            errors.append(f"docs/HUONG_DAN_SU_DUNG_CHI_TIET_TUNG_TINH_NANG.md: Missing target version 'v{pkg_ver}'")
+
+        # Check dedicated feature section for current version
+        if not re.search(rf'###\s+PHẦN.*v{re.escape(pkg_ver)}', guide_text, re.IGNORECASE):
+            errors.append(f"docs/HUONG_DAN_SU_DUNG_CHI_TIET_TUNG_TINH_NANG.md: Missing dedicated feature section for 'v{pkg_ver}'")
+
+    return (len(errors) == 0, errors)
 
 
 def check_sync_status() -> int:
@@ -122,11 +207,23 @@ def check_sync_status() -> int:
 
         print()
 
+    # 4. Semantic Content Parity Audit
+    print("[*] Semantic Body Parity Audit (ERR_DOC_SYNC_001 Section D):")
+    semantic_ok, semantic_errors = audit_semantic_body_parity(pkg_ver)
+    if not semantic_ok:
+        all_passed = False
+        for err in semantic_errors:
+            print(f"    [FAIL] {err}")
+    else:
+        print("    [OK] Markdown body texts match target version, test count, and MCP catalog.")
+
+    print()
+
     if all_passed:
-        print("[OK] All Core Documentation Triad assets are fully synchronized.")
+        print("[OK] All Core Documentation Triad assets and body semantics are fully synchronized.")
         return 0
     else:
-        print("[FAIL] Out-of-sync or missing documents detected. Run 'python tools/sync_core_docs.py --build' to repair.")
+        print("[FAIL] Out-of-sync or semantic parity violations detected. Please resolve errors before release.")
         return 1
 
 

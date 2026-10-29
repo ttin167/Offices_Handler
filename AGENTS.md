@@ -22,7 +22,7 @@ The workspace includes preconfigured Antigravity customizations:
 - **Rule 1**: [rule_technical_diagram_standards.md](.agents/rules/rule_technical_diagram_standards.md) — English screen names, codebase-truth action labels, multi-line wrapping (`\n`), and automated AABB collision detection.
 - **Rule 2**: [rule_decoupled_document_converter.md](.agents/rules/rule_decoupled_document_converter.md) — Table OpenXML invariants (`cantSplit`, `tblHeader`, `vAlign="center"`) and decoupled styling.
 - **Rule 3**: [rule_feature_lifecycle_and_doc_sync.md](.agents/rules/rule_feature_lifecycle_and_doc_sync.md) — Documentation synchronization (`CHANGELOG.md`, `ARCHITECTURE.md`, `README.md`, and Core Docs Triad) on feature completions (`ERR_DOC_SYNC_001`).
-- **Rule 4**: [rule_version_synchronization_and_release_invariants.md](.agents/rules/rule_version_synchronization_and_release_invariants.md) — 9-anchor synchronization and automated build on version bumps (`ERR_VER_001`).
+- **Rule 4**: [rule_version_synchronization_and_release_invariants.md](.agents/rules/rule_version_synchronization_and_release_invariants.md) — 10-anchor synchronization and automated build on version bumps (`ERR_VER_001`).
 - **Rule 5**: [rule_database_erd_standards.md](.agents/rules/rule_database_erd_standards.md) — Crow's foot notation, table sizing, and relational database ERD invariants.
 - **Rule 6**: [rule_excel_template_preservation_and_ux.md](.agents/rules/rule_excel_template_preservation_and_ux.md) — Invariants E1–E14, token extraction, and live dynamic formulas.
 - **Rule 7**: [rule_enterprise_document_and_spreadsheet_qa.md](.agents/rules/rule_enterprise_document_and_spreadsheet_qa.md) — Document & spreadsheet QA invariants (`ERR_XLSX_001`–`014`, `ERR_DOCX_001`–`005`).
@@ -101,6 +101,12 @@ When executing tasks programmatically via Python, MCP, or CLI, dispatch accordin
 | **Atomic Word Text Patching** | DOCX + Replacements | `docx_replace_text(...)` | `ai_tools_cli.py docx-replace` | `core.docx.writer.patch_docx_template` |
 | **Atomic Word Paragraph/Table** | DOCX + Content | `docx_insert_paragraph(...)` / `docx_insert_table(...)` | (via MCP Tool) | `core.docx.writer` |
 | **Document Security Audit & Sanitizer** | Office Doc / CSV / Zip | `doc_security_audit(...)` | `ai_tools_cli.py doc-security` | `core.security.document_auditor`, `core.security.sanitizer` |
+| **PKCS#7 / PAdES Signing & PDF/A-2b** | PDF + Optional PFX | `pdf_crypto_sign_and_pdfa(...)` | `ai_tools_cli.py pdf-tools {crypto-sign,pdfa}` | `core.converter.pdf_toolkit` |
+| **Excel-to-Brief Report (Word/MD/PDF)** | XLSX Workbook | `xlsx_to_brief_report(...)` | `ai_tools_cli.py xlsx-to-brief` | `core.xlsx.reporting.excel_to_brief` |
+| **Cross-Workbook Consolidation** | Multiple XLSX | `xlsx_consolidate_workbooks(...)` | `ai_tools_cli.py xlsx-consolidate` | `core.xlsx.reporting.consolidate_workbooks` |
+| **Declarative Workflow Pipeline** | File/Dir + Spec | `doc_run_pipeline(...)` | `ai_tools_cli.py run-pipeline` | `core.pipeline.engine` |
+| **AST Code-to-Diagram & SVG Export** | Python / SQL / Prisma | `diagram_from_code(...)` | `ai_tools_cli.py code-to-diagram` | `core.diagrams.code_to_diagram` |
+| **Launch Native Web Studio App Mode** | Desktop App | (CLI / GUI Button) | `ai_tools_cli.py desktop-web` | `ui.webview_launcher.launch_native_web_studio` |
 
 ---
 

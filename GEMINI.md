@@ -153,8 +153,8 @@ Khi bắt đầu làm bất kỳ tác vụ nào thuộc domain dưới đây, **
 | `ERR_DOCX_005` | **Printable Margin Overflow** | Khóa tỉ lệ ảnh; chiều rộng hình ảnh $\le$ `page_width - left_margin - right_margin`. |
 | `ERR_DIAG_002` | **Zero-Template 60-30-10** | Vẽ không có mẫu: 60% nền trung tính, 30% thẻ slate/trắng, 10% màu nhấn. Khoảng cách $\ge$ 40px. |
 | `ERR_CONV_004` | **Zombie Lock Files Cleanup** | Tự động quét và thu gom sạch file rác `.~lock.*` và `~$*` trước/sau khi chạy. |
-| `ERR_VER_001` | **Version Desync Invariant** | Luôn đồng bộ 100% version giữa Terminal/BE/Manifest và Frontend/index.html qua tools/bump_version.py + npm run build. |
-| `ERR_DOC_SYNC_001` | **Feature & Documentation Invariant** | Mọi tính năng sau khi triển khai/sửa đổi bắt buộc cập nhật CHANGELOG.md, ARCHITECTURE.md và bộ đôi Core Docs (`BAO_CAO_TIEN_HOA` & `HUONG_DAN_SU_DUNG` kèm MD/DOCX/PDF) qua `python tools/sync_core_docs.py --build`. |
+| `ERR_VER_001` | **Version Desync Invariant** | Luôn đồng bộ 100% version trên 10 điểm neo (Terminal/BE/Manifest/Frontend/Core Docs Semantic) qua tools/bump_version.py + npm run build. |
+| `ERR_DOC_SYNC_001` | **Feature & Documentation Invariant** | Mọi tính năng sau khi triển khai/sửa đổi bắt buộc cập nhật CHANGELOG.md, ARCHITECTURE.md và bộ đôi Core Docs kèm Semantic Body Parity Checklist qua python tools/sync_core_docs.py --build & --check. |
 | `CLI Exit` | **CI/CD Exit Codes** | `0` = Clean 100%; `1` = Warning (Aesthetic); `2` = Critical (Corrupt XML / Break). |
 
 ---
@@ -216,6 +216,11 @@ Khi bắt đầu làm bất kỳ tác vụ nào thuộc domain dưới đây, **
 | `ERR_SEC_003` | **Dangerous OLE Package Embeddings** | Quét OLE objects dưới `embeddings/oleObject*.bin`, phát hiện header PE (`MZ`) hoặc phần mở rộng thực thi `.exe`, `.bat`, `.ps1`. |
 | `ERR_SEC_004` | **Hidden PII & Sensitive Metadata Leakage** | Xóa metadata tác giả (`dc:creator`, `cp:lastModifiedBy`), ghi chú nội bộ, và phục hồi sheet `veryHidden` trước khi bàn giao tài liệu. |
 | `ERR_SEC_005` | **Safe XML & Zip Slip Defense** | Chống path traversal `../` trong tên tệp ZIP; vô hiệu hóa DTD external entities (`<!ENTITY`, `SYSTEM`) để ngăn chặn XXE injection. |
+| `ERR_SEC_006` | **Deep CDR Content-Type Promotion & Rels Clean** | Khi bóc gỡ `vbaProject.bin` / OLE PE (`MZ`) khỏi `.docm`/`.xlsm`, bắt buộc xóa `<Override>` trong `[Content_Types].xml`, xóa `<Relationship>` mồ côi trong `.rels`, và nâng cấp `macroEnabled.main+xml` về chuẩn OpenXML. |
+| `ERR_SEC_007` | **Vietnamese PII Redactor Financial Guard** | CCCD 12 số kiểm tra mã tỉnh `001..096` + thế kỷ/giới tính `0..3`; SĐT kiểm tra đầu mạng VN và không đi kèm `VND/USD/đ/%`; STK ngân hàng bắt buộc có Contextual Anchoring (`STK`, `Số tài khoản`, `Account No`). |
+| `ERR_XLSX_015` | **Dual-Workbook Formula Fallback (`excel_to_brief`)** | Khi đọc `data_only=True` trả về `None` (file mới sinh bởi `openpyxl`), bắt buộc fallback đọc công thức từ `data_only=False` và tự tính `SUM`, `AVERAGE`, `COUNT`, `MIN`, `MAX`. |
+| `ERR_PIPE_001` | **Cloud 512MB RAM Worker Cap & Temp Cleanup** | `run_bulk_directory_pipeline` mặc định `max_workers = int(os.environ.get("MAX_JOB_WORKERS", 2))` và xóa triệt để 100% file trung gian `step_*_temp.*` trong khối `try...finally`. |
+| `ERR_UI_001` | **Isolated App Mode `--user-data-dir` Lifecycle** | Khởi chạy Edge/Chrome `--app` bắt buộc truyền `--user-data-dir=<temp_app_profile_dir>` để `proc.wait()` giữ sống tiến trình server đúng vòng đời cửa sổ App và dọn sạch profile tạm khi đóng. |
 
 ---
 

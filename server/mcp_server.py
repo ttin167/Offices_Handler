@@ -63,7 +63,7 @@ except (ImportError, ValueError):
 
 MCP_PROTOCOL_VERSION = "2024-11-05"
 SERVER_NAME = "antigravity-doc-handler"
-SERVER_VERSION = "4.5.0"
+SERVER_VERSION = "4.6.0"
 
 TOOL_DEFINITIONS = [
     {
@@ -767,9 +767,211 @@ TOOL_DEFINITIONS = [
                     "type": "boolean",
                     "description": "Unhide veryHidden sheets in Excel workbooks",
                     "default": True
+                },
+                "deep_cdr": {
+                    "type": "boolean",
+                    "description": "Enable Deep CDR (strip vbaProject.bin, OLE PE binaries, PDF JS, and promote ContentType)",
+                    "default": True
+                },
+                "redact_pii": {
+                    "type": "boolean",
+                    "description": "Redact Vietnamese PII (CCCD, Phone, Contextual Bank Account, MST, Email)",
+                    "default": False
+                },
+                "pii_types": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional list of PII types to redact: ['cccd', 'phone', 'bank_account', 'mst', 'email']"
                 }
             },
             "required": ["file_path"]
+        }
+    },
+    {
+        "name": "pdf_crypto_sign_and_pdfa",
+        "description": "Apply PAdES/PKCS#7 cryptographic digital signature seal and/or convert PDF to ISO 19005-2 archival PDF/A-2b.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Absolute path to source .pdf file"
+                },
+                "output_path": {
+                    "type": "string",
+                    "description": "Optional output PDF path"
+                },
+                "mode": {
+                    "type": "string",
+                    "description": "Operation mode: 'crypto_sign', 'pdfa', or 'both'",
+                    "enum": ["crypto_sign", "pdfa", "both"],
+                    "default": "both"
+                },
+                "signer_name": {
+                    "type": "string",
+                    "description": "Signer common name or authority",
+                    "default": "Antigravity Authority"
+                },
+                "reason": {
+                    "type": "string",
+                    "description": "Signing reason",
+                    "default": "Phê duyệt & Xác thực tài liệu (PAdES/PKCS#7)"
+                },
+                "location": {
+                    "type": "string",
+                    "description": "Signing location",
+                    "default": "Việt Nam"
+                },
+                "pdfa_part": {
+                    "type": "integer",
+                    "description": "PDF/A part number (1, 2, or 3)",
+                    "default": 2
+                },
+                "pdfa_conformance": {
+                    "type": "string",
+                    "description": "PDF/A conformance level ('A', 'B', or 'U')",
+                    "default": "B"
+                }
+            },
+            "required": ["file_path"]
+        }
+    },
+    {
+        "name": "xlsx_to_brief_report",
+        "description": "Convert multi-sheet Excel workbooks (.xlsx) into Word (.docx), Markdown (.md), or PDF (.pdf) reports with Dual-Workbook formula evaluation (ERR_XLSX_015) and OpenXML table invariants.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "xlsx_path": {
+                    "type": "string",
+                    "description": "Absolute path to source .xlsx workbook"
+                },
+                "output_path": {
+                    "type": "string",
+                    "description": "Optional output path (.docx, .md, or .pdf)"
+                },
+                "target_format": {
+                    "type": "string",
+                    "description": "Target format: 'docx', 'md', or 'pdf'",
+                    "enum": ["docx", "md", "pdf"],
+                    "default": "docx"
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Optional custom report title"
+                },
+                "include_kpi_summary": {
+                    "type": "boolean",
+                    "description": "Include automatic KPI summary tables per sheet",
+                    "default": True
+                }
+            },
+            "required": ["xlsx_path"]
+        }
+    },
+    {
+        "name": "xlsx_consolidate_workbooks",
+        "description": "Consolidate multiple departmental/branch Excel workbooks (.xlsx) sharing a template into a single Master Workbook with schema validation and live summary formulas.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "input_paths": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of source .xlsx file paths to consolidate"
+                },
+                "output_path": {
+                    "type": "string",
+                    "description": "Destination path for the consolidated Master .xlsx"
+                },
+                "mode": {
+                    "type": "string",
+                    "description": "Consolidation mode: 'append_rows' or 'merge_sheets'",
+                    "enum": ["append_rows", "merge_sheets"],
+                    "default": "append_rows"
+                },
+                "strict_schema": {
+                    "type": "boolean",
+                    "description": "Enforce identical column header schema across files",
+                    "default": True
+                }
+            },
+            "required": ["input_paths", "output_path"]
+        }
+    },
+    {
+        "name": "doc_run_pipeline",
+        "description": "Execute a declarative multi-step workflow pipeline on a single document or an entire directory (ERR_PIPE_001 memory-safe concurrency & deterministic temp cleanup).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "pipeline_spec": {
+                    "type": "object",
+                    "description": "Pipeline specification object containing 'name' and 'steps' array"
+                },
+                "input_path": {
+                    "type": "string",
+                    "description": "Single input file path (mutually exclusive with batch_dir)"
+                },
+                "batch_dir": {
+                    "type": "string",
+                    "description": "Directory path for bulk folder processing"
+                },
+                "output_path": {
+                    "type": "string",
+                    "description": "Output file path (single mode) or output directory path (batch mode)"
+                },
+                "file_pattern": {
+                    "type": "string",
+                    "description": "Glob pattern when running in batch_dir mode (e.g. '*.docx')",
+                    "default": "*.*"
+                },
+                "max_workers": {
+                    "type": "integer",
+                    "description": "Optional worker limit (defaults to MAX_JOB_WORKERS env or 2)"
+                }
+            },
+            "required": ["pipeline_spec"]
+        }
+    },
+    {
+        "name": "diagram_from_code",
+        "description": "AST Code-to-Diagram generator: scans Python (.py / folder) or SQL/Prisma (.sql / .prisma) to generate Class Diagrams or ERDs in JSON Spec, Native Draw.io (.drawio), Vector SVG (.svg), and PNG (.png) with optional auto-injection into Word (.docx) or PowerPoint (.pptx).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "source_path": {
+                    "type": "string",
+                    "description": "Path to Python file/folder, SQL DDL file, Prisma schema, or raw code string"
+                },
+                "diagram_type": {
+                    "type": "string",
+                    "description": "Diagram type: 'auto', 'class', 'erd', or 'c4'",
+                    "enum": ["auto", "class", "erd", "c4"],
+                    "default": "auto"
+                },
+                "output_png_path": {
+                    "type": "string",
+                    "description": "Optional destination path for rendered PNG"
+                },
+                "output_drawio_path": {
+                    "type": "string",
+                    "description": "Optional destination path for native .drawio XML"
+                },
+                "output_svg_path": {
+                    "type": "string",
+                    "description": "Optional destination path for pure vector .svg"
+                },
+                "inject_into": {
+                    "type": "string",
+                    "description": "Optional path to target .docx or .pptx to inject the diagram into"
+                },
+                "title": {
+                    "type": "string",
+                    "description": "Optional title or caption for the injected diagram"
+                }
+            },
+            "required": ["source_path"]
         }
     }
 ]
@@ -1487,7 +1689,7 @@ def execute_doc_security_audit(args: Dict[str, Any]) -> Dict[str, Any]:
         "report": report.to_dict(),
     }
 
-    if args.get("sanitize", False):
+    if args.get("sanitize", False) or args.get("deep_cdr", False) or args.get("redact_pii", False):
         from core.security.sanitizer import DocumentSanitizer
         sanitizer = DocumentSanitizer()
         san_res = sanitizer.sanitize(
@@ -1496,10 +1698,120 @@ def execute_doc_security_audit(args: Dict[str, Any]) -> Dict[str, Any]:
             defuse_formulas=args.get("defuse_formulas", True),
             strip_metadata=args.get("strip_metadata", True),
             unhide_sheets=args.get("unhide_sheets", True),
+            deep_cdr=args.get("deep_cdr", True),
+            redact_pii=args.get("redact_pii", False),
+            pii_types=args.get("pii_types"),
         )
         result["sanitization"] = san_res
 
     return result
+
+
+def execute_pdf_crypto_sign_and_pdfa(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.converter.pdf_toolkit import convert_to_pdfa, crypto_sign_pdf
+
+    src = os.path.abspath(args["file_path"])
+    mode = str(args.get("mode", "both")).strip().lower()
+    out_path = args.get("output_path")
+    if not out_path:
+        out_path = f"{os.path.splitext(src)[0]}_archival_signed.pdf"
+    out_path = os.path.abspath(out_path)
+
+    res: Dict[str, Any] = {"success": True, "mode": mode}
+    curr_in = src
+    tmp_signed = None
+
+    try:
+        if mode in ("crypto_sign", "both"):
+            target_sig_out = out_path if mode == "crypto_sign" else f"{os.path.splitext(out_path)[0]}__tmp_sig.pdf"
+            if mode == "both":
+                tmp_signed = target_sig_out
+            sig_info = crypto_sign_pdf(
+                curr_in,
+                target_sig_out,
+                signer_name=str(args.get("signer_name", "Antigravity Authority")),
+                reason=str(args.get("reason", "Phê duyệt & Xác thực tài liệu (PAdES/PKCS#7)")),
+                location=str(args.get("location", "Việt Nam")),
+            )
+            res["crypto_signature"] = sig_info
+            curr_in = target_sig_out
+
+        if mode in ("pdfa", "both"):
+            pdfa_info = convert_to_pdfa(
+                curr_in,
+                out_path,
+                part=int(args.get("pdfa_part", 2)),
+                conformance=str(args.get("pdfa_conformance", "B")),
+            )
+            res["pdfa"] = pdfa_info
+
+        res["output_path"] = out_path
+        return res
+    finally:
+        if tmp_signed and os.path.isfile(tmp_signed) and tmp_signed != out_path:
+            try:
+                os.remove(tmp_signed)
+            except OSError:
+                pass
+
+
+def execute_xlsx_to_brief_report(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.xlsx.reporting import excel_to_brief
+
+    return excel_to_brief(
+        xlsx_path=args["xlsx_path"],
+        output_path=args.get("output_path"),
+        target_format=str(args.get("target_format", "docx")),
+        title=args.get("title"),
+        include_kpi_summary=bool(args.get("include_kpi_summary", True)),
+    )
+
+
+def execute_xlsx_consolidate_workbooks(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.xlsx.reporting import consolidate_workbooks
+
+    return consolidate_workbooks(
+        input_paths=list(args["input_paths"]),
+        output_path=str(args["output_path"]),
+        mode=str(args.get("mode", "append_rows")),
+        strict_schema=bool(args.get("strict_schema", True)),
+    )
+
+
+def execute_doc_run_pipeline(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.pipeline import run_bulk_directory_pipeline, run_pipeline
+
+    spec = args["pipeline_spec"]
+    if args.get("batch_dir"):
+        out_dir = args.get("output_path") or os.path.join(os.path.abspath(args["batch_dir"]), "pipeline_output")
+        return run_bulk_directory_pipeline(
+            input_dir=args["batch_dir"],
+            output_dir=out_dir,
+            pipeline_spec=spec,
+            file_pattern=str(args.get("file_pattern", "*.*")),
+            max_workers=args.get("max_workers"),
+        )
+    if not args.get("input_path"):
+        raise ValueError("Either 'input_path' or 'batch_dir' is required.")
+    return run_pipeline(
+        input_path=args["input_path"],
+        pipeline_spec=spec,
+        output_path=args.get("output_path"),
+    )
+
+
+def execute_diagram_from_code(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.diagrams.code_to_diagram import generate_diagram_from_code
+
+    return generate_diagram_from_code(
+        source_path=args["source_path"],
+        diagram_type=str(args.get("diagram_type", "auto")),
+        output_png_path=args.get("output_png_path"),
+        output_drawio_path=args.get("output_drawio_path"),
+        output_svg_path=args.get("output_svg_path"),
+        inject_into=args.get("inject_into"),
+        title=args.get("title"),
+    )
 
 
 TOOL_DISPATCHER = {
@@ -1529,6 +1841,12 @@ TOOL_DISPATCHER = {
     "yearbook_export": execute_yearbook_export,
     # Cloudflare Security Audit Tool
     "doc_security_audit": execute_doc_security_audit,
+    # v4.6.0 Enterprise Upgrade Tools (5 new tools -> 28 total)
+    "pdf_crypto_sign_and_pdfa": execute_pdf_crypto_sign_and_pdfa,
+    "xlsx_to_brief_report": execute_xlsx_to_brief_report,
+    "xlsx_consolidate_workbooks": execute_xlsx_consolidate_workbooks,
+    "doc_run_pipeline": execute_doc_run_pipeline,
+    "diagram_from_code": execute_diagram_from_code,
 }
 
 

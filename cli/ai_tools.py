@@ -2644,6 +2644,9 @@ Examples:
     p_yb.add_argument("--export-type", choices=["handoff_zip", "print_pdf", "spread_pdf"], default="handoff_zip", help="Explicit export type")
     p_yb.set_defaults(func=cmd_yearbook_build)
 
+    from cli.v46_commands import register_v46_subcommands
+    register_v46_subcommands(sub, p_pdft, p_sec, cmd_pdf_tools, cmd_doc_security)
+
     return parser
 
 

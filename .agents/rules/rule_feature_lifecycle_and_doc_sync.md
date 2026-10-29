@@ -53,11 +53,21 @@ Bên cạnh `CHANGELOG.md` và `ARCHITECTURE.md`, hệ sinh thái quy định **
 **Quy chuẩn Bộ Ba Định Dạng (Triad Invariant)**:
 - Mỗi khi có tính năng mới, thay đổi API, bổ sung lệnh CLI hoặc cập nhật giao diện, AI Agent **BẮT BUỘC** cập nhật nội dung vào 2 file Markdown trên.
 - Đồng thời, **BẮT BUỘC** recompile tự động ra cả bản Word (`.docx`) và PDF (`.pdf`) để bộ tài liệu luôn sẵn sàng in ấn/xuất bản chuẩn quốc tế.
-- Lệnh đồng bộ tự động 1-click:
+
+**Bất Biến Đồng Bộ Ngữ Nghĩa Thân Tài Liệu (Semantic Content Parity Checklist — 5 Tiêu Chuẩn Bắt Buộc)**:
+> [!CAUTION]
+> Nghiêm cấm tuyệt đối hành vi "chỉ sửa version ở dòng tiêu đề đầu file" mà bỏ quên nội dung bên trong thân tài liệu (Semantic Body Desync). Mọi đợt cập nhật hoặc Version Bump bắt buộc tuân thủ 5 tiêu chuẩn:
+1. **Khớp Phiên Bản Bảng So Sánh (Section 2)**: Tiêu đề bảng đối chiếu (`## 2. BẢNG MA TRẬN SO SÁNH TOÀN DIỆN (v1.0 BASELINE VS vX.Y.Z PRODUCTION GRADE)`) và tiêu đề cột phiên bản hiện tại bắt buộc phải mang đúng nhãn `vX.Y.Z Production Grade`. Không được để sót bất kỳ chuỗi phiên bản cũ nào ở tiêu đề bảng so sánh.
+2. **Bổ Sung Dòng Đối Chiếu Phân Hệ Mới**: Mọi phân hệ, động cơ hoặc tính năng mới ra mắt trong phiên bản bắt buộc phải có các dòng phân tích đối chiếu chuyên sâu (Baseline vs Hiện tại) trong Bảng ma trận so sánh Phần 2.
+3. **Chương Phân Tích Tính Năng Chuyên Sâu**: Bắt buộc có một Chương/Mục riêng biệt phân tích chi tiết kiến trúc, API/CLI, luồng dữ liệu và mã bất biến kỹ thuật liên quan của phiên bản đó (ví dụ: `## 10. TIẾN HÓA 6 PHÂN HỆ DOANH NGHIỆP MỚI TRONG PHIÊN BẢN vX.Y.Z`).
+4. **Khớp Số Liệu Kiểm Thử & MCP Catalog**: Số lượng bài test tự động (ví dụ: `314+ Automated Tests` / `314/314 Passed`) và số lượng công cụ MCP (ví dụ: `28 MCP Tools Catalog`) ghi trong thân tài liệu bắt buộc phải khớp 100% với kết quả chạy kiểm thử thực tế và số tool đăng ký trong `server/mcp_server.py`.
+5. **Đồng Bộ Đánh Giá Hiệu Năng & Kết Luận**: Chương Đánh giá hiệu năng và Kết luận (Chương cuối) bắt buộc phải cập nhật số liệu đo lường, tỷ lệ test pass 100%, và tổng kết chính thức của phiên bản `vX.Y.Z`.
+
+- Lệnh đồng bộ tự động 1-click (MD $\to$ DOCX & PDF):
   ```bash
   python tools/sync_core_docs.py --build
   ```
-- Lệnh kiểm tra đối soát tính đồng bộ:
+- Lệnh kiểm tra đối soát tính đồng bộ (Kiểm tra cả mtime lẫn Semantic Body Parity):
   ```bash
   python tools/sync_core_docs.py --check
   ```
@@ -93,7 +103,7 @@ Trước khi bàn giao kết quả cho người dùng, Agent **BẮT BUỘC** th
    ```
    *Bắt buộc trả về `[OK] Invariant ERR_VER_001 PASSED`.*
 3. **Lớp 3 - Khớp số liệu tài liệu**: Số lượng test, số lượng kỹ năng, số lượng MCP tools và số phiên bản được ghi trong `CHANGELOG.md`, `ARCHITECTURE.md` và `README.md` phải khớp 100% với con số thực tế chạy được ở Lớp 1.
-4. **Lớp 4 - Tính toàn vẹn Core Docs Triad**: Kiểm tra bộ đôi tài liệu cốt lõi qua `python tools/sync_core_docs.py --check`.
+4. **Lớp 4 - Tính toàn vẹn Core Docs Triad & Ngữ Nghĩa Thân Tài Liệu**: Chạy `python tools/sync_core_docs.py --check` (kiểm tra cả mtime đồng bộ DOCX/PDF lẫn 5 tiêu chuẩn Semantic Body Parity). Trả về Exit Code 1 nếu phát hiện bất kỳ sự lệch pha nào trong thân tài liệu.
 
 ---
 
@@ -101,6 +111,7 @@ Trước khi bàn giao kết quả cho người dùng, Agent **BẮT BUỘC** th
 
 1. ❌ **"Code xong báo xong" mà quên cập nhật tài liệu**: Báo hoàn tất cho người dùng mà không cập nhật `CHANGELOG.md`, `ARCHITECTURE.md` và `README.md`.
 2. ❌ **Quên cập nhật `README.md` khi nâng cấp kỹ năng hoặc nâng version**: Để `README.md` mang số liệu cũ, badge lệch hoặc thiếu vắng các kỹ năng mới được trang bị trong `.agents/skills/`.
-3. ❌ **Đoán mò số lượng bài kiểm thử**: Tự bịa hoặc đoán số lượng test ghi vào tài liệu thay vì chạy lệnh `python -m unittest discover -s tests` để lấy số thực tế.
+3. ❌ **Đoán mò số lượng bài kiểm thử**: Tự bịa hoặc đoán số lượng test ghi vào tài liệu thay vì chạy lệnh kiểm thử thực tế để lấy số chính xác.
 4. ❌ **Nâng version thủ công rải rác**: Tự sửa tay số phiên bản ở 1-2 file dẫn đến Version Desync giữa Frontend, Backend và CLI.
 5. ❌ **Bỏ quên Frontend Build**: Sửa đổi tính năng Web Studio mà không chạy `npm run build` để cập nhật `dist/`.
+6. ❌ **"Chỉ sửa số version ở tiêu đề" (Title-Only Version Bump)**: Thay đổi nhãn phiên bản ở dòng đầu tệp Markdown hoặc chỉ sửa mtime mà bỏ quên bảng ma trận so sánh, số lượng kiểm thử, số công cụ MCP và chương tính năng trong thân tài liệu (Semantic Body Desync).

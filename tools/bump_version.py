@@ -29,6 +29,8 @@ if sys.platform == "win32":
         pass
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
 
 
 def get_current_package_version() -> str:
@@ -137,6 +139,18 @@ def audit_version_consistency(target_version: str) -> Tuple[bool, List[str]]:
             if expected_skills_badge not in content:
                 errors.append(f"README.md: missing or outdated skills badge '{expected_skills_badge}'")
 
+    # 10. Core Documentation Semantic Parity (tools/sync_core_docs.py)
+    try:
+        try:
+            from tools.sync_core_docs import audit_semantic_body_parity
+        except ImportError:
+            from sync_core_docs import audit_semantic_body_parity
+        is_synced, doc_errors = audit_semantic_body_parity(target_version)
+        if not is_synced:
+            errors.extend(doc_errors)
+    except Exception as e:
+        errors.append(f"Core docs semantic parity check error: {e}")
+
     return (len(errors) == 0, errors)
 
 
@@ -159,10 +173,26 @@ def sync_readme(new_version: Optional[str] = None) -> List[str]:
 
     # 1. Dynamic Test Count
     try:
-        import unittest
-        loader = unittest.TestLoader()
-        suite = loader.discover(os.path.join(BASE_DIR, "tests"), pattern="test_*.py", top_level_dir=BASE_DIR)
-        t_count = suite.countTestCases()
+        t_count = 0
+        try:
+            import pytest
+            class _C:
+                def __init__(self): self.count = 0
+                def pytest_collection_modifyitems(self, session, config, items):
+                    self.count = len(items)
+            c = _C()
+            pytest.main(['--collect-only', '-q', 'tests'], plugins=[c])
+            if c.count > 0:
+                t_count = c.count
+        except Exception:
+            pass
+
+        if t_count == 0:
+            import unittest
+            loader = unittest.TestLoader()
+            suite = loader.discover(os.path.join(BASE_DIR, "tests"), pattern="test_*.py", top_level_dir=BASE_DIR)
+            t_count = suite.countTestCases()
+
         txt = re.sub(r'Tests-[0-9]+%2F[0-9]+_Passed', f'Tests-{t_count}%2F{t_count}_Passed', txt)
         txt = re.sub(r'Tests:\s*[0-9]+(?:\/[0-9]+)?\s*Passed', f'Tests: {t_count} Passed', txt)
         changes.append(f"Synchronized tests badge -> {t_count} Passed")

@@ -12,14 +12,18 @@ from core.security.document_auditor import (
 )
 from core.security.sanitizer import (
     DocumentSanitizer,
+    MACRO_TO_STANDARD_CONTENT_TYPES,
+    redact_pii_text,
     sanitize_document,
 )
 
 __all__ = [
     "DocumentSecurityAuditor",
     "DocumentSanitizer",
+    "MACRO_TO_STANDARD_CONTENT_TYPES",
     "SecurityAuditReport",
     "SecurityFinding",
     "audit_document_security",
+    "redact_pii_text",
     "sanitize_document",
 ]

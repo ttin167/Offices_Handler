@@ -89,8 +89,13 @@ class TestMCPServer(unittest.TestCase):
             "yearbook_auto_layout",
             "yearbook_export",
             "doc_security_audit",
+            "pdf_crypto_sign_and_pdfa",
+            "xlsx_to_brief_report",
+            "xlsx_consolidate_workbooks",
+            "doc_run_pipeline",
+            "diagram_from_code",
         ]
-        self.assertEqual(len(tools), 23)
+        self.assertEqual(len(tools), 28)
         for expected in expected_tools:
             self.assertIn(expected, tool_names)
 

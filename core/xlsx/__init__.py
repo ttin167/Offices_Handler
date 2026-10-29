@@ -31,6 +31,11 @@ from .formula_playbook import (
     generate_formula_playbook_xlsx,
     FORMULA_CATALOG,
 )
+from .reporting import (
+    excel_to_brief,
+    consolidate_workbooks,
+    _evaluate_basic_excel_formula,
+)
 
 __all__ = [
     "UniversalExcelEngine",
@@ -55,6 +60,9 @@ __all__ = [
     "get_formula_catalog",
     "generate_formula_playbook_xlsx",
     "FORMULA_CATALOG",
+    "excel_to_brief",
+    "consolidate_workbooks",
+    "_evaluate_basic_excel_formula",
 ]
 
 

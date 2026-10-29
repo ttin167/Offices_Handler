@@ -27,6 +27,9 @@ from .pdf_toolkit import (
     split_pdf,
     stamp_giap_lai_pdf,
     stamp_watermark_pdf,
+    crypto_sign_pdf,
+    verify_pdf_crypto_signature,
+    convert_to_pdfa,
 )
 from .ocr_pipeline import (
     is_scanned_pdf,
@@ -66,6 +69,9 @@ __all__ = [
     "export_pdf_to_images_zip",
     "sign_pdf_with_stamp",
     "flatten_and_sanitize_pdf",
+    "crypto_sign_pdf",
+    "verify_pdf_crypto_signature",
+    "convert_to_pdfa",
     "is_scanned_pdf",
     "filter_red_stamp",
     "detect_skew_angle",

@@ -1107,27 +1107,37 @@ def render_diagram(
     # 4. Dual Export 2: Render Full HD PNG via Headless Canvas Runner
     render_meta = render_mxgraph_to_png(xml_content, out_png, scale=scale)
 
-    # 5. Optional DOCX Injection
+    # 5. Optional DOCX / PPTX Injection
     injected = False
     docx_target = spec.get("inject_into")
     if docx_target:
         if not os.path.isabs(docx_target) and base_dir:
             docx_target = os.path.abspath(os.path.join(base_dir, docx_target))
         if os.path.isfile(docx_target):
-            try:
-                from core.docx.writer import inject_diagram_into_docx
-            except (ImportError, ValueError):
-                from docx_writer import inject_diagram_into_docx  # type: ignore
-            inject_diagram_into_docx(
-                docx_path=docx_target,
-                png_path=render_meta["png_path"],
-                heading=spec.get("heading") or spec.get("target_heading"),
-                placeholder=spec.get("placeholder"),
-                caption=spec.get("caption") or spec.get("caption_template"),
-                width_cm=spec.get("width_cm", 14.0),
-                max_height_cm=spec.get("max_height_cm", 20.0),
-            )
-            injected = True
+            if docx_target.lower().endswith(".pptx"):
+                from core.pptx.engine import insert_diagram_into_pptx
+                insert_diagram_into_pptx(
+                    pptx_path=docx_target,
+                    image_path=render_meta["png_path"],
+                    title=spec.get("heading") or spec.get("target_heading") or "Architecture Diagram",
+                    caption=spec.get("caption") or spec.get("caption_template"),
+                )
+                injected = True
+            else:
+                try:
+                    from core.docx.writer import inject_diagram_into_docx
+                except (ImportError, ValueError):
+                    from docx_writer import inject_diagram_into_docx  # type: ignore
+                inject_diagram_into_docx(
+                    docx_path=docx_target,
+                    png_path=render_meta["png_path"],
+                    heading=spec.get("heading") or spec.get("target_heading"),
+                    placeholder=spec.get("placeholder"),
+                    caption=spec.get("caption") or spec.get("caption_template"),
+                    width_cm=spec.get("width_cm", 14.0),
+                    max_height_cm=spec.get("max_height_cm", 20.0),
+                )
+                injected = True
 
     elapsed = time.time() - t0
     return {
@@ -1140,6 +1150,16 @@ def render_diagram(
         "elapsed_sec": round(elapsed, 2),
         "injected": injected,
     }
+
+
+def export_mxgraph_to_svg(
+    xml_content: str,
+    output_svg_path: str,
+    padding: int = 32,
+) -> Dict[str, Any]:
+    """Re-exported Pure-Python SVG Vector Exporter for Draw.io <mxGraphModel> XML."""
+    from core.diagrams.code_to_diagram import export_mxgraph_to_svg as _export_svg
+    return _export_svg(xml_content, output_svg_path, padding=padding)
 
 
 # ==============================================================================

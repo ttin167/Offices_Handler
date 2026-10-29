@@ -13,11 +13,11 @@ Trong một hệ thống Full-stack tích hợp Terminal CLI, Dev Launcher, Back
 - Tài liệu ghi nhận một phiên bản khác (ví dụ: `v4.2.0` trong `CHANGELOG.md`).
 - Frontend hiển thị một phiên bản thứ ba (ví dụ: `v4.0` trong `index.html`).
 
-Mọi phiên bản phát hành **BẮT BUỘC** phải được đồng bộ hóa đồng thời trên toàn bộ 9 điểm neo (Anchors) của hệ thống.
+Mọi phiên bản phát hành **BẮT BUỘC** phải được đồng bộ hóa đồng thời trên toàn bộ 10 điểm neo (Anchors) của hệ thống.
 
 ---
 
-## 2. Danh Mục 9 Điểm Neo Bắt Buộc Đồng Bộ (The 9 Synchronization Anchors)
+## 2. Danh Mục 10 Điểm Neo Bắt Buộc Đồng Bộ (The 10 Synchronization Anchors)
 
 Mỗi khi nâng cấp phiên bản `X.Y.Z`, toàn bộ các tệp sau bắt buộc phải mang đúng chuỗi phiên bản:
 
@@ -32,6 +32,7 @@ Mỗi khi nâng cấp phiên bản `X.Y.Z`, toàn bộ các tệp sau bắt bu�
 | 7 | `core/env_doctor.py` | `DOCTOR_VERSION = "X.Y.Z"` | Banner chẩn đoán `ai_tools_cli.py doctor` |
 | 8 | `index.html` | `.brand-subtitle` (`Office Studio vX.Y.Z`) | Hiển thị tĩnh trên Header khi tải trang ban đầu |
 | 9 | `README.md` | Badges (`Release-vX.Y.Z_Production`, Tests, MCP Tools), Highlights header, Link `CHANGELOG.md (v1.0 -> vX.Y.Z)` | Huy hiệu, số liệu kiểm thử & điểm nhấn phát hành trên kho mã nguồn |
+| 10 | `docs/` Core Triad | Section 2 Table Header (`vX.Y.Z Production Grade`), Section Chương tính năng mới, và Kết luận | Đảm bảo tính toàn vẹn ngữ nghĩa thân tài liệu (Semantic Body Parity) |
 
 Đồng thời cập nhật tương ứng tại:
 - `CHANGELOG.md`: Mục phiên bản mới ở đầu phần 2 và bảng so sánh phần 1.

@@ -351,7 +351,7 @@ def run_doctor() -> Dict[str, Any]:
     return EnvironmentDoctor().run_diagnostics()
 
 
-DOCTOR_VERSION = "4.5.0"
+DOCTOR_VERSION = "4.6.0"
 
 
 def format_doctor_report(report: Dict[str, Any]) -> str:
@@ -362,7 +362,7 @@ def format_doctor_report(report: Dict[str, Any]) -> str:
     lines = [
         "",
         "=" * 65,
-        f" {status_tag} ANTIGRAVITY OFFICE ENVIRONMENT DOCTOR (v4.5.0)",
+        f" {status_tag} ANTIGRAVITY OFFICE ENVIRONMENT DOCTOR (v4.6.0)",
         "=" * 65,
         f"OS Platform    : {report['platform']} (Python {report['python_version']})",
         f"Overall Status : {report['status'].upper()} ({report['elapsed_sec']}s)",

@@ -4,14 +4,14 @@
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Release: v4.5.0](https://img.shields.io/badge/Release-v4.5.0_Production-success.svg)](CHANGELOG.md)
-[![Tests: 230 Passed](https://img.shields.io/badge/Tests-230%2F230_Passed-brightgreen.svg)](tests/)
-[![MCP Tools: 23](https://img.shields.io/badge/MCP_Tools-23_Available-blue.svg)](server/mcp_server.py)
+[![Release: v4.6.0](https://img.shields.io/badge/Release-v4.6.0_Production-success.svg)](CHANGELOG.md)
+[![Tests: 314 Passed](https://img.shields.io/badge/Tests-314%2F314_Passed-brightgreen.svg)](tests/)
+[![MCP Tools: 28](https://img.shields.io/badge/MCP_Tools-28_Available-blue.svg)](server/mcp_server.py)
 [![Antigravity Skills: 6](https://img.shields.io/badge/Antigravity_Skills-6_Specialized-indigo.svg)](.agents/skills/)
 [![Antigravity IDE Ready](https://img.shields.io/badge/Antigravity_AI-Compatible-orange.svg)](AGENTS.md)
 [![Resolution: 300+ DPI](https://img.shields.io/badge/DPI-300%2B_Vector_Grade-purple.svg)](spec_diagram_engine.py)
 
-> 🚀 **Xem toàn bộ lộ trình tiến hóa & so sánh tính năng v1.0 → v4.5.0 tại [CHANGELOG.md](CHANGELOG.md)**.
+> 🚀 **Xem toàn bộ lộ trình tiến hóa & so sánh tính năng v1.0 → v4.6.0 tại [CHANGELOG.md](CHANGELOG.md)**.
 
 ---
 
@@ -35,8 +35,15 @@ The workspace provides 6 specialized Antigravity Skills in `.agents/skills/` des
 
 > 💡 **Auto-Sync Invariant (`ERR_DOC_SYNC_001` / `ERR_VER_001`)**: Khi có nâng cấp kỹ năng, thêm skill mới hoặc bump version, `README.md` sẽ được tự động đồng bộ huy hiệu (badges), bảng kỹ năng và các điểm nhấn phiên bản qua `tools/bump_version.py`.
 
-### 🆕 Highlights in v4.5.0 Production Grade (Formula Playbook & Enterprise Excel Suite)
-- **Enterprise Excel Data Suite & Edge Cases Hardening (`core.xlsx`)**: Full compliance with invariants `ERR_XLSX_009` through `ERR_XLSX_014`:
+### 🆕 Highlights in v4.6.0 Production Grade (Enterprise Omni-Pipeline, Deep CDR, PAdES/PDF-A & Code-to-Diagram Suite)
+- **6 Strategic Enterprise Subsystems & 5 Production Edge-Case Guards (v4.6.0)**:
+  - *Subsystem 1 — Cryptographic PDF Signing (PKCS#7 / PAdES) & ISO 19005-2 PDF/A-2b (`core.converter.pdf_toolkit`)*: Embeds ISO `/Type /Sig` dictionaries with SHA-256 document digests, `.pfx`/`.p12` X.509 certificate support (`crypto_sign_pdf`, `verify_pdf_crypto_signature`), and converts documents into archival **PDF/A-2b** (`convert_to_pdfa`) with XMP `pdfaid:part=2`, `pdfaid:conformance=B`, and sRGB `OutputIntents`.
+  - *Subsystem 2 — Two-Way Spreadsheet Reporting (`core.xlsx.reporting` & Guard #3 `ERR_XLSX_015`)*: Converts `.xlsx` workbooks directly into executive brief reports in `.docx`, `.md`, and `.pdf` (`excel_to_brief`) with Dual-Workbook formula evaluation (`data_only=True` + `data_only=False` fallback computing `SUM`, `AVERAGE`, `COUNT`, `MIN`, `MAX` when cached values are `None`) and multi-workbook consolidation (`consolidate_workbooks`).
+  - *Subsystem 3 — Deep CDR & Smart Vietnamese PII Redactor (`core.security.sanitizer` & Guards #1 `ERR_SEC_006`, #2 `ERR_SEC_007`)*: Strips `vbaProject.bin` and PE (`MZ`) OLE payloads while automatically promoting `macroEnabled.main+xml` ContentTypes to standard OpenXML MIME types and cleaning `.rels`; redacts Vietnamese CCCD (validating province `001..096` + century/gender `0..3`), mobile numbers, context-anchored bank accounts (`STK`, `Số tài khoản`, `Account No`), MST, and emails without false-positive redaction on financial statement numbers (`150000000000 VND`).
+  - *Subsystem 4 — Declarative Multi-Step Workflow Pipeline (`core.pipeline.engine` & Guard #4 `ERR_PIPE_001`)*: Chains multi-step document transformations via JSON/YAML specs (`WorkflowPipeline`, `run_bulk_directory_pipeline`) with cloud-safe concurrency (`MAX_JOB_WORKERS=2` default for 512MB RAM containers) and guaranteed `step_*_temp.*` cleanup in `try...finally`.
+  - *Subsystem 5 — AST Code-to-Diagram & Native Draw.io SVG Exporter (`core.diagrams.code_to_diagram`)*: Parses Python AST and SQL/Prisma schemas into PlantUML, Mermaid, Draw.io `.drawio`, and pure-Python Vector `.svg` (`export_mxgraph_to_svg`) with automatic injection into both `.docx` and `.pptx`.
+  - *Subsystem 6 — Unified Desktop Studio Bridge (`ui.webview_launcher` & Guard #5 `ERR_UI_001`)*: Launches the full Web Studio inside a native frameless Edge/Chrome `--app` window with an isolated `--user-data-dir` profile so `proc.wait()` tracks the exact window lifetime and cleanly shuts down the background server on exit.
+- **Enterprise Excel Data Suite & Edge Cases Hardening (`core.xlsx`)**: Full compliance with invariants `ERR_XLSX_009` through `ERR_XLSX_015`:
   - *Data Loss & 15-Digit Limit Guard (`ERR_XLSX_009`)*: Enforces string `'@'` format for credit cards, CCCD (12 digits), and bank accounts (16–19 digits); regex parsing of Vietnamese dates (`26/05/2026`, `ngày 26 tháng 05 năm 2026`) into `datetime.date` + `DD/MM/YYYY`; converts accounting negatives `(100.000)` to `-100000` and dashes `-` to `0` with accounting format; normalizes Vietnamese locale decimals `20.000,50` $\rightarrow$ `20000.50`.
   - *XML Illegal Byte Sanitization & 32k Limit (`ERR_XLSX_010`)*: Strips ASCII control bytes `[\x00-\x08\x0b\x0c\x0e-\x1f]` preventing corrupt OpenXML workbooks; truncates strings $> 32,000$ characters with ellipsis.
   - *Modern Formula Compatibility (`ERR_XLSX_011`)*: Automatically prefixes dynamic array and recent formulas (`XLOOKUP`, `CONCAT`, `TEXTJOIN`, `UNIQUE`, `FILTER`, `SORT`, `SORTBY`, etc.) with `_xlfn.` preventing `#NAME?` in Excel 2016/2019; preserves Regex AST Reference Shifting (`ERR_XLSX_002`).

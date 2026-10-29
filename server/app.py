@@ -34,7 +34,7 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-APP_VERSION = "4.5.0"
+APP_VERSION = "4.6.0"
 
 # Import core handlers
 try:
@@ -1858,20 +1858,29 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
                 # Gate 13: Enterprise Document Security Scan (if requested or by default)
                 security_flag = bool(payload.get("security", False))
+                deep_cdr_flag = bool(payload.get("deep_cdr", True))
+                redact_pii_flag = bool(payload.get("redact_pii", False))
                 if security_flag:
                     try:
                         from tools.unified_qa_diagnostic import DocumentSecurityDiagnosticEngine
                         sec_issues, sec_metrics = DocumentSecurityDiagnosticEngine.diagnose(src)
                         issues.extend(sec_issues)
                         metrics["security"] = sec_metrics
-                        if repair_flag and sec_issues:
+                        if repair_flag and (sec_issues or deep_cdr_flag or redact_pii_flag):
                             if not out_name:
                                 out_name = f"repaired_{os.path.basename(src)}"
                                 out_path = os.path.join(OUTPUT_DIR, out_name)
-                            s_ok, s_acts = DocumentSecurityDiagnosticEngine.repair(out_path if (out_path and os.path.exists(out_path)) else src, out_path)
-                            if s_ok:
+                            from core.security.sanitizer import sanitize_document
+                            san_res = sanitize_document(
+                                out_path if (out_path and os.path.exists(out_path)) else src,
+                                output_path=out_path,
+                                deep_cdr=deep_cdr_flag,
+                                redact_pii=redact_pii_flag,
+                            )
+                            if san_res.get("success"):
                                 repaired = True
-                                repair_actions.extend(s_acts)
+                                repair_actions.extend(san_res.get("actions_taken", []))
+                                metrics["cdr_metrics"] = san_res.get("metrics", {})
                     except Exception as e:
                         metrics["security_error"] = str(e)
 
@@ -1930,6 +1939,9 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                 defuse = bool(payload.get("defuse_formulas", True))
                 strip_meta = bool(payload.get("strip_metadata", True))
                 unhide = bool(payload.get("unhide_sheets", True))
+                deep_cdr = bool(payload.get("deep_cdr", True))
+                redact_pii = bool(payload.get("redact_pii", False))
+                pii_types = payload.get("pii_types")
 
                 base_name = os.path.basename(src)
                 out_name = f"sanitized_{base_name}"
@@ -1944,6 +1956,9 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                         defuse_formulas=defuse,
                         strip_metadata=strip_meta,
                         unhide_sheets=unhide,
+                        deep_cdr=deep_cdr,
+                        redact_pii=redact_pii,
+                        pii_types=pii_types,
                     )
                     res["download_url"] = f"/api/download/{urllib.parse.quote(out_name)}"
                     res["sanitized_file"] = out_name
@@ -2044,6 +2059,160 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     "elapsed": elap,
                     "export_type": export_type,
                 })
+                return
+
+            # Endpoint 23: v4.6.0 Enterprise Upgrade Suite Endpoints
+            elif path == "/api/pdf/crypto-sign":
+                from core.converter.pdf_toolkit import crypto_sign_pdf
+                payload = self._read_body_json()
+                input_param = payload.get("input_path") or payload.get("file_path") or payload.get("filepath") or payload.get("filename")
+                src = resolve_file_path(input_param) if input_param else None
+                if not src:
+                    self._send_json({"success": False, "error": f"PDF file not found: {input_param}"}, status=400)
+                    return
+                base_name = os.path.splitext(os.path.basename(src))[0]
+                out_name = f"{base_name}_crypto_signed.pdf"
+                out_path = os.path.join(OUTPUT_DIR, out_name)
+                details = crypto_sign_pdf(
+                    src,
+                    out_path,
+                    signer_name=payload.get("signer_name", "Antigravity Authority"),
+                    reason=payload.get("reason", "Phê duyệt & Xác thực tài liệu (PAdES/PKCS#7)"),
+                    location=payload.get("location", "Việt Nam"),
+                    contact_info=payload.get("contact_info", ""),
+                    pfx_path=resolve_file_path(payload.get("pfx_path")) if payload.get("pfx_path") else None,
+                    pfx_password=payload.get("pfx_password"),
+                    stamp_image=resolve_file_path(payload.get("stamp_image")) if payload.get("stamp_image") else None,
+                    page=payload.get("page", "last"),
+                )
+                self._send_json({
+                    "success": True,
+                    "filename": out_name,
+                    "download_url": f"/api/download/{urllib.parse.quote(out_name)}",
+                    "details": details,
+                })
+                return
+
+            elif path in ("/api/pdf/pdfa", "/api/pdf/to-pdfa"):
+                from core.converter.pdf_toolkit import convert_to_pdfa
+                payload = self._read_body_json()
+                input_param = payload.get("input_path") or payload.get("file_path") or payload.get("filepath") or payload.get("filename")
+                src = resolve_file_path(input_param) if input_param else None
+                if not src:
+                    self._send_json({"success": False, "error": f"PDF file not found: {input_param}"}, status=400)
+                    return
+                base_name = os.path.splitext(os.path.basename(src))[0]
+                part_num = int(payload.get("part", 2))
+                conf_lvl = str(payload.get("conformance", "B")).upper()
+                out_name = f"{base_name}_pdfa{part_num}{conf_lvl.lower()}.pdf"
+                out_path = os.path.join(OUTPUT_DIR, out_name)
+                details = convert_to_pdfa(src, out_path, part=part_num, conformance=conf_lvl)
+                self._send_json({
+                    "success": True,
+                    "filename": out_name,
+                    "download_url": f"/api/download/{urllib.parse.quote(out_name)}",
+                    "details": details,
+                })
+                return
+
+            elif path == "/api/xlsx/to-brief":
+                from core.xlsx.reporting import excel_to_brief
+                payload = self._read_body_json()
+                input_param = payload.get("xlsx_path") or payload.get("file_path") or payload.get("filepath") or payload.get("filename")
+                src = resolve_file_path(input_param) if input_param else None
+                if not src:
+                    self._send_json({"success": False, "error": f"Excel file not found: {input_param}"}, status=400)
+                    return
+                fmt = str(payload.get("target_format", payload.get("format", "docx"))).lower().lstrip(".")
+                base_name = os.path.splitext(os.path.basename(src))[0]
+                out_name = f"{base_name}_brief.{fmt}"
+                out_path = os.path.join(OUTPUT_DIR, out_name)
+                details = excel_to_brief(
+                    src,
+                    output_path=out_path,
+                    target_format=fmt,
+                    title=payload.get("title"),
+                    include_kpi_summary=bool(payload.get("include_kpi_summary", True)),
+                )
+                self._send_json({
+                    "success": True,
+                    "filename": out_name,
+                    "download_url": f"/api/download/{urllib.parse.quote(out_name)}",
+                    "details": details,
+                })
+                return
+
+            elif path == "/api/xlsx/consolidate":
+                from core.xlsx.reporting import consolidate_workbooks
+                payload = self._read_body_json()
+                raw_inputs = payload.get("inputs") or payload.get("input_paths") or []
+                resolved = [rf for p in raw_inputs if (rf := resolve_file_path(p)) is not None]
+                if not resolved:
+                    self._send_json({"success": False, "error": "No valid input Excel files found"}, status=400)
+                    return
+                out_name = payload.get("output_name") or f"master_consolidated_{int(time.time())}.xlsx"
+                out_path = os.path.join(OUTPUT_DIR, out_name)
+                details = consolidate_workbooks(
+                    resolved,
+                    out_path,
+                    mode=str(payload.get("mode", "append_rows")),
+                    strict_schema=bool(payload.get("strict_schema", True)),
+                )
+                self._send_json({
+                    "success": True,
+                    "filename": out_name,
+                    "download_url": f"/api/download/{urllib.parse.quote(out_name)}",
+                    "details": details,
+                })
+                return
+
+            elif path == "/api/pipeline/run":
+                from core.pipeline import run_pipeline
+                payload = self._read_body_json()
+                input_param = payload.get("input_path") or payload.get("file_path") or payload.get("filepath") or payload.get("filename")
+                src = resolve_file_path(input_param) if input_param else None
+                if not src:
+                    self._send_json({"success": False, "error": f"Input file not found: {input_param}"}, status=400)
+                    return
+                spec = payload.get("pipeline_spec") or payload.get("spec")
+                if not spec:
+                    self._send_json({"success": False, "error": "pipeline_spec is required"}, status=400)
+                    return
+                res = run_pipeline(src, spec)
+                out_file = res.get("output_file", "")
+                out_name = os.path.basename(out_file)
+                if out_file and os.path.dirname(os.path.abspath(out_file)) != os.path.abspath(OUTPUT_DIR):
+                    dest_in_out = os.path.join(OUTPUT_DIR, out_name)
+                    shutil.copy2(out_file, dest_in_out)
+                res["filename"] = out_name
+                res["download_url"] = f"/api/download/{urllib.parse.quote(out_name)}"
+                self._send_json(res)
+                return
+
+            elif path == "/api/diagrams/from-code":
+                from core.diagrams.code_to_diagram import generate_diagram_from_code
+                payload = self._read_body_json()
+                src_code = payload.get("source_code") or payload.get("source_path") or payload.get("code")
+                if not src_code:
+                    self._send_json({"success": False, "error": "source_code or source_path is required"}, status=400)
+                    return
+                resolved_src = resolve_file_path(src_code) if isinstance(src_code, str) and len(src_code) < 260 else None
+                actual_src = resolved_src or src_code
+                ts = int(time.time() * 1000)
+                png_name = f"code_diag_{ts}.png"
+                drawio_name = f"code_diag_{ts}.drawio"
+                svg_name = f"code_diag_{ts}.svg"
+                res = generate_diagram_from_code(
+                    source_path=actual_src,
+                    diagram_type=str(payload.get("diagram_type", "auto")),
+                    output_png_path=os.path.join(OUTPUT_DIR, png_name),
+                    output_drawio_path=os.path.join(OUTPUT_DIR, drawio_name),
+                    output_svg_path=os.path.join(OUTPUT_DIR, svg_name),
+                )
+                res["png_download_url"] = f"/api/download/{urllib.parse.quote(png_name)}"
+                res["drawio_download_url"] = f"/api/download/{urllib.parse.quote(drawio_name)}"
+                res["svg_download_url"] = f"/api/download/{urllib.parse.quote(svg_name)}"
+                self._send_json(res)
                 return
 
             else:
@@ -2445,6 +2614,9 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                 raise ValueError(f"Hành động không hợp lệ: {action}")
 
         return global_job_manager.submit_job(action, p, _runner)
+
+
+StudioAPIHandler = OfficeApiHandler
 
 
 def is_server_already_running(port: int = PORT, host: str = "127.0.0.1") -> bool:
