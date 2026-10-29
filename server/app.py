@@ -111,6 +111,12 @@ DIST_DIR = os.path.join(BASE_DIR, "dist")
 UPLOAD_DIR = os.path.join(BASE_DIR, ".web_uploads")
 OUTPUT_DIR = os.path.join(BASE_DIR, ".web_outputs")
 
+# Security & Quota Environment Configurations
+API_SECRET_KEY = os.environ.get("API_KEY") or os.environ.get("OFFICE_API_KEY") or ""
+MAX_UPLOAD_SIZE_MB = int(os.environ.get("MAX_UPLOAD_SIZE_MB", 50))
+MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024
+ALLOWED_ORIGINS = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -234,31 +240,61 @@ def export_pptx_slides(pptx_path: str, output_dir: str, slides_arg: Any = "all")
 
 
 def resolve_file_path(path_str: Optional[str]) -> Optional[str]:
-    """Safely resolves an input file path against filesystem, UPLOAD_DIR, OUTPUT_DIR, and CWD."""
+    """Safely resolves an input file path against allowed sandbox roots."""
     if not path_str or not isinstance(path_str, str):
         return None
     cleaned = path_str.strip()
     if not cleaned:
         return None
+
+    import tempfile
+    allowed_roots = [
+        os.path.abspath(BASE_DIR),
+        os.path.abspath(UPLOAD_DIR),
+        os.path.abspath(OUTPUT_DIR),
+        os.path.abspath(tempfile.gettempdir()),
+    ]
+
+    def _is_safe(candidate_abs: str) -> bool:
+        norm_cand = os.path.normpath(candidate_abs)
+        for r in allowed_roots:
+            norm_r = os.path.normpath(r)
+            try:
+                if os.path.commonpath([norm_r, norm_cand]) == norm_r:
+                    return True
+            except (ValueError, OSError):
+                continue
+        return False
+
     # 1. Exact path or relative to current working directory
     if os.path.isfile(cleaned):
-        return os.path.abspath(cleaned)
+        abs_p = os.path.abspath(cleaned)
+        if _is_safe(abs_p):
+            return abs_p
+
     # 2. Check inside UPLOAD_DIR by basename
-    in_upload = os.path.join(UPLOAD_DIR, os.path.basename(cleaned))
-    if os.path.isfile(in_upload):
+    safe_base = os.path.basename(cleaned)
+    in_upload = os.path.join(UPLOAD_DIR, safe_base)
+    if os.path.isfile(in_upload) and _is_safe(in_upload):
         return os.path.abspath(in_upload)
+
     # 3. Check inside OUTPUT_DIR by basename
-    in_output = os.path.join(OUTPUT_DIR, os.path.basename(cleaned))
-    if os.path.isfile(in_output):
+    in_output = os.path.join(OUTPUT_DIR, safe_base)
+    if os.path.isfile(in_output) and _is_safe(in_output):
         return os.path.abspath(in_output)
+
     # 3b. Check inside OUTPUT_DIR/pdf_previews by basename
-    in_previews = os.path.join(OUTPUT_DIR, "pdf_previews", os.path.basename(cleaned))
-    if os.path.isfile(in_previews):
+    in_previews = os.path.join(OUTPUT_DIR, "pdf_previews", safe_base)
+    if os.path.isfile(in_previews) and _is_safe(in_previews):
         return os.path.abspath(in_previews)
+
     # 4. Check relative to BASE_DIR
     in_base = os.path.join(BASE_DIR, cleaned)
     if os.path.isfile(in_base):
-        return os.path.abspath(in_base)
+        abs_b = os.path.abspath(in_base)
+        if _is_safe(abs_b):
+            return abs_b
+
     return None
 
 
@@ -266,9 +302,63 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
     server_version = "AntigravityOfficeStudio/4.0"
 
     def _send_cors_headers(self) -> None:
-        self.send_header("Access-Control-Allow-Origin", "*")
+        client_origin = self.headers.get("Origin", "")
+        if not ALLOWED_ORIGINS:
+            # Default: allow localhost, 127.0.0.1, app://, or * for universal developer tools
+            allowed_origin = client_origin if client_origin else "*"
+            self.send_header("Access-Control-Allow-Origin", allowed_origin)
+        else:
+            if "*" in ALLOWED_ORIGINS:
+                self.send_header("Access-Control-Allow-Origin", "*")
+            elif client_origin in ALLOWED_ORIGINS:
+                self.send_header("Access-Control-Allow-Origin", client_origin)
+            elif client_origin and (
+                client_origin.startswith("http://localhost:")
+                or client_origin.startswith("http://127.0.0.1:")
+                or client_origin.startswith("app://")
+            ):
+                self.send_header("Access-Control-Allow-Origin", client_origin)
+            else:
+                self.send_header("Access-Control-Allow-Origin", ALLOWED_ORIGINS[0])
+
         self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-API-Key")
+        self.send_header("Vary", "Origin")
+
+    def _check_auth(self, path: str) -> bool:
+        """
+        Validates API_SECRET_KEY if configured in environment.
+        Exempts /api/health and static web assets.
+        """
+        if not API_SECRET_KEY:
+            return True
+        if path == "/api/health" or not path.startswith("/api/"):
+            return True
+
+        # Check Authorization header (Bearer token)
+        auth_hdr = self.headers.get("Authorization", "").strip()
+        if auth_hdr:
+            token = auth_hdr[7:].strip() if auth_hdr.lower().startswith("bearer ") else auth_hdr
+            if token == API_SECRET_KEY:
+                return True
+
+        # Check X-API-Key header
+        x_key = self.headers.get("X-API-Key", "").strip()
+        if x_key == API_SECRET_KEY:
+            return True
+
+        # Check query string (?api_key=...)
+        parsed = urllib.parse.urlparse(self.path)
+        qs = urllib.parse.parse_qs(parsed.query)
+        q_key = qs.get("api_key", [None])[0]
+        if q_key == API_SECRET_KEY:
+            return True
+
+        self._send_json({
+            "success": False,
+            "error": "Unauthorized: Missing or invalid API key. Set 'Authorization: Bearer <API_KEY>'."
+        }, status=401)
+        return False
 
     def do_OPTIONS(self) -> None:
         self.send_response(200)
@@ -288,6 +378,8 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
         content_length = int(self.headers.get("Content-Length", 0))
         if content_length <= 0:
             return {}
+        if content_length > MAX_UPLOAD_SIZE_BYTES:
+            raise ValueError(f"Payload Too Large: {content_length} bytes exceeds maximum allowed {MAX_UPLOAD_SIZE_MB}MB")
         raw_body = self.rfile.read(content_length).decode("utf-8", errors="replace")
         return json.loads(raw_body) if raw_body else {}
 
@@ -295,6 +387,9 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
         try:
             parsed_url = urllib.parse.urlparse(self.path)
             path = parsed_url.path
+
+            if not self._check_auth(path):
+                return
 
             if path == "/api/health":
                 self._send_json({
@@ -451,6 +546,9 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
             parsed_url = urllib.parse.urlparse(self.path)
             path = parsed_url.path
 
+            if not self._check_auth(path):
+                return
+
             if path.startswith("/api/history/"):
                 id_str = path[len("/api/history/"):]
                 if id_str.isdigit():
@@ -472,6 +570,10 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         parsed_url = urllib.parse.urlparse(self.path)
         path = parsed_url.path
+
+        if not self._check_auth(path):
+            return
+
         content_type = self.headers.get("Content-Type", "")
 
         try:
@@ -2242,6 +2344,10 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
             else:
                 self._send_json({"error": f"POST endpoint not found: {path}"}, status=404)
 
+        except ValueError as exc:
+            err_msg = str(exc)
+            status_code = 413 if "Payload Too Large" in err_msg else 400
+            self._send_json({"success": False, "error": err_msg}, status=status_code)
         except Exception as exc:
             import traceback
             traceback.print_exc()
@@ -2256,6 +2362,14 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
             cleanup_old_temp_files(max_age_seconds=7200)
         except Exception:
             pass
+
+        content_length = int(self.headers.get("Content-Length", 0))
+        if content_length > MAX_UPLOAD_SIZE_BYTES:
+            self._send_json({
+                "success": False,
+                "error": f"Payload Too Large: {content_length} bytes exceeds maximum allowed {MAX_UPLOAD_SIZE_MB}MB"
+            }, status=413)
+            return
 
         if "multipart/form-data" in content_type:
             boundary = content_type.split("boundary=")[-1].strip()
@@ -2330,11 +2444,16 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
             })
 
     def _serve_file(self, filename: str, as_attachment: bool = False) -> None:
-        """Safely streams a file from either UPLOAD_DIR or OUTPUT_DIR."""
+        """Safely streams a file strictly from either UPLOAD_DIR or OUTPUT_DIR, preventing path traversal."""
         import re
-        candidate_1 = os.path.join(OUTPUT_DIR, filename)
-        candidate_2 = os.path.join(UPLOAD_DIR, filename)
-        candidate_3 = os.path.join(OUTPUT_DIR, "pdf_previews", filename)
+        safe_fname = os.path.basename(filename)
+        if not safe_fname or safe_fname in (".", ".."):
+            self._send_json({"error": "Invalid file path"}, status=400)
+            return
+
+        candidate_1 = os.path.join(OUTPUT_DIR, safe_fname)
+        candidate_2 = os.path.join(UPLOAD_DIR, safe_fname)
+        candidate_3 = os.path.join(OUTPUT_DIR, "pdf_previews", safe_fname)
 
         target_file = None
         if os.path.isfile(candidate_1):
@@ -2345,10 +2464,17 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
             target_file = candidate_3
 
         if not target_file:
-            self._send_json({"error": f"File not found: {filename}"}, status=404)
+            self._send_json({"error": f"File not found: {safe_fname}"}, status=404)
             return
 
-        ext = os.path.splitext(filename)[1].lower()
+        # Double check containment inside allowed directories
+        allowed_dirs = [os.path.abspath(OUTPUT_DIR), os.path.abspath(UPLOAD_DIR), os.path.abspath(os.path.join(OUTPUT_DIR, "pdf_previews"))]
+        target_abs = os.path.abspath(target_file)
+        if not any(os.path.commonpath([d, target_abs]) == d for d in allowed_dirs):
+            self._send_json({"error": "Forbidden path access"}, status=403)
+            return
+
+        ext = os.path.splitext(safe_fname)[1].lower()
         mime_types = {
             ".png": "image/png",
             ".jpg": "image/jpeg",
@@ -2374,8 +2500,8 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
         self.send_header("Content-Type", mime)
         self.send_header("Content-Length", str(len(content)))
         if as_attachment:
-            safe_ascii = re.sub(r'[^\x20-\x7E]', '_', filename).replace('"', '')
-            encoded_fn = urllib.parse.quote(filename, encoding='utf-8')
+            safe_ascii = re.sub(r'[^\x20-\x7E]', '_', safe_fname).replace('"', '')
+            encoded_fn = urllib.parse.quote(safe_fname, encoding='utf-8')
             self.send_header("Content-Disposition", f'attachment; filename="{safe_ascii}"; filename*=UTF-8\'\'{encoded_fn}')
         self.end_headers()
         self.wfile.write(content)
@@ -2385,6 +2511,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
         Safely streams static web frontend files (index.html, assets/*, etc.).
         Prioritizes the production Vite build directory ('dist/'), then falls back
         to the root workspace directory, and implements SPA fallback to dist/index.html.
+        Strictly blocks source code (.py), dotfiles (.env, .git), and backend configs.
         """
         clean_rel = rel_path.lstrip("/").replace("\\", "/")
         if not clean_rel or clean_rel == "":
@@ -2393,6 +2520,25 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
         norm_rel = os.path.normpath(clean_rel)
         if norm_rel.startswith("..") or os.path.isabs(norm_rel):
             self._send_json({"error": "Forbidden path traversal attempt"}, status=403)
+            return
+
+        # Security check: Block sensitive dotfiles and backend source files
+        base_name = os.path.basename(norm_rel).lower()
+        ext = os.path.splitext(norm_rel)[1].lower()
+
+        FORBIDDEN_FILES = {".env", ".gitignore", ".dockerignore", "dockerfile", "requirements.txt", "pyproject.toml"}
+        FORBIDDEN_EXTENSIONS = {".py", ".pyc", ".env", ".git", ".log", ".bak", ".tmp", ".bat", ".sh", ".cmd", ".jar"}
+        ALLOWED_STATIC_EXTENSIONS = {
+            ".html", ".css", ".js", ".mjs", ".json", ".png", ".jpg", ".jpeg",
+            ".svg", ".ico", ".woff", ".woff2", ".ttf", ".webp", ".txt", ".map"
+        }
+
+        if base_name.startswith(".") or base_name in FORBIDDEN_FILES or ext in FORBIDDEN_EXTENSIONS:
+            self._send_json({"error": "Forbidden: Access to sensitive file is prohibited"}, status=403)
+            return
+
+        if ext and ext not in ALLOWED_STATIC_EXTENSIONS:
+            self._send_json({"error": "Forbidden: Unsupported static file type"}, status=403)
             return
 
         target_file = None
@@ -2405,10 +2551,10 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
             elif norm_rel == "index.html" and os.path.isfile(os.path.join(DIST_DIR, "index.html")):
                 target_file = os.path.join(DIST_DIR, "index.html")
 
-        # 2. Second priority: Root workspace (development files)
+        # 2. Second priority: Root workspace (development files) - only if in allowed static extensions
         if not target_file:
             base_candidate = os.path.join(BASE_DIR, norm_rel)
-            if os.path.isfile(base_candidate):
+            if os.path.isfile(base_candidate) and ext in ALLOWED_STATIC_EXTENSIONS:
                 target_file = base_candidate
 
         # 3. Third priority: Single Page Application (SPA) fallback to dist/index.html
@@ -2421,27 +2567,11 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
             self._send_json({"error": f"Static asset not found: {clean_rel}"}, status=404)
             return
 
-        ext = os.path.splitext(target_file)[1].lower()
-        mime_types = {
-            ".html": "text/html; charset=utf-8",
-            ".js": "application/javascript; charset=utf-8",
-            ".mjs": "application/javascript; charset=utf-8",
-            ".css": "text/css; charset=utf-8",
-            ".json": "application/json; charset=utf-8",
-            ".png": "image/png",
-            ".jpg": "image/jpeg",
-            ".jpeg": "image/jpeg",
-            ".svg": "image/svg+xml",
-            ".ico": "image/x-icon",
-            ".woff": "font/woff",
-            ".woff2": "font/woff2",
-            ".ttf": "font/ttf",
-            ".webp": "image/webp",
-        }
-        mime = mime_types.get(ext, "application/octet-stream")
-
-        with open(target_file, "rb") as f:
-            content = f.read()
+        # Ensure target_file is within BASE_DIR or DIST_DIR
+        target_abs = os.path.abspath(target_file)
+        if os.path.commonpath([os.path.abspath(BASE_DIR), target_abs]) != os.path.abspath(BASE_DIR):
+            self._send_json({"error": "Forbidden path access"}, status=403)
+            return
 
         self.send_response(200)
         self._send_cors_headers()
