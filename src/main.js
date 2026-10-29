@@ -211,7 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
-
+    
     let iconName = 'info';
     if (type === 'success') iconName = 'check-circle-2';
     if (type === 'error') iconName = 'alert-circle';
@@ -1797,7 +1797,7 @@ document.addEventListener('DOMContentLoaded', () => {
           refreshLucideIcons();
         }
       }
-    } catch (_) { }
+    } catch (_) {}
   }
 
   if (mmTplDropZone && mmTplFileInput) {
