@@ -190,6 +190,25 @@ class TestServerSecurity(unittest.TestCase):
         cors_headers = dict(h_local._headers_buffer)
         self.assertEqual(cors_headers.get("Access-Control-Allow-Origin"), "http://localhost:5173")
 
+    def test_07_serve_index_html_and_head_method(self):
+        """Validates that GET / and HEAD / return 200 without NameError."""
+        # 1. GET /
+        h_get = DummyMockHandler(b"", {}, path="/", method="GET")
+        h_get.do_GET()
+        self.assertEqual(h_get.status_code, 200)
+        content_val = h_get.wfile.getvalue()
+        self.assertGreater(len(content_val), 0)
+
+        # 2. HEAD /
+        h_head = DummyMockHandler(b"", {}, path="/", method="HEAD")
+        h_head.do_HEAD()
+        self.assertEqual(h_head.status_code, 200)
+
+        # 3. HEAD /api/health
+        h_health = DummyMockHandler(b"", {}, path="/api/health", method="HEAD")
+        h_health.do_HEAD()
+        self.assertEqual(h_health.status_code, 200)
+
 
 if __name__ == "__main__":
     unittest.main()

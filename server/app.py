@@ -365,6 +365,18 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
         self._send_cors_headers()
         self.end_headers()
 
+    def do_HEAD(self) -> None:
+        """Handles HTTP HEAD requests from cloud load balancers and health probes."""
+        parsed_url = urllib.parse.urlparse(self.path)
+        path = parsed_url.path
+        if path == "/api/health" or path in ("/", "/index.html"):
+            self.send_response(200)
+            self._send_cors_headers()
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+        else:
+            self.do_GET()
+
     def _send_json(self, data: Any, status: int = 200) -> None:
         encoded = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
         self.send_response(status)
@@ -2572,6 +2584,28 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
         if os.path.commonpath([os.path.abspath(BASE_DIR), target_abs]) != os.path.abspath(BASE_DIR):
             self._send_json({"error": "Forbidden path access"}, status=403)
             return
+
+        target_ext = os.path.splitext(target_file)[1].lower()
+        mime_types = {
+            ".html": "text/html; charset=utf-8",
+            ".js": "application/javascript; charset=utf-8",
+            ".mjs": "application/javascript; charset=utf-8",
+            ".css": "text/css; charset=utf-8",
+            ".json": "application/json; charset=utf-8",
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".svg": "image/svg+xml",
+            ".ico": "image/x-icon",
+            ".woff": "font/woff",
+            ".woff2": "font/woff2",
+            ".ttf": "font/ttf",
+            ".webp": "image/webp",
+        }
+        mime = mime_types.get(target_ext, "application/octet-stream")
+
+        with open(target_file, "rb") as f:
+            content = f.read()
 
         self.send_response(200)
         self._send_cors_headers()
