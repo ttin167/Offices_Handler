@@ -441,6 +441,13 @@ class YearbookLayoutEngine:
                 })
                 sp_id += 1
 
+        for idx, sp in enumerate(pages, start=1):
+            sp["spread_index"] = idx
+            sp["layout"] = sp.get("type", "magazine_grid_4")
+            for sl in sp.get("slots", []):
+                if "photo" not in sl and "photo_path" in sl:
+                    sl["photo"] = sl["photo_path"]
+
         return {
             "title": title,
             "subtitle": subtitle,
@@ -448,12 +455,14 @@ class YearbookLayoutEngine:
             "degree": degree,
             "date": date_str,
             "preset": preset_key,
+            "page_size": preset_key,
             "bleed_mm": bleed_mm,
             "safe_margin_mm": 8.0,
             "gutter_mm": 3.0,
             "total_photos": len(valid_paths),
             "total_spreads": len(pages),
             "pages": pages,
+            "spreads": pages,
         }
 
 
@@ -710,6 +719,13 @@ def get_default_mock_spec(
         },
     ]
 
+    for idx, sp in enumerate(mock_spreads, start=1):
+        sp["spread_index"] = idx
+        sp["layout"] = sp.get("type", "cover_hero")
+        for sl in sp.get("slots", []):
+            if "photo" not in sl and "photo_path" in sl:
+                sl["photo"] = sl["photo_path"]
+
     return {
         "title": title,
         "subtitle": subtitle,
@@ -717,6 +733,7 @@ def get_default_mock_spec(
         "degree": degree,
         "date": date_str,
         "preset": preset_key,
+        "page_size": preset_key,
         "bleed_mm": bleed_mm,
         "safe_margin_mm": 8.0,
         "gutter_mm": 3.0,
@@ -724,4 +741,5 @@ def get_default_mock_spec(
         "total_photos": sum(len(s.get("slots", [])) for s in mock_spreads),
         "total_spreads": len(mock_spreads),
         "pages": mock_spreads,
+        "spreads": mock_spreads,
     }

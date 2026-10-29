@@ -270,6 +270,10 @@ document.addEventListener('DOMContentLoaded', () => {
       Object.values(panels).forEach((p) => p && p.classList.remove('active'));
       panels[targetTab].classList.add('active');
       state.activeTab = targetTab;
+
+      if (targetTab === 'yearbook') {
+        window.dispatchEvent(new CustomEvent('yearbook:activated'));
+      }
     });
   });
 

@@ -1977,12 +1977,12 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     if res_p:
                         resolved_photos.append(res_p)
 
-                title = payload.get("title", "KỶ YẾU TỐT NGHIỆP 2026")
-                subtitle = payload.get("subtitle", "Hành Trình Rực Rỡ & Những Năm Tháng Thanh Xuân")
-                author = payload.get("author", "Biện Trung Tín")
-                degree = payload.get("degree", "Cử Nhân Kỹ Thuật Phần Mềm")
-                date_str = payload.get("date", "Tháng 11 / 2026")
-                preset = payload.get("preset", "photobook_square_25x25")
+                title = payload.get("title") or payload.get("album_title") or "KỶ YẾU TỐT NGHIỆP 2026"
+                subtitle = payload.get("subtitle") or payload.get("album_subtitle") or "Hành Trình Rực Rỡ & Những Năm Tháng Thanh Xuân"
+                author = payload.get("author") or payload.get("album_author") or "Biện Trung Tín"
+                degree = payload.get("degree") or payload.get("album_degree") or "Cử Nhân Kỹ Thuật Phần Mềm"
+                date_str = payload.get("date") or payload.get("album_date") or "Tháng 11 / 2026"
+                preset = payload.get("preset") or payload.get("page_size") or "photobook_square_25x25"
                 bleed_mm = float(payload.get("bleed_mm", 3.0))
 
                 spec = YearbookLayoutEngine.auto_layout(
@@ -1995,6 +1995,11 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     preset_key=preset,
                     bleed_mm=bleed_mm,
                 )
+                if isinstance(spec, dict):
+                    if "spreads" not in spec and "pages" in spec:
+                        spec["spreads"] = spec["pages"]
+                    if "page_size" not in spec and "preset" in spec:
+                        spec["page_size"] = spec["preset"]
                 self._send_json({"success": True, "spec": spec})
                 return
 

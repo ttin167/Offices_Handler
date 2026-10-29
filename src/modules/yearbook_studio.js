@@ -75,17 +75,17 @@ export function initYearbookStudio({ showToast, refreshLucideIcons, loadHistory 
   const panelYearbook = document.getElementById('panel-yearbook');
   if (!panelYearbook) return;
 
-  const albumTitleInput = document.getElementById('yb-input-album-title');
-  const albumSubInput = document.getElementById('yb-input-album-sub');
-  const selectSize = document.getElementById('yb-select-size');
+  const albumTitleInput = document.getElementById('yb-input-album-title') || document.getElementById('yb-input-title');
+  const albumSubInput = document.getElementById('yb-input-album-sub') || document.getElementById('yb-input-author');
+  const selectSize = document.getElementById('yb-select-size') || document.getElementById('yb-select-preset');
   const sliderBleed = document.getElementById('yb-slider-bleed');
   const bleedVal = document.getElementById('yb-bleed-val');
 
   const photoDropZone = document.getElementById('yearbook-drop-zone');
   const photoFileInput = document.getElementById('yearbook-file-input');
   const btnBrowsePhotos = document.getElementById('btn-browse-yearbook-photos');
-  const trayCountBadge = document.getElementById('yb-tray-count');
-  const trayPhotosContainer = document.getElementById('yb-tray-photos');
+  const trayCountBadge = document.getElementById('yb-tray-count') || document.getElementById('yearbook-tray-count');
+  const trayPhotosContainer = document.getElementById('yb-tray-photos') || document.getElementById('yearbook-photo-tray');
   const btnClearTray = document.getElementById('btn-clear-tray');
   const btnAutoLayout = document.getElementById('btn-yearbook-autolayout');
 
@@ -127,10 +127,80 @@ export function initYearbookStudio({ showToast, refreshLucideIcons, loadHistory 
   // 1. HELPER FUNCTIONS
   // =========================================================================
 
+  function normalizeSpec(spec) {
+    if (!spec) return null;
+    const rawSpreads = spec.spreads || spec.pages || [];
+    const normalizedSpreads = rawSpreads.map((sp, idx) => {
+      const layout = sp.layout || sp.type || 'magazine_grid_4';
+      const rawSlots = sp.slots || [];
+      const slots = rawSlots.map((sl, sIdx) => {
+        let photoVal = sl.photo || sl.photo_path || null;
+        if (photoVal && typeof photoVal === 'string' && photoVal.startsWith('mock://')) {
+          const theme = (sl.mock_theme || photoVal.replace('mock://', '').split('.')[0]).toLowerCase();
+          if (theme.includes('gown') || theme.includes('hero')) photoVal = 'mock:grad_cap';
+          else if (theme.includes('ceremony') || theme.includes('diploma')) photoVal = 'mock:ceremony';
+          else if (theme.includes('friend') || theme.includes('student')) photoVal = 'mock:friends';
+          else if (theme.includes('campus') || theme.includes('gate')) photoVal = 'mock:campus';
+          else if (theme.includes('library')) photoVal = 'mock:library';
+          else if (theme.includes('portrait')) photoVal = 'mock:portrait';
+          else if (theme.includes('backstage') || theme.includes('sunset')) photoVal = 'mock:sunset';
+          else photoVal = 'mock:grad_cap';
+        }
+        return {
+          id: sl.id || `slot_${sIdx + 1}`,
+          photo: photoVal,
+          photo_path: photoVal,
+          caption: sl.caption || '',
+          note: sl.note || sl.designer_note || '',
+          ratio: sl.ratio || getSlotDefaultRatio(layout, sIdx)
+        };
+      });
+
+      return {
+        ...sp,
+        spread_index: sp.spread_index || idx + 1,
+        layout: layout,
+        type: layout,
+        caption: sp.caption || '',
+        quote: sp.quote || '',
+        designer_note: sp.designer_note || sp.note || '',
+        slots: slots
+      };
+    });
+
+    return {
+      ...spec,
+      title: spec.title || 'KỶ YẾU TỐT NGHIỆP 2026',
+      subtitle: spec.subtitle || 'BIỆN TRUNG TÍN',
+      page_size: spec.page_size || spec.preset || 'photobook_square_25x25',
+      spreads: normalizedSpreads,
+      pages: normalizedSpreads
+    };
+  }
+
   function getPhotoDisplayData(photoRef) {
     if (!photoRef) return null;
-    if (typeof photoRef === 'string' && photoRef.startsWith('mock:')) {
-      const mockMeta = MOCK_PLACEHOLDERS[photoRef] || {
+    let ref = photoRef;
+    if (typeof photoRef === 'object') {
+      ref = photoRef.photo || photoRef.photo_path || photoRef.url || photoRef.filepath;
+    }
+    if (!ref) return null;
+
+    if (typeof ref === 'string' && (ref.startsWith('mock:') || ref.startsWith('mock://'))) {
+      let mockKey = ref;
+      if (ref.startsWith('mock://')) {
+        const theme = ref.replace('mock://', '').split('.')[0].toLowerCase();
+        if (theme.includes('gown') || theme.includes('hero')) mockKey = 'mock:grad_cap';
+        else if (theme.includes('ceremony') || theme.includes('diploma')) mockKey = 'mock:ceremony';
+        else if (theme.includes('friend') || theme.includes('student')) mockKey = 'mock:friends';
+        else if (theme.includes('campus') || theme.includes('gate')) mockKey = 'mock:campus';
+        else if (theme.includes('library')) mockKey = 'mock:library';
+        else if (theme.includes('portrait')) mockKey = 'mock:portrait';
+        else if (theme.includes('backstage') || theme.includes('sunset')) mockKey = 'mock:sunset';
+        else mockKey = 'mock:grad_cap';
+      }
+
+      const mockMeta = MOCK_PLACEHOLDERS[mockKey] || {
         title: 'Kỷ Yếu Tốt Nghiệp',
         sub: '2026',
         bg: 'linear-gradient(135deg, #1E293B, #334155)',
@@ -139,7 +209,7 @@ export function initYearbookStudio({ showToast, refreshLucideIcons, loadHistory 
       };
       return {
         isMock: true,
-        mockId: photoRef,
+        mockId: mockKey,
         title: mockMeta.title,
         sub: mockMeta.sub,
         bg: mockMeta.bg,
@@ -148,12 +218,12 @@ export function initYearbookStudio({ showToast, refreshLucideIcons, loadHistory 
       };
     }
     // Real uploaded photo
-    const url = typeof photoRef === 'string' ? photoRef : (photoRef.url || photoRef.filepath);
+    const url = typeof ref === 'string' ? ref : (ref.url || ref.filepath);
     return {
       isMock: false,
       url: url,
-      title: photoRef.filename || 'Ảnh Kỷ Yếu',
-      sub: photoRef.aspect || '3:2'
+      title: (typeof photoRef === 'object' && photoRef.filename) ? photoRef.filename : (typeof ref === 'string' ? ref.split('/').pop() : 'Ảnh Kỷ Yếu'),
+      sub: (typeof photoRef === 'object' && photoRef.aspect) ? photoRef.aspect : '3:2'
     };
   }
 
@@ -458,7 +528,7 @@ export function initYearbookStudio({ showToast, refreshLucideIcons, loadHistory 
       slot = { id: `slot_${index + 1}`, photo: null, caption: '' };
     }
 
-    const photoData = getPhotoDisplayData(slot.photo);
+    const photoData = getPhotoDisplayData(slot.photo || slot.photo_path);
     const isPolaroid = layout === 'polaroid_scrapbook';
 
     let innerContent = '';
@@ -642,15 +712,19 @@ export function initYearbookStudio({ showToast, refreshLucideIcons, loadHistory 
   // =========================================================================
 
   function updatePhotoTray() {
-    trayCountBadge.textContent = `${state.photoTray.length} ảnh`;
+    if (trayCountBadge) trayCountBadge.textContent = `${state.photoTray.length} ảnh`;
+    const subtabBadge = document.getElementById('yb-subtab-photo-badge');
+    if (subtabBadge) subtabBadge.textContent = state.photoTray.length;
 
     if (state.photoTray.length === 0) {
-      trayPhotosContainer.innerHTML = `
-        <div class="tray-empty-hint">
-          <i data-lucide="upload-cloud"></i>
-          <span>Khay ảnh trống. Hãy tải ảnh kỷ yếu vào đây!</span>
-        </div>
-      `;
+      if (trayPhotosContainer) {
+        trayPhotosContainer.innerHTML = `
+          <div class="tray-empty-hint">
+            <i data-lucide="upload-cloud"></i>
+            <span>Khay ảnh trống. Hãy tải ảnh kỷ yếu vào đây!</span>
+          </div>
+        `;
+      }
       refreshLucideIcons();
       return;
     }
@@ -788,7 +862,7 @@ export function initYearbookStudio({ showToast, refreshLucideIcons, loadHistory 
       if (res.ok) {
         const data = await res.json();
         if (data && data.spec) {
-          state.spec = data.spec;
+          state.spec = normalizeSpec(data.spec);
           populateInitialFormFields();
           extractPhotosIntoTray();
           renderCurrentSpread();
@@ -800,7 +874,7 @@ export function initYearbookStudio({ showToast, refreshLucideIcons, loadHistory 
       console.warn('Could not fetch server mock album, using embedded fallback:', e);
     }
     // Fallback embedded mock spec
-    state.spec = getEmbeddedFallbackSpec();
+    state.spec = normalizeSpec(getEmbeddedFallbackSpec());
     populateInitialFormFields();
     extractPhotosIntoTray();
     renderCurrentSpread();
@@ -808,12 +882,12 @@ export function initYearbookStudio({ showToast, refreshLucideIcons, loadHistory 
 
   function populateInitialFormFields() {
     if (!state.spec) return;
-    albumTitleInput.value = state.spec.title || 'KỶ YẾU TỐT NGHIỆP 2026';
-    albumSubInput.value = state.spec.subtitle || 'BIỆN TRUNG TÍN';
-    if (state.spec.page_size) selectSize.value = state.spec.page_size;
-    if (state.spec.print_settings && state.spec.print_settings.bleed_mm) {
+    if (albumTitleInput) albumTitleInput.value = state.spec.title || 'KỶ YẾU TỐT NGHIỆP 2026';
+    if (albumSubInput) albumSubInput.value = state.spec.subtitle || 'BIỆN TRUNG TÍN';
+    if (state.spec.page_size && selectSize) selectSize.value = state.spec.page_size;
+    if (state.spec.print_settings && state.spec.print_settings.bleed_mm && sliderBleed) {
       sliderBleed.value = state.spec.print_settings.bleed_mm;
-      bleedVal.textContent = `${state.spec.print_settings.bleed_mm.toFixed(1)} mm`;
+      if (bleedVal) bleedVal.textContent = `${state.spec.print_settings.bleed_mm.toFixed(1)} mm`;
     }
   }
 
@@ -849,11 +923,12 @@ export function initYearbookStudio({ showToast, refreshLucideIcons, loadHistory 
       if (res.ok) {
         const data = await res.json();
         if (data && data.spec) {
-          state.spec = data.spec;
+          state.spec = normalizeSpec(data.spec);
           state.currentSpreadIndex = 0;
           renderCurrentSpread();
           updatePhotoTray();
-          showToast(`Dàn trang thành công! Đã tạo ${state.spec.spreads.length} trang đôi chuẩn editorial.`, 'success');
+          const spreadCount = state.spec?.spreads?.length || 0;
+          showToast(`Dàn trang thành công! Đã tạo ${spreadCount} trang đôi chuẩn editorial.`, 'success');
           return;
         }
       }
@@ -873,11 +948,11 @@ export function initYearbookStudio({ showToast, refreshLucideIcons, loadHistory 
     statusText.textContent = 'Đang biên soạn và xuất bản tài liệu...';
 
     // Synchronize latest spec inputs
-    state.spec.title = albumTitleInput.value.trim();
-    state.spec.subtitle = albumSubInput.value.trim();
-    state.spec.page_size = selectSize.value;
+    if (albumTitleInput) state.spec.title = albumTitleInput.value.trim() || state.spec.title || 'KỶ YẾU TỐT NGHIỆP 2026';
+    if (albumSubInput) state.spec.subtitle = albumSubInput.value.trim() || state.spec.subtitle || 'BIỆN TRUNG TÍN';
+    if (selectSize) state.spec.page_size = selectSize.value || state.spec.page_size || 'photobook_square_25x25';
     state.spec.print_settings = state.spec.print_settings || {};
-    state.spec.print_settings.bleed_mm = parseFloat(sliderBleed.value) || 3.0;
+    if (sliderBleed) state.spec.print_settings.bleed_mm = parseFloat(sliderBleed.value) || 3.0;
 
     try {
       const res = await fetch('/api/yearbook/export', {
@@ -1096,6 +1171,33 @@ export function initYearbookStudio({ showToast, refreshLucideIcons, loadHistory 
 
   btnExportHandoffZip.addEventListener('click', () => {
     triggerExport('handoff_zip', 'Gói Designer Handoff 5-trong-1 đã sẵn sàng tải về!');
+  });
+
+  // Sub-tabs in Column 1 (Photos vs Print Settings)
+  const subtabBtns = panelYearbook.querySelectorAll('.yb-subtab-btn');
+  const subpanels = {
+    photos: document.getElementById('yb-subpanel-photos'),
+    settings: document.getElementById('yb-subpanel-settings'),
+  };
+
+  subtabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.getAttribute('data-ybtab');
+      if (!subpanels[target]) return;
+      subtabBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      Object.values(subpanels).forEach(p => p && p.classList.remove('active'));
+      subpanels[target].classList.add('active');
+      refreshLucideIcons();
+    });
+  });
+
+  // Re-render when Yearbook tab becomes active
+  window.addEventListener('yearbook:activated', () => {
+    if (state.spec && state.spec.spreads) {
+      renderCurrentSpread();
+      updatePhotoTray();
+    }
   });
 
   // Initialize Initial Album
