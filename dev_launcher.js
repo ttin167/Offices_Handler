@@ -5,6 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import net from 'net';
 import { fileURLToPath } from 'url';
 import { spawn, spawnSync, execSync } from 'child_process';
 import process from 'process';
@@ -30,6 +31,45 @@ console.log('\x1b[90m%s\x1b[0m', '  Starting local development services (Press C
 let isShuttingDown = false;
 let apiProcess = null;
 let viteProcess = null;
+
+// Wait for a port to be listening before proceeding (prevents ECONNREFUSED race conditions)
+function waitForPort(port, host = '127.0.0.1', timeoutMs = 12000) {
+  const startTime = Date.now();
+  return new Promise((resolve) => {
+    const tryConnect = () => {
+      if (isShuttingDown) return resolve(false);
+      const socket = new net.Socket();
+      socket.setTimeout(400);
+
+      socket.once('connect', () => {
+        socket.destroy();
+        resolve(true);
+      });
+
+      socket.once('error', () => {
+        socket.destroy();
+        if (Date.now() - startTime > timeoutMs) {
+          resolve(false);
+        } else {
+          setTimeout(tryConnect, 150);
+        }
+      });
+
+      socket.once('timeout', () => {
+        socket.destroy();
+        if (Date.now() - startTime > timeoutMs) {
+          resolve(false);
+        } else {
+          setTimeout(tryConnect, 150);
+        }
+      });
+
+      socket.connect(port, host);
+    };
+
+    tryConnect();
+  });
+}
 
 // Clean up any lingering process on Windows listening on a port
 function cleanupPort(port) {
@@ -91,34 +131,35 @@ function startApiServer() {
   });
 }
 
-startApiServer();
-
 // 2. Spawn Vite Dev Server directly via Node (No cmd.exe / npx.cmd batch wrapper)
 // This eliminates the Windows "Terminate batch job (Y/N)?" prompt entirely.
-const viteBin = path.join(__dirname, 'node_modules', 'vite', 'bin', 'vite.js');
-if (fs.existsSync(viteBin)) {
-  viteProcess = spawn(process.execPath, [viteBin], {
-    stdio: 'inherit',
-    shell: false,
+function startViteServer() {
+  if (isShuttingDown) return;
+  const viteBin = path.join(__dirname, 'node_modules', 'vite', 'bin', 'vite.js');
+  if (fs.existsSync(viteBin)) {
+    viteProcess = spawn(process.execPath, [viteBin], {
+      stdio: 'inherit',
+      shell: false,
+    });
+  } else {
+    viteProcess = spawn('npx', ['vite'], {
+      stdio: 'inherit',
+      shell: process.platform === 'win32',
+    });
+  }
+
+  viteProcess.on('error', (err) => {
+    if (!isShuttingDown) {
+      console.error('\x1b[31m[Vite Error]\x1b[0m', err.message);
+    }
   });
-} else {
-  viteProcess = spawn('npx', ['vite'], {
-    stdio: 'inherit',
-    shell: process.platform === 'win32',
+
+  viteProcess.on('exit', (code) => {
+    if (!isShuttingDown) {
+      cleanExit();
+    }
   });
 }
-
-viteProcess.on('error', (err) => {
-  if (!isShuttingDown) {
-    console.error('\x1b[31m[Vite Error]\x1b[0m', err.message);
-  }
-});
-
-viteProcess.on('exit', (code) => {
-  if (!isShuttingDown) {
-    cleanExit();
-  }
-});
 
 // Graceful, one-touch cleanup on exit
 const cleanExit = () => {
@@ -151,3 +192,14 @@ if (process.platform === 'win32' && process.stdin.isTTY) {
 
 process.on('SIGINT', cleanExit);
 process.on('SIGTERM', cleanExit);
+
+// Coordinated bootstrap: start Python API Bridge first, wait until port 8000 is listening, then start Vite
+async function bootstrap() {
+  startApiServer();
+  await waitForPort(8000, '127.0.0.1', 12000);
+  if (!isShuttingDown) {
+    startViteServer();
+  }
+}
+
+bootstrap();
