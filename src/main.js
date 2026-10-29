@@ -70,7 +70,10 @@ import { DIAGRAM_PRESETS } from './modules/constants.js';
 import { initHistoryDrawer } from './modules/history_drawer.js';
 import { initMathStudio } from './modules/math_studio.js';
 import { initFormulaPlaybook } from './modules/formula_playbook.js';
-import { initYearbookStudio } from './modules/yearbook_studio.js';
+
+// Optional local-only module (excluded in GitHub/Docker builds via .gitignore)
+const _optionalYearbookModules = import.meta.glob('./modules/yearbook_studio.js', { eager: true });
+const initYearbookStudio = _optionalYearbookModules['./modules/yearbook_studio.js']?.initYearbookStudio || null;
 
 const studioIcons = {
   Sparkles,
@@ -208,7 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
-    
+
     let iconName = 'info';
     if (type === 'success') iconName = 'check-circle-2';
     if (type === 'error') iconName = 'alert-circle';
@@ -1794,7 +1797,7 @@ document.addEventListener('DOMContentLoaded', () => {
           refreshLucideIcons();
         }
       }
-    } catch (_) {}
+    } catch (_) { }
   }
 
   if (mmTplDropZone && mmTplFileInput) {
@@ -3903,7 +3906,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // =========================================================================
   // 14. TAB 6: DIGITAL YEARBOOK & PRE-PRESS PHOTOBOOK STUDIO CONTROLLER
   // =========================================================================
-  initYearbookStudio({ showToast, refreshLucideIcons, loadHistory });
+  if (typeof initYearbookStudio === 'function') {
+    initYearbookStudio({ showToast, refreshLucideIcons, loadHistory });
+  } else {
+    const ybTabBtn = document.querySelector('[data-tab="yearbook"]');
+    const ybPanel = document.getElementById('panel-yearbook');
+    if (ybTabBtn) ybTabBtn.style.display = 'none';
+    if (ybPanel) ybPanel.style.display = 'none';
+  }
 
   // Initial Lucide icon generation
   refreshLucideIcons();

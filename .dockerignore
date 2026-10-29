@@ -44,3 +44,10 @@ scratch
 *.bak
 ~$*
 .~lock.*
+
+# Personal Yearbook Studio (Local-only, excluded from Docker/Cloud image)
+core/yearbook/
+src/modules/yearbook_studio.js
+tests/test_yearbook_studio.py
+*yearbook*
+*Yearbook*

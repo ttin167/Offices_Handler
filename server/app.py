@@ -57,14 +57,6 @@ try:
         convert_images_to_pdf, export_pdf_to_images_zip, sign_pdf_with_stamp, flatten_and_sanitize_pdf
     )
     from core.xlsx.writer import apply_worksheet_print_setup, UniversalExcelEngine
-    from core.yearbook import (
-        YearbookLayoutEngine,
-        YearbookPressEngine,
-        YearbookHandoffPackager,
-        PRESETS as YEARBOOK_PRESETS,
-        SPREAD_TEMPLATES as YEARBOOK_TEMPLATES,
-        get_default_mock_spec,
-    )
 except (ImportError, ValueError):
     from converter_engine import convert_universal  # type: ignore
     from docx_to_pptx import convert_docx_to_pptx, convert_pdf_to_pptx  # type: ignore
@@ -83,6 +75,27 @@ except (ImportError, ValueError):
         convert_images_to_pdf, export_pdf_to_images_zip, sign_pdf_with_stamp, flatten_and_sanitize_pdf
     )
     from xlsx_writer import apply_worksheet_print_setup, UniversalExcelEngine  # type: ignore
+
+# Optional local-only module: Digital Yearbook & Photobook Studio (excluded on GitHub/Docker)
+try:
+    from core.yearbook import (
+        YearbookLayoutEngine,
+        YearbookPressEngine,
+        YearbookHandoffPackager,
+        PRESETS as YEARBOOK_PRESETS,
+        SPREAD_TEMPLATES as YEARBOOK_TEMPLATES,
+        get_default_mock_spec,
+    )
+    HAS_YEARBOOK = True
+except (ImportError, ValueError):
+    HAS_YEARBOOK = False
+    YearbookLayoutEngine = None  # type: ignore
+    YearbookPressEngine = None  # type: ignore
+    YearbookHandoffPackager = None  # type: ignore
+    YEARBOOK_PRESETS = {}  # type: ignore
+    YEARBOOK_TEMPLATES = {}  # type: ignore
+    def get_default_mock_spec(*args: Any, **kwargs: Any) -> Dict[str, Any]:  # type: ignore
+        return {"title": "Yearbook Module Not Installed", "spreads": [], "pages": []}
 
 try:
     from core.job_manager import global_job_manager
