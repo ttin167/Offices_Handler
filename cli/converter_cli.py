@@ -20,7 +20,7 @@ if sys.platform == "win32":
 try:
     from core.converter.engine import convert_universal, get_pdf_page_count
 except (ImportError, ValueError):
-    from converter_engine import convert_universal, get_pdf_page_count
+    from core.converter.engine import convert_universal, get_pdf_page_count
 
 def run_cli() -> int:
     parser = argparse.ArgumentParser(
@@ -68,7 +68,7 @@ Ví dụ sử dụng:
     args = parser.parse_args()
 
     if args.gui or not args.path:
-        from .gui import launch_gui
+        from ui.desktop_app import launch_gui
         launch_gui(args.path)
         return 0
 

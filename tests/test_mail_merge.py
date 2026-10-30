@@ -21,7 +21,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-from docx_mail_merge import (
+from core.docx.mail_merge import (
     inspect_template_tokens,
     evaluate_condition,
     resolve_conditional_text,

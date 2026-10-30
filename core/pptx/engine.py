@@ -40,7 +40,7 @@ try:
         set_paragraph_text_clean,
     )
 except (ImportError, ValueError):
-    from pptx_writer import (  # type: ignore
+    from core.pptx.writer import (  # type: ignore
         write_pptx_from_spec,
         add_title_slide,
         add_chapter_slide,
@@ -64,7 +64,7 @@ except (ImportError, ValueError):
 try:
     from .math import add_math_text_to_paragraph, parse_inline_math
 except (ImportError, ValueError):
-    from pptx_math import add_math_text_to_paragraph, parse_inline_math  # type: ignore
+    from core.pptx.math import add_math_text_to_paragraph, parse_inline_math  # type: ignore
 
 
 def parse_markdown_to_slides_spec(
@@ -137,7 +137,7 @@ def parse_markdown_to_slides_spec(
                             from core.diagrams.bridge import render_diagram_code_to_png
                         except (ImportError, ValueError):
                             try:
-                                from diagram_bridge import render_diagram_code_to_png
+                                from core.diagrams.bridge import render_diagram_code_to_png
                             except (ImportError, ValueError):
                                 render_diagram_code_to_png = None
 
@@ -196,7 +196,7 @@ def parse_markdown_to_slides_spec(
                     from core.diagrams.bridge import render_diagram_file_to_png
                 except (ImportError, ValueError):
                     try:
-                        from diagram_bridge import render_diagram_file_to_png
+                        from core.diagrams.bridge import render_diagram_file_to_png
                     except (ImportError, ValueError):
                         render_diagram_file_to_png = None
 

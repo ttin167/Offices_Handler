@@ -25,7 +25,7 @@ from docx import Document
 from docx.shared import Pt, Inches, RGBColor
 from docx.oxml.ns import qn
 
-from docx_math import (
+from core.docx.math import (
     GREEK_SYMBOLS,
     MATH_OPERATORS,
     replace_latex_symbols,
@@ -36,8 +36,8 @@ from docx_math import (
     M_NS,
     W_NS,
 )
-from docx_writer import write_docx
-from markdown_converter import markdown_to_docx
+from core.docx.writer import write_docx
+from core.converter.markdown import markdown_to_docx
 
 
 class TestDocxMathLexiconAndTokenizer(unittest.TestCase):

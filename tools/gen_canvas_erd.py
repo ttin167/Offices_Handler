@@ -425,7 +425,7 @@ def main():
     print("RENDERING CANVAS MASTER ERD TO SVG AND 8K UHD PNG (scale=2)")
     print("=" * 65)
 
-    from spec_diagram_engine import PrecisionDiagram
+    from core.diagrams.legacy.canvas import PrecisionDiagram
 
     diag = PrecisionDiagram.from_spec(canvas_spec, base_dir=ROOT_DIR)
 

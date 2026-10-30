@@ -33,11 +33,11 @@ if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
     if hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(encoding="utf-8")
 
-# Attempt relative or absolute import of spec_diagram_engine
+# Import PrecisionDiagram and primitives from core.diagrams.legacy.canvas
 try:
-    from .spec_diagram_engine import Edge, Node, NodeType, PortType, PrecisionDiagram
+    from .legacy.canvas import Edge, Node, NodeType, PortType, PrecisionDiagram
 except (ImportError, ValueError):
-    from spec_diagram_engine import Edge, Node, NodeType, PortType, PrecisionDiagram  # type: ignore
+    from core.diagrams.legacy.canvas import Edge, Node, NodeType, PortType, PrecisionDiagram  # type: ignore
 
 
 # ==============================================================================

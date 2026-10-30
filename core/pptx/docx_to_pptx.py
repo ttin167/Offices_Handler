@@ -41,7 +41,7 @@ from docx.table import Table
 try:
     from .writer import write_pptx_from_spec, get_theme, THEMES
 except (ImportError, ValueError):
-    from pptx_writer import write_pptx_from_spec, get_theme, THEMES
+    from core.pptx.writer import write_pptx_from_spec, get_theme, THEMES
 
 
 # ---------------------------------------------------------------------------
@@ -895,7 +895,7 @@ def convert_pdf_to_pptx(
     try:
         from core.converter.engine import convert_file
     except (ImportError, ValueError):
-        from converter_engine import convert_file  # type: ignore
+        from core.converter.engine import convert_file  # type: ignore
 
     t0 = time.time()
     ok, actual_docx, _ = convert_file(pdf_path, temp_docx, page_range=page_range)

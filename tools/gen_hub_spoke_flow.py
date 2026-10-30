@@ -6,7 +6,7 @@ ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
-from spec_diagram_engine import PrecisionDiagram
+from core.diagrams.legacy.canvas import PrecisionDiagram
 
 def build_perfect_diagram() -> PrecisionDiagram:
     diag = PrecisionDiagram(

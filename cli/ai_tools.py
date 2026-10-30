@@ -66,7 +66,7 @@ def cmd_docx_read(args: argparse.Namespace) -> int:
     try:
         from core.docx.reader import read_docx_to_json
     except (ImportError, ValueError):
-        from docx_reader import read_docx_to_json
+        from core.docx.reader import read_docx_to_json
 
     src = os.path.abspath(args.file)
     if not os.path.isfile(src):
@@ -96,7 +96,7 @@ def cmd_docx_write(args: argparse.Namespace) -> int:
     try:
         from core.docx.writer import write_docx_from_json_file
     except (ImportError, ValueError):
-        from docx_writer import write_docx_from_json_file
+        from core.docx.writer import write_docx_from_json_file
 
     json_path = os.path.abspath(args.snapshot)
     if not os.path.isfile(json_path):
@@ -131,7 +131,7 @@ def cmd_docx_inject(args: argparse.Namespace) -> int:
     try:
         from core.docx.writer import inject_content_into_docx
     except (ImportError, ValueError):
-        from docx_writer import inject_content_into_docx
+        from core.docx.writer import inject_content_into_docx
 
     src = os.path.abspath(args.file)
     if not os.path.isfile(src):
@@ -169,9 +169,9 @@ def cmd_docx_patch(args: argparse.Namespace) -> int:
         try:
             from core.docx.writer import patch_docx_template
         except (ImportError, ValueError):
-            from docx_writer import patch_docx_template
+            from core.docx.writer import patch_docx_template
     except (ImportError, ValueError):
-        from docx_writer import patch_docx_template  # type: ignore
+        from core.docx.writer import patch_docx_template  # type: ignore
 
     template_path = os.path.abspath(args.template)
     if not os.path.isfile(template_path):
@@ -213,9 +213,9 @@ def cmd_docx_page_numbers(args: argparse.Namespace) -> int:
         try:
             from core.docx.advanced_engine import inject_dynamic_page_numbers, safe_save_docx
         except (ImportError, ValueError):
-            from docx_advanced_engine import inject_dynamic_page_numbers, safe_save_docx
+            from core.docx.advanced_engine import inject_dynamic_page_numbers, safe_save_docx
     except (ImportError, ValueError):
-        from docx_advanced_engine import inject_dynamic_page_numbers, safe_save_docx  # type: ignore
+        from core.docx.advanced_engine import inject_dynamic_page_numbers, safe_save_docx  # type: ignore
 
     src = os.path.abspath(args.file)
     if not os.path.isfile(src):
@@ -244,9 +244,9 @@ def cmd_docx_caption_fix(args: argparse.Namespace) -> int:
         try:
             from core.docx.advanced_engine import format_figure_captions, safe_save_docx
         except (ImportError, ValueError):
-            from docx_advanced_engine import format_figure_captions, safe_save_docx
+            from core.docx.advanced_engine import format_figure_captions, safe_save_docx
     except (ImportError, ValueError):
-        from docx_advanced_engine import format_figure_captions, safe_save_docx  # type: ignore
+        from core.docx.advanced_engine import format_figure_captions, safe_save_docx  # type: ignore
 
     src = os.path.abspath(args.file)
     if not os.path.isfile(src):
@@ -275,9 +275,9 @@ def cmd_docx_sanitize_icons(args: argparse.Namespace) -> int:
         try:
             from core.docx.advanced_engine import sanitize_emojis_and_symbols, safe_save_docx
         except (ImportError, ValueError):
-            from docx_advanced_engine import sanitize_emojis_and_symbols, safe_save_docx
+            from core.docx.advanced_engine import sanitize_emojis_and_symbols, safe_save_docx
     except (ImportError, ValueError):
-        from docx_advanced_engine import sanitize_emojis_and_symbols, safe_save_docx  # type: ignore
+        from core.docx.advanced_engine import sanitize_emojis_and_symbols, safe_save_docx  # type: ignore
 
     src = os.path.abspath(args.file)
     if not os.path.isfile(src):
@@ -305,7 +305,7 @@ def cmd_docx_sanitize_vietnamese(args: argparse.Namespace) -> int:
     try:
         from core.docx.advanced_engine import sanitize_vietnamese_typography, safe_save_docx
     except (ImportError, ValueError):
-        from docx_advanced_engine import sanitize_vietnamese_typography, safe_save_docx  # type: ignore
+        from core.docx.advanced_engine import sanitize_vietnamese_typography, safe_save_docx  # type: ignore
 
     src = os.path.abspath(args.file)
     if not os.path.isfile(src):
@@ -334,8 +334,8 @@ def cmd_docx_apply_preset(args: argparse.Namespace) -> int:
         from core.docx.presets import apply_preset_to_document, build_administrative_header
         from core.docx.advanced_engine import safe_save_docx
     except (ImportError, ValueError):
-        from docx_presets import apply_preset_to_document, build_administrative_header  # type: ignore
-        from docx_advanced_engine import safe_save_docx  # type: ignore
+        from core.docx.presets import apply_preset_to_document, build_administrative_header  # type: ignore
+        from core.docx.advanced_engine import safe_save_docx  # type: ignore
 
     src = os.path.abspath(args.file)
     if not os.path.isfile(src):
@@ -387,7 +387,7 @@ def cmd_pdf_tools(args: argparse.Namespace) -> int:
             flatten_and_sanitize_pdf,
         )
     except (ImportError, ValueError):
-        from pdf_toolkit import (  # type: ignore
+        from core.converter.pdf_toolkit import (  # type: ignore
             merge_pdfs,
             split_pdf,
             rotate_and_clean_pdf,
@@ -649,7 +649,7 @@ def cmd_docx_mail_merge(args: argparse.Namespace) -> int:
     try:
         from core.docx.mail_merge import execute_mail_merge, inspect_template_tokens
     except (ImportError, ValueError):
-        from docx_mail_merge import execute_mail_merge, inspect_template_tokens  # type: ignore
+        from core.docx.mail_merge import execute_mail_merge, inspect_template_tokens  # type: ignore
 
     template_path = args.template
     if not os.path.isfile(template_path):
@@ -724,7 +724,7 @@ def cmd_docx_diff(args: argparse.Namespace) -> int:
     try:
         from core.docx.diff_engine import compare_docx_documents
     except (ImportError, ValueError):
-        from docx_diff_engine import compare_docx_documents  # type: ignore
+        from core.docx.diff_engine import compare_docx_documents  # type: ignore
 
     out_path = args.output or os.path.splitext(doc_b)[0] + "_redline.docx"
     author = getattr(args, "author", "AI Reviewer") or "AI Reviewer"
@@ -749,7 +749,7 @@ def cmd_ocr_scan(args: argparse.Namespace) -> int:
     try:
         from core.converter.ocr_pipeline import VietnameseOcrPipeline
     except (ImportError, ValueError):
-        from ocr_pipeline import VietnameseOcrPipeline  # type: ignore
+        from core.converter.ocr_pipeline import VietnameseOcrPipeline  # type: ignore
 
     src = os.path.abspath(args.file)
     if not os.path.isfile(src):
@@ -784,9 +784,9 @@ def cmd_docx_translate(args: argparse.Namespace) -> int:
         try:
             from core.docx.advanced_engine import translate_vn_to_en_protected, safe_save_docx
         except (ImportError, ValueError):
-            from docx_advanced_engine import translate_vn_to_en_protected, safe_save_docx
+            from core.docx.advanced_engine import translate_vn_to_en_protected, safe_save_docx
     except (ImportError, ValueError):
-        from docx_advanced_engine import translate_vn_to_en_protected, safe_save_docx  # type: ignore
+        from core.docx.advanced_engine import translate_vn_to_en_protected, safe_save_docx  # type: ignore
 
     src = os.path.abspath(args.file)
     if not os.path.isfile(src):
@@ -829,9 +829,9 @@ def cmd_mermaid_render(args: argparse.Namespace) -> int:
         try:
             from core.diagrams.legacy.mermaid import render_mermaid_to_png
         except (ImportError, ValueError):
-            from mermaid_renderer import render_mermaid_to_png
+            from core.diagrams.legacy.mermaid import render_mermaid_to_png
     except (ImportError, ValueError):
-        from mermaid_renderer import render_mermaid_to_png  # type: ignore
+        from core.diagrams.legacy.mermaid import render_mermaid_to_png  # type: ignore
 
     spec_path = os.path.abspath(args.spec)
     if not os.path.isfile(spec_path):
@@ -884,9 +884,9 @@ def cmd_plantuml_render(args: argparse.Namespace) -> int:
         try:
             from core.diagrams.legacy.plantuml import render_plantuml_to_png
         except (ImportError, ValueError):
-            from plantuml_renderer import render_plantuml_to_png
+            from core.diagrams.legacy.plantuml import render_plantuml_to_png
     except (ImportError, ValueError):
-        from plantuml_renderer import render_plantuml_to_png  # type: ignore
+        from core.diagrams.legacy.plantuml import render_plantuml_to_png  # type: ignore
 
     spec_path = os.path.abspath(args.spec)
     if not os.path.isfile(spec_path):
@@ -957,7 +957,7 @@ def cmd_diagram_render(args: argparse.Namespace) -> int:
             try:
                 from core.diagrams.mxgraph import render_diagram
             except (ImportError, ValueError):
-                from mxgraph_engine import render_diagram  # type: ignore
+                from core.diagrams.mxgraph import render_diagram  # type: ignore
             if args.scale is not None:
                 spec["scale"] = args.scale
             result = render_diagram(spec, base_dir=base_dir)
@@ -965,7 +965,7 @@ def cmd_diagram_render(args: argparse.Namespace) -> int:
             try:
                 from core.diagrams.legacy.canvas import PrecisionDiagram
             except (ImportError, ValueError):
-                from spec_diagram_engine import PrecisionDiagram  # type: ignore
+                from core.diagrams.legacy.canvas import PrecisionDiagram  # type: ignore
             scale = args.scale if args.scale is not None else spec.get("scale", 3)
             diag = PrecisionDiagram.from_spec(spec, base_dir=base_dir)
             result = diag.render_to_png(out_png, scale=scale)
@@ -973,13 +973,13 @@ def cmd_diagram_render(args: argparse.Namespace) -> int:
             try:
                 from core.diagrams.legacy.mermaid import render_mermaid_to_png
             except (ImportError, ValueError):
-                from mermaid_renderer import render_mermaid_to_png  # type: ignore
+                from core.diagrams.legacy.mermaid import render_mermaid_to_png  # type: ignore
             result = render_mermaid_to_png(spec, base_dir=base_dir)
         elif engine == "plantuml":
             try:
                 from core.diagrams.legacy.plantuml import render_plantuml_to_png
             except (ImportError, ValueError):
-                from plantuml_renderer import render_plantuml_to_png  # type: ignore
+                from core.diagrams.legacy.plantuml import render_plantuml_to_png  # type: ignore
             result = render_plantuml_to_png(spec, base_dir=base_dir)
         else:
             raise ValueError(f"Unknown diagram engine: '{engine}'. Supported: 'mxgraph', 'drawio', 'canvas', 'mermaid', 'plantuml'")
@@ -1003,7 +1003,7 @@ def cmd_diagram_render(args: argparse.Namespace) -> int:
             try:
                 from core.docx.writer import inject_diagram_into_docx
             except (ImportError, ValueError):
-                from docx_writer import inject_diagram_into_docx  # type: ignore
+                from core.docx.writer import inject_diagram_into_docx  # type: ignore
             inject_diagram_into_docx(
                 docx_path=docx_target,
                 png_path=result["png_path"],
@@ -1030,7 +1030,7 @@ def cmd_spec_render(args: argparse.Namespace) -> int:
     try:
         from core.diagrams.legacy.canvas import PrecisionDiagram
     except (ImportError, ValueError):
-        from spec_diagram_engine import PrecisionDiagram
+        from core.diagrams.legacy.canvas import PrecisionDiagram
 
     spec_path = os.path.abspath(args.spec)
     if not os.path.isfile(spec_path):
@@ -1150,7 +1150,7 @@ def cmd_xlsx_read(args: argparse.Namespace) -> int:
     try:
         from core.xlsx.reader import read_xlsx_to_json
     except (ImportError, ValueError):
-        from xlsx_reader import read_xlsx_to_json
+        from core.xlsx.reader import read_xlsx_to_json
 
     src = os.path.abspath(args.file)
     if not os.path.isfile(src):
@@ -1189,7 +1189,7 @@ def cmd_xlsx_write(args: argparse.Namespace) -> int:
     try:
         from core.xlsx.writer import write_xlsx_from_json_file
     except (ImportError, ValueError):
-        from xlsx_writer import write_xlsx_from_json_file
+        from core.xlsx.writer import write_xlsx_from_json_file
 
     json_path = os.path.abspath(args.snapshot)
     if not os.path.isfile(json_path):
@@ -1228,9 +1228,9 @@ def cmd_xlsx_mutate(args: argparse.Namespace) -> int:
         try:
             from core.xlsx.writer import mutate_template_excel
         except (ImportError, ValueError):
-            from xlsx_writer import mutate_template_excel
+            from core.xlsx.writer import mutate_template_excel
     except (ImportError, ValueError):
-        from xlsx_writer import mutate_template_excel  # type: ignore
+        from core.xlsx.writer import mutate_template_excel  # type: ignore
 
     template_path = os.path.abspath(args.template)
     if not os.path.isfile(template_path):
@@ -1261,7 +1261,7 @@ def cmd_xlsx_mutate(args: argparse.Namespace) -> int:
         try:
             from core.xlsx.validator import validate_excel_sheet
         except (ImportError, ValueError):
-            from xlsx_validator import validate_excel_sheet  # type: ignore
+            from core.xlsx.validator import validate_excel_sheet  # type: ignore
 
         sheets_spec = spec.get("sheets", {})
         for sheet_name in sheets_spec:
@@ -1289,9 +1289,9 @@ def cmd_xlsx_validate(args: argparse.Namespace) -> int:
         try:
             from core.xlsx.validator import validate_excel_sheet
         except (ImportError, ValueError):
-            from xlsx_validator import validate_excel_sheet
+            from core.xlsx.validator import validate_excel_sheet
     except (ImportError, ValueError):
-        from xlsx_validator import validate_excel_sheet  # type: ignore
+        from core.xlsx.validator import validate_excel_sheet  # type: ignore
 
     src = os.path.abspath(args.file)
     if not os.path.isfile(src):
@@ -1326,7 +1326,7 @@ def cmd_pptx_create(args: argparse.Namespace) -> int:
     try:
         from core.pptx.writer import write_pptx_from_spec
     except (ImportError, ValueError):
-        from pptx_writer import write_pptx_from_spec  # type: ignore
+        from core.pptx.writer import write_pptx_from_spec  # type: ignore
 
     spec_raw = getattr(args, "spec_opt", None) or getattr(args, "spec", None)
     if not spec_raw:
@@ -1370,9 +1370,9 @@ def cmd_pptx_from_md(args: argparse.Namespace) -> int:
         try:
             from core.pptx.engine import compile_markdown_file_to_pptx
         except (ImportError, ValueError):
-            from pptx_engine import compile_markdown_file_to_pptx
+            from core.pptx.engine import compile_markdown_file_to_pptx
     except (ImportError, ValueError):
-        from pptx_engine import compile_markdown_file_to_pptx  # type: ignore
+        from core.pptx.engine import compile_markdown_file_to_pptx  # type: ignore
 
     md_path = os.path.abspath(args.file)
     if not os.path.isfile(md_path):
@@ -1405,9 +1405,9 @@ def cmd_docx_to_pptx(args: argparse.Namespace) -> int:
         try:
             from core.pptx.docx_to_pptx import convert_docx_to_pptx
         except (ImportError, ValueError):
-            from docx_to_pptx import convert_docx_to_pptx
+            from core.pptx.docx_to_pptx import convert_docx_to_pptx
     except (ImportError, ValueError):
-        from docx_to_pptx import convert_docx_to_pptx  # type: ignore
+        from core.pptx.docx_to_pptx import convert_docx_to_pptx  # type: ignore
 
     docx_path = os.path.abspath(args.file)
     if not os.path.isfile(docx_path):
@@ -1439,9 +1439,9 @@ def cmd_pdf_to_pptx(args: argparse.Namespace) -> int:
         try:
             from core.pptx.docx_to_pptx import convert_pdf_to_pptx
         except (ImportError, ValueError):
-            from docx_to_pptx import convert_pdf_to_pptx
+            from core.pptx.docx_to_pptx import convert_pdf_to_pptx
     except (ImportError, ValueError):
-        from docx_to_pptx import convert_pdf_to_pptx  # type: ignore
+        from core.pptx.docx_to_pptx import convert_pdf_to_pptx  # type: ignore
 
     pdf_path = os.path.abspath(args.file)
     if not os.path.isfile(pdf_path):
@@ -1475,9 +1475,9 @@ def cmd_pptx_insert_diagram(args: argparse.Namespace) -> int:
         try:
             from core.pptx.engine import insert_diagram_into_pptx
         except (ImportError, ValueError):
-            from pptx_engine import insert_diagram_into_pptx
+            from core.pptx.engine import insert_diagram_into_pptx
     except (ImportError, ValueError):
-        from pptx_engine import insert_diagram_into_pptx  # type: ignore
+        from core.pptx.engine import insert_diagram_into_pptx  # type: ignore
 
     pptx_path = os.path.abspath(args.file)
     img_path = os.path.abspath(args.image)
@@ -1516,9 +1516,9 @@ def cmd_pptx_inspect(args: argparse.Namespace) -> int:
         try:
             from core.pptx.reader import read_pptx_to_json, read_pptx
         except (ImportError, ValueError):
-            from pptx_reader import read_pptx_to_json, read_pptx
+            from core.pptx.reader import read_pptx_to_json, read_pptx
     except (ImportError, ValueError):
-        from pptx_reader import read_pptx_to_json, read_pptx  # type: ignore
+        from core.pptx.reader import read_pptx_to_json, read_pptx  # type: ignore
 
     pptx_path = os.path.abspath(args.file)
     if not os.path.isfile(pptx_path):
@@ -1666,7 +1666,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     try:
         from core.env_doctor import run_doctor, format_doctor_report
     except (ImportError, ValueError):
-        from env_doctor import run_doctor, format_doctor_report  # type: ignore
+        from core.env_doctor import run_doctor, format_doctor_report  # type: ignore
 
     report = run_doctor()
     if getattr(args, "json", False):
@@ -1776,7 +1776,7 @@ def cmd_md_toc(args: argparse.Namespace) -> int:
     try:
         from core.converter.markdown import generate_markdown_toc, update_markdown_toc_in_file
     except (ImportError, ValueError):
-        from markdown_converter import generate_markdown_toc, update_markdown_toc_in_file  # type: ignore
+        from core.converter.markdown import generate_markdown_toc, update_markdown_toc_in_file  # type: ignore
 
     with open(md_path, "r", encoding="utf-8") as f:
         content = f.read()
@@ -1814,7 +1814,7 @@ def cmd_convert(args: argparse.Namespace) -> int:
     try:
         from core.converter.engine import convert_universal
     except (ImportError, ValueError):
-        from converter_engine import convert_universal  # type: ignore
+        from core.converter.engine import convert_universal  # type: ignore
 
     source_path = os.path.abspath(args.input)
     if not os.path.isfile(source_path):
@@ -1851,7 +1851,7 @@ def cmd_xlsx_set(args: argparse.Namespace) -> int:
     try:
         from core.xlsx.writer import UniversalExcelEngine
     except (ImportError, ValueError):
-        from xlsx_writer import UniversalExcelEngine  # type: ignore
+        from core.xlsx.writer import UniversalExcelEngine  # type: ignore
 
     src = os.path.abspath(args.file)
     if not os.path.isfile(src):
@@ -1881,7 +1881,7 @@ def cmd_xlsx_insert_rows(args: argparse.Namespace) -> int:
     try:
         from core.xlsx.writer import UniversalExcelEngine
     except (ImportError, ValueError):
-        from xlsx_writer import UniversalExcelEngine  # type: ignore
+        from core.xlsx.writer import UniversalExcelEngine  # type: ignore
 
     src = os.path.abspath(args.file)
     if not os.path.isfile(src):
@@ -1956,7 +1956,7 @@ def cmd_docx_replace(args: argparse.Namespace) -> int:
     try:
         from core.docx.writer import patch_docx_template
     except (ImportError, ValueError):
-        from docx_writer import patch_docx_template  # type: ignore
+        from core.docx.writer import patch_docx_template  # type: ignore
 
     src = os.path.abspath(args.file)
     if not os.path.isfile(src):

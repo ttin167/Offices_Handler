@@ -23,7 +23,7 @@ except ImportError:
 try:
     from core.converter.engine import convert_universal, get_pdf_page_count
 except (ImportError, ValueError):
-    from converter_engine import convert_universal, get_pdf_page_count  # type: ignore
+    from core.converter.engine import convert_universal, get_pdf_page_count  # type: ignore
 
 
 class UniversalDocStudioApp:
@@ -655,7 +655,7 @@ class UniversalDocStudioApp:
             try:
                 from core.pptx.docx_to_pptx import convert_docx_to_pptx
             except (ImportError, ValueError):
-                from docx_to_pptx import convert_docx_to_pptx
+                from core.pptx.docx_to_pptx import convert_docx_to_pptx
 
             self._update_progress(20.0, "Đang trích xuất cấu trúc văn bản & ảnh từ file Word...")
             time.sleep(0.1)

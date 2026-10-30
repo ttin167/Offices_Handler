@@ -29,7 +29,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 try:
     from core.env_doctor import EnvironmentDoctor
 except (ImportError, ValueError):
-    from env_doctor import EnvironmentDoctor  # type: ignore
+    from core.env_doctor import EnvironmentDoctor  # type: ignore
 
 CHART_PALETTE = [
     "#2563EB",  # Cobalt Blue

@@ -27,7 +27,7 @@ from docx import Document
 try:
     from .writer import patch_docx_template, _replace_text_in_paragraph
 except (ImportError, ValueError):
-    from docx_writer import patch_docx_template, _replace_text_in_paragraph  # type: ignore
+    from core.docx.writer import patch_docx_template, _replace_text_in_paragraph  # type: ignore
 
 try:
     import openpyxl

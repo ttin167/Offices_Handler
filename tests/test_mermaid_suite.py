@@ -27,7 +27,7 @@ if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
 try:
-    from mermaid_renderer import (
+    from core.diagrams.legacy.mermaid import (
         calculate_aspect_dimensions,
         render_mermaid_to_png,
     )

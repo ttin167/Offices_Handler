@@ -17,7 +17,7 @@ import threading
 import time
 import unittest
 from core.job_manager import JobManager, global_job_manager
-import job_manager
+import core.job_manager as job_manager
 
 
 class TestJobManager(unittest.TestCase):

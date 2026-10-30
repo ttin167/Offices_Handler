@@ -25,7 +25,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-from pdf_toolkit import (
+from core.converter.pdf_toolkit import (
     convert_images_to_pdf,
     export_pdf_to_images_zip,
     sign_pdf_with_stamp,

@@ -28,10 +28,10 @@ SPEC_PATH = os.path.join(ROOT_DIR, "specs", "flow_android_user_v2_spec.json")
 
 try:
     from diagram_editor import DiagramState, DiagramCanvas, DiagramEditorApp
-    from spec_diagram_engine import PrecisionDiagram
+    from core.diagrams.legacy.canvas import PrecisionDiagram
 except (ImportError, ValueError):
     from diagram_editor import DiagramState, DiagramCanvas, DiagramEditorApp  # type: ignore
-    from spec_diagram_engine import PrecisionDiagram  # type: ignore
+    from core.diagrams.legacy.canvas import PrecisionDiagram  # type: ignore
 
 
 def test_diagram_state_basics() -> None:

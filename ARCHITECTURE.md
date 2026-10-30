@@ -2,7 +2,7 @@
 
 > **Phiên bản**: 4.6.0 (Enterprise Omni-Pipeline, Deep CDR, Cryptographic PAdES/PDF-A & AST Code-to-Diagram Architecture v4.6)  
 > **Tiêu chuẩn**: Zero-Regression, 100% Backward Compatibility, Strict Layer Isolation, Clean-Room MIT Compliance  
-> **Test Suite**: 313+ Automated Tests (100% Pass Rate) | **MCP Tools**: 28 Tools
+> **Test Suite**: 323+ Automated Tests (100% Pass Rate) | **MCP Tools**: 28 Tools
 
 ---
 
@@ -128,15 +128,18 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
 - `qa-audit`: Master QA diagnostic and repair pipeline 13 Cổng (`tools/unified_qa_diagnostic.py`).
 
 ### 2.4. `ui/` & `src/` — Tầng Giao Diện Người Dùng (Desktop GUI & Web Studio)
-- `ui/`: Desktop GUI Tkinter độc lập (`main.py`) hỗ trợ chạy offline không cần trình duyệt.
+- `ui/`: Desktop GUI Tkinter độc lập (`main.py`) và Native WebView App Mode (`ui/webview_launcher.py`) hỗ trợ chạy offline không cần trình duyệt.
 - `src/`: Web Studio trên nền Vite ES6 modules và Vanilla CSS Glassmorphism:
-  - Tách rời theo module: `document_hub.js`, `presentation_studio.js`, `diagram_studio.js`, `mail_merge_studio.js`, `math_studio.js`, `formula_playbook.js`, `yearbook_studio.js`, `history_drawer.js`.
+  - `src/main.js` (~295 dòng): Orchestrator nhẹ quản lý theme, toast notifications, health polling, tab routing và khởi tạo các studio modules.
+  - `src/modules/`: Tách rời hoàn toàn theo từng phân hệ chuyên biệt: `presentation_studio.js`, `spreadsheet_studio.js`, `document_hub.js`, `diagram_studio.js`, `math_studio.js`, `formula_playbook.js`, `history_drawer.js`, `constants.js`, và `yearbook_studio.js` (optional local-only module qua `import.meta.glob`).
 
 
 ### 2.5. `tools/` — Tầng Tiện Ích QA & Giao Nộp (Diagnostics & Deliverables)
-- `tools/unified_qa_diagnostic.py`: Động cơ chẩn đoán toàn diện DOCX, XLSX, PPTX, Draw.io, và ảnh scan với khả năng tự sửa lỗi (Safe Non-destructive Repair).
+- `tools/unified_qa_diagnostic.py`: Động cơ chẩn đoán toàn diện 13 Cổng cho DOCX, XLSX, PPTX, Draw.io, và ảnh scan với khả năng tự sửa lỗi (Safe Non-destructive Repair).
 - `tools/format_diff_excel.py`: Tiện ích so khớp định dạng 12 cổng bảng tính Excel.
-- `tools/deliverables/`: Scripts xuất báo cáo chuyên biệt (Report3, Report5, Luận văn).
+- `tools/bump_version.py` & `tools/sync_core_docs.py`: Tự động đồng bộ 10 điểm neo phiên bản (`ERR_VER_001`) và kiểm định đối xứng ngữ nghĩa bộ tài liệu lõi (`ERR_DOC_SYNC_001`).
+- `tools/gen_*.py`: Các bộ sinh sơ đồ kỹ thuật chuẩn (`gen_canvas_erd.py`, `gen_hub_spoke_flow.py`, `gen_master_erd.py`, `gen_usecase_diagram.py`, `gen_illustration_assets.py`).
+- `tools/deliverables/`: Lưu trữ riêng các scripts xuất báo cáo/đồ án cá nhân (được loại trừ trong `.gitignore` để giữ kho mã nguồn chính luôn gọn sạch).
 
 ---
 
@@ -190,11 +193,11 @@ Dự án được thiết kế theo chuẩn Clean-Room độc lập 100% với h
 
 ---
 
-## 5. Bất Biến Tương Thích Ngược (Backward-Compatibility Guarantees)
+## 5. Bất Biến Điểm Nhập & Tương Thích Ngược (Entrypoint & Compatibility Guarantees)
 
-1. **Thin Facades Tại Thư Mục Gốc**:
-   Mọi module cũ tại root (`docx_reader.py`, `docx_writer.py`, `pptx_writer.py`, `web_api_server.py`, `mcp_server.py`, `ai_tools_cli.py`, v.v.) được duy trì dưới dạng **Thin Facades**, re-export toàn bộ symbol từ `core/`, `server/`, `ui/`.
+1. **6 Entrypoints Chính Thức Tại Thư Mục Gốc**:
+   Thư mục gốc chỉ giữ lại đúng 6 file entrypoint chính thức (`main.py`, `ai_tools_cli.py`, `web_api_server.py`, `mcp_server.py`, `spec_diagram_engine.py`, `diagram_editor.py`) cùng `__init__.py`. Toàn bộ các mô-đun nội bộ và bài kiểm thử trong `tests/` import trực tiếp từ cấu trúc phân tầng `core.*`, `server.*`, `cli.*`, `ui.*`.
 2. **100% Pass Rate Toàn Bộ Test Suite**:
-   Tất cả 220 bài kiểm thử tự động trong `tests/` phải luôn luôn PASS 100% trước khi phát hành.
+   Tất cả 323+ bài kiểm thử tự động trong `tests/` phải luôn luôn PASS 100% trước khi phát hành.
 3. **Giữ Vững CLI Contract**:
-   Tất cả cú pháp lệnh trong `AGENTS.md` tiếp tục hoạt động chính xác không thay đổi.
+   Tất cả cú pháp lệnh trong `AGENTS.md` và `pyproject.toml` tiếp tục hoạt động chính xác không thay đổi.

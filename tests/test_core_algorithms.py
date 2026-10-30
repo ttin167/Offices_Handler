@@ -12,12 +12,12 @@ import unittest
 import docx
 from docx.shared import Inches
 
-from smart_post_processor import (
+from core.docx.post_processor import (
     calculate_heuristic_column_widths,
     apply_heuristic_table_widths,
 )
-from markdown_converter import markdown_to_docx
-from pptx_writer import (
+from core.converter.markdown import markdown_to_docx
+from core.pptx.writer import (
     paginate_slide_specs,
     write_pptx_from_spec,
     add_content_slide,

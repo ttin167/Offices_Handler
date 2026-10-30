@@ -15,8 +15,8 @@ from docx import Document
 from docx.shared import Inches, Pt
 from pptx import Presentation
 
-from docx_to_pptx import extract_docx_structure, synthesize_slide_spec, convert_docx_to_pptx
-from pptx_writer import THEMES
+from core.pptx.docx_to_pptx import extract_docx_structure, synthesize_slide_spec, convert_docx_to_pptx
+from core.pptx.writer import THEMES
 
 
 class TestDocxToPptxPipeline(unittest.TestCase):

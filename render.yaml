@@ -1,6 +1,6 @@
 # ==============================================================================
 # render.yaml — Infrastructure-as-Code Blueprint for Render.com Cloud Deployment
-# Universal Office & Presentation Studio (512MB RAM Free Tier Optimized)
+# Universal Office & Presentation Studio v4.6.0 (512MB RAM Free Tier Optimized)
 # ==============================================================================
 
 services:
@@ -18,6 +18,8 @@ services:
         value: 0.0.0.0
       - key: MAX_JOB_WORKERS
         value: "1" # Serializes memory-intensive tasks to strictly enforce < 512MB RAM cap
+      - key: MAX_UPLOAD_SIZE_MB
+        value: "50" # Enforces 50MB upload quota to protect container memory and disk
       - key: JAVA_TOOL_OPTIONS
         value: "-Xmx192m -DPLANTUML_LIMIT_SIZE=16384 -Dfile.encoding=UTF-8"
       - key: CHROMIUM_PATH

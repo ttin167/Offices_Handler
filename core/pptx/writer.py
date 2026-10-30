@@ -229,7 +229,7 @@ def set_paragraph_text_clean(
             try:
                 from core.pptx.math import add_math_text_to_paragraph
             except (ImportError, ValueError):
-                from pptx_math import add_math_text_to_paragraph  # type: ignore
+                from core.pptx.math import add_math_text_to_paragraph  # type: ignore
         add_math_text_to_paragraph(
             paragraph,
             text,
@@ -509,7 +509,7 @@ def _format_bullet_paragraph(
                 try:
                     from core.pptx.math import add_math_text_to_paragraph
                 except (ImportError, ValueError):
-                    from pptx_math import add_math_text_to_paragraph  # type: ignore
+                    from core.pptx.math import add_math_text_to_paragraph  # type: ignore
             add_math_text_to_paragraph(
                 p,
                 clean_pre,
@@ -537,7 +537,7 @@ def _format_bullet_paragraph(
             try:
                 from core.pptx.math import add_math_text_to_paragraph
             except (ImportError, ValueError):
-                from pptx_math import add_math_text_to_paragraph  # type: ignore
+                from core.pptx.math import add_math_text_to_paragraph  # type: ignore
         add_math_text_to_paragraph(
             p,
             body,
@@ -2818,7 +2818,7 @@ def write_pptx_from_spec(
                 try:
                     from core.pptx.charts import add_chart_slide
                 except (ImportError, ValueError):
-                    from pptx_charts import add_chart_slide  # type: ignore
+                    from core.pptx.charts import add_chart_slide  # type: ignore
             slide_obj = add_chart_slide(prs, s, theme=theme)
         elif stype in ("kpi_summary", "kpi_metrics", "kpi_summary_slide"):
             slide_obj = add_kpi_summary_slide(

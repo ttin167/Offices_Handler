@@ -36,6 +36,8 @@ dependencies = [
     "pdf2docx>=0.5.13",
     "pymupdf>=1.26.7",
     "python-docx>=1.2.0",
+    "python-pptx>=1.0.2",
+    "openpyxl>=3.1.5",
     "pillow>=10.0.0",
     "pyyaml>=6.0",
 ]
@@ -72,4 +74,3 @@ testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_functions = ["test_*"]
 addopts = "-s"
-

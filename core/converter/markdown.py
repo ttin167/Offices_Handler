@@ -180,9 +180,9 @@ try:
     from core.docx.math import add_math_to_paragraph
     from core.docx.lists import ListContextTracker, apply_list_formatting
 except (ImportError, ValueError):
-    from smart_post_processor import calculate_heuristic_column_widths  # type: ignore
-    from docx_math import add_math_to_paragraph  # type: ignore
-    from docx_lists import ListContextTracker, apply_list_formatting  # type: ignore
+    from core.docx.post_processor import calculate_heuristic_column_widths  # type: ignore
+    from core.docx.math import add_math_to_paragraph  # type: ignore
+    from core.docx.lists import ListContextTracker, apply_list_formatting  # type: ignore
 
 def _hex_to_rgb(hex_str: str) -> RGBColor:
     cleaned = hex_str.lstrip("#")
@@ -670,7 +670,7 @@ def _render_and_embed_plantuml_diagram(
         try:
             from legacy_engines.plantuml_renderer import render_plantuml_to_png, calculate_aspect_dimensions
         except (ImportError, ValueError):
-            from plantuml_renderer import render_plantuml_to_png, calculate_aspect_dimensions
+            from core.diagrams.legacy.plantuml import render_plantuml_to_png, calculate_aspect_dimensions
 
         import hashlib
         code_hash = hashlib.md5(code.encode("utf-8")).hexdigest()[:10]
@@ -731,7 +731,7 @@ def _render_and_embed_mxgraph_diagram(
         try:
             from core.diagrams.mxgraph import render_mxgraph_to_png
         except (ImportError, ValueError):
-            from mxgraph_engine import render_mxgraph_to_png
+            from core.diagrams.mxgraph import render_mxgraph_to_png
 
         import hashlib
         code_hash = hashlib.md5(code.encode("utf-8")).hexdigest()[:10]
@@ -802,7 +802,7 @@ def _flush_fenced_code_block(
         from core.diagrams.bridge import render_diagram_code_to_png, calculate_aspect_dimensions
     except (ImportError, ValueError):
         try:
-            from diagram_bridge import render_diagram_code_to_png, calculate_aspect_dimensions
+            from core.diagrams.bridge import render_diagram_code_to_png, calculate_aspect_dimensions
         except (ImportError, ValueError):
             render_diagram_code_to_png = None
             calculate_aspect_dimensions = None
@@ -852,7 +852,7 @@ def _flush_fenced_code_block(
                 try:
                     from core.docx.charts import add_chart_to_doc
                 except (ImportError, ValueError):
-                    from docx_charts import add_chart_to_doc  # type: ignore
+                    from core.docx.charts import add_chart_to_doc  # type: ignore
 
                 spec_dict = None
                 try:
@@ -1237,7 +1237,7 @@ def decoupled_to_docx(
                 from core.diagrams.bridge import render_diagram_file_to_png, calculate_aspect_dimensions
             except (ImportError, ValueError):
                 try:
-                    from diagram_bridge import render_diagram_file_to_png, calculate_aspect_dimensions
+                    from core.diagrams.bridge import render_diagram_file_to_png, calculate_aspect_dimensions
                 except (ImportError, ValueError):
                     render_diagram_file_to_png = None
                     calculate_aspect_dimensions = None
@@ -1695,7 +1695,7 @@ def pdf_to_markdown(
     try:
         from .engine import convert_pdf_to_docx_flow
     except ImportError:
-        from converter_engine import convert_pdf_to_docx_flow
+        from core.converter.engine import convert_pdf_to_docx_flow
 
     if progress_callback:
         progress_callback(10.0, "Tầng 1/2: Chuyển đổi PDF sang DOCX chuẩn 100% (Post-Processor v6)...")
@@ -1918,7 +1918,7 @@ def _md_to_html_printable(md_text: str, base_dir: str) -> str:
                         from core.diagrams.bridge import render_diagram_code_to_png
                     except (ImportError, ValueError):
                         try:
-                            from diagram_bridge import render_diagram_code_to_png
+                            from core.diagrams.bridge import render_diagram_code_to_png
                         except (ImportError, ValueError):
                             render_diagram_code_to_png = None
 
@@ -2034,7 +2034,7 @@ def _md_to_html_printable(md_text: str, base_dir: str) -> str:
                     from core.diagrams.bridge import render_diagram_file_to_png
                 except (ImportError, ValueError):
                     try:
-                        from diagram_bridge import render_diagram_file_to_png
+                        from core.diagrams.bridge import render_diagram_file_to_png
                     except (ImportError, ValueError):
                         render_diagram_file_to_png = None
 

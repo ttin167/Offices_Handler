@@ -20,7 +20,7 @@ import unittest
 from PIL import Image
 from pptx import Presentation
 
-from pptx_writer import (
+from core.pptx.writer import (
     init_presentation,
     add_split_diagram_slide,
     add_dual_diagram_slide,
@@ -32,8 +32,8 @@ from pptx_writer import (
     _resolve_asset_path,
     THEMES,
 )
-from pptx_reader import read_pptx
-from pptx_engine import (
+from core.pptx.reader import read_pptx
+from core.pptx.engine import (
     parse_markdown_to_slides_spec,
     compile_markdown_file_to_pptx,
 )

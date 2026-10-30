@@ -38,8 +38,8 @@ except (ImportError, ValueError):
             markdown_to_pdf,
         )
     except (ImportError, ValueError):
-        from smart_post_processor import post_process_docx  # type: ignore
-        from markdown_converter import (  # type: ignore
+        from core.docx.post_processor import post_process_docx  # type: ignore
+        from core.converter.markdown import (  # type: ignore
             pdf_to_markdown,
             docx_to_markdown,
             markdown_to_docx,
@@ -302,7 +302,7 @@ def convert_universal(
             try:
                 from core.pptx.docx_to_pptx import convert_docx_to_pptx
             except (ImportError, ValueError):
-                from docx_to_pptx import convert_docx_to_pptx
+                from core.pptx.docx_to_pptx import convert_docx_to_pptx
             if progress_callback:
                 progress_callback(30.0, "Đang phân tích cấu trúc Word AST...")
             actual_pptx, _ = convert_docx_to_pptx(source_path, target_path, deck_scope=deck_scope)
@@ -316,7 +316,7 @@ def convert_universal(
             try:
                 from core.pptx.engine import compile_markdown_to_presentation
             except (ImportError, ValueError):
-                from pptx_engine import compile_markdown_to_presentation
+                from core.pptx.engine import compile_markdown_to_presentation
             if progress_callback:
                 progress_callback(30.0, "Đang biên dịch Markdown sang slide...")
             with open(source_path, "r", encoding="utf-8") as f:
@@ -331,7 +331,7 @@ def convert_universal(
             try:
                 from core.pptx.docx_to_pptx import convert_pdf_to_pptx
             except (ImportError, ValueError):
-                from docx_to_pptx import convert_pdf_to_pptx
+                from core.pptx.docx_to_pptx import convert_pdf_to_pptx
             if progress_callback:
                 progress_callback(20.0, "Đang trích xuất cấu trúc văn bản và hình ảnh từ PDF...")
             actual_pptx, _ = convert_pdf_to_pptx(
@@ -346,7 +346,7 @@ def convert_universal(
             try:
                 from core.converter.table_extractor import extract_tables_to_xlsx
             except (ImportError, ValueError):
-                from table_extractor import extract_tables_to_xlsx  # type: ignore
+                from core.converter.table_extractor import extract_tables_to_xlsx  # type: ignore
             if progress_callback:
                 progress_callback(30.0, "Đang quét và trích xuất bảng biểu từ PDF...")
             ok, res_path, count = extract_tables_to_xlsx(source_path, target_path)
@@ -361,7 +361,7 @@ def convert_universal(
             try:
                 from core.converter.table_extractor import extract_tables_to_xlsx
             except (ImportError, ValueError):
-                from table_extractor import extract_tables_to_xlsx  # type: ignore
+                from core.converter.table_extractor import extract_tables_to_xlsx  # type: ignore
             if progress_callback:
                 progress_callback(30.0, "Đang quét các thẻ OpenXML Table trong Word...")
             ok, res_path, count = extract_tables_to_xlsx(source_path, target_path)
@@ -376,7 +376,7 @@ def convert_universal(
             try:
                 from core.converter.table_extractor import extract_tables_to_xlsx
             except (ImportError, ValueError):
-                from table_extractor import extract_tables_to_xlsx  # type: ignore
+                from core.converter.table_extractor import extract_tables_to_xlsx  # type: ignore
             if progress_callback:
                 progress_callback(30.0, "Đang bóc tách bảng Markdown GFM...")
             ok, res_path, count = extract_tables_to_xlsx(source_path, target_path)

@@ -114,25 +114,33 @@ When executing tasks programmatically via Python, MCP, or CLI, dispatch accordin
 
 ```
 antigravity-doc-handler/
-├── spec_diagram_engine.py      # SVG Canvas Engine (Pixel-perfect Screen Flow)
-├── diagram_editor.py           # Interactive Canvas Editor (Drag & Drop, 2-Way JSON Sync)
-├── plantuml_renderer.py        # PlantUML Engine (ERD, Class, C4, Swimlane, Use Case, Mindmap)
-├── mermaid_renderer.py         # Mermaid Engine (Sequence, Flowchart, State)
-├── specs/                      # Declarative Diagram Specs (flow_*.json, master_erd_*.json)
-├── tools/                      # Generator & Patcher Scripts + plantuml.jar
-│   ├── gen_canvas_erd.py       # Master 4K ERD Generator
-│   ├── gen_hub_spoke_flow.py   # Hub & Spoke Flow Generator
-│   ├── patch_docx_*.py         # Document Patcher Scripts
+├── core/                       # Layer 3: Core Document & Diagram Engines
+│   ├── converter/              # Universal Converter, Decoupled MD, OCR, PDF Toolkit
+│   ├── diagrams/               # Diagram Bridge, mxGraph, Code-to-Diagram, Editor, Legacy
+│   ├── docx/                   # OpenXML Reader/Writer, Lists, Math, Diff, Mail Merge, Presets
+│   ├── pptx/                   # 16:9 Widescreen Engine, DOCX-to-PPTX, Charts, Math
+│   ├── xlsx/                   # Universal Excel Engine, Validator, Streaming, Formula Playbook, Reporting
+│   ├── security/               # Cloudflare Document Auditor & Deep CDR / PII Sanitizer
+│   ├── pipeline/               # Declarative Multi-Step Workflow Pipeline Engine
+│   └── env_doctor.py           # 12-Component Environment Health Doctor
+├── server/                     # Layer 2: Web Studio REST API (:8000), MCP Server (28 Tools), SSE Jobs, SQLite
+├── cli/                        # Layer 2: Unified AI CLI Dispatcher & Subcommands
+├── ui/                         # Layer 1: Desktop GUI (Tkinter) & Native WebView App Launcher
+├── src/                        # Layer 1: Vite ES6 Web Studio Frontend & Modular Controllers
+├── tools/                      # QA Diagnostics, Version Sync, Core Docs Sync & plantuml.jar
+│   ├── unified_qa_diagnostic.py # 13-Gate Unified QA Diagnostic & Self-Repair Engine
+│   ├── bump_version.py         # 10-Anchor Version Synchronization Tool (ERR_VER_001)
+│   ├── sync_core_docs.py       # Core Docs Triad Compiler & Semantic Auditor (ERR_DOC_SYNC_001)
 │   └── plantuml.jar            # Local PlantUML JAR (v1.2026+, bundled C4 standard library)
-├── tests/                      # Test Suites (tests/test_*.py)
-├── diagram_assets/             # High-Res Rendered PNG / SVG Artifacts
-├── ai_tools_cli.py              # Unified CLI Dispatcher for AI Agents & Terminal Users
-├── smart_post_processor.py      # OpenXML Post-Processor (TOC tab stops, table invariants)
-├── converter_engine.py          # Unified Multi-Format Conversion Engine
-├── markdown_converter.py        # Decoupled Markdown + Style YAML Parser/Serializer
-├── docx_reader.py / docx_writer.py # Low-level Word OpenXML Handlers & Auto-Inject Pipeline
-└── skills/
-    └── technical-diagrams/     # Skill: Multi-Engine Technical Diagrams & Classification
+├── specs/                      # Declarative Diagram Specs (flow_*.json, master_erd_*.json)
+├── tests/                      # 323 Automated Test Suites (tests/test_*.py)
+├── main.py                     # Official Entrypoint: Desktop GUI & Native Web App Mode
+├── ai_tools_cli.py             # Official Entrypoint: Unified CLI Dispatcher for AI Agents
+├── web_api_server.py           # Official Entrypoint: Web Studio REST API Server
+├── mcp_server.py               # Official Entrypoint: Model Context Protocol STDIO Server
+├── spec_diagram_engine.py      # Official Entrypoint: SVG Canvas Precision Diagram CLI
+├── diagram_editor.py           # Official Entrypoint: Interactive Canvas Diagram Editor
+└── .agents/                    # Antigravity Customizations (6 Skills & 12 Rules)
 ```
 
 ---

@@ -21,7 +21,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-from xlsx_writer import (
+from core.xlsx.writer import (
     UniversalExcelEngine,
     mutate_template_excel,
     shift_formula_string,
@@ -237,7 +237,7 @@ class TestExcelCoreEngine(unittest.TestCase):
 
     def test_headless_openpyxl_reader(self):
         """Verify headless openpyxl reader produces structured JSON snapshot without Microsoft Excel."""
-        from xlsx_reader import read_xlsx
+        from core.xlsx.reader import read_xlsx
 
         mock_path = os.path.join(self.output_dir, "mock_template.xlsx")
         if not os.path.isfile(mock_path):
@@ -267,7 +267,7 @@ class TestExcelCoreEngine(unittest.TestCase):
 
     def test_12_quality_gates_validator(self):
         """Verify 12 Quality Gates validation engine (Invariant E6)."""
-        from xlsx_validator import validate_excel_sheet
+        from core.xlsx.validator import validate_excel_sheet
 
         asset_path = os.path.join(BASE_DIR, "excel_assets", "Report5_Unit Test_Enhanced_UX_v2.xlsx")
         if os.path.isfile(asset_path):

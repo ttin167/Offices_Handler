@@ -1,4 +1,4 @@
-# .dockerignore — Antigravity Document Handler
+# .dockerignore — Antigravity Document Handler (v4.6.0)
 # Exclude dev files, large test caches, local venv, and local artifacts from Docker build context
 
 .git
@@ -37,6 +37,7 @@ logs
 tmp
 temp
 scratch
+tools/deliverables/
 
 # Local Scratch & Working State
 .agent_scratchpad.md

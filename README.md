@@ -5,7 +5,7 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Release: v4.6.0](https://img.shields.io/badge/Release-v4.6.0_Production-success.svg)](CHANGELOG.md)
-[![Tests: 314 Passed](https://img.shields.io/badge/Tests-314%2F314_Passed-brightgreen.svg)](tests/)
+[![Tests: 323 Passed](https://img.shields.io/badge/Tests-323%2F323_Passed-brightgreen.svg)](tests/)
 [![MCP Tools: 28](https://img.shields.io/badge/MCP_Tools-28_Available-blue.svg)](server/mcp_server.py)
 [![Antigravity Skills: 6](https://img.shields.io/badge/Antigravity_Skills-6_Specialized-indigo.svg)](.agents/skills/)
 [![Antigravity IDE Ready](https://img.shields.io/badge/Antigravity_AI-Compatible-orange.svg)](AGENTS.md)
@@ -32,6 +32,7 @@ The workspace provides 6 specialized Antigravity Skills in `.agents/skills/` des
 | **felo-slides** | [`.agents/skills/felo-slides/`](.agents/skills/felo-slides/SKILL.md) | 16:9 widescreen presentation synthesis, Slide Master inheritance, aspect-ratio locked diagram injection (`PPTX_INV_01`–`PPTX_INV_13`). |
 | **mxgraph-diagram-engineering** | [`.agents/skills/mxgraph-diagram-engineering/`](.agents/skills/mxgraph-diagram-engineering/SKILL.md) | Draw.io (`.drawio` / native mxGraphModel XML) generation, orthogonal routing, monochrome academic line-art, fractional perimeter port anchoring (`MX_INV_01`–`MX_INV_20`). |
 | **technical-diagrams** | [`.agents/skills/technical-diagrams/`](.agents/skills/technical-diagrams/SKILL.md) | Declarative 3-engine rendering (Canvas, Mermaid, PlantUML), 12 diagram types, 300+ DPI vector SVG / raster PNG, 1.6:1–1.85:1 aspect ratio, AABB collision avoidance, Word/DOCX auto-injection. |
+| **security-audit** | [`.agents/skills/security-audit/`](.agents/skills/security-audit/SKILL.md) | Cloudflare-seeded 6-phase defensive security audit harness (Reconnaissance, Coverage-Led Hunting, Adversarial Validation, Structured Schema, Zero-Dependency Verification, Reporting) & document sanitizer (`ERR_SEC_001`–`007`). |
 
 > 💡 **Auto-Sync Invariant (`ERR_DOC_SYNC_001` / `ERR_VER_001`)**: Khi có nâng cấp kỹ năng, thêm skill mới hoặc bump version, `README.md` sẽ được tự động đồng bộ huy hiệu (badges), bảng kỹ năng và các điểm nhấn phiên bản qua `tools/bump_version.py`.
 
@@ -316,6 +317,64 @@ Below is a minimal sample of the JSON schema used by `spec_diagram_engine.py`:
     }
   ]
 }
+```
+
+---
+
+## Project Structure
+
+```
+antigravity-doc-handler/
+??? .agents/                                     # Antigravity Agent Configuration
+?   ??? rules/                                   # 12 Universal Engineering Rules
+?   ??? skills/                                  # 6 Agent Workflow Skills
+??? core/                                        # Layer 3: Core Document & Diagram Engines
+?   ??? converter/                               # Universal Converter, Markdown, OCR, PDF Toolkit
+?   ??? diagrams/                                # Diagram Bridge, mxGraph, Code-to-Diagram, Editor, Legacy
+?   ??? docx/                                    # OpenXML Reader/Writer, Lists, Math, Diff, Mail Merge, Presets
+?   ??? pptx/                                    # 16:9 Widescreen Engine, DOCX-to-PPTX, Charts, Math
+?   ??? xlsx/                                    # Universal Excel Engine, Validator, Streaming, Formula Playbook, Reporting
+?   ??? security/                                # Cloudflare Document Auditor & Deep CDR / PII Sanitizer
+?   ??? pipeline/                                # Declarative Multi-Step Workflow Pipeline Engine
+?   ??? qa/                                      # Unified QA Audit Wrapper
+?   ??? env_doctor.py                            # 12-Component Environment Health Doctor
+??? server/                                      # Layer 2: Protocol & Service Layer
+?   ??? app.py                                   # Web Studio REST API Server (:8000) & Security Guards
+?   ??? mcp_server.py                            # Model Context Protocol Server (28 Tools, JSON-RPC 2.0)
+?   ??? job_manager.py                           # Asynchronous SSE Background Task Queue
+?   ??? db.py                                    # Zero-Config SQLite History Storage
+??? cli/                                         # Layer 2: Command-Line Interface Layer
+?   ??? ai_tools.py                              # Unified CLI Dispatcher (33+ Subcommands)
+?   ??? v46_commands.py                          # v4.6 Enterprise CLI Subcommands
+?   ??? converter_cli.py                         # Legacy Converter CLI Handler
+??? ui/                                          # Layer 1: Desktop GUI & Native WebView Bridge
+?   ??? desktop_app.py                           # Tkinter Native Desktop Studio
+?   ??? webview_launcher.py                      # Isolated Edge/Chrome App-Mode Window Launcher
+??? src/                                         # Layer 1: Vite ES6 Web Studio Frontend
+?   ??? main.js                                  # Lightweight Application Orchestrator
+?   ??? style.css                                # Glassmorphic Dark/Light Theme Stylesheet
+?   ??? modules/                                 # Modular Studio Controllers (Presentation, Spreadsheet, Document, Diagram, Math, Formula, History)
+??? tools/                                       # Diagnostics, Version Sync & Diagram Generators
+?   ??? unified_qa_diagnostic.py                 # 13-Gate Unified QA Diagnostic & Self-Repair Engine
+?   ??? bump_version.py                          # 10-Anchor Version Synchronization Tool (ERR_VER_001)
+?   ??? sync_core_docs.py                        # Core Documentation Triad Compiler & Semantic Auditor (ERR_DOC_SYNC_001)
+?   ??? format_diff_excel.py                     # 12-Gate Excel Format Comparison Tool
+?   ??? gen_*.py                                 # Reference Diagram Generators (ERD, Hub & Spoke, Use Case)
+?   ??? plantuml.jar                             # Local PlantUML Runtime (Bundled C4 Standard Library)
+??? docs/                                        # Core Technical & User Documentation Triad (.md, .docx, .pdf)
+??? specs/                                       # Declarative Diagram Specifications
+??? presets/                                     # Decoupled Document Style Presets (.style.yaml)
+??? tests/                                       # 323 Automated Unit & Integration Tests
+??? main.py                                      # Official Entrypoint: Desktop GUI & Native Web App
+??? ai_tools_cli.py                              # Official Entrypoint: Unified AI & Terminal CLI
+??? web_api_server.py                            # Official Entrypoint: Web Studio REST API Server
+??? mcp_server.py                                # Official Entrypoint: MCP STDIO Server
+??? spec_diagram_engine.py                       # Official Entrypoint: SVG Canvas Diagram CLI
+??? diagram_editor.py                            # Official Entrypoint: Interactive Canvas Editor
+??? Dockerfile / render.yaml / docker-compose.yml # Cloud & Container Deployment Blueprints
+??? requirements.txt / pyproject.toml / package.json # Dependency & Build Manifests
+??? ARCHITECTURE.md / CHANGELOG.md / AGENTS.md   # Architectural & Agent Operational Manuals
+??? README.md                                    # Repository Overview
 ```
 
 ---

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import unittest
 from core.env_doctor import EnvironmentDoctor, run_doctor, format_doctor_report
-import env_doctor
+import core.env_doctor as env_doctor
 
 
 class TestEnvironmentDoctor(unittest.TestCase):

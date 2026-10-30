@@ -58,23 +58,23 @@ try:
     )
     from core.xlsx.writer import apply_worksheet_print_setup, UniversalExcelEngine
 except (ImportError, ValueError):
-    from converter_engine import convert_universal  # type: ignore
-    from docx_to_pptx import convert_docx_to_pptx, convert_pdf_to_pptx  # type: ignore
-    from pptx_writer import THEMES, write_pptx_from_spec  # type: ignore
-    from docx_writer import patch_docx_template, write_docx  # type: ignore
-    from docx_mail_merge import inspect_template_tokens  # type: ignore
-    from xlsx_writer import mutate_template_excel  # type: ignore
-    from xlsx_validator import validate_excel_sheet  # type: ignore
-    from db_manager import record_history, get_recent_history, delete_history_item, clear_history  # type: ignore
-    from docx_math import parse_inline_math, add_math_to_paragraph  # type: ignore
-    from docx_presets import apply_preset_to_document, load_preset, list_available_presets, build_administrative_header  # type: ignore
-    from pdf_toolkit import (  # type: ignore
+    from core.converter.engine import convert_universal  # type: ignore
+    from core.pptx.docx_to_pptx import convert_docx_to_pptx, convert_pdf_to_pptx  # type: ignore
+    from core.pptx.writer import THEMES, write_pptx_from_spec  # type: ignore
+    from core.docx.writer import patch_docx_template, write_docx  # type: ignore
+    from core.docx.mail_merge import inspect_template_tokens  # type: ignore
+    from core.xlsx.writer import mutate_template_excel  # type: ignore
+    from core.xlsx.validator import validate_excel_sheet  # type: ignore
+    from server.db import record_history, get_recent_history, delete_history_item, clear_history  # type: ignore
+    from core.docx.math import parse_inline_math, add_math_to_paragraph  # type: ignore
+    from core.docx.presets import apply_preset_to_document, load_preset, list_available_presets, build_administrative_header  # type: ignore
+    from core.converter.pdf_toolkit import (  # type: ignore
         merge_pdfs, split_pdf, rotate_and_clean_pdf, stamp_watermark_pdf, compress_pdf,
         redact_sensitive_pdf, protect_pdf, normalize_and_number_pdf, stamp_giap_lai_pdf,
         extract_pdf_tables_to_xlsx, render_pdf_thumbnails, reorganize_pdf_pages,
         convert_images_to_pdf, export_pdf_to_images_zip, sign_pdf_with_stamp, flatten_and_sanitize_pdf
     )
-    from xlsx_writer import apply_worksheet_print_setup, UniversalExcelEngine  # type: ignore
+    from core.xlsx.writer import apply_worksheet_print_setup, UniversalExcelEngine  # type: ignore
 
 # Optional local-only module: Digital Yearbook & Photobook Studio (excluded on GitHub/Docker)
 try:
@@ -101,8 +101,8 @@ try:
     from core.job_manager import global_job_manager
     from core.env_doctor import run_doctor
 except (ImportError, ValueError):
-    from job_manager import global_job_manager  # type: ignore
-    from env_doctor import run_doctor  # type: ignore
+    from core.job_manager import global_job_manager  # type: ignore
+    from core.env_doctor import run_doctor  # type: ignore
 
 HOST = os.environ.get("HOST", "0.0.0.0")
 PORT = int(os.environ.get("PORT", 8000))
@@ -803,7 +803,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     try:
                         from core.diagrams.legacy.mermaid import render_mermaid_to_png
                     except (ImportError, ValueError):
-                        from mermaid_renderer import render_mermaid_to_png  # type: ignore
+                        from core.diagrams.legacy.mermaid import render_mermaid_to_png  # type: ignore
 
                     if isinstance(spec_content, dict):
                         m_spec = dict(spec_content)
@@ -820,7 +820,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     try:
                         from core.diagrams.legacy.plantuml import render_plantuml_to_png
                     except (ImportError, ValueError):
-                        from plantuml_renderer import render_plantuml_to_png  # type: ignore
+                        from core.diagrams.legacy.plantuml import render_plantuml_to_png  # type: ignore
 
                     if isinstance(spec_content, dict):
                         p_spec = dict(spec_content)
@@ -837,7 +837,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     try:
                         from core.diagrams.mxgraph import render_diagram, render_mxgraph_to_png
                     except (ImportError, ValueError):
-                        from mxgraph_engine import render_diagram, render_mxgraph_to_png  # type: ignore
+                        from core.diagrams.mxgraph import render_diagram, render_mxgraph_to_png  # type: ignore
 
                     if isinstance(spec_content, str) and spec_content.strip().startswith("{"):
                         try:
@@ -906,7 +906,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     try:
                         from core.docx.mail_merge import inspect_template_tokens as _fn_tokens
                     except (ImportError, ValueError):
-                        from docx_mail_merge import inspect_template_tokens as _fn_tokens  # type: ignore
+                        from core.docx.mail_merge import inspect_template_tokens as _fn_tokens  # type: ignore
                     res = _fn_tokens(src)
                     self._send_json({
                         "success": True,
@@ -1787,7 +1787,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                 try:
                     from core.docx.mail_merge import inspect_template_tokens
                 except (ImportError, ValueError):
-                    from docx_mail_merge import inspect_template_tokens  # type: ignore
+                    from core.docx.mail_merge import inspect_template_tokens  # type: ignore
                 tokens = inspect_template_tokens(tpl)
                 self._send_json({"success": True, "template": os.path.basename(tpl), "tokens": tokens})
                 return
@@ -1820,7 +1820,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                 try:
                     from core.docx.mail_merge import execute_mail_merge
                 except (ImportError, ValueError):
-                    from docx_mail_merge import execute_mail_merge  # type: ignore
+                    from core.docx.mail_merge import execute_mail_merge  # type: ignore
 
                 res = execute_mail_merge(
                     template_path=tpl,
@@ -1857,7 +1857,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                 try:
                     from core.docx.diff_engine import compare_docx_documents
                 except (ImportError, ValueError):
-                    from docx_diff_engine import compare_docx_documents  # type: ignore
+                    from core.docx.diff_engine import compare_docx_documents  # type: ignore
 
                 res = compare_docx_documents(doc_a, doc_b, out_path, author=author)
                 qname = urllib.parse.quote(out_name)
@@ -1888,7 +1888,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                 try:
                     from core.converter.ocr_pipeline import VietnameseOcrPipeline
                 except (ImportError, ValueError):
-                    from ocr_pipeline import VietnameseOcrPipeline  # type: ignore
+                    from core.converter.ocr_pipeline import VietnameseOcrPipeline  # type: ignore
 
                 pipeline = VietnameseOcrPipeline(lang=lang, filter_red_stamp=filter_stamp, deskew=deskew_flag)
                 res = pipeline.process_document(src, output_path=out_path)
@@ -2746,7 +2746,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                 try:
                     from core.diagrams.bridge import render_diagram_code_to_png
                 except (ImportError, ValueError):
-                    from diagram_bridge import render_diagram_code_to_png
+                    from core.diagrams.bridge import render_diagram_code_to_png
 
                 cb(20.0, f"Đang khởi động engine {lang}...")
                 diag_res = render_diagram_code_to_png(code, lang, scale=payload.get("scale", 2))

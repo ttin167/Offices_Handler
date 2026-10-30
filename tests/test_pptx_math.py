@@ -25,7 +25,7 @@ from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
 
-from pptx_math import (
+from core.pptx.math import (
     GREEK_SYMBOLS,
     MATH_OPERATORS,
     replace_latex_symbols,
@@ -33,7 +33,7 @@ from pptx_math import (
     create_drawingml_run,
     add_math_text_to_paragraph,
 )
-from pptx_writer import (
+from core.pptx.writer import (
     init_presentation,
     set_paragraph_text_clean,
     sanitize_openxml_presentation,
@@ -45,7 +45,7 @@ from pptx_writer import (
     add_table_slide,
     add_kpi_cards_slide,
 )
-from pptx_engine import (
+from core.pptx.engine import (
     compile_markdown_to_presentation,
     parse_markdown_to_slides_spec,
 )

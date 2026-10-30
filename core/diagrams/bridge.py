@@ -143,7 +143,7 @@ def render_diagram_code_to_png(
                 try:
                     from legacy_engines.mermaid_renderer import render_mermaid_to_png
                 except (ImportError, ValueError):
-                    from mermaid_renderer import render_mermaid_to_png
+                    from core.diagrams.legacy.mermaid import render_mermaid_to_png
 
             res = render_mermaid_to_png({
                 "mermaid_code": clean_code,
@@ -161,7 +161,7 @@ def render_diagram_code_to_png(
                 try:
                     from legacy_engines.plantuml_renderer import render_plantuml_to_png
                 except (ImportError, ValueError):
-                    from plantuml_renderer import render_plantuml_to_png
+                    from core.diagrams.legacy.plantuml import render_plantuml_to_png
 
             puml_code = clean_code
             if not puml_code.startswith("@startuml"):
@@ -180,7 +180,7 @@ def render_diagram_code_to_png(
             try:
                 from core.diagrams.mxgraph import render_mxgraph_to_png
             except (ImportError, ValueError):
-                from mxgraph_engine import render_mxgraph_to_png
+                from core.diagrams.mxgraph import render_mxgraph_to_png
 
             res = render_mxgraph_to_png(clean_code, output_png, scale=scale)
             actual_png = res.get("png_path") if isinstance(res, dict) else (res if isinstance(res, str) else output_png)
@@ -232,7 +232,7 @@ def render_diagram_code_to_png(
                 try:
                     from core.diagrams.mxgraph import render_diagram
                 except (ImportError, ValueError):
-                    from mxgraph_engine import render_diagram
+                    from core.diagrams.mxgraph import render_diagram
 
                 res = render_diagram(spec_dict, base_dir=base_dir)
                 if not res or not os.path.isfile(output_png):

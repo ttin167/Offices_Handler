@@ -30,7 +30,7 @@ ROOT_DIR = os.path.abspath(os.path.join(TESTS_DIR, ".."))
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
-from plantuml_renderer import (
+from core.diagrams.legacy.plantuml import (
     calculate_aspect_dimensions,
     render_plantuml_to_png,
     render_plantuml,

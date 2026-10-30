@@ -22,7 +22,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-from xlsx_writer import (
+from core.xlsx.writer import (
     apply_worksheet_print_setup,
     UniversalExcelEngine,
 )

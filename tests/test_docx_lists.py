@@ -20,7 +20,7 @@ from docx import Document
 from docx.oxml.ns import qn
 from docx.shared import Pt, Inches
 
-from docx_lists import (
+from core.docx.lists import (
     ListContextTracker,
     ParsedListItem,
     apply_list_formatting,
@@ -28,8 +28,8 @@ from docx_lists import (
     ABSTRACT_NUM_DECIMAL_ID,
     ABSTRACT_NUM_BULLET_ID,
 )
-from markdown_converter import decoupled_to_docx
-from docx_writer import write_docx
+from core.converter.markdown import decoupled_to_docx
+from core.docx.writer import write_docx
 
 
 class TestDocxListsEngine(unittest.TestCase):

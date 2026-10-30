@@ -1,5 +1,5 @@
 # ==============================================================================
-# Dockerfile — Antigravity Document Handler Enterprise Production Container (v4.1)
+# Dockerfile — Antigravity Document Handler Enterprise Production Container (v4.6.0)
 # Multi-Stage Build: Node.js Frontend Compiler + Python 3.11 Full Office Engine
 # Optimized for Cloud Deployment (Render.com, Railway, AWS ECS, Fly.io, Self-hosted)
 # ==============================================================================
@@ -28,6 +28,7 @@ FROM python:3.11-slim-bookworm
 # - Cap JVM memory to 192MB with -Xmx192m to prevent 512MB RAM OOM kills on Render Free tier
 # - Set PLANTUML_LIMIT_SIZE and UTF-8 charset inside JAVA_TOOL_OPTIONS
 # - Set MAX_JOB_WORKERS=1 to serialize memory-intensive headless jobs (LibreOffice / Chromium)
+# - Set MAX_UPLOAD_SIZE_MB=50 to enforce upload quota guard
 # - Bind HOST to 0.0.0.0 for container networking
 ENV PYTHONUNBUFFERED=1 \
     DEBIAN_FRONTEND=noninteractive \
@@ -36,6 +37,7 @@ ENV PYTHONUNBUFFERED=1 \
     HOST=0.0.0.0 \
     PORT=8000 \
     MAX_JOB_WORKERS=1 \
+    MAX_UPLOAD_SIZE_MB=50 \
     CHROMIUM_PATH=/usr/bin/chromium \
     JAVA_TOOL_OPTIONS="-Xmx192m -DPLANTUML_LIMIT_SIZE=16384 -Dfile.encoding=UTF-8"
 
@@ -69,14 +71,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Install Python dependencies first for caching efficiency
-COPY requirements.txt pyproject.toml /app/
+# Install Python third-party dependencies first for Docker layer caching efficiency
+COPY requirements.txt /app/
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir -e .
+    pip install --no-cache-dir -r requirements.txt
 
-# Copy application codebase
+# Copy application codebase and install package in editable mode
 COPY . /app/
+RUN pip install --no-cache-dir --no-deps -e .
 
 # Copy compiled static frontend from Stage 1 into /app/dist
 COPY --from=frontend-builder /frontend/dist /app/dist

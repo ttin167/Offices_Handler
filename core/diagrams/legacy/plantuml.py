@@ -261,7 +261,7 @@ def render_plantuml_to_png(
         try:
             from .docx_writer import inject_diagram_into_docx
         except (ImportError, ValueError):
-            from docx_writer import inject_diagram_into_docx  # type: ignore
+            from core.docx.writer import inject_diagram_into_docx  # type: ignore
 
         caption_val = spec.get("caption_template") or spec.get("caption")
         diag_spec = {

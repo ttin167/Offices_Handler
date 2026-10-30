@@ -1009,8 +1009,8 @@ def main():
         if ROOT_DIR not in sys.path:
             sys.path.insert(0, ROOT_DIR)
         import shutil
-        from plantuml_renderer import render_plantuml_to_png
-        from mermaid_renderer import render_mermaid_to_png
+        from core.diagrams.legacy.plantuml import render_plantuml_to_png
+        from core.diagrams.legacy.mermaid import render_mermaid_to_png
 
         print("\n" + "=" * 65)
         print("RENDERING MASTER ERD & 8 SUB-ERD DIAGRAMS")

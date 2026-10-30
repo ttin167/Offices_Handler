@@ -21,7 +21,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-from docx_presets import (
+from core.docx.presets import (
     list_available_presets,
     load_preset,
     apply_preset_to_document,

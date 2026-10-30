@@ -27,7 +27,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-from pdf_toolkit import (
+from core.converter.pdf_toolkit import (
     redact_sensitive_pdf,
     protect_pdf,
     normalize_and_number_pdf,

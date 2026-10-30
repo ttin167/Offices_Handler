@@ -37,20 +37,20 @@ from docx.shared import Pt, Inches, Cm, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.section import WD_ORIENT
 
-from docx_writer import (
+from core.docx.writer import (
     write_docx,
     patch_docx_template,
     _resolve_style,
     _hex_to_rgb,
     _write_fallback_card,
 )
-from markdown_converter import (
+from core.converter.markdown import (
     decoupled_to_docx,
     _parse_length,
     _add_formatted_runs,
 )
-from smart_post_processor import calculate_heuristic_column_widths
-from docx_lists import apply_list_formatting
+from core.docx.post_processor import calculate_heuristic_column_widths
+from core.docx.lists import apply_list_formatting
 
 
 class TestDocxExtendedEngine(unittest.TestCase):

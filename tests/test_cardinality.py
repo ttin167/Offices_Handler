@@ -87,7 +87,7 @@ with open(svg_path, "w", encoding="utf-8") as f:
 # Render to PNG using chromium headless
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from spec_diagram_engine import _find_chromium_executable
+from core.diagrams.legacy.canvas import _find_chromium_executable
 exe = _find_chromium_executable()
 if exe:
     cmd = [exe, "--headless", "--disable-gpu", "--window-size=650,420", f"--screenshot={os.path.abspath(png_path)}", os.path.abspath(svg_path)]

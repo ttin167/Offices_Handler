@@ -47,18 +47,18 @@ try:
     from core.docx.writer import patch_docx_template
     from core.docx.mail_merge import inspect_template_tokens
 except (ImportError, ValueError):
-    from converter_engine import convert_universal  # type: ignore
-    from docx_reader import read_docx, read_docx_to_json  # type: ignore
-    from pptx_reader import read_pptx  # type: ignore
-    from xlsx_reader import read_xlsx  # type: ignore
-    from docx_writer import inject_diagram_into_docx, patch_docx_template  # type: ignore
-    from pptx_engine import insert_diagram_into_pptx, parse_markdown_to_slides_spec  # type: ignore
-    from pptx_writer import write_pptx_from_spec  # type: ignore
-    from docx_to_pptx import convert_docx_to_pptx, convert_pdf_to_pptx  # type: ignore
-    from diagram_bridge import render_diagram_file_to_png, render_diagram_code_to_png  # type: ignore
-    from env_doctor import run_doctor  # type: ignore
-    from xlsx_writer import UniversalExcelEngine  # type: ignore
-    from docx_mail_merge import inspect_template_tokens  # type: ignore
+    from core.converter.engine import convert_universal  # type: ignore
+    from core.docx.reader import read_docx, read_docx_to_json  # type: ignore
+    from core.pptx.reader import read_pptx  # type: ignore
+    from core.xlsx.reader import read_xlsx  # type: ignore
+    from core.docx.writer import inject_diagram_into_docx, patch_docx_template  # type: ignore
+    from core.pptx.engine import insert_diagram_into_pptx, parse_markdown_to_slides_spec  # type: ignore
+    from core.pptx.writer import write_pptx_from_spec  # type: ignore
+    from core.pptx.docx_to_pptx import convert_docx_to_pptx, convert_pdf_to_pptx  # type: ignore
+    from core.diagrams.bridge import render_diagram_file_to_png, render_diagram_code_to_png  # type: ignore
+    from core.env_doctor import run_doctor  # type: ignore
+    from core.xlsx.writer import UniversalExcelEngine  # type: ignore
+    from core.docx.mail_merge import inspect_template_tokens  # type: ignore
 
 
 MCP_PROTOCOL_VERSION = "2024-11-05"
@@ -1142,8 +1142,8 @@ def execute_docx_apply_preset(args: Dict[str, Any]) -> Dict[str, Any]:
         from core.docx.presets import apply_preset_to_document, build_administrative_header
         from core.docx.advanced_engine import safe_save_docx
     except (ImportError, ValueError):
-        from docx_presets import apply_preset_to_document, build_administrative_header  # type: ignore
-        from docx_advanced_engine import safe_save_docx  # type: ignore
+        from core.docx.presets import apply_preset_to_document, build_administrative_header  # type: ignore
+        from core.docx.advanced_engine import safe_save_docx  # type: ignore
 
     file_path = os.path.abspath(args["file_path"])
     preset = args.get("preset", "nd30")
@@ -1184,7 +1184,7 @@ def execute_pdf_quick_tools(args: Dict[str, Any]) -> Dict[str, Any]:
             extract_pdf_tables_to_xlsx,
         )
     except (ImportError, ValueError):
-        from pdf_toolkit import (  # type: ignore
+        from core.converter.pdf_toolkit import (  # type: ignore
             merge_pdfs,
             split_pdf,
             rotate_and_clean_pdf,
@@ -1297,7 +1297,7 @@ def execute_doc_mail_merge(args: Dict[str, Any]) -> Dict[str, Any]:
     try:
         from core.docx.mail_merge import execute_mail_merge, inspect_template_tokens
     except (ImportError, ValueError):
-        from docx_mail_merge import execute_mail_merge, inspect_template_tokens  # type: ignore
+        from core.docx.mail_merge import execute_mail_merge, inspect_template_tokens  # type: ignore
 
     template_path = args.get("template_path")
     if not template_path:
@@ -1330,7 +1330,7 @@ def execute_doc_redline_diff(args: Dict[str, Any]) -> Dict[str, Any]:
     try:
         from core.docx.diff_engine import compare_docx_documents
     except (ImportError, ValueError):
-        from docx_diff_engine import compare_docx_documents  # type: ignore
+        from core.docx.diff_engine import compare_docx_documents  # type: ignore
 
     doc_a = args.get("doc_a_path")
     doc_b = args.get("doc_b_path")
@@ -1347,7 +1347,7 @@ def execute_doc_ocr_scan(args: Dict[str, Any]) -> Dict[str, Any]:
     try:
         from core.converter.ocr_pipeline import VietnameseOcrPipeline
     except (ImportError, ValueError):
-        from ocr_pipeline import VietnameseOcrPipeline  # type: ignore
+        from core.converter.ocr_pipeline import VietnameseOcrPipeline  # type: ignore
 
     inp = args.get("input_path")
     if not inp:

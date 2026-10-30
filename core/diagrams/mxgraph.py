@@ -1127,7 +1127,7 @@ def render_diagram(
                 try:
                     from core.docx.writer import inject_diagram_into_docx
                 except (ImportError, ValueError):
-                    from docx_writer import inject_diagram_into_docx  # type: ignore
+                    from core.docx.writer import inject_diagram_into_docx  # type: ignore
                 inject_diagram_into_docx(
                     docx_path=docx_target,
                     png_path=render_meta["png_path"],

@@ -15,15 +15,15 @@ from PIL import Image
 import pptx
 from pptx import Presentation
 
-from pptx_writer import (
+from core.pptx.writer import (
     write_pptx_from_spec,
     init_presentation,
     SLIDE_WIDTH_IN,
     SLIDE_HEIGHT_IN,
     THEMES,
 )
-from pptx_reader import read_pptx, read_pptx_to_json
-from pptx_engine import (
+from core.pptx.reader import read_pptx, read_pptx_to_json
+from core.pptx.engine import (
     compile_markdown_file_to_pptx,
     parse_markdown_to_slides_spec,
     insert_diagram_into_pptx,

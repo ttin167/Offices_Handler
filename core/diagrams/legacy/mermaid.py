@@ -210,7 +210,7 @@ def render_mermaid_to_png(
     saved_docx_path: str | None = None
     if inject_docx:
         try:
-            from docx_writer import inject_diagram_into_docx
+            from core.docx.writer import inject_diagram_into_docx
         except ImportError:
             from .docx_writer import inject_diagram_into_docx
 

@@ -235,7 +235,7 @@ def build_core_docs(doc_filter: Optional[str] = None) -> int:
     try:
         from core.converter.engine import convert_universal
     except (ImportError, ValueError):
-        from converter_engine import convert_universal  # type: ignore
+        from core.converter.engine import convert_universal  # type: ignore
 
     targets = CORE_DOCS
     if doc_filter:
