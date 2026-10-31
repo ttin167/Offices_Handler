@@ -40,8 +40,8 @@ APP_VERSION = "4.6.0"
 # Import core handlers
 try:
     from core.converter.engine import convert_universal
-    from core.pptx.docx_to_pptx import convert_docx_to_pptx, convert_pdf_to_pptx
-    from core.pptx.writer import THEMES, write_pptx_from_spec
+    # PPTX imports moved to optional block
+    # THEMES imports moved to optional block
     from core.docx.writer import patch_docx_template, write_docx
     from core.docx.mail_merge import inspect_template_tokens
     from core.xlsx.writer import mutate_template_excel
@@ -59,8 +59,8 @@ try:
     from core.xlsx.writer import apply_worksheet_print_setup, UniversalExcelEngine
 except (ImportError, ValueError):
     from core.converter.engine import convert_universal  # type: ignore
-    from core.pptx.docx_to_pptx import convert_docx_to_pptx, convert_pdf_to_pptx  # type: ignore
-    from core.pptx.writer import THEMES, write_pptx_from_spec  # type: ignore
+    # PPTX imports moved to optional block  # type: ignore
+    # THEMES imports moved to optional block  # type: ignore
     from core.docx.writer import patch_docx_template, write_docx  # type: ignore
     from core.docx.mail_merge import inspect_template_tokens  # type: ignore
     from core.xlsx.writer import mutate_template_excel  # type: ignore
@@ -74,7 +74,25 @@ except (ImportError, ValueError):
         extract_pdf_tables_to_xlsx, render_pdf_thumbnails, reorganize_pdf_pages,
         convert_images_to_pdf, export_pdf_to_images_zip, sign_pdf_with_stamp, flatten_and_sanitize_pdf
     )
-    from core.xlsx.writer import apply_worksheet_print_setup, UniversalExcelEngine  # type: ignore
+    from core.xlsx.writer import apply_worksheet_print_setup, UniversalExcelEngine  # type: ignore
+
+# Optional Presentation Studio Handlers (graceful fallback if python-pptx is not installed)
+try:
+    from core.pptx.docx_to_pptx import convert_docx_to_pptx, convert_pdf_to_pptx
+    from core.pptx.writer import THEMES, write_pptx_from_spec
+    HAS_PPTX = True
+except (ImportError, ValueError, ModuleNotFoundError):
+    try:
+        from pptx_engine import convert_docx_to_pptx, convert_pdf_to_pptx  # type: ignore
+        from core.pptx.writer import THEMES, write_pptx_from_spec  # type: ignore
+        HAS_PPTX = True
+    except (ImportError, ValueError, ModuleNotFoundError):
+        HAS_PPTX = False
+        convert_docx_to_pptx = None  # type: ignore
+        convert_pdf_to_pptx = None  # type: ignore
+        THEMES = {}  # type: ignore
+        def write_pptx_from_spec(*args: Any, **kwargs: Any) -> str:  # type: ignore
+            raise RuntimeError("PPTX module is not installed or enabled in this edition.")
 
 # Optional local-only module: Digital Yearbook & Photobook Studio (excluded on GitHub/Docker)
 try:

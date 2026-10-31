@@ -107,7 +107,12 @@ function killProcessTree(pid) {
 }
 
 // 1. Spawn Python Web API Server with auto-restart on exit
-const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+const venvPython = process.platform === 'win32'
+  ? path.join(__dirname, '.venv', 'Scripts', 'python.exe')
+  : path.join(__dirname, '.venv', 'bin', 'python');
+const pythonCmd = fs.existsSync(venvPython)
+  ? venvPython
+  : (process.platform === 'win32' ? 'python' : 'python3');
 
 function startApiServer() {
   if (isShuttingDown) return;
