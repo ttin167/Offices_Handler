@@ -16,6 +16,8 @@ services:
     envVars:
       - key: HOST
         value: 0.0.0.0
+      - key: PORT
+        value: "10000"
       - key: MAX_JOB_WORKERS
         value: "1" # Serializes memory-intensive tasks to strictly enforce < 512MB RAM cap
       - key: MAX_UPLOAD_SIZE_MB

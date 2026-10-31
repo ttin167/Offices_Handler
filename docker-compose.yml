@@ -9,10 +9,10 @@ services:
     container_name: doc-handler-studio
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "8000:10000"
     environment:
       - HOST=0.0.0.0
-      - PORT=8000
+      - PORT=10000
       - MAX_JOB_WORKERS=1
       - MAX_UPLOAD_SIZE_MB=50
       - PLANTUML_LIMIT_SIZE=16384
@@ -24,7 +24,7 @@ services:
       - ./mail_merge_output:/app/mail_merge_output
       - ./presets:/app/presets
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:10000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3

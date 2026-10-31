@@ -35,7 +35,7 @@ ENV PYTHONUNBUFFERED=1 \
     LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
     HOST=0.0.0.0 \
-    PORT=8000 \
+    PORT=10000 \
     MAX_JOB_WORKERS=1 \
     MAX_UPLOAD_SIZE_MB=50 \
     CHROMIUM_PATH=/usr/bin/chromium \
@@ -87,10 +87,9 @@ COPY --from=frontend-builder /frontend/dist /app/dist
 RUN mkdir -p /app/diagram_assets /app/mail_merge_output /app/logs /app/.web_uploads /app/.web_outputs
 
 # Health check probe against API health endpoint
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-8000}/api/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 CMD curl -f http://localhost:${PORT:-10000}/api/health || exit 1
 
-EXPOSE 8000
+EXPOSE 10000
 
 # Start Web Studio Server (reads dynamic $PORT from cloud provider)
 CMD ["python", "web_api_server.py"]

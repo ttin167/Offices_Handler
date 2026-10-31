@@ -52,3 +52,8 @@ src/modules/yearbook_studio.js
 tests/test_yearbook_studio.py
 *yearbook*
 *Yearbook*
+
+# Personal 3D Office Dashboard & Autonomous Agents (Local-only, excluded from Docker/Cloud image)
+src/modules/office_3d/
+server/office_events.py
+tests/test_office_event_bus.py
