@@ -46,7 +46,7 @@
 
             <span class="brand-title">ANTIGRAVITY</span>
 
-            <span class="brand-subtitle">Office Studio v4.6.0</span>
+            <span class="brand-subtitle">Office Studio (Word • Excel • PDF)</span>
 
           </div>
 
@@ -68,13 +68,13 @@
 
       <nav class="nav-tabs" id="main-nav">
 
-        <button class="nav-tab active" data-tab="presentation">
+        <button class="nav-tab active" data-tab="documents">
 
-          <span class="nav-icon"><i data-lucide="presentation"></i></span>
+          <span class="nav-icon"><i data-lucide="refresh-cw"></i></span>
 
-          <span>Presentation Studio</span>
+          <span>Document Hub</span>
 
-          <span class="pill-badge">PPTX v2</span>
+          <span class="pill-badge">PDF / DOCX / MD</span>
 
         </button>
 
@@ -88,17 +88,19 @@
 
         </button>
 
-        <button class="nav-tab" data-tab="documents">
+        <!-- Hidden tabs in LEKHOI Basic Office Edition -->
 
-          <span class="nav-icon"><i data-lucide="refresh-cw"></i></span>
+        <button class="nav-tab" data-tab="presentation" style="display: none;">
 
-          <span>Document Hub</span>
+          <span class="nav-icon"><i data-lucide="presentation"></i></span>
 
-          <span class="pill-badge">PDF / DOCX / MD</span>
+          <span>Presentation Studio</span>
+
+          <span class="pill-badge">PPTX v2</span>
 
         </button>
 
-        <button class="nav-tab" data-tab="diagrams">
+        <button class="nav-tab" data-tab="diagrams" style="display: none;">
 
           <span class="nav-icon"><i data-lucide="network"></i></span>
 
@@ -108,7 +110,7 @@
 
         </button>
 
-        <button class="nav-tab" data-tab="math">
+        <button class="nav-tab" data-tab="math" style="display: none;">
 
           <span class="nav-icon"><i data-lucide="sigma"></i></span>
 
@@ -118,7 +120,7 @@
 
         </button>
 
-        <button class="nav-tab" data-tab="yearbook">
+        <button class="nav-tab" data-tab="yearbook" style="display: none;">
 
           <span class="nav-icon"><i data-lucide="book-open"></i></span>
 
@@ -128,7 +130,7 @@
 
         </button>
 
-        <button class="nav-tab" data-tab="office">
+        <button class="nav-tab" data-tab="office" style="display: none;">
 
           <span class="nav-icon"><i data-lucide="building-2"></i></span>
 
@@ -220,7 +222,7 @@
 
       <!-- =================================================================== -->
 
-      <section class="tab-panel active" id="panel-presentation">
+      <section class="tab-panel" id="panel-presentation" style="display: none;">
 
         <div class="panel-hero">
 
@@ -1374,7 +1376,7 @@
 
       <!-- =================================================================== -->
 
-      <section class="tab-panel" id="panel-documents">
+      <section class="tab-panel active" id="panel-documents">
 
         <div class="panel-hero">
 
@@ -3380,7 +3382,7 @@
 
       <!-- =================================================================== -->
 
-      <section class="tab-panel" id="panel-diagrams">
+      <section class="tab-panel" id="panel-diagrams" style="display: none;">
 
         <div class="panel-hero">
 
@@ -3624,7 +3626,7 @@
 
       <!-- =================================================================== -->
 
-      <section class="tab-panel" id="panel-math">
+      <section class="tab-panel" id="panel-math" style="display: none;">
 
         <div class="panel-hero">
 
@@ -3830,7 +3832,7 @@
 
       <!-- =================================================================== -->
 
-      <section class="tab-panel" id="panel-yearbook">
+      <section class="tab-panel" id="panel-yearbook" style="display: none;">
 
         <div class="panel-hero">
 
@@ -4329,7 +4331,7 @@
       <!-- ================================================================= -->
       <!-- TAB 7: 3D OFFICE COMMAND CENTER (OFFICE WORLD)                    -->
       <!-- ================================================================= -->
-      <section class="tab-panel" id="panel-office">
+      <section class="tab-panel" id="panel-office" style="display: none;">
         <div class="office-world-wrapper">
           <div class="office-canvas-container" id="office-canvas-container">
             <!-- Three.js Canvas injected here -->

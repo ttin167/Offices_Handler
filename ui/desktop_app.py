@@ -84,7 +84,7 @@ class UniversalDocStudioApp:
 
         sub_label = tk.Label(
             master=header_frame,
-            text="Bộ chuyển đổi đa chiều (Smart TOC, Tables, Excel-to-Brief, Deep CDR Security & PDF/A-2b)",
+            text="Bộ công cụ tin học văn phòng chuẩn xác (Word ↔ Excel ↔ PDF)",
             font=("Segoe UI", 9),
             fg="#94a3b8",
             bg="#0f172a"
@@ -101,7 +101,7 @@ class UniversalDocStudioApp:
         self.tab_enterprise = ttk.Frame(self.notebook, padding=12)
 
         self.notebook.add(self.tab_single, text="  Chuyển đổi File đơn lẻ  ")
-        self.notebook.add(self.tab_pptx, text="  Tạo Slide Thuyết Trình (Word ➔ PPTX)  ")
+        # self.notebook.add(self.tab_pptx, text="  Tạo Slide Thuyết Trình (Word ➔ PPTX)  ")
         self.notebook.add(self.tab_batch, text="  Chuyển đổi Hàng loạt (Batch)  ")
         self.notebook.add(self.tab_enterprise, text="  🛡️ Bảo Mật CDR, Excel-to-Brief & PDF/A  ")
 
@@ -371,7 +371,7 @@ class UniversalDocStudioApp:
             pady=6,
             cursor="hand2"
         )
-        self.btn_diagram_editor.pack(side=tk.RIGHT)
+        # self.btn_diagram_editor.pack(side=tk.RIGHT)
 
         prog_row = ttk.Frame(bottom_frame)
         prog_row.pack(fill=tk.X, pady=(0, 4))

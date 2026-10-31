@@ -339,7 +339,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     theme: localStorage.getItem('antigravity_theme') || 'dark',
 
-    activeTab: 'presentation',
+    activeTab: 'documents',
 
     apiConnected: false,
 
