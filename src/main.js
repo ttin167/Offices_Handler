@@ -339,6 +339,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     theme: localStorage.getItem('antigravity_theme') || 'dark',
 
+    // [BRANCH: LEKHOI] Mặc định mở tab Tài liệu (Word & PDF Hub) cho người dùng văn phòng
     activeTab: 'documents',
 
     apiConnected: false,
