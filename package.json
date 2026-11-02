@@ -1,9 +1,9 @@
 {
-  "name": "antigravity-office-studio",
+  "name": "antigravity-ba-workstation",
   "version": "4.6.0",
   "private": true,
   "type": "module",
-  "description": "Publication-Grade Universal Office & Presentation Web Studio",
+  "description": "BA Enterprise Workstation — Precision Requirements Engineering, Data Reconciliation & Business Process Studio",
   "scripts": {
     "dev": "node dev_launcher.js",
     "dev:vite": "vite",
@@ -19,8 +19,6 @@
     "vite": "^6.2.0"
   },
   "dependencies": {
-    "lucide": "^1.53.0",
-    "page-flip": "^2.0.7",
-    "three": "^0.186.1"
+    "lucide": "^1.53.0"
   }
 }

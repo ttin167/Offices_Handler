@@ -666,72 +666,84 @@ TOOL_DEFINITIONS = [
         }
     },
     {
-        "name": "yearbook_auto_layout",
-        "description": "Smart auto-layout and aspect-ratio clustering for graduation yearbooks and photobooks into 9 editorial spread templates.",
+        "name": "ba_story_lint",
+        "description": "Audit Business Analyst User Story & Gherkin Acceptance Criteria against BABOK v3 and INVEST standards with automated scoring.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "photos": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of photo file paths or directory path"
-                },
-                "title": {
-                    "type": "string",
-                    "description": "Album title",
-                    "default": "KỶ YẾU TỐT NGHIỆP 2026"
-                },
-                "subtitle": {
-                    "type": "string",
-                    "description": "Album subtitle"
-                },
-                "author": {
-                    "type": "string",
-                    "description": "Graduate / Owner name",
-                    "default": "Biện Trung Tín"
-                },
-                "degree": {
-                    "type": "string",
-                    "description": "Academic degree / major"
-                },
-                "date": {
-                    "type": "string",
-                    "description": "Graduation date string"
-                },
-                "preset": {
-                    "type": "string",
-                    "description": "Preset key: 'photobook_square_25x25', 'a4_landscape', 'a4_portrait', 'magazine_b5'",
-                    "default": "photobook_square_25x25"
-                },
-                "bleed_mm": {
-                    "type": "number",
-                    "description": "Pre-press bleed margin in mm (default: 3.0)",
-                    "default": 3.0
+                "story": {
+                    "type": "object",
+                    "description": "User Story object with fields: id, title, role, goal, benefit, business_rules, scenarios"
                 }
-            }
+            },
+            "required": ["story"]
         }
     },
     {
-        "name": "yearbook_export",
-        "description": "Build industrial print-ready PDF (300 DPI, 3mm Bleed, Crop Marks) or full 5-in-1 Designer Handoff Bundle (.zip).",
+        "name": "ba_rtm_matrix",
+        "description": "Build Requirements Traceability Matrix (RTM) linking Business Requirements -> User Stories -> Use Cases -> Test Cases, auditing coverage gap.",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "spec": {
-                    "type": "object",
-                    "description": "Yearbook Project Spec JSON object"
+                "stories": {
+                    "type": "array",
+                    "description": "List of User Stories"
+                },
+                "usecases": {
+                    "type": "array",
+                    "description": "Optional list of Use Cases"
+                },
+                "project_name": {
+                    "type": "string",
+                    "description": "Project title",
+                    "default": "Enterprise System"
                 },
                 "output_path": {
                     "type": "string",
-                    "description": "Destination file path (.zip or .pdf)"
-                },
-                "export_type": {
-                    "type": "string",
-                    "description": "Export type: 'handoff_zip', 'print_pdf', or 'spread_pdf'",
-                    "default": "handoff_zip"
+                    "description": "Output path for the styled Excel RTM (.xlsx)"
                 }
             },
-            "required": ["spec", "output_path"]
+            "required": ["stories", "output_path"]
+        }
+    },
+    {
+        "name": "ba_dbml_convert",
+        "description": "Bidirectional conversion between DBML (Database Markup Language), SQL DDL, and Mermaid ERD with type audit.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "description": "Source DBML or SQL DDL text"
+                },
+                "mode": {
+                    "type": "string",
+                    "description": "Conversion mode: 'dbml_to_sql', 'sql_to_dbml', 'dbml_to_mermaid'",
+                    "default": "dbml_to_sql"
+                },
+                "dialect": {
+                    "type": "string",
+                    "description": "SQL dialect (postgres, mssql, oracle, mysql)",
+                    "default": "postgres"
+                }
+            },
+            "required": ["code"]
+        }
+    },
+    {
+        "name": "ba_sql_integrity_suite",
+        "description": "Generate the 7 Core Automated SQL Data Integrity Tests (Orphan records, duplicates, nulls, boundary violations, status conflict, variance sum).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "target_table": {"type": "string", "description": "Target table name"},
+                "parent_table": {"type": "string", "description": "Optional parent table for orphan FK check"},
+                "primary_key": {"type": "string", "description": "Primary key column name"},
+                "foreign_key": {"type": "string", "description": "Foreign key column name"},
+                "child_table": {"type": "string", "description": "Optional child table for item variance sum"},
+                "dialect": {"type": "string", "description": "SQL Dialect: postgres, mssql, oracle, mysql", "default": "postgres"}
+            },
+            "required": ["target_table", "primary_key"]
         }
     },
     {
@@ -1605,65 +1617,77 @@ def execute_xlsx_formula_helper(args: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def execute_yearbook_auto_layout(args: Dict[str, Any]) -> Dict[str, Any]:
-    from core.yearbook import YearbookLayoutEngine, get_default_mock_spec
-
-    photos = args.get("photos", [])
-    title = args.get("title", "KỶ YẾU TỐT NGHIỆP 2026")
-    subtitle = args.get("subtitle", "Hành Trình Rực Rỡ & Những Năm Tháng Thanh Xuân")
-    author = args.get("author", "Biện Trung Tín")
-    degree = args.get("degree", "Cử Nhân Kỹ Thuật Phần Mềm")
-    date_str = args.get("date", "Tháng 11 / 2026")
-    preset = args.get("preset", "photobook_square_25x25")
-    bleed_mm = float(args.get("bleed_mm", 3.0))
-
-    if not photos:
-        spec = get_default_mock_spec(
-            title=title, subtitle=subtitle, author=author, degree=degree,
-            date_str=date_str, preset_key=preset, bleed_mm=bleed_mm
-        )
-    else:
-        spec = YearbookLayoutEngine.auto_layout(
-            photo_paths=photos,
-            title=title,
-            subtitle=subtitle,
-            author=author,
-            degree=degree,
-            date_str=date_str,
-            preset_key=preset,
-            bleed_mm=bleed_mm,
-        )
-
+def execute_ba_story_lint(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.ba_hub.story_builder import StoryQualityLinter
+    story_data = args.get("story", {})
+    audit = StoryQualityLinter.audit_story(story_data)
     return {
         "success": True,
-        "total_spreads": len(spec.get("pages", [])),
-        "spec": spec,
+        "audit": audit,
     }
 
 
-def execute_yearbook_export(args: Dict[str, Any]) -> Dict[str, Any]:
-    from core.yearbook import YearbookPressEngine, YearbookHandoffPackager
-
-    spec = args.get("spec")
-    if not spec:
-        raise ValueError("spec is required")
+def execute_ba_rtm_matrix(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.ba_hub.rtm_matrix import RTMEngine
+    stories = args.get("stories", [])
+    usecases = args.get("usecases")
+    testcases = args.get("testcases")
+    proj_name = args.get("project_name", "Enterprise System")
     out_path = args.get("output_path")
     if not out_path:
         raise ValueError("output_path is required")
 
-    export_type = args.get("export_type", "handoff_zip").lower()
-    if export_type == "print_pdf":
-        actual_out = YearbookPressEngine.export_print_ready_pdf(spec, out_path)
-    elif export_type == "spread_pdf":
-        actual_out = YearbookPressEngine.export_spread_preview_pdf(spec, out_path)
-    else:
-        actual_out = YearbookHandoffPackager.export_handoff_bundle(spec, out_path)
-
+    rtm_items = RTMEngine.build_rtm(stories, usecases, testcases)
+    coverage = RTMEngine.calculate_coverage(rtm_items)
+    RTMEngine.export_rtm_to_excel(rtm_items, out_path, project_name=proj_name)
     return {
         "success": True,
-        "export_type": export_type,
-        "output_path": actual_out,
-        "file_size": os.path.getsize(actual_out) if os.path.isfile(actual_out) else 0,
+        "output_path": out_path,
+        "coverage": coverage.to_dict(),
+        "total_items": len(rtm_items),
+    }
+
+
+def execute_ba_dbml_convert(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.ba_hub.dbml_satsuma import DBMLEngine
+    code = args.get("code", "")
+    mode = args.get("mode", "dbml_to_sql").lower()
+    dialect = args.get("dialect", "postgres")
+
+    if mode == "sql_to_dbml":
+        res_dbml = DBMLEngine.sql_to_dbml(code)
+        mermaid_erd = DBMLEngine.dbml_to_mermaid_erd(res_dbml)
+        return {"success": True, "dbml": res_dbml, "mermaid_erd": mermaid_erd}
+    elif mode == "dbml_to_mermaid":
+        mermaid_erd = DBMLEngine.dbml_to_mermaid_erd(code)
+        return {"success": True, "mermaid_erd": mermaid_erd}
+    else:
+        sql_out = DBMLEngine.dbml_to_sql(code, dialect=dialect)
+        mermaid_erd = DBMLEngine.dbml_to_mermaid_erd(code)
+        return {"success": True, "sql": sql_out, "mermaid_erd": mermaid_erd}
+
+
+def execute_ba_sql_integrity_suite(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.ba_hub.sql_toolkit import SQLIntegrityTestSuite
+    target_tbl = args.get("target_table", "orders")
+    parent_tbl = args.get("parent_table")
+    pk = args.get("primary_key", "order_id")
+    fk = args.get("foreign_key")
+    child_tbl = args.get("child_table")
+    dialect = args.get("dialect", "postgres")
+
+    tests = SQLIntegrityTestSuite.generate_suite(
+        target_table=target_tbl,
+        parent_table=parent_tbl,
+        primary_key=pk,
+        foreign_key=fk,
+        child_table=child_tbl,
+        dialect=dialect,
+    )
+    return {
+        "success": True,
+        "total_tests": len(tests),
+        "tests": [t.to_dict() for t in tests],
     }
 
 
@@ -1836,9 +1860,11 @@ TOOL_DISPATCHER = {
     "docx_insert_paragraph": execute_docx_insert_paragraph,
     "docx_insert_table": execute_docx_insert_table,
     "xlsx_formula_helper": execute_xlsx_formula_helper,
-    # Yearbook Studio Tools
-    "yearbook_auto_layout": execute_yearbook_auto_layout,
-    "yearbook_export": execute_yearbook_export,
+    # BA Enterprise Workstation Tools (from Top 4 Open-Source Repos)
+    "ba_story_lint": execute_ba_story_lint,
+    "ba_rtm_matrix": execute_ba_rtm_matrix,
+    "ba_dbml_convert": execute_ba_dbml_convert,
+    "ba_sql_integrity_suite": execute_ba_sql_integrity_suite,
     # Cloudflare Security Audit Tool
     "doc_security_audit": execute_doc_security_audit,
     # v4.6.0 Enterprise Upgrade Tools (5 new tools -> 28 total)

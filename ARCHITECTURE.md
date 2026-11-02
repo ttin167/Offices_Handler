@@ -2,7 +2,7 @@
 
 > **Phiên bản**: 4.6.0 (Enterprise Omni-Pipeline, Deep CDR, Cryptographic PAdES/PDF-A & AST Code-to-Diagram Architecture v4.6)  
 > **Tiêu chuẩn**: Zero-Regression, 100% Backward Compatibility, Strict Layer Isolation, Clean-Room MIT Compliance  
-> **Test Suite**: 323+ Automated Tests (100% Pass Rate) | **MCP Tools**: 28 Tools
+> **Test Suite**: 323+ Automated Tests (100% Pass Rate) | **MCP Tools**: 30 Tools
 
 ---
 
@@ -19,7 +19,7 @@ Hệ thống được tổ chức theo mô hình phân tầng chặt chẽ (Clea
                                             ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                              2. Interface & Protocol Layer                             │
-│   Web REST API (server/app.py :8000)      │ Model Context Protocol (28 Tools)          │
+│   Web REST API (server/app.py :8000)      │ Model Context Protocol (30 Tools)          │
 │   SSE Task Manager (server/job_manager)   │ AI Unified CLI (cli/ai_tools + v46_cmds)   │
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
                                             │
@@ -27,7 +27,7 @@ Hệ thống được tổ chức theo mô hình phân tầng chặt chẽ (Clea
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                            3. Core Document & Automation Engine                        │
 │  core/docx/     │ core/pptx/     │ core/xlsx/     │ core/converter/ │ core/pipeline/   │
-│  core/diagrams/ │ core/security/ │ core/yearbook/ │ core/env_doctor │                  │
+│  core/diagrams/ │ core/security/ │ core/ba_hub/   │ core/env_doctor │                  │
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
                                             │
                                             ▼
@@ -79,10 +79,14 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
     - `ocr_pipeline.py`: Pipeline bóc tách PDF/ảnh scan tiếng Việt (`vie+eng`), bộ lọc mộc đỏ HSV (`ERR_CONV_005`), nắn thẳng ảnh scan tự động (`deskew`).
     - `pdf_renderer.py`: Bộ chuyển đổi PDF phổ quát (`UniversalPdfRenderer`) với chuỗi ưu tiên: Win32 COM ➔ LibreOffice Headless ➔ PyMuPDF.
     - `pdf_toolkit.py`: Phân hệ PDF Pro Studio & iLovePDF Killer Features (True Redaction `ERR_PDF_001`, AES-256 Encryption, Dấu giáp lai đa trang overlap 8% `ERR_PDF_002`, Chuẩn hóa A4 vector `ERR_PDF_003`, Bóc bảng sang Excel `ERR_XLSX_007`, Tổ chức trang trực quan kèm chèn trang trắng A4, Chuyển đổi 2 chiều Ảnh ↔ PDF, Ký tên điện tử & đóng dấu bù góc xoay `page.derotation_matrix`, Làm phẳng 2 chế độ Vector Bake & Strict Raster kèm dọn sạch metadata ẩn `doc.scrub`).
-  - `core/yearbook/`:
-    - `layout_engine.py`: Động cơ dàn trang thông minh phân tích EXIF (`ERR_EXIF_001`), phân loại tỷ lệ ảnh (Landscape, Portrait, Square), tự động dàn trang 9 mẫu layout chuẩn tạp chí (`cover_hero`, `editorial_quote`, `symmetric_duo`, `magazine_grid_4`, `polaroid_scrapbook`, `mosaic_gallery_6`, `classroom_grid_8`, `megagrid_12`, `panoramic_spread`), thuật toán gom cụm mật độ cao cho 50–100+ ảnh, và sinh album mẫu Zero-Config Mock Album.
-    - `pdf_press_exporter.py`: Động cơ xuất xưởng in ấn công nghiệp 300+ DPI với lề xén 3mm Bleed, 4 cặp vạch cắt Crop Marks, bù trừ rãnh gáy sách Gutter, tự động nhúng font hệ thống Unicode tiếng Việt (`ERR_PDF_FONT_001`), cắt ảnh object-fit cover với top-bias 35% giữ nguyên gương mặt và mũ cử nhân (`ERR_IMG_CROP_001`), sinh bản PDF mở phẳng (Spread View) và thumbnail PNG.
-    - `handoff_packager.py`: Đóng gói hồ sơ bàn giao thợ thiết kế 5-trong-1 (.zip) với cơ chế stream đĩa trực tiếp (`ERR_RAM_001`), sinh bản Word DOCX Brief tuân thủ nghiêm ngặt các bất biến OpenXML bảng biểu (`<w:cantSplit/>`, `<w:tblHeader/>`, `<w:vAlign w:val="center"/>`, The Last Paragraph Rule).
+  - `core/ba_hub/` (BA Enterprise Workstation Engine):
+    - `templates.py`: Khung mẫu thực chiến chuẩn ngành Ngân hàng số (NAPAS 247, eKYC), Thương mại điện tử (Checkout, Voucher) và Kho vận (WMS Inbound).
+    - `story_builder.py`: Khung soạn thảo User Story & Gherkin AC tương tác, bộ thẩm định chất lượng tự động `StoryQualityLinter` (chấm điểm 0-100%, kiểm tra Role specificity, Business value, Given-When-Then, Happy/Negative paths) và xuất bản OpenXML Word / Markdown.
+    - `usecase_builder.py`: Bộ đặc tả Use Case Specifications, bộ kiểm định chất lượng `UseCaseQualityLinter` và xuất bảng OpenXML (`<w:cantSplit/>`, `<w:tblHeader/>`).
+    - `data_dictionary.py`: Động cơ quét từ điển dữ liệu từ Excel (.xlsx) và SQL DDL `CREATE TABLE` (`DataDictionaryScanner`), bộ xuất bảng ma trận ánh xạ dữ liệu nguồn - đích (`FieldMappingEngine`).
+    - `reconciliation.py`: Động cơ đối soát dữ liệu 2 chiều tự động (`DataReconciliationEngine`), khớp theo khóa phức hợp (Composite Key), tính toán dung sai số học (Numeric Tolerance), tổng hợp độ lệch và xuất báo cáo 4-sheet Excel OpenXML.
+    - `testcase_generator.py`: Bộ sinh ma trận kiểm thử nghiệm thu người dùng (`UATTestcaseGenerator`) kèm Data Validation dropdown in-cell (`Pass`/`Fail`/`Blocked`) và định dạng đổi màu tự động.
+    - `brd_generator.py`: Bộ tổng hợp và xuất bản tài liệu BRD / SRS chuẩn doanh nghiệp (`BRDDocumentGenerator`) gồm 9 phần cốt lõi theo chuẩn BABOK v3 và IEEE 830.
   - `core/security/`:
     - `document_auditor.py`: Kiểm định an ninh tài liệu tĩnh dựa trên bộ kiểm tra phòng thủ Cloudflare Security Audit Harness, phân định 3 trạng thái phản biện đối nghịch (`confirmed`, `needs_validation`, `rejected`) cho 5 bất biến: `ERR_SEC_001` (Macro streams & PDF `/Launch`), `ERR_SEC_002` (Formula / DDE Injection), `ERR_SEC_003` (OLE MZ headers & PE binaries), `ERR_SEC_004` (PII author metadata & `veryHidden` sheets), `ERR_SEC_005` (Zip Slip `../` traversal & XXE DTD entities).
     - `sanitizer.py`: Tẩy rửa và vô hiệu hóa mối đe dọa không phá hủy (Non-destructive Defuser & Deep CDR `ERR_SEC_006` + Smart Vietnamese PII Redactor `ERR_SEC_007`): Thêm tiền tố nháy đơn `'` cho công thức nguy hiểm, bóc gỡ `vbaProject.bin` & OLE PE (`MZ`), tự động chuyển đổi `macroEnabled.main+xml` sang chuẩn OpenXML, dọn sạch `.rels`, và che mờ thông minh CCCD/SĐT/STK/MST/Email không phạm vào số liệu tài chính BCTC.
@@ -98,7 +102,7 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
     - `legacy/`: Các renderer kế thừa (`canvas`, `plantuml`, `mermaid`).
 
 ### 2.2. `server/` — Tầng Giao Thức & Cung Cấp Dịch Vụ (Web API, MCP, SSE)
-- `app.py`: REST API Server nhẹ nhàng dựa trên `http.server`, phục vụ Web Studio cổng `8000`. Cung cấp endpoints cho conversion, history, mail merge, ocr, diff, math, static assets, trọn bộ PDF Pro Endpoints, Atomic Office Endpoints, Formula Playbook Endpoints, và trọn bộ Digital Yearbook Endpoints (`/api/yearbook/mock-album`, `/api/yearbook/presets`, `/api/yearbook/auto-layout`, `/api/yearbook/render-preview`, `/api/yearbook/export`).
+- `app.py`: REST API Server nhẹ nhàng dựa trên `http.server`, phục vụ Web Studio cổng `8000`. Cung cấp endpoints cho conversion, history, mail merge, ocr, diff, math, static assets, trọn bộ PDF Pro Endpoints, Atomic Office Endpoints, Formula Playbook Endpoints, và trọn bộ BA Enterprise Endpoints (`/api/ba/templates`, `/api/ba/story/lint`, `/api/ba/story/export`, `/api/ba/usecase/lint`, `/api/ba/usecase/export`, `/api/ba/brd/generate`, `/api/ba/data-dict/scan-excel`, `/api/ba/data-dict/scan-ddl`, `/api/ba/data-dict/export`, `/api/ba/reconciliation/run`, `/api/ba/uat/generate`).
 - `mcp_server.py`: Model Context Protocol Server (STDIO JSON-RPC 2.0) tương thích với Claude Desktop, Cursor, và Antigravity IDE. Đăng ký **23 tools** chuẩn:
   - Macro Tools (11): `env_doctor`, `doc_convert`, `doc_inspect`, `doc_insert_diagram`, `docx_patch`, `docx_apply_preset`, `docx_sanitize_vietnamese`, `pptx_synthesize`, `diagram_render`, `doc_mail_merge`, `doc_redline_diff`, `doc_ocr_scan`, `pdf_quick_tools`.
   - Atomic Office Tools (8): `xlsx_set_cell`, `xlsx_set_range`, `xlsx_insert_rows`, `xlsx_find_anchor`, `docx_inspect_placeholders`, `docx_replace_text`, `docx_insert_paragraph`, `docx_insert_table`.

@@ -31,7 +31,29 @@ Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân h�
 
 ## 2. Chi Tiết Các Phiên Bản Phát Triển
 
-### Phiên Bản 4.6.0 (Enterprise Omni-Pipeline, Cryptographic PAdES/PDF-A, Two-Way Excel-to-Brief, Deep CDR & AST Code-to-Diagram Suite)
+### Phiên Bản 4.6.0 (BA Enterprise Workstation & Production Grade Suite)
+- **Tái Cấu Trúc Toàn Diện: Trạm Làm Việc Chuyên Sâu Cho Business Analyst (`core/ba_hub/`)**:
+  - Cắt bỏ hoàn toàn các phân hệ không thuộc mục tiêu cốt lõi (Yearbook Studio, Math Studio, Office 3D, loại bỏ dependencies NPM nặng `three` và `page-flip`), giảm hơn 700KB kích thước bundle và tăng tốc độ khởi động trên container cloud 512MB RAM.
+  - Xây dựng phân hệ mới **`core/ba_hub/`** gồm 7 module chuyên biệt cho Business Analyst:
+    1. `templates.py`: Kho mẫu thực chiến chuẩn ngân hàng số (NAPAS 247, eKYC), thương mại điện tử (Checkout, Voucher) và kho vận (WMS Inbound).
+    2. `story_builder.py`: Khung soạn thảo User Story chuẩn 3 thành phần (*As a / I want / So that*) và tiêu chí nghiệm thu Gherkin AC (*Given-When-Then*). Tích hợp bộ linter tự động `StoryQualityLinter` chấm điểm 0-100%, kiểm tra tiêu chí INVEST, phát hiện Persona mơ hồ và gợi ý sửa lỗi thực tế. Xuất bản tài liệu Word OpenXML và Markdown.
+    3. `usecase_builder.py`: Khung soạn thảo Use Case Specifications (Tác nhân, Tiền/Hậu điều kiện, Sự kiện kích hoạt, Luồng chính từng bước, Luồng phụ, Luồng ngoại lệ, Quy tắc nghiệp vụ) kèm `UseCaseQualityLinter` và xuất bảng OpenXML chống rách trang (`<w:cantSplit/>`, `<w:tblHeader/>`).
+    4. `data_dictionary.py`: Động cơ `DataDictionaryScanner` quét cấu trúc từ tệp Excel thực tế hoặc bóc tách câu lệnh SQL DDL `CREATE TABLE`, tự động suy luận kiểu dữ liệu, khóa chính PK và Nullability. Động cơ `FieldMappingEngine` xuất bản sổ tính Excel OpenXML chuẩn doanh nghiệp và ma trận ánh xạ Source-to-Target Data Mapping.
+    5. `reconciliation.py`: Động cơ đối soát dữ liệu hai chiều tự động `DataReconciliationEngine` (khớp bản ghi theo khóa phức hợp Composite Key, tính toán dung sai sai số Numeric Tolerance, tổng hợp độ lệch tiền Total Variance Sum, và xuất báo cáo 4 sheet Excel kèm conditional formatting).
+    6. `testcase_generator.py`: Động cơ sinh ma trận kiểm thử nghiệm thu người dùng `UATTestcaseGenerator` từ kịch bản Story/Use Case sang Excel kèm Data Validation dropdown in-cell (`Pass`/`Fail`/`Blocked`) và định dạng tự đổi màu.
+    7. `brd_generator.py`: Động cơ `BRDDocumentGenerator` tổng hợp và xuất bản tài liệu BRD / SRS chuẩn doanh nghiệp (.docx) đầy đủ 9 phần cốt lõi theo chuẩn BABOK v3 và IEEE 830, tự động nhúng ma trận RTM ở Mục 5.
+    8. `rtm_matrix.py`: Động cơ ma trận truy xuất nguồn gốc yêu cầu `RTMEngine` xâu chuỗi BR &rarr; US &rarr; UC &rarr; AC &rarr; TC &rarr; DEF, tính toán tỷ lệ bao phủ Coverage %, và xuất bản sổ tính Excel OpenXML.
+    9. `dbml_satsuma.py`: Động cơ chuyển đổi DBML 2 chiều (`DBMLEngine`: DBML &harr; SQL DDL &harr; Mermaid ERD) và DSL ánh xạ dữ liệu kiểu Satsuma (`SatsumaMappingEngine`: cú pháp `Source.Col -> Target.Col [Rule]`, kiểm định tương thích kiểu dữ liệu & chống tràn chuỗi, sinh sơ đồ Data Lineage).
+    10. `scope_diff.py`: Động cơ phân tích độ phình phạm vi `ScopeCreepAuditor` bóc tách Semantic Delta (Yêu cầu mới, Thay đổi logic, Cắt giảm phạm vi), ma trận mức độ nghiêm trọng, ước tính Man-days và xuất bản Báo cáo Đánh giá Tác động Word (.docx).
+    11. `sql_toolkit.py`: Bộ 7 bài test SQL tự động kiểm toán dữ liệu `SQLIntegrityTestSuite` cho BA đối soát trước khi ký nghiệm thu UAT (Orphan records, duplicates, nulls, range violations, status conflicts, timestamps, variance sum) hỗ trợ 4 hệ CSDL: PostgreSQL, MSSQL, Oracle, MySQL.
+  - Cập nhật Web Studio thành **5 Không Gian Làm Việc Chính (BA Workspaces)**:
+    - Workspace 1: **Requirements Engineering Hub** (User Story, Gherkin AC, Linter, Use Case, BRD Synthesizer, RTM Matrix).
+    - Workspace 2: **Data & Process Studio** (Data Dictionary, Source-to-Target Mapping, DBML 2-Way Studio, Satsuma DSL Lineage).
+    - Workspace 3: **Audit, Reconciliation & Change Control Hub** (Two-Way Reconciliation, Variance Report, UAT Matrix, Legal Redline Diff, 7 SQL Integrity Tests, Scope Creep & Impact Analysis).
+    - Workspace 4: **Document Hub** (Word, PDF, Lossless Convert, Track Changes).
+    - Workspace 5: **Spreadsheet Studio** (Excel Automation, 12-Gate QA, Formula Playbook).
+  - Bổ sung trọn bộ 15 REST API endpoints mới tại `/api/ba/*` và 4 MCP Tools chuyên dụng cho AI Agent (`ba_story_lint`, `ba_rtm_matrix`, `ba_dbml_convert`, `ba_sql_integrity_suite`).
+  - Mở rộng bộ kiểm thử tự động toàn diện `tests/test_ba_hub.py` và `tests/test_ba_extended_suite.py` (20 test suites, 100% Pass).
 - **Phân Hệ 1 — Chữ Ký Số Mật Mã PKCS#7 / PAdES & Lưu Trữ Dài Hạn PDF/A-2b (`core/converter/pdf_toolkit.py`)**:
   - `crypto_sign_pdf` & `verify_pdf_crypto_signature`: Nhúng từ điển chữ ký mật mã chuẩn ISO `/Type /Sig` (`/Filter /Adobe.PPKLite`, `/SubFilter /ETSI.CAdES.detached` hoặc `/adbe.pkcs7.detached`), băm toàn vẹn SHA-256 của tệp PDF, hỗ trợ chứng thư số `.pfx`/`.p12` qua `cryptography` hoặc con dấu xác thực nội bộ kèm khung chữ ký số trực quan trên trang đích.
   - `convert_to_pdfa`: Chuẩn hóa tài liệu PDF sang định dạng lưu trữ dài hạn quốc tế **ISO 19005-2 (PDF/A-2b / PDF/A-1b)**, tự động gỡ bỏ các thẻ động bị cấm (`/JavaScript`, `/JS`, `/Launch`, `/EmbeddedFiles`), nhúng gói siêu dữ liệu XMP RDF (`pdfaid:part=2`, `pdfaid:conformance=B`) và cấu hình không gian màu chuẩn sRGB IEC61966-2.1 vào `/OutputIntents`.

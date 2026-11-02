@@ -19,6 +19,7 @@ export default defineConfig({
         '**/*.docx',
         '**/*.pptx',
         '**/*.pdf',
+        '**/*.xlsx',
         '**/*.tmp',
         '**/~$*',
         '**/.~lock.*',
@@ -44,11 +45,10 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       output: {
-          manualChunks(id) {
-            if (id.includes('node_modules/three')) return 'three';
-            if (id.includes('node_modules/lucide')) return 'lucide';
-          },
+        manualChunks(id) {
+          if (id.includes('node_modules/lucide')) return 'lucide';
         },
       },
     },
-  });
+  },
+});

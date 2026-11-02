@@ -122,8 +122,9 @@ antigravity-doc-handler/
 │   ├── xlsx/                   # Universal Excel Engine, Validator, Streaming, Formula Playbook, Reporting
 │   ├── security/               # Cloudflare Document Auditor & Deep CDR / PII Sanitizer
 │   ├── pipeline/               # Declarative Multi-Step Workflow Pipeline Engine
+│   ├── ba_hub/                 # BA Enterprise Hub (Stories, Use Cases, RTM, DBML, Satsuma, SQL Tests, Scope Creep)
 │   └── env_doctor.py           # 12-Component Environment Health Doctor
-├── server/                     # Layer 2: Web Studio REST API (:8000), MCP Server (28 Tools), SSE Jobs, SQLite
+├── server/                     # Layer 2: Web Studio REST API (:8000), MCP Server (30 Tools), SSE Jobs, SQLite
 ├── cli/                        # Layer 2: Unified AI CLI Dispatcher & Subcommands
 ├── ui/                         # Layer 1: Desktop GUI (Tkinter) & Native WebView App Launcher
 ├── src/                        # Layer 1: Vite ES6 Web Studio Frontend & Modular Controllers

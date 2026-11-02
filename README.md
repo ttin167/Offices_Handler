@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Release: v4.6.0](https://img.shields.io/badge/Release-v4.6.0_Production-success.svg)](CHANGELOG.md)
 [![Tests: 323 Passed](https://img.shields.io/badge/Tests-323%2F323_Passed-brightgreen.svg)](tests/)
-[![MCP Tools: 28](https://img.shields.io/badge/MCP_Tools-28_Available-blue.svg)](server/mcp_server.py)
+[![MCP Tools: 30](https://img.shields.io/badge/MCP_Tools-30_Available-blue.svg)](server/mcp_server.py)
 [![Antigravity Skills: 6](https://img.shields.io/badge/Antigravity_Skills-6_Specialized-indigo.svg)](.agents/skills/)
 [![Antigravity IDE Ready](https://img.shields.io/badge/Antigravity_AI-Compatible-orange.svg)](AGENTS.md)
 [![Resolution: 300+ DPI](https://img.shields.io/badge/DPI-300%2B_Vector_Grade-purple.svg)](spec_diagram_engine.py)
@@ -35,6 +35,23 @@ The workspace provides 6 specialized Antigravity Skills in `.agents/skills/` des
 | **security-audit** | [`.agents/skills/security-audit/`](.agents/skills/security-audit/SKILL.md) | Cloudflare-seeded 6-phase defensive security audit harness (Reconnaissance, Coverage-Led Hunting, Adversarial Validation, Structured Schema, Zero-Dependency Verification, Reporting) & document sanitizer (`ERR_SEC_001`–`007`). |
 
 > 💡 **Auto-Sync Invariant (`ERR_DOC_SYNC_001` / `ERR_VER_001`)**: Khi có nâng cấp kỹ năng, thêm skill mới hoặc bump version, `README.md` sẽ được tự động đồng bộ huy hiệu (badges), bảng kỹ năng và các điểm nhấn phiên bản qua `tools/bump_version.py`.
+
+### 💼 BA Enterprise Workstation (Trạm Làm Việc Chuyên Sâu Cho Business Analyst)
+
+Chuyển đổi toàn diện hệ thống thành không gian làm việc chuyên nghiệp, đào tạo và thẩm định tài liệu nghiệp vụ cho BA:
+- **Requirements Engineering Hub**:
+  - Soạn thảo tương tác **User Story** chuẩn 3 thành phần (*As a / I want / So that*) và tiêu chí nghiệm thu **Gherkin Acceptance Criteria** (*Given-When-Then*).
+  - Bộ thẩm định chất lượng **BABOK Quality Linter & Scorecard** (chấm điểm 0-100%, kiểm tra tiêu chí INVEST, cụ thể hóa Persona, chống ép giải pháp kỹ thuật, bắt trọn ngoại lệ Happy Path/Negative Path/Boundary).
+  - Soạn thảo bảng đặc tả **Use Case Specifications** với bảng OpenXML chống rách trang (`<w:cantSplit/>`, `<w:tblHeader/>`, `<w:vAlign/>`).
+  - Lắp ráp 1-click tài liệu **BRD / SRS hoàn chỉnh (.docx)** đầy đủ 9 phần theo chuẩn BABOK v3 và IEEE 830.
+- **Data & Process Studio**:
+  - **Data Dictionary Scanner**: Tự động suy luận kiểu dữ liệu, khóa chính PK, Nullability từ tệp Excel thực tế hoặc bóc tách câu lệnh SQL DDL `CREATE TABLE`.
+  - **Source-to-Target Data Mapping**: Ma trận ánh xạ dữ liệu nguồn - đích phục vụ tích hợp API, Database Migration và quy trình ETL.
+  - Xuất bản Từ điển dữ liệu và Ma trận ánh xạ sang sổ tính Excel OpenXML chuẩn doanh nghiệp.
+- **Audit, Reconciliation & Change Control Hub**:
+  - **Two-Way Data Reconciliation Engine**: Đối soát tự động 2 nguồn dữ liệu chéo (Source A vs Source B), khớp theo khóa phức hợp (Composite Key), tính toán dung sai số học (Numeric Tolerance), tổng hợp độ lệch tiền (Total Variance Sum) và xuất báo cáo 4 sheet Excel kèm conditional formatting.
+  - **UAT Acceptance Checklist Matrix Generator**: Tự động sinh bảng kiểm thử nghiệm thu người dùng kèm in-cell dropdown validation (`Pass`/`Fail`/`Blocked`) và định dạng màu sắc tự động.
+  - **Legal Redline Diff**: So sánh 2 phiên bản tài liệu yêu cầu (BRD/SRS v1 vs v2) bằng Track Changes OpenXML pháp lý (gạch ngang đỏ nội dung xóa, gạch chân xanh nội dung thêm mới).
 
 ### 🆕 Highlights in v4.6.0 Production Grade (Enterprise Omni-Pipeline, Deep CDR, PAdES/PDF-A & Code-to-Diagram Suite)
 - **6 Strategic Enterprise Subsystems & 5 Production Edge-Case Guards (v4.6.0)**:

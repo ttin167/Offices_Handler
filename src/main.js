@@ -144,30 +144,14 @@ import {
 
 
 import { initHistoryDrawer } from './modules/history_drawer.js';
-
+import { initRequirementsHub } from './modules/ba_requirements.js';
+import { initDataProcessStudio } from './modules/ba_data_process.js';
+import { initAuditReconStudio } from './modules/ba_audit_recon.js';
 import { initPresentationStudio } from './modules/presentation_studio.js';
-
 import { initSpreadsheetStudio } from './modules/spreadsheet_studio.js';
-
 import { initDocumentHub } from './modules/document_hub.js';
-
 import { initDiagramStudio } from './modules/diagram_studio.js';
-
-import { initMathStudio } from './modules/math_studio.js';
-
 import { initFormulaPlaybook } from './modules/formula_playbook.js';
-
-
-
-// Optional local-only module (excluded in GitHub/Docker builds via .gitignore)
-
-const _optionalYearbookModules = import.meta.glob('./modules/yearbook_studio.js', { eager: true });
-
-const initYearbookStudio = _optionalYearbookModules['./modules/yearbook_studio.js']?.initYearbookStudio || null;
-
-// Optional local-only 3D Office Dashboard module (excluded in GitHub/Docker builds via .gitignore/.dockerignore)
-const _optionalOffice3dModules = import.meta.glob('./modules/office_3d/index.js', { eager: true });
-const initOfficeWorld = _optionalOffice3dModules['./modules/office_3d/index.js']?.initOfficeWorld || null;
 
 
 
@@ -339,7 +323,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     theme: localStorage.getItem('antigravity_theme') || 'dark',
 
-    activeTab: 'presentation',
+    activeTab: 'requirements',
 
     apiConnected: false,
 
@@ -556,21 +540,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const navTabs = document.querySelectorAll('.nav-tab');
 
   const panels = {
-
-    presentation: document.getElementById('panel-presentation'),
-
-    spreadsheet: document.getElementById('panel-spreadsheet'),
-
+    requirements: document.getElementById('panel-requirements'),
+    'data-process': document.getElementById('panel-data-process'),
+    'audit-recon': document.getElementById('panel-audit-recon'),
     documents: document.getElementById('panel-documents'),
-
+    spreadsheet: document.getElementById('panel-spreadsheet'),
     diagrams: document.getElementById('panel-diagrams'),
-
-    math: document.getElementById('panel-math'),
-
-    yearbook: document.getElementById('panel-yearbook'),
-
-    office: document.getElementById('panel-office'),
-
+    presentation: document.getElementById('panel-presentation'),
   };
 
 
@@ -599,17 +575,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-      if (targetTab === 'yearbook') {
 
-        window.dispatchEvent(new CustomEvent('yearbook:activated'));
-
-      }
-
-      if (targetTab === 'office') {
-
-        window.dispatchEvent(new CustomEvent('office_tab:activated'));
-
-      }
 
     });
 
@@ -711,44 +677,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
+  initRequirementsHub(sharedCtx);
+  initDataProcessStudio(sharedCtx);
+  initAuditReconStudio(sharedCtx);
   initPresentationStudio(sharedCtx);
-
   initSpreadsheetStudio(sharedCtx);
-
   initFormulaPlaybook({ showToast, refreshLucideIcons });
-
   initDocumentHub(sharedCtx);
-
   initDiagramStudio(sharedCtx);
-
-  initMathStudio({ showToast, refreshLucideIcons, loadHistory });
-
-  if (typeof initOfficeWorld === 'function') {
-    initOfficeWorld(sharedCtx);
-  } else {
-    const officeTabBtn = document.querySelector('[data-tab="office"]');
-    const officePanel = document.getElementById('panel-office');
-    if (officeTabBtn) officeTabBtn.style.display = 'none';
-    if (officePanel) officePanel.style.display = 'none';
-  }
-
-
-
-  if (typeof initYearbookStudio === 'function') {
-
-    initYearbookStudio({ showToast, refreshLucideIcons, loadHistory });
-
-  } else {
-
-    const ybTabBtn = document.querySelector('[data-tab="yearbook"]');
-
-    const ybPanel = document.getElementById('panel-yearbook');
-
-    if (ybTabBtn) ybTabBtn.style.display = 'none';
-
-    if (ybPanel) ybPanel.style.display = 'none';
-
-  }
 
 
 
