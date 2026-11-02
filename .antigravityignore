@@ -1,0 +1,116 @@
+# ==============================================================================
+# ANTIGRAVITY AGENT CONTEXT IGNORE SPECIFICATION (.antigravityignore)
+# ==============================================================================
+# This file specifies file and directory patterns that AI Agents (Antigravity &
+# Gemini) must NOT read, index, or include into the context window.
+#
+# Primary Objectives:
+# 1. Context Window Optimization: Eliminate multi-megabyte binary bloat and tokens.
+# 2. Hallucination Prevention: Exclude deprecated engines and runtime cache artifacts.
+# 3. Privacy & Security: Prevent indexing databases, secrets, and customer uploads.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. NODE.JS & WEB BUILD ARTIFACTS
+# ------------------------------------------------------------------------------
+node_modules/
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# ------------------------------------------------------------------------------
+# 2. PYTHON BYTECODE & TEST CACHES
+# ------------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ------------------------------------------------------------------------------
+# 3. WEB STUDIO RUNTIME OUTPUTS & USER UPLOADS
+# ------------------------------------------------------------------------------
+.web_outputs/
+.web_uploads/
+preview_slides/
+
+# ------------------------------------------------------------------------------
+# 4. SCRATCH SCRIPTS & TEMPORARY LOCK FILES
+# ------------------------------------------------------------------------------
+scratch/
+*.tmp
+*.temp*
+~$*
+.~lock.*
+*_temp_assets/
+test_out_assets/
+tools/archive/
+
+# ------------------------------------------------------------------------------
+# 5. HEAVY PRECOMPILED BINARIES & DELIVERABLES
+# ------------------------------------------------------------------------------
+*.jar
+tools/plantuml.jar
+tools/deliverables/
+excel_assets/
+
+# ------------------------------------------------------------------------------
+# 6. COMPILED DOCUMENT BINARIES & ASSETS (Preserve Markdown Source Docs)
+# ------------------------------------------------------------------------------
+# Ignore all heavy binary document formats
+*.docx
+*.pptx
+*.pdf
+*.xlsx
+*.xls
+*.csv
+
+# Ignore generated intermediate image/asset folders inside docs/
+docs/*_assets/
+docs/..*
+docs/preview_test/
+
+# Explicitly ensure source Markdown & YAML configurations are readable
+!docs/*.md
+!docs/*.yaml
+!docs/*.style.yaml
+!docs/*_slide_spec.json
+!specs/*.json
+!specs/*.yaml
+
+# ------------------------------------------------------------------------------
+# 7. DEPRECATED LEGACY ENGINES
+# ------------------------------------------------------------------------------
+legacy_engines/
+
+# ------------------------------------------------------------------------------
+# 8. DATABASES & LOCAL SQLITE STORAGE
+# ------------------------------------------------------------------------------
+*.db
+*.sqlite
+*.sqlite3
+
+# ------------------------------------------------------------------------------
+# 9. VIRTUAL ENVIRONMENTS & SENSITIVE CREDENTIALS
+# ------------------------------------------------------------------------------
+.env
+.env.local
+.env.*
+.venv/
+env/
+venv/
+ENV/
+
+# ------------------------------------------------------------------------------
+# 10. OS & IDE METADATA
+# ------------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
+
