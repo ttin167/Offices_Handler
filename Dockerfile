@@ -1,5 +1,5 @@
 # ==============================================================================
-# Dockerfile — Antigravity Document Handler Enterprise Production Container (v4.6.0)
+# Dockerfile — Antigravity Document Handler & BA Enterprise Workstation (v4.6.0)
 # Multi-Stage Build: Node.js Frontend Compiler + Python 3.11 Full Office Engine
 # Optimized for Cloud Deployment (Render.com, Railway, AWS ECS, Fly.io, Self-hosted)
 # ==============================================================================
@@ -82,6 +82,12 @@ RUN pip install --no-cache-dir --no-deps -e .
 
 # Copy compiled static frontend from Stage 1 into /app/dist
 COPY --from=frontend-builder /frontend/dist /app/dist
+
+# Ensure tools directory exists and plantuml.jar is present
+RUN mkdir -p /app/tools && \
+    if [ ! -f /app/tools/plantuml.jar ]; then \
+        curl -sSL -o /app/tools/plantuml.jar https://github.com/plantuml/plantuml/releases/download/v1.2024.7/plantuml-1.2024.7.jar || true; \
+    fi
 
 # Create runtime and scratch directories
 RUN mkdir -p /app/diagram_assets /app/mail_merge_output /app/logs /app/.web_uploads /app/.web_outputs

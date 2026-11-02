@@ -1,11 +1,13 @@
-# .dockerignore — Antigravity Document Handler (v4.6.0)
-# Exclude dev files, large test caches, local venv, and local artifacts from Docker build context
+# .dockerignore — Antigravity Document Handler & BA Enterprise Workstation (v4.6.0)
+# Exclude dev files, large test caches, local venv, and binary artifacts from Docker build context
 
 .git
 .github
 .agents
 .vscode
 .idea
+.antigravityignore
+.geminiignore
 
 # Node & Frontend Build
 node_modules
@@ -38,6 +40,16 @@ tmp
 temp
 scratch
 tools/deliverables/
+tools/archive/
+
+# Heavy Documentation Binaries & Precompiled Assets
+docs/*.pdf
+docs/*.docx
+docs/*.pptx
+docs/*_assets/
+docs/..*
+docs/preview_test/
+excel_assets/
 
 # Local Scratch & Working State
 .agent_scratchpad.md
@@ -45,15 +57,3 @@ tools/deliverables/
 *.bak
 ~$*
 .~lock.*
-
-# Personal Yearbook Studio (Local-only, excluded from Docker/Cloud image)
-core/yearbook/
-src/modules/yearbook_studio.js
-tests/test_yearbook_studio.py
-*yearbook*
-*Yearbook*
-
-# Personal 3D Office Dashboard & Autonomous Agents (Local-only, excluded from Docker/Cloud image)
-src/modules/office_3d/
-server/office_events.py
-tests/test_office_event_bus.py

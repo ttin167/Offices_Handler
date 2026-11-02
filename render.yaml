@@ -1,6 +1,6 @@
 # ==============================================================================
 # render.yaml — Infrastructure-as-Code Blueprint for Render.com Cloud Deployment
-# Universal Office & Presentation Studio v4.6.0 (512MB RAM Free Tier Optimized)
+# Universal Office Studio & BA Enterprise Workstation v4.6.0 (512MB RAM Free Tier Optimized)
 # ==============================================================================
 
 services:
