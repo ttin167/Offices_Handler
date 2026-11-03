@@ -124,7 +124,7 @@ antigravity-doc-handler/
 │   ├── pipeline/               # Declarative Multi-Step Workflow Pipeline Engine
 │   ├── ba_hub/                 # BA Enterprise Hub (Stories, Use Cases, RTM, DBML, Satsuma, SQL Tests, Scope Creep)
 │   └── env_doctor.py           # 12-Component Environment Health Doctor
-├── server/                     # Layer 2: Web Studio REST API (:8000), MCP Server (30 Tools), SSE Jobs, SQLite
+├── server/                     # Layer 2: Web Studio REST API (:8000), MCP Server (32 Tools), SSE Jobs, SQLite
 ├── cli/                        # Layer 2: Unified AI CLI Dispatcher & Subcommands
 ├── ui/                         # Layer 1: Desktop GUI (Tkinter) & Native WebView App Launcher
 ├── src/                        # Layer 1: Vite ES6 Web Studio Frontend & Modular Controllers
@@ -134,7 +134,7 @@ antigravity-doc-handler/
 │   ├── sync_core_docs.py       # Core Docs Triad Compiler & Semantic Auditor (ERR_DOC_SYNC_001)
 │   └── plantuml.jar            # Local PlantUML JAR (v1.2026+, bundled C4 standard library)
 ├── specs/                      # Declarative Diagram Specs (flow_*.json, master_erd_*.json)
-├── tests/                      # 323 Automated Test Suites (tests/test_*.py)
+├── tests/                      # 330 Automated Test Suites (tests/test_*.py)
 ├── main.py                     # Official Entrypoint: Desktop GUI & Native Web App Mode
 ├── ai_tools_cli.py             # Official Entrypoint: Unified CLI Dispatcher for AI Agents
 ├── web_api_server.py           # Official Entrypoint: Web Studio REST API Server

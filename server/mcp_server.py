@@ -747,6 +747,34 @@ TOOL_DEFINITIONS = [
         }
     },
     {
+        "name": "ba_obsidian_export_vault",
+        "description": "Export BA Requirements, Stories, Use Cases, Data Dictionaries and Diagrams into an import-ready Obsidian Vault (.zip) with YAML frontmatter, Wikilinks [[...]], and Obsidian Canvas (.canvas).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "stories": {"type": "array", "description": "List of User Stories to export"},
+                "usecases": {"type": "array", "description": "List of Use Case specs to export"},
+                "data_dictionaries": {"type": "object", "description": "Dictionary of table schemas"},
+                "project_name": {"type": "string", "description": "Project title for the vault", "default": "Enterprise_BA_Project"},
+                "output_zip": {"type": "string", "description": "Output path for the .zip file"}
+            },
+            "required": ["stories"]
+        }
+    },
+    {
+        "name": "ba_obsidian_compile_vault",
+        "description": "Compile an Obsidian Vault (.zip or directory) into an Enterprise Word BRD/SRS document (.docx) with resolved Wikilinks and OpenXML table compliance.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "vault_input": {"type": "string", "description": "Path to Obsidian Vault .zip file or folder"},
+                "output_docx": {"type": "string", "description": "Output path for the compiled Word .docx file"},
+                "project_name": {"type": "string", "description": "Optional title for the document"}
+            },
+            "required": ["vault_input"]
+        }
+    },
+    {
         "name": "doc_security_audit",
         "description": "Audit & sanitize document security threats, malicious formulas/DDE, OLE binaries, Zip Slip, XXE, and sensitive PII leaks (Cloudflare Harness ERR_SEC_001–005).",
         "inputSchema": {
@@ -1691,6 +1719,53 @@ def execute_ba_sql_integrity_suite(args: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def execute_ba_obsidian_export_vault(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.ba_hub.obsidian_vault import ObsidianVaultExporter
+    stories = args.get("stories", [])
+    usecases = args.get("usecases", [])
+    data_dicts = args.get("data_dictionaries", {})
+    proj_name = args.get("project_name", "Enterprise_BA_Project")
+    out_zip = args.get("output_zip")
+
+    zip_path = ObsidianVaultExporter.export_vault_zip(
+        stories=stories,
+        usecases=usecases,
+        data_dictionaries=data_dicts,
+        project_name=proj_name,
+        output_zip_path=out_zip,
+    )
+    return {
+        "success": True,
+        "vault_zip": zip_path,
+        "message": f"Successfully exported Obsidian Vault to {zip_path}",
+    }
+
+
+def execute_ba_obsidian_compile_vault(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.ba_hub.obsidian_vault import ObsidianVaultCompiler
+    import os, time, tempfile, re
+    vault_input = args.get("vault_input") or args.get("vault_file")
+    out_docx = args.get("output_docx") or args.get("output_path")
+    proj_name = args.get("project_name")
+    if not vault_input:
+        raise ValueError("vault_input (or vault_file) is required")
+    if not out_docx:
+        ts = int(time.time() * 1000)
+        safe_name = re.sub(r"[^\w\-]", "_", proj_name or "Compiled_BRD")
+        out_docx = os.path.join(tempfile.gettempdir(), f"{safe_name}_{ts}.docx")
+
+    docx_path = ObsidianVaultCompiler.compile_vault_to_docx(
+        vault_input=vault_input,
+        output_docx_path=out_docx,
+        project_name=proj_name,
+    )
+    return {
+        "success": True,
+        "docx_path": docx_path,
+        "message": f"Successfully compiled Obsidian Vault to {docx_path}",
+    }
+
+
 def execute_doc_security_audit(args: Dict[str, Any]) -> Dict[str, Any]:
     file_path = args.get("file_path")
     if not file_path:
@@ -1865,6 +1940,8 @@ TOOL_DISPATCHER = {
     "ba_rtm_matrix": execute_ba_rtm_matrix,
     "ba_dbml_convert": execute_ba_dbml_convert,
     "ba_sql_integrity_suite": execute_ba_sql_integrity_suite,
+    "ba_obsidian_export_vault": execute_ba_obsidian_export_vault,
+    "ba_obsidian_compile_vault": execute_ba_obsidian_compile_vault,
     # Cloudflare Security Audit Tool
     "doc_security_audit": execute_doc_security_audit,
     # v4.6.0 Enterprise Upgrade Tools (5 new tools -> 28 total)

@@ -250,6 +250,7 @@ try:
         UATTestcaseGenerator,
         RTMEngine, DBMLEngine, SatsumaMappingEngine,
         ScopeCreepAuditor, SQLIntegrityTestSuite,
+        ObsidianVaultExporter, ObsidianVaultCompiler,
         STORY_TEMPLATES, USECASE_TEMPLATES, DATA_DICT_TEMPLATES, BRD_DEFAULT_OUTLINE,
     )
     HAS_BA_HUB = True
@@ -1643,6 +1644,71 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                 self._send_json({
                     "success": True,
                     "tests": [t.to_dict() for t in tests]
+                })
+                return
+
+            # BA 16: Obsidian Vault Exporter (.zip)
+            elif path == "/api/ba/obsidian/export-vault":
+                payload = self._read_body_json()
+                stories = payload.get("stories", [])
+                usecases = payload.get("usecases", [])
+                data_dicts = payload.get("data_dictionaries", {})
+                diagrams = payload.get("diagrams", {})
+                proj_name = payload.get("project_name", "Enterprise_BA_Project")
+                author = payload.get("author", "Lead Business Analyst")
+
+                ts = int(time.time() * 1000)
+                safe_name = re.sub(r"[^\w\-]", "_", proj_name)
+                out_name = f"{safe_name}_Obsidian_Vault_{ts}.zip"
+                out_path = os.path.join(OUTPUT_DIR, out_name)
+
+                zip_res = ObsidianVaultExporter.export_vault_zip(
+                    stories=stories,
+                    usecases=usecases,
+                    data_dictionaries=data_dicts,
+                    diagrams=diagrams,
+                    project_name=proj_name,
+                    output_zip_path=out_path,
+                    author=author,
+                )
+                qbname = urllib.parse.quote(out_name)
+                self._send_json({
+                    "success": True,
+                    "filename": out_name,
+                    "download_url": f"/api/download/{qbname}",
+                    "vault_zip": zip_res,
+                })
+                return
+
+            # BA 17: Obsidian Vault Compiler (Vault -> DOCX)
+            elif path == "/api/ba/obsidian/compile-vault":
+                payload = self._read_body_json()
+                vault_param = payload.get("vault_file") or payload.get("file")
+                proj_name = payload.get("project_name")
+                author = payload.get("author", "Lead Business Analyst")
+
+                resolved_path = resolve_file_path(vault_param)
+                if not resolved_path or not os.path.exists(resolved_path):
+                    self._send_json({"success": False, "error": "Obsidian Vault file (.zip) not found"}, status=400)
+                    return
+
+                ts = int(time.time() * 1000)
+                safe_name = re.sub(r"[^\w\-]", "_", proj_name or "Compiled_BRD")
+                out_name = f"{safe_name}_BRD_{ts}.docx"
+                out_path = os.path.join(OUTPUT_DIR, out_name)
+
+                docx_res = ObsidianVaultCompiler.compile_vault_to_docx(
+                    vault_input=resolved_path,
+                    output_docx_path=out_path,
+                    project_name=proj_name,
+                    author=author,
+                )
+                qbname = urllib.parse.quote(out_name)
+                self._send_json({
+                    "success": True,
+                    "filename": out_name,
+                    "download_url": f"/api/download/{qbname}",
+                    "docx_path": docx_res,
                 })
                 return
 

@@ -2,7 +2,7 @@
 
 > **Phiên bản**: 4.6.0 (Enterprise Omni-Pipeline, Deep CDR, Cryptographic PAdES/PDF-A & AST Code-to-Diagram Architecture v4.6)  
 > **Tiêu chuẩn**: Zero-Regression, 100% Backward Compatibility, Strict Layer Isolation, Clean-Room MIT Compliance  
-> **Test Suite**: 323+ Automated Tests (100% Pass Rate) | **MCP Tools**: 30 Tools
+> **Test Suite**: 330+ Automated Tests (100% Pass Rate) | **MCP Tools**: 32 Tools
 
 ---
 
@@ -19,7 +19,7 @@ Hệ thống được tổ chức theo mô hình phân tầng chặt chẽ (Clea
                                             ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                              2. Interface & Protocol Layer                             │
-│   Web REST API (server/app.py :8000)      │ Model Context Protocol (30 Tools)          │
+│   Web REST API (server/app.py :8000)      │ Model Context Protocol (32 Tools)          │
 │   SSE Task Manager (server/job_manager)   │ AI Unified CLI (cli/ai_tools + v46_cmds)   │
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
                                             │

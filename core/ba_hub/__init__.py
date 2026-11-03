@@ -65,6 +65,10 @@ from .sql_toolkit import (
     SQLIntegrityTestItem,
     SQLIntegrityTestSuite,
 )
+from .obsidian_vault import (
+    ObsidianVaultExporter,
+    ObsidianVaultCompiler,
+)
 from .templates import (
     STORY_TEMPLATES,
     USECASE_TEMPLATES,
@@ -105,6 +109,8 @@ __all__ = [
     "ScopeCreepAuditor",
     "SQLIntegrityTestItem",
     "SQLIntegrityTestSuite",
+    "ObsidianVaultExporter",
+    "ObsidianVaultCompiler",
     "STORY_TEMPLATES",
     "USECASE_TEMPLATES",
     "DATA_DICT_TEMPLATES",

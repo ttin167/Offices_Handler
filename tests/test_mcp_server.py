@@ -86,8 +86,12 @@ class TestMCPServer(unittest.TestCase):
             "docx_insert_paragraph",
             "docx_insert_table",
             "xlsx_formula_helper",
-            "yearbook_auto_layout",
-            "yearbook_export",
+            "ba_story_lint",
+            "ba_rtm_matrix",
+            "ba_dbml_convert",
+            "ba_sql_integrity_suite",
+            "ba_obsidian_export_vault",
+            "ba_obsidian_compile_vault",
             "doc_security_audit",
             "pdf_crypto_sign_and_pdfa",
             "xlsx_to_brief_report",
@@ -95,7 +99,7 @@ class TestMCPServer(unittest.TestCase):
             "doc_run_pipeline",
             "diagram_from_code",
         ]
-        self.assertEqual(len(tools), 28)
+        self.assertEqual(len(tools), 32)
         for expected in expected_tools:
             self.assertIn(expected, tool_names)
 

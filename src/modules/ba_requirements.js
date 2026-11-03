@@ -361,5 +361,56 @@ export function initRequirementsHub(ctx) {
         .catch((err) => showToast(`Lỗi mạng: ${err.message}`, 'error'));
     });
   }
+
+  // ---------------------------------------------------------------------------
+  // EXPORT TO OBSIDIAN VAULT (.ZIP)
+  // ---------------------------------------------------------------------------
+  const btnExportObsidianVault = document.getElementById('btn-export-obsidian-vault');
+  if (btnExportObsidianVault) {
+    btnExportObsidianVault.addEventListener('click', async () => {
+      const story = collectStoryFromForm();
+      const projName = document.getElementById('brd-proj-name')?.value || 'Hệ Thống Doanh Nghiệp';
+      const author = document.getElementById('brd-author')?.value || 'Lead Business Analyst';
+
+      showToast('Đang đóng gói hệ sinh thái yêu cầu sang Obsidian Vault (.zip)...', 'info');
+
+      try {
+        let allStories = [story];
+        let usecases = [];
+        let dataDicts = {};
+
+        if (industryTemplates) {
+          if (industryTemplates.usecases) {
+            usecases = Object.values(industryTemplates.usecases);
+          }
+          if (industryTemplates.data_dictionaries) {
+            dataDicts = industryTemplates.data_dictionaries;
+          }
+        }
+
+        const res = await fetch('/api/ba/obsidian/export-vault', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            project_name: projName,
+            author,
+            stories: allStories,
+            usecases,
+            data_dictionaries: dataDicts,
+          }),
+        }).then((r) => r.json());
+
+        if (res.success && res.download_url) {
+          showToast('Đã xuất Obsidian Vault (.zip) thành công! Mở Obsidian và chọn "Open folder as vault" để xem Graph View.', 'success');
+          window.open(res.download_url, '_blank');
+          if (loadHistory) loadHistory();
+        } else {
+          showToast(`Lỗi xuất Vault: ${res.error || 'Thao tác thất bại'}`, 'error');
+        }
+      } catch (err) {
+        showToast(`Lỗi: ${err.message}`, 'error');
+      }
+    });
+  }
 }
 

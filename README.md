@@ -5,8 +5,8 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Release: v4.6.0](https://img.shields.io/badge/Release-v4.6.0_Production-success.svg)](CHANGELOG.md)
-[![Tests: 323 Passed](https://img.shields.io/badge/Tests-323%2F323_Passed-brightgreen.svg)](tests/)
-[![MCP Tools: 30](https://img.shields.io/badge/MCP_Tools-30_Available-blue.svg)](server/mcp_server.py)
+[![Tests: 323 Passed](https://img.shields.io/badge/Tests-330%2F330_Passed-brightgreen.svg)](tests/)
+[![MCP Tools: 30](https://img.shields.io/badge/MCP_Tools-32_Available-blue.svg)](server/mcp_server.py)
 [![Antigravity Skills: 6](https://img.shields.io/badge/Antigravity_Skills-6_Specialized-indigo.svg)](.agents/skills/)
 [![Antigravity IDE Ready](https://img.shields.io/badge/Antigravity_AI-Compatible-orange.svg)](AGENTS.md)
 [![Resolution: 300+ DPI](https://img.shields.io/badge/DPI-300%2B_Vector_Grade-purple.svg)](spec_diagram_engine.py)
@@ -357,7 +357,7 @@ antigravity-doc-handler/
 ?   ??? env_doctor.py                            # 12-Component Environment Health Doctor
 ??? server/                                      # Layer 2: Protocol & Service Layer
 ?   ??? app.py                                   # Web Studio REST API Server (:8000) & Security Guards
-?   ??? mcp_server.py                            # Model Context Protocol Server (28 Tools, JSON-RPC 2.0)
+?   ??? mcp_server.py                            # Model Context Protocol Server (32 Tools, JSON-RPC 2.0)
 ?   ??? job_manager.py                           # Asynchronous SSE Background Task Queue
 ?   ??? db.py                                    # Zero-Config SQLite History Storage
 ??? cli/                                         # Layer 2: Command-Line Interface Layer

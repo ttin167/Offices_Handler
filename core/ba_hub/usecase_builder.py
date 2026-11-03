@@ -78,6 +78,30 @@ class UseCaseSpec:
     def from_dict(cls, data: Dict[str, Any]) -> UseCaseSpec:
         return UseCaseBuilder.parse_dict(data)
 
+    @property
+    def title(self) -> str:
+        return self.name
+
+    @property
+    def actor_primary(self) -> str:
+        return self.primary_actor
+
+    @property
+    def pre_conditions(self) -> List[str]:
+        return self.preconditions
+
+    @property
+    def post_conditions(self) -> List[str]:
+        return self.postconditions
+
+    @property
+    def alt_flows(self) -> List[BranchFlow]:
+        return self.alternative_flows
+
+    @property
+    def status(self) -> str:
+        return "Approved"
+
 
 class UseCaseQualityLinter:
     """Audits Use Case specification quality against BABOK & Cockburn guidelines."""
