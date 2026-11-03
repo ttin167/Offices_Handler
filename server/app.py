@@ -874,6 +874,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     "ba_hub_enabled": HAS_BA_HUB,
 
                 })
+                return
 
             elif path.startswith("/api/ba/"):
                 if not HAS_BA_HUB:
@@ -1542,7 +1543,8 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
                 testcases = UATTestcaseGenerator.generate_from_stories(stories_data)
                 ts = int(time.time() * 1000)
-                out_name = f"UAT_Checklist_{re.sub(r'[^\w\d_-]', '_', proj_name)[:20]}_{ts}.xlsx"
+                clean_proj = re.sub(r'[^\w\d_-]', '_', proj_name)[:20]
+                out_name = f"UAT_Checklist_{clean_proj}_{ts}.xlsx"
                 out_path = os.path.join(OUTPUT_DIR, out_name)
                 UATTestcaseGenerator.export_uat_checklist_to_excel(proj_name, testcases, out_path, module_name=mod_name)
 
@@ -1567,7 +1569,8 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                 cov = RTMEngine.calculate_coverage(rtm_items)
 
                 ts = int(time.time() * 1000)
-                out_name = f"RTM_Matrix_{re.sub(r'[^\\w\\d_-]', '_', proj_name)[:20]}_{ts}.xlsx"
+                clean_proj = re.sub(r'[^\w\d_-]', '_', proj_name)[:20]
+                out_name = f"RTM_Matrix_{clean_proj}_{ts}.xlsx"
                 out_path = os.path.join(OUTPUT_DIR, out_name)
                 RTMEngine.export_rtm_to_excel(rtm_items, out_path, project_name=proj_name)
 
