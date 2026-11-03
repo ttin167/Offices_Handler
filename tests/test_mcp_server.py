@@ -22,6 +22,7 @@ from server.mcp_server import (
     TOOL_DEFINITIONS,
     SERVER_NAME,
     SERVER_VERSION,
+    HAS_BA_HUB,
 )
 import mcp_server
 
@@ -105,7 +106,21 @@ class TestMCPServer(unittest.TestCase):
             "doc_run_pipeline",
             "diagram_from_code",
         ]
-        self.assertEqual(len(tools), 38)
+        if HAS_BA_HUB:
+            expected_tools.extend([
+                "ihrp_knowledge_search",
+                "ihrp_legal_story_lint",
+                "ihrp_scan_policy_document",
+                "ihrp_approve_staging_update",
+            ])
+            self.assertEqual(len(tools), len(expected_tools))
+        else:
+            office_expected = [
+                t for t in expected_tools if not t.startswith("ba_") and not t.startswith("ihrp_")
+            ]
+            self.assertEqual(len(tools), len(office_expected))
+            expected_tools = office_expected
+
         for expected in expected_tools:
             self.assertIn(expected, tool_names)
 

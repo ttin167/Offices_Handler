@@ -8,6 +8,9 @@
 .idea
 .antigravityignore
 .geminiignore
+.env
+.env.*
+*.env
 
 # Node & Frontend Build
 node_modules
@@ -57,3 +60,17 @@ excel_assets/
 *.bak
 ~$*
 .~lock.*
+
+# Local FPT.iHRP & BA Enterprise Workstation (Confidential IP, Local-Only, Excluded from Docker / Render Cloud)
+core/ba_hub/
+cli/ba_commands.py
+cli/ba_print_commands.py
+.agents/skills/ba-workspace/
+tests/test_ba_*.py
+tests/test_ihrp_*.py
+ihrp_knowledge_vault/
+*.ihrp_vault.zip
+.ihrp_fts.db
+.ihrp_fts.db*
+data/ihrp/
+

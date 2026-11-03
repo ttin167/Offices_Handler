@@ -664,7 +664,14 @@ TOOL_DEFINITIONS = [
                 }
             }
         }
-    },
+    }
+]
+
+# ---------------------------------------------------------------------------
+# BA Enterprise Hub & FPT.iHRP Tools (Local-Only, Activated if core.ba_hub exists)
+# ---------------------------------------------------------------------------
+
+BA_TOOL_DEFINITIONS = [
     {
         "name": "ba_story_lint",
         "description": "Audit Business Analyst User Story & Gherkin Acceptance Criteria against BABOK v3 and INVEST standards with automated scoring.",
@@ -1160,8 +1167,98 @@ TOOL_DEFINITIONS = [
             },
             "required": ["file_path"]
         }
+    },
+    {
+        "name": "ihrp_knowledge_search",
+        "description": "Ultra-fast (<10ms) local full-text search on FPT.iHRP HR domain knowledge base, Vietnam Labor Code 2019, Social Insurance 2024/2026, and PIT regulations. Supports unaccented Vietnamese.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query or keywords (e.g. 'muc tham chieu', 'thai san nam', 'IS_OT_NIGHT_COMPOUNDED')"
+                },
+                "category": {
+                    "type": "string",
+                    "description": "Optional category filter ('Phap_Ly_Lao_Dong', 'Nghiep_Vu_iHRP', 'Data_Dictionary', 'Bieu_Mau_Du_An')"
+                },
+                "limit": {
+                    "type": "integer",
+                    "default": 5,
+                    "description": "Maximum number of matched articles to return"
+                }
+            },
+            "required": ["query"]
+        }
+    },
+    {
+        "name": "ihrp_legal_story_lint",
+        "description": "Audits a Business Analyst User Story & Gherkin scenarios against Vietnamese Labor Law (BLLĐ 2019) and 2026 Legal Policy changes (Mức tham chiếu NĐ 161/2026, PIT 15.5M/6.2M, Tuổi nghỉ hưu).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "story": {
+                    "type": "object",
+                    "description": "User Story dictionary containing title, goal, business_rules, and scenarios"
+                }
+            },
+            "required": ["story"]
+        }
+    },
+    {
+        "name": "ihrp_scan_policy_document",
+        "description": "Scans legal decree, circular, or text for HR regulations, extracts structured parameters (4 regional minimum wages, reference levels, PIT deductions), generates Staging Draft, and dispatches email alert.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Optional path to policy document (.pdf, .docx, .txt, .md)"
+                },
+                "raw_text": {
+                    "type": "string",
+                    "description": "Optional raw text of the decree or circular"
+                },
+                "use_sample_2027": {
+                    "type": "boolean",
+                    "description": "Use built-in Sample Decree for 2027 parameters"
+                },
+                "use_sample_pit": {
+                    "type": "boolean",
+                    "description": "Use built-in Sample Circular for 2027 PIT deductions"
+                },
+                "skip_email": {
+                    "type": "boolean",
+                    "description": "Skip sending email notification (dry run)"
+                }
+            }
+        }
+    },
+    {
+        "name": "ihrp_approve_staging_update",
+        "description": "Human-in-the-Loop 1-Click approval to merge a staged policy draft into the active FPT.iHRP knowledge vault with Atomic Rollback Guard and instant FTS5 re-indexing.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "draft_filename": {
+                    "type": "string",
+                    "description": "Draft filename (e.g. 'KB-LAW-2027-DRAFT.md') or full path"
+                }
+            },
+            "required": ["draft_filename"]
+        }
     }
 ]
+
+# Check if BA Enterprise Hub & iHRP modules are available locally
+try:
+    import core.ba_hub  # type: ignore
+    HAS_BA_HUB = True
+except (ImportError, ModuleNotFoundError):
+    HAS_BA_HUB = False
+
+if HAS_BA_HUB:
+    TOOL_DEFINITIONS.extend(BA_TOOL_DEFINITIONS)
 
 
 def log_debug(message: str) -> None:
@@ -2200,6 +2297,41 @@ def execute_doc_print_job(args: Dict[str, Any]) -> Dict[str, Any]:
     )
 
 
+def execute_ihrp_knowledge_search(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.ba_hub.ihrp_search import search_ihrp_knowledge
+    query = args["query"]
+    cat = args.get("category")
+    limit = int(args.get("limit", 5))
+    return search_ihrp_knowledge(query=query, category=cat, limit=limit)
+
+
+def execute_ihrp_legal_story_lint(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.ba_hub.ihrp_ba_bridge import IHRPLegalStoryBridge
+    story = args["story"]
+    period = args.get("period")
+    return IHRPLegalStoryBridge.audit_legal_compliance(story, period=period)
+
+
+def execute_ihrp_scan_policy_document(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.ba_hub.ihrp_watcher import RegulatoryWatcherPipeline
+    source = args.get("file_path") or args.get("raw_text")
+    use_2027 = bool(args.get("use_sample_2027", False))
+    use_pit = bool(args.get("use_sample_pit", False))
+    skip_email = bool(args.get("skip_email", False))
+    return RegulatoryWatcherPipeline.run_scan(
+        source=source,
+        use_sample_2027=use_2027,
+        use_sample_pit=use_pit,
+        skip_email=skip_email,
+    )
+
+
+def execute_ihrp_approve_staging_update(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.ba_hub.ihrp_watcher import HumanInTheLoopMergeManager
+    draft_filename = args["draft_filename"]
+    return HumanInTheLoopMergeManager.merge_draft(draft_filename)
+
+
 TOOL_DISPATCHER = {
     "doc_convert": execute_doc_convert,
     "doc_inspect": execute_doc_inspect,
@@ -2222,18 +2354,8 @@ TOOL_DISPATCHER = {
     "docx_insert_paragraph": execute_docx_insert_paragraph,
     "docx_insert_table": execute_docx_insert_table,
     "xlsx_formula_helper": execute_xlsx_formula_helper,
-    # BA Enterprise Workstation Tools
-    "ba_story_lint": execute_ba_story_lint,
-    "ba_rtm_matrix": execute_ba_rtm_matrix,
-    "ba_dbml_convert": execute_ba_dbml_convert,
-    "ba_sql_integrity_suite": execute_ba_sql_integrity_suite,
-    "ba_obsidian_export_vault": execute_ba_obsidian_export_vault,
-    "ba_obsidian_compile_vault": execute_ba_obsidian_compile_vault,
-    "ba_openapi_scan": execute_ba_openapi_scan,
-    "ba_decision_table": execute_ba_decision_table,
-    "ba_meeting_parse": execute_ba_meeting_parse,
+    # Wireframe & Printing Tools
     "ba_wireframe_render": execute_ba_wireframe_render,
-    # Enterprise Printing Engine Tools
     "doc_list_printers": execute_doc_list_printers,
     "doc_print_job": execute_doc_print_job,
     # Cloudflare Security Audit Tool
@@ -2245,6 +2367,28 @@ TOOL_DISPATCHER = {
     "doc_run_pipeline": execute_doc_run_pipeline,
     "diagram_from_code": execute_diagram_from_code,
 }
+
+BA_TOOL_DISPATCHER = {
+    # BA Enterprise Workstation Tools
+    "ba_story_lint": execute_ba_story_lint,
+    "ba_rtm_matrix": execute_ba_rtm_matrix,
+    "ba_dbml_convert": execute_ba_dbml_convert,
+    "ba_sql_integrity_suite": execute_ba_sql_integrity_suite,
+    "ba_obsidian_export_vault": execute_ba_obsidian_export_vault,
+    "ba_obsidian_compile_vault": execute_ba_obsidian_compile_vault,
+    "ba_openapi_scan": execute_ba_openapi_scan,
+    "ba_decision_table": execute_ba_decision_table,
+    "ba_meeting_parse": execute_ba_meeting_parse,
+    # FPT.iHRP HR Domain & Legal 2026/2027 Tools
+    "ihrp_knowledge_search": execute_ihrp_knowledge_search,
+    "ihrp_legal_story_lint": execute_ihrp_legal_story_lint,
+    "ihrp_scan_policy_document": execute_ihrp_scan_policy_document,
+    "ihrp_approve_staging_update": execute_ihrp_approve_staging_update,
+}
+
+if HAS_BA_HUB:
+    TOOL_DISPATCHER.update(BA_TOOL_DISPATCHER)
+
 
 
 # ---------------------------------------------------------------------------

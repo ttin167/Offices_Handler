@@ -87,6 +87,13 @@ When user requests you to perform document tasks or draw diagrams, run these com
 | **BABOK Decision Table Matrix** | `python ai_tools_cli.py ba-decision-table <spec.json> -o <matrix.docx> [--audit]` |
 | **Meeting Notes to Stories Parser** | `python ai_tools_cli.py ba-meeting-parser <notes.md> -o <stories.docx>` |
 | **PlantUML Salt UI Wireframe Render** | `python ai_tools_cli.py wireframe-render <spec.json> -o <wireframe.png>` |
+| **Init FPT.iHRP Local Knowledge Vault** | `python ai_tools_cli.py ihrp-init-vault [-o <dir>]` |
+| **FPT.iHRP Sub-10ms Local FTS5 Search** | `python ai_tools_cli.py ihrp-search <query> [-c <cat>] [-l <n>]` |
+| **Legal 2026 User Story Compliance Linter** | `python ai_tools_cli.py ihrp-story-lint <story.json>` |
+| **Payroll Reconciliation (Excel 12-Gate)** | `python ai_tools_cli.py ihrp-reconcile-payroll <client.xlsx> <ihrp.xlsx>` |
+| **Test SMTP Gmail Policy Alert Email** | `python ai_tools_cli.py ihrp-notify-test [--email <recipient>]` |
+| **Auto-Scan & Stage New Decree/Circular** | `python ai_tools_cli.py ihrp-watch-scan [--file <doc>] [--sample-2027] [--skip-email]` |
+| **1-Click Human-in-the-Loop Merge Draft** | `python ai_tools_cli.py ihrp-merge-update --draft <draft_filename>` |
 | **List System Hardware Printers** | `python ai_tools_cli.py print-list` |
 | **Enterprise Silent Print Document** | `python ai_tools_cli.py print-doc <file.pdf|docx> [--printer <name>] [--n-up 2] [--grayscale] [--duplex]` |
 | **Sync Core Docs Triad (MD->DOCX+PDF)** | `python tools/sync_core_docs.py [--build|--check]` |
@@ -137,6 +144,11 @@ When executing tasks programmatically via Python, MCP, or CLI, dispatch accordin
 | **BABOK Decision Table Matrix** | Condition/Action Spec | `ba_decision_table(...)` | `ai_tools_cli.py ba-decision-table` | `core.ba_hub.decision_table` |
 | **Meeting Notes to Stories Parser** | Markdown / Text Notes | `ba_meeting_parse(...)` | `ai_tools_cli.py ba-meeting-parser` | `core.ba_hub.meeting_parser` |
 | **PlantUML Salt UI Wireframe** | Salt Text / Spec | `ba_wireframe_render(...)` | `ai_tools_cli.py wireframe-render` | `core.diagrams.salt_wireframe` |
+| **FPT.iHRP Local FTS5 Search** | Query / Keywords | `ihrp_knowledge_search(...)` | `ai_tools_cli.py ihrp-search` | `core.ba_hub.ihrp_search` |
+| **Legal 2026/2027 Story Linter** | User Story Spec | `ihrp_legal_story_lint(...)` | `ai_tools_cli.py ihrp-story-lint` | `core.ba_hub.ihrp_ba_bridge` |
+| **Auto-Scan & Stage Legal Decree** | Document / Text Spec | `ihrp_scan_policy_document(...)` | `ai_tools_cli.py ihrp-watch-scan` | `core.ba_hub.ihrp_watcher` |
+| **1-Click Human-in-the-Loop Merge** | Draft Filename | `ihrp_approve_staging_update(...)` | `ai_tools_cli.py ihrp-merge-update` | `core.ba_hub.ihrp_watcher` |
+| **Test SMTP Gmail Alert Dispatch** | Recipient Address | (via CLI) | `ai_tools_cli.py ihrp-notify-test` | `core.ba_hub.ihrp_notifier` |
 | **List Hardware System Printers** | Hardware Spooler | `doc_list_printers(...)` | `ai_tools_cli.py print-list` | `core.printing.printer_manager` |
 | **Enterprise Silent Print Document** | PDF / DOCX + Print Spec | `doc_print_job(...)` | `ai_tools_cli.py print-doc` | `core.printing.printer_manager` |
 

@@ -18,6 +18,8 @@ pnpm-debug.log*
 
 # Environments & secrets
 .env
+.env.*
+*.env
 .env.local
 .env.*.local
 .venv
@@ -99,6 +101,21 @@ tests/test_yearbook_studio.py
 *Yearbook*
 
 # Personal 3D Office Dashboard & Autonomous Agents (Local-only feature, excluded from GitHub)
+core/office_3d/
 src/modules/office_3d/
 server/office_events.py
 tests/test_office_event_bus.py
+
+# Local FPT.iHRP & BA Enterprise Workstation (Confidential IP, Local-Only, Excluded from GitHub & Render Cloud)
+core/ba_hub/
+cli/ba_commands.py
+cli/ba_print_commands.py
+.agents/skills/ba-workspace/
+tests/test_ba_*.py
+tests/test_ihrp_*.py
+ihrp_knowledge_vault/
+*.ihrp_vault.zip
+.ihrp_fts.db
+.ihrp_fts.db*
+data/ihrp/
+

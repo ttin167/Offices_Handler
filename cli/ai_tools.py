@@ -2523,8 +2523,16 @@ Examples:
     from cli.v46_commands import register_v46_subcommands
     register_v46_subcommands(sub, p_pdft, p_sec, cmd_pdf_tools, cmd_doc_security)
 
-    from cli.ba_print_commands import register_ba_print_subcommands
-    register_ba_print_subcommands(sub)
+    from cli.print_commands import register_print_subcommands
+    register_print_subcommands(sub)
+
+    # Optional local BA Enterprise Hub & iHRP subcommands (only registered if core/ba_hub is present)
+    try:
+        import core.ba_hub  # type: ignore
+        from cli.ba_print_commands import register_ba_print_subcommands
+        register_ba_print_subcommands(sub)
+    except (ImportError, ModuleNotFoundError):
+        pass
 
     return parser
 

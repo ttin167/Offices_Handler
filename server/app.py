@@ -871,19 +871,23 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
                     "timestamp": time.time(),
 
+                    "ba_hub_enabled": HAS_BA_HUB,
+
                 })
 
-
-
-            elif path == "/api/ba/templates":
-                self._send_json({
-                    "success": True,
-                    "stories": STORY_TEMPLATES,
-                    "usecases": USECASE_TEMPLATES,
-                    "data_dict": DATA_DICT_TEMPLATES,
-                    "brd_outline": BRD_DEFAULT_OUTLINE
-                })
-                return
+            elif path.startswith("/api/ba/"):
+                if not HAS_BA_HUB:
+                    self._send_json({"success": False, "error": "BA Enterprise Hub is disabled in Office-Only Cloud mode."}, status=503)
+                    return
+                if path == "/api/ba/templates":
+                    self._send_json({
+                        "success": True,
+                        "stories": STORY_TEMPLATES,
+                        "usecases": USECASE_TEMPLATES,
+                        "data_dict": DATA_DICT_TEMPLATES,
+                        "brd_outline": BRD_DEFAULT_OUTLINE
+                    })
+                    return
 
             elif path == "/api/print/printers":
                 from core.printing import PrinterManager
@@ -1311,8 +1315,13 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
 
             # =========================================================================
-            # BA ENTERPRISE WORKSTATION REST APIS
+            # BA ENTERPRISE WORKSTATION REST APIS (Local-Only Guard)
             # =========================================================================
+
+            elif path.startswith("/api/ba/"):
+                if not HAS_BA_HUB:
+                    self._send_json({"success": False, "error": "BA Enterprise Hub is disabled in Office-Only Cloud mode."}, status=503)
+                    return
 
             # BA 1: User Story Quality Audit / Linting
             elif path == "/api/ba/story/lint":

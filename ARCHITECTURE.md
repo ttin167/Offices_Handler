@@ -95,6 +95,9 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
     - `obsidian_vault.py`: Động cơ đóng gói & biên dịch 2 chiều Obsidian Vault (`.zip`), xuất đồ thị tri thức yêu cầu (Knowledge Graph) với liên kết `[[Wikilinks]]` và biên dịch ngược sang Word BRD (`<w:bookmarkStart>`, `<w:hyperlink>`).
     - `decision_table.py`: Động cơ sinh và kiểm toán bảng quyết định logic điều kiện - hành động (Decision Table & Matrix Generator) chuẩn BABOK v3, kiểm tra tính toàn vẹn (Completeness) và mâu thuẫn (Contradiction).
     - `meeting_parser.py`: Bộ bóc tách biên bản họp nghiệp vụ thô (Meeting Notes Parser) thành User Stories 3 thành phần, Quy tắc nghiệp vụ (Business Rules), Giả định (Assumptions) và Hành động (Action Items).
+    - `ihrp_kb.py`: Quản trị và sinh kho tri thức nhân sự FPT.iHRP & Pháp lý 2026 cục bộ (19 atomic notes + native Obsidian Canvas v1.0 `Project_Overview.canvas`), cách ly bảo mật 100% tại máy trạm.
+    - `ihrp_search.py`: Động cơ tìm kiếm toàn văn cục bộ siêu tốc SQLite FTS5 (`unicode61 remove_diacritics 2`) tra cứu luật lao động, chính sách 2026, CSDL iHRP và tham số tính lương với độ trễ $< 1\text{ms}$.
+    - `ihrp_ba_bridge.py`: Cầu nối khai thác tri thức cho BA: Bộ kiểm toán tuân thủ luật lao động & sinh kịch bản Gherkin AC (OT đêm 200%/210%, trần BHXH/BHYT 50.6M vs BHTN 106.2M, giảm trừ gia cảnh 15.5M/6.2M, tuổi nghỉ hưu 2026), tích hợp đối soát bảng lương `DataReconciliationEngine`, và Bảng quyết định BABOK v3.
   - `core/printing/` (Enterprise Printing Engine):
     - `printer_manager.py`: Bộ điều phối máy in doanh nghiệp, giao tiếp trực tiếp Windows Spooler API qua `win32print`, tự động phát hiện danh sách máy in mạng/nội bộ, hỗ trợ in ngầm (Silent Print) không cần hộp thoại UI, cơ chế fallback Edge Headless và Virtual Spool đệm PDF trên môi trường Linux/Cloud container.
     - `print_optimizer.py`: Bộ tiền xử lý tài liệu in ấn bằng PyMuPDF (`fitz`): Chuyển đổi thang xám (Grayscale Ink Saver), bố cục ghép trang đa trang N-Up (2-Up / 4-Up), sắp xếp thứ tự trang in đóng sách (Booklet Duplex Imposition), dấu thủy ấn bảo mật (Confidential Watermark), và chốt chặn an toàn lề in chống mất chữ `ERR_PRINT_001` (Margin Safety Guard $\ge 5\text{mm}$).
@@ -153,6 +156,8 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
 - `ba-openapi`: Quét tài liệu API OpenAPI / Swagger Contract sang từ điển dữ liệu Data Dictionary.
 - `ba-decision-table`: Sinh và kiểm toán tính toàn vẹn / mâu thuẫn của bảng quyết định BABOK v3.
 - `ba-meeting-parser`: Bóc tách biên bản họp thô thành Stories, Business Rules, và Action items.
+- `ihrp-init-vault`, `ihrp-search`, `ihrp-story-lint`, `ihrp-reconcile-payroll`: Quản trị kho tri thức FPT.iHRP cục bộ, tìm kiếm FTS5 sub-1ms, linter kịch bản nghiệp vụ và đối soát bảng lương.
+- `ihrp-notify-test`, `ihrp-watch-scan`, `ihrp-merge-update`: Đường ống giám sát pháp lý tự động (Regulatory Watcher), gửi email thông báo HTML qua SMTP Gmail, và phê duyệt sáp nhập 1-Click với Atomic Rollback Guard.
 - `print-list`, `print-doc`: Liệt kê máy in hệ thống và thực hiện in ngầm với bộ tối ưu hóa in ấn (N-Up, Booklet, Ink Saver, Margin Guard).
 - `qa-audit`: Master QA diagnostic and repair pipeline 13 Cổng (`tools/unified_qa_diagnostic.py`).
 
