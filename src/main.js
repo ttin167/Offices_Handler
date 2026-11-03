@@ -152,6 +152,7 @@ import { initSpreadsheetStudio } from './modules/spreadsheet_studio.js';
 import { initDocumentHub } from './modules/document_hub.js';
 import { initDiagramStudio } from './modules/diagram_studio.js';
 import { initFormulaPlaybook } from './modules/formula_playbook.js';
+import { initPrintStudio } from './modules/print_studio.js';
 
 
 
@@ -685,6 +686,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initFormulaPlaybook({ showToast, refreshLucideIcons });
   initDocumentHub(sharedCtx);
   initDiagramStudio(sharedCtx);
+  initPrintStudio(sharedCtx);
 
 
 

@@ -245,12 +245,13 @@ try:
         StoryBuilder, StoryQualityLinter,
         UseCaseBuilder, UseCaseQualityLinter,
         BRDDocumentGenerator, BRDMetadata,
-        DataDictionaryScanner, FieldMappingEngine,
+        DataDictionaryScanner, FieldMappingEngine, scan_openapi_spec,
         DataReconciliationEngine,
         UATTestcaseGenerator,
         RTMEngine, DBMLEngine, SatsumaMappingEngine,
         ScopeCreepAuditor, SQLIntegrityTestSuite,
         ObsidianVaultExporter, ObsidianVaultCompiler,
+        DecisionTable, MeetingNotesParser,
         STORY_TEMPLATES, USECASE_TEMPLATES, DATA_DICT_TEMPLATES, BRD_DEFAULT_OUTLINE,
     )
     HAS_BA_HUB = True
@@ -881,6 +882,17 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     "usecases": USECASE_TEMPLATES,
                     "data_dict": DATA_DICT_TEMPLATES,
                     "brd_outline": BRD_DEFAULT_OUTLINE
+                })
+                return
+
+            elif path == "/api/print/printers":
+                from core.printing import PrinterManager
+                printers = PrinterManager.list_printers()
+                default_p = PrinterManager.get_default_printer()
+                self._send_json({
+                    "success": True,
+                    "default_printer": default_p,
+                    "printers": printers
                 })
                 return
 
@@ -1710,6 +1722,150 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     "download_url": f"/api/download/{qbname}",
                     "docx_path": docx_res,
                 })
+                return
+
+            # BA 18: OpenAPI / Swagger Contract Scanner
+            elif path == "/api/ba/openapi/scan":
+                payload = self._read_body_json()
+                file_param = payload.get("file") or payload.get("filepath")
+                raw_spec = payload.get("spec")
+                out_fmt = payload.get("format", "excel").lower()
+
+                spec_target = None
+                if file_param:
+                    resolved = resolve_file_path(file_param)
+                    if resolved and os.path.exists(resolved):
+                        spec_target = resolved
+                elif raw_spec:
+                    spec_target = raw_spec
+
+                if not spec_target:
+                    self._send_json({"success": False, "error": "Vui lòng cung cấp tệp OpenAPI hoặc nội dung đặc tả"}, status=400)
+                    return
+
+                api_data = scan_openapi_spec(spec_target)
+                ts = int(time.time() * 1000)
+                safe_title = re.sub(r"[^\w\-]", "_", api_data.get("title", "API_Contract"))
+
+                if out_fmt == "docx":
+                    out_name = f"{safe_title}_DataDict_{ts}.docx"
+                    out_file = os.path.join(OUTPUT_DIR, out_name)
+                    FieldMappingEngine.export_openapi_to_docx(api_data, out_file)
+                    qbname = urllib.parse.quote(out_name)
+                    self._send_json({"success": True, "api_data": api_data, "filename": out_name, "download_url": f"/api/download/{qbname}"})
+                elif out_fmt == "json":
+                    self._send_json({"success": True, "api_data": api_data})
+                else:
+                    out_name = f"{safe_title}_DataDict_{ts}.xlsx"
+                    out_file = os.path.join(OUTPUT_DIR, out_name)
+                    FieldMappingEngine.export_openapi_to_excel(api_data, out_file)
+                    qbname = urllib.parse.quote(out_name)
+                    self._send_json({"success": True, "api_data": api_data, "filename": out_name, "download_url": f"/api/download/{qbname}"})
+                return
+
+            # BA 19: Decision Table Generator & BABOK Audit
+            elif path == "/api/ba/decision-table/generate":
+                payload = self._read_body_json()
+                spec_dict = payload.get("spec") or payload
+                out_fmt = payload.get("format", "docx").lower()
+                run_audit = payload.get("run_audit", True)
+
+                dt = DecisionTable.from_dict(spec_dict)
+                audit_res = dt.audit_completeness_and_contradictions().to_dict() if run_audit else None
+                ts = int(time.time() * 1000)
+                safe_id = re.sub(r"[^\w\-]", "_", dt.table_id)
+
+                if out_fmt == "excel":
+                    out_name = f"{safe_id}_DecisionTable_{ts}.xlsx"
+                    out_file = os.path.join(OUTPUT_DIR, out_name)
+                    dt.export_to_excel(out_file)
+                else:
+                    out_name = f"{safe_id}_DecisionTable_{ts}.docx"
+                    out_file = os.path.join(OUTPUT_DIR, out_name)
+                    dt.export_to_docx(out_file)
+
+                qbname = urllib.parse.quote(out_name)
+                self._send_json({"success": True, "audit": audit_res, "table_id": dt.table_id, "filename": out_name, "download_url": f"/api/download/{qbname}"})
+                return
+
+            # BA 20: Meeting Notes to User Stories Parser
+            elif path == "/api/ba/meeting/parse":
+                payload = self._read_body_json()
+                text = payload.get("text") or payload.get("notes") or ""
+                file_param = payload.get("file")
+                out_fmt = payload.get("format", "docx").lower()
+
+                if file_param:
+                    resolved = resolve_file_path(file_param)
+                    if resolved and os.path.exists(resolved):
+                        with open(resolved, "r", encoding="utf-8") as f:
+                            text = f.read()
+
+                if not text.strip():
+                    self._send_json({"success": False, "error": "Nội dung biên bản họp trống"}, status=400)
+                    return
+
+                parsed = MeetingNotesParser.parse_text(text)
+                ts = int(time.time() * 1000)
+                safe_title = re.sub(r"[^\w\-]", "_", parsed.project_title)
+
+                if out_fmt == "md":
+                    out_name = f"{safe_title}_MeetingNotes_{ts}.md"
+                    out_file = os.path.join(OUTPUT_DIR, out_name)
+                    MeetingNotesParser.export_to_markdown(parsed, out_file)
+                elif out_fmt == "json":
+                    self._send_json({"success": True, "parsed": parsed.to_dict()})
+                    return
+                else:
+                    out_name = f"{safe_title}_MeetingNotes_{ts}.docx"
+                    out_file = os.path.join(OUTPUT_DIR, out_name)
+                    MeetingNotesParser.export_to_docx(parsed, out_file)
+
+                qbname = urllib.parse.quote(out_name)
+                self._send_json({"success": True, "parsed": parsed.to_dict(), "filename": out_name, "download_url": f"/api/download/{qbname}"})
+                return
+
+            # Diagram: PlantUML Salt UI Wireframe
+            elif path == "/api/diagram/wireframe/render":
+                payload = self._read_body_json()
+                spec_or_code = payload.get("spec") or payload.get("code")
+                scale = float(payload.get("scale", 2.0))
+                if not spec_or_code:
+                    self._send_json({"success": False, "error": "Thiếu mã đặc tả giao diện Wireframe"}, status=400)
+                    return
+
+                from core.diagrams.salt_wireframe import SaltWireframeEngine
+                ts = int(time.time() * 1000)
+                out_name = f"wireframe_{ts}.png"
+                out_file = os.path.join(OUTPUT_DIR, out_name)
+                res = SaltWireframeEngine.render_salt_to_png(spec_or_code, out_file, scale=scale)
+                qbname = urllib.parse.quote(out_name)
+                self._send_json({"success": True, "filename": out_name, "download_url": f"/api/download/{qbname}", "dimensions": res["dimensions_px"]})
+                return
+
+            # Enterprise Printing: Submit Print Job
+            elif path == "/api/print/job":
+                payload = self._read_body_json()
+                file_param = payload.get("file") or payload.get("filepath")
+                resolved = resolve_file_path(file_param)
+                if not resolved or not os.path.exists(resolved):
+                    self._send_json({"success": False, "error": "Tệp in không tồn tại"}, status=400)
+                    return
+
+                from core.printing import PrinterManager
+                opt_options = {
+                    "grayscale": payload.get("grayscale", False),
+                    "n_up": int(payload.get("n_up", 1)),
+                    "booklet": payload.get("booklet", False),
+                    "watermark": payload.get("watermark"),
+                }
+                job_res = PrinterManager.print_file(
+                    file_path=resolved,
+                    printer_name=payload.get("printer"),
+                    copies=int(payload.get("copies", 1)),
+                    optimizer_options=opt_options,
+                )
+                self._send_json(job_res)
                 return
 
             # Endpoint 2: Universal Document Conversion

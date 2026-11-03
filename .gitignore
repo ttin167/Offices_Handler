@@ -54,6 +54,7 @@ Desktop.ini
 tools/plantuml.jar
 
 # Web runtime uploads, outputs & slide previews
+output/
 .web_uploads/
 .web_outputs/
 preview_slides/

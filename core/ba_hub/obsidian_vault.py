@@ -663,7 +663,13 @@ class ObsidianVaultCompiler:
         if os.path.isfile(vault_input) and vault_input.endswith(".zip"):
             temp_dir = tempfile.mkdtemp(prefix="obsidian_vault_")
             with zipfile.ZipFile(vault_input, "r") as zf:
-                zf.extractall(temp_dir)
+                abs_temp = os.path.abspath(temp_dir)
+                for member in zf.infolist():
+                    # Zip Slip Traversal Guard (ERR_SEC_005)
+                    target_path = os.path.abspath(os.path.join(temp_dir, member.filename))
+                    if not target_path.startswith(abs_temp + os.sep) and target_path != abs_temp:
+                        raise ValueError(f"Phát hiện nguy cơ Zip Slip Traversal (ERR_SEC_005) trong tệp {member.filename}")
+                    zf.extract(member, temp_dir)
             vault_root = temp_dir
         elif os.path.isdir(vault_input):
             vault_root = vault_input

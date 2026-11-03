@@ -36,7 +36,7 @@ DIAGRAM_LANGUAGES = {
     "mermaid", "mmd",
     "plantuml", "puml",
     "drawio", "mxgraph", "xml",
-    "canvas", "spec", "diagram-spec", "diagram", "json",
+    "canvas", "spec", "diagram-spec", "diagram", "json", "salt", "wireframe",
 }
 
 DIAGRAM_EXTENSIONS = {
@@ -82,7 +82,7 @@ def _extract_diagram_title(code: str, lang: str) -> Optional[str]:
 
 
 def render_diagram_code_to_png(
-    code: str,
+    code: Union[str, Dict[str, Any]],
     lang: str,
     output_png: Optional[str] = None,
     base_dir: Optional[str] = None,
@@ -92,7 +92,12 @@ def render_diagram_code_to_png(
     Renders diagram source code into a high-res PNG file.
     Returns metadata dict on success, None on failure.
     """
-    clean_code = code.strip()
+    raw_dict = code if isinstance(code, dict) else None
+    if raw_dict is not None:
+        clean_code = json.dumps(raw_dict, ensure_ascii=False)
+    else:
+        clean_code = (code or "").strip()
+
     if not clean_code:
         return None
 
@@ -175,6 +180,14 @@ def render_diagram_code_to_png(
             if not res or not res.get("success") or not os.path.isfile(output_png):
                 return None
 
+        # Salt UI Wireframe Engine
+        elif clean_lang in ("salt", "wireframe") or (clean_lang in ("plantuml", "puml") and "@startsalt" in clean_code):
+            from core.diagrams.salt_wireframe import SaltWireframeEngine
+            salt_input = raw_dict if raw_dict is not None else clean_code
+            res = SaltWireframeEngine.render_salt_to_png(salt_input, output_png, scale=scale)
+            if not res or not res.get("success") or not os.path.isfile(output_png):
+                return None
+
         # 3. Draw.io / mxGraph Engine
         elif clean_lang in ("drawio", "mxgraph") or (clean_lang == "xml" and "<mxGraphModel" in clean_code):
             try:
@@ -218,6 +231,11 @@ def render_diagram_code_to_png(
                     base_dir=base_dir,
                     scale=scale,
                 )
+            elif engine in ("salt", "wireframe"):
+                from core.diagrams.salt_wireframe import SaltWireframeEngine
+                res = SaltWireframeEngine.render_salt_to_png(spec_dict, output_png, scale=scale)
+                if not res or not res.get("success") or not os.path.isfile(output_png):
+                    return None
             elif engine == "canvas" or ("nodes" in spec_dict and "edges" in spec_dict):
                 try:
                     from core.diagrams.legacy.canvas import PrecisionDiagram

@@ -113,6 +113,14 @@
 
       <div class="header-right">
 
+        <button class="history-toggle-btn" id="btn-open-print-modal" title="Trạm in ấn doanh nghiệp">
+
+          <span class="history-icon"><i data-lucide="printer"></i></span>
+
+          <span class="history-label">In Ấn</span>
+
+        </button>
+
         <button class="history-toggle-btn" id="btn-toggle-history" title="Xem lịch sử chuyển đổi tệp">
 
           <span class="history-icon"><i data-lucide="history"></i></span>
@@ -4207,6 +4215,75 @@ legacy_crm.f_name -> digital_bank.full_name [Concatenate]"></textarea>
     </main>
 
 
+
+    <!-- Enterprise Print Modal -->
+    <div class="modal-backdrop" id="modal-print" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center;">
+      <div class="modal-content" style="background: var(--bg-card, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 12px; width: 90%; max-width: 580px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 12px;">
+          <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
+            <i data-lucide="printer" style="color: #38bdf8;"></i> Trạm In Ấn Doanh Nghiệp (Enterprise Printing)
+          </h3>
+          <button id="btn-close-print-modal" style="background: none; border: none; color: #94a3b8; cursor: pointer; padding: 4px;">
+            <i data-lucide="x"></i>
+          </button>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 14px;">
+          <div>
+            <label style="font-size: 12px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 6px;">Tệp Cần In (.pdf, .docx, .xlsx):</label>
+            <input type="file" id="print-input-file" class="input-text" accept=".pdf,.docx,.xlsx" style="width: 100%; padding: 8px;" />
+          </div>
+
+          <div>
+            <label style="font-size: 12px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 6px;">Chọn Máy In Hệ Thống:</label>
+            <select id="print-select-printer" class="input-text" style="width: 100%; padding: 8px;">
+              <option value="">Đang tải danh sách máy in...</option>
+            </select>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label style="font-size: 12px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 6px;">Số Lượng Bản In (Copies):</label>
+              <input type="number" id="print-copies" class="input-text" value="1" min="1" max="50" style="width: 100%; padding: 8px;" />
+            </div>
+            <div>
+              <label style="font-size: 12px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 6px;">Bố Cục Ghép Trang (N-Up):</label>
+              <select id="print-nup" class="input-text" style="width: 100%; padding: 8px;">
+                <option value="1">1 Trang / Mặt (Chuẩn)</option>
+                <option value="2">2-Up (2 trang ghép 1 mặt ngang)</option>
+                <option value="4">4-Up (4 trang lưới 2x2)</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid #334155; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+            <label style="font-size: 12px; font-weight: 600; color: #38bdf8; margin: 0;">Tùy Chọn Tối Ưu Hóa (Print Optimizer):</label>
+            <label style="font-size: 12px; color: #cbd5e1; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="print-opt-grayscale" />
+              <span>Chuyển Thang Xám (Grayscale Ink Saver — Tiết kiệm mực in)</span>
+            </label>
+            <label style="font-size: 12px; color: #cbd5e1; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="print-opt-booklet" />
+              <span>Đóng Sách 2 Mặt (Booklet Saddle-Stitch Imposition)</span>
+            </label>
+          </div>
+
+          <div>
+            <label style="font-size: 12px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 6px;">Dấu Thủy Ấn Bảo Mật (Watermark — Tùy chọn):</label>
+            <input type="text" id="print-opt-watermark" class="input-text" placeholder="Ví dụ: CONFIDENTIAL, BẢN LƯU NỘI BỘ" style="width: 100%; padding: 8px;" />
+          </div>
+
+          <div id="print-job-status-area" style="font-size: 12px;"></div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
+            <button id="btn-cancel-print" class="btn btn-secondary">Đóng</button>
+            <button id="btn-execute-print" class="btn btn-primary">
+              <i data-lucide="printer"></i> Bắt Đầu In Ngầm
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Bottom Toast Notifications -->
 

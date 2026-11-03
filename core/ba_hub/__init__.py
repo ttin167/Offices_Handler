@@ -34,6 +34,7 @@ from .data_dictionary import (
     DataField,
     DataDictionaryScanner,
     FieldMappingEngine,
+    scan_openapi_spec,
 )
 from .reconciliation import (
     DataReconciliationEngine,
@@ -68,6 +69,19 @@ from .sql_toolkit import (
 from .obsidian_vault import (
     ObsidianVaultExporter,
     ObsidianVaultCompiler,
+)
+from .decision_table import (
+    ConditionRule,
+    ActionRule,
+    DecisionRuleEntry,
+    DecisionAuditResult,
+    DecisionTable,
+)
+from .meeting_parser import (
+    MeetingActionItem,
+    MeetingStoryCandidate,
+    MeetingParsedResult,
+    MeetingNotesParser,
 )
 from .templates import (
     STORY_TEMPLATES,
@@ -111,6 +125,16 @@ __all__ = [
     "SQLIntegrityTestSuite",
     "ObsidianVaultExporter",
     "ObsidianVaultCompiler",
+    "scan_openapi_spec",
+    "ConditionRule",
+    "ActionRule",
+    "DecisionRuleEntry",
+    "DecisionAuditResult",
+    "DecisionTable",
+    "MeetingActionItem",
+    "MeetingStoryCandidate",
+    "MeetingParsedResult",
+    "MeetingNotesParser",
     "STORY_TEMPLATES",
     "USECASE_TEMPLATES",
     "DATA_DICT_TEMPLATES",

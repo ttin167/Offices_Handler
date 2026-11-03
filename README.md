@@ -6,8 +6,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Release: v4.6.0](https://img.shields.io/badge/Release-v4.6.0_Production-success.svg)](CHANGELOG.md)
 [![Tests: 323 Passed](https://img.shields.io/badge/Tests-330%2F330_Passed-brightgreen.svg)](tests/)
-[![MCP Tools: 30](https://img.shields.io/badge/MCP_Tools-32_Available-blue.svg)](server/mcp_server.py)
-[![Antigravity Skills: 6](https://img.shields.io/badge/Antigravity_Skills-6_Specialized-indigo.svg)](.agents/skills/)
+[![MCP Tools: 38](https://img.shields.io/badge/MCP_Tools-38_Available-blue.svg)](server/mcp_server.py)
+[![Antigravity Skills: 7](https://img.shields.io/badge/Antigravity_Skills-7_Specialized-indigo.svg)](.agents/skills/)
 [![Antigravity IDE Ready](https://img.shields.io/badge/Antigravity_AI-Compatible-orange.svg)](AGENTS.md)
 [![Resolution: 300+ DPI](https://img.shields.io/badge/DPI-300%2B_Vector_Grade-purple.svg)](spec_diagram_engine.py)
 
@@ -23,7 +23,7 @@ It bridges the gap between raw document conversion, OpenXML Word standard compli
 
 ### 🧠 Antigravity AI Skills & Customizations Suite
 
-The workspace provides 6 specialized Antigravity Skills in `.agents/skills/` designed for autonomous AI agents and developers:
+The workspace provides 7 specialized Antigravity Skills in `.agents/skills/` designed for autonomous AI agents and developers:
 
 | Skill | Directory | Core Capabilities |
 |---|---|---|
@@ -33,6 +33,7 @@ The workspace provides 6 specialized Antigravity Skills in `.agents/skills/` des
 | **mxgraph-diagram-engineering** | [`.agents/skills/mxgraph-diagram-engineering/`](.agents/skills/mxgraph-diagram-engineering/SKILL.md) | Draw.io (`.drawio` / native mxGraphModel XML) generation, orthogonal routing, monochrome academic line-art, fractional perimeter port anchoring (`MX_INV_01`–`MX_INV_20`). |
 | **technical-diagrams** | [`.agents/skills/technical-diagrams/`](.agents/skills/technical-diagrams/SKILL.md) | Declarative 3-engine rendering (Canvas, Mermaid, PlantUML), 12 diagram types, 300+ DPI vector SVG / raster PNG, 1.6:1–1.85:1 aspect ratio, AABB collision avoidance, Word/DOCX auto-injection. |
 | **security-audit** | [`.agents/skills/security-audit/`](.agents/skills/security-audit/SKILL.md) | Cloudflare-seeded 6-phase defensive security audit harness (Reconnaissance, Coverage-Led Hunting, Adversarial Validation, Structured Schema, Zero-Dependency Verification, Reporting) & document sanitizer (`ERR_SEC_001`–`007`). |
+| **ba-workspace** | [`.agents/skills/ba-workspace/`](.agents/skills/ba-workspace/SKILL.md) | Enterprise Business Analysis Workstation: BABOK v3/IEEE 830 BRD synthesis, User Story & Gherkin AC Linter, Use Cases, RTM Traceability, DBML 2-Way, Satsuma Data Lineage, 7-Gate SQL Tests, Scope Creep & Semantic Diff, Obsidian Vault Two-Way Compilation, OpenAPI Scanner, Decision Tables, Meeting Notes Parser, and PlantUML Salt Wireframes. |
 
 > 💡 **Auto-Sync Invariant (`ERR_DOC_SYNC_001` / `ERR_VER_001`)**: Khi có nâng cấp kỹ năng, thêm skill mới hoặc bump version, `README.md` sẽ được tự động đồng bộ huy hiệu (badges), bảng kỹ năng và các điểm nhấn phiên bản qua `tools/bump_version.py`.
 
@@ -342,9 +343,9 @@ Below is a minimal sample of the JSON schema used by `spec_diagram_engine.py`:
 
 ```
 antigravity-doc-handler/
-??? .agents/                                     # Antigravity Agent Configuration
-?   ??? rules/                                   # 12 Universal Engineering Rules
-?   ??? skills/                                  # 6 Agent Workflow Skills
+├── .agents/                                     # Antigravity Agent Configuration
+│   ├── rules/                                   # 13 Universal Engineering Rules
+│   └── skills/                                  # 7 Agent Workflow Skills
 ??? core/                                        # Layer 3: Core Document & Diagram Engines
 ?   ??? converter/                               # Universal Converter, Markdown, OCR, PDF Toolkit
 ?   ??? diagrams/                                # Diagram Bridge, mxGraph, Code-to-Diagram, Editor, Legacy

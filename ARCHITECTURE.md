@@ -83,10 +83,21 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
     - `templates.py`: Khung mẫu thực chiến chuẩn ngành Ngân hàng số (NAPAS 247, eKYC), Thương mại điện tử (Checkout, Voucher) và Kho vận (WMS Inbound).
     - `story_builder.py`: Khung soạn thảo User Story & Gherkin AC tương tác, bộ thẩm định chất lượng tự động `StoryQualityLinter` (chấm điểm 0-100%, kiểm tra Role specificity, Business value, Given-When-Then, Happy/Negative paths) và xuất bản OpenXML Word / Markdown.
     - `usecase_builder.py`: Bộ đặc tả Use Case Specifications, bộ kiểm định chất lượng `UseCaseQualityLinter` và xuất bảng OpenXML (`<w:cantSplit/>`, `<w:tblHeader/>`).
-    - `data_dictionary.py`: Động cơ quét từ điển dữ liệu từ Excel (.xlsx) và SQL DDL `CREATE TABLE` (`DataDictionaryScanner`), bộ xuất bảng ma trận ánh xạ dữ liệu nguồn - đích (`FieldMappingEngine`).
+    - `data_dictionary.py`: Động cơ quét từ điển dữ liệu từ Excel (.xlsx), SQL DDL `CREATE TABLE` và OpenAPI / Swagger Contracts (`scan_openapi_spec`), bộ xuất bảng ma trận ánh xạ dữ liệu nguồn - đích (`FieldMappingEngine`).
     - `reconciliation.py`: Động cơ đối soát dữ liệu 2 chiều tự động (`DataReconciliationEngine`), khớp theo khóa phức hợp (Composite Key), tính toán dung sai số học (Numeric Tolerance), tổng hợp độ lệch và xuất báo cáo 4-sheet Excel OpenXML.
     - `testcase_generator.py`: Bộ sinh ma trận kiểm thử nghiệm thu người dùng (`UATTestcaseGenerator`) kèm Data Validation dropdown in-cell (`Pass`/`Fail`/`Blocked`) và định dạng đổi màu tự động.
     - `brd_generator.py`: Bộ tổng hợp và xuất bản tài liệu BRD / SRS chuẩn doanh nghiệp (`BRDDocumentGenerator`) gồm 9 phần cốt lõi theo chuẩn BABOK v3 và IEEE 830.
+    - `rtm_matrix.py`: Bộ sinh ma trận truy xuất nguồn gốc yêu cầu (Traceability Matrix RTM: Requirement ➔ Test Case ➔ Defect ➔ Component) xuất bản đa định dạng Excel / Word.
+    - `dbml_converter.py`: Trình biên dịch 2 chiều DBML ↔ SQL DDL ↔ Excel Data Dictionary, hỗ trợ sinh cú pháp DBML từ bảng tính và kết xuất sơ đồ quan hệ.
+    - `satsuma_engine.py`: Động cơ ngôn ngữ ánh xạ luồng dữ liệu Source ➔ Target (`SatsumaLang`), kiểm tra lỗi kiểu dữ liệu và tự động vẽ đồ thị Data Lineage.
+    - `sql_integrity.py`: Bộ 7 bài test SQL tự động kiểm định tính toàn vẹn dữ liệu trước nghiệm thu UAT (Orphan records, duplicates, null constraints, numeric bounds, format check).
+    - `scope_creep.py`: Bộ phân tích và cảnh báo phình to phạm vi (Scope Creep Auditor & Semantic Diff) so sánh các phiên bản BRD/SRS theo thời gian.
+    - `obsidian_vault.py`: Động cơ đóng gói & biên dịch 2 chiều Obsidian Vault (`.zip`), xuất đồ thị tri thức yêu cầu (Knowledge Graph) với liên kết `[[Wikilinks]]` và biên dịch ngược sang Word BRD (`<w:bookmarkStart>`, `<w:hyperlink>`).
+    - `decision_table.py`: Động cơ sinh và kiểm toán bảng quyết định logic điều kiện - hành động (Decision Table & Matrix Generator) chuẩn BABOK v3, kiểm tra tính toàn vẹn (Completeness) và mâu thuẫn (Contradiction).
+    - `meeting_parser.py`: Bộ bóc tách biên bản họp nghiệp vụ thô (Meeting Notes Parser) thành User Stories 3 thành phần, Quy tắc nghiệp vụ (Business Rules), Giả định (Assumptions) và Hành động (Action Items).
+  - `core/printing/` (Enterprise Printing Engine):
+    - `printer_manager.py`: Bộ điều phối máy in doanh nghiệp, giao tiếp trực tiếp Windows Spooler API qua `win32print`, tự động phát hiện danh sách máy in mạng/nội bộ, hỗ trợ in ngầm (Silent Print) không cần hộp thoại UI, cơ chế fallback Edge Headless và Virtual Spool đệm PDF trên môi trường Linux/Cloud container.
+    - `print_optimizer.py`: Bộ tiền xử lý tài liệu in ấn bằng PyMuPDF (`fitz`): Chuyển đổi thang xám (Grayscale Ink Saver), bố cục ghép trang đa trang N-Up (2-Up / 4-Up), sắp xếp thứ tự trang in đóng sách (Booklet Duplex Imposition), dấu thủy ấn bảo mật (Confidential Watermark), và chốt chặn an toàn lề in chống mất chữ `ERR_PRINT_001` (Margin Safety Guard $\ge 5\text{mm}$).
   - `core/security/`:
     - `document_auditor.py`: Kiểm định an ninh tài liệu tĩnh dựa trên bộ kiểm tra phòng thủ Cloudflare Security Audit Harness, phân định 3 trạng thái phản biện đối nghịch (`confirmed`, `needs_validation`, `rejected`) cho 5 bất biến: `ERR_SEC_001` (Macro streams & PDF `/Launch`), `ERR_SEC_002` (Formula / DDE Injection), `ERR_SEC_003` (OLE MZ headers & PE binaries), `ERR_SEC_004` (PII author metadata & `veryHidden` sheets), `ERR_SEC_005` (Zip Slip `../` traversal & XXE DTD entities).
     - `sanitizer.py`: Tẩy rửa và vô hiệu hóa mối đe dọa không phá hủy (Non-destructive Defuser & Deep CDR `ERR_SEC_006` + Smart Vietnamese PII Redactor `ERR_SEC_007`): Thêm tiền tố nháy đơn `'` cho công thức nguy hiểm, bóc gỡ `vbaProject.bin` & OLE PE (`MZ`), tự động chuyển đổi `macroEnabled.main+xml` sang chuẩn OpenXML, dọn sạch `.rels`, và che mờ thông minh CCCD/SĐT/STK/MST/Email không phạm vào số liệu tài chính BCTC.
@@ -95,25 +106,27 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
   - `core/env_doctor/`:
     - `run_doctor.py`: Tự động quét kiểm tra 12 thành phần môi trường (Python, LibreOffice, Tesseract, Chromium, PlantUML, font chữ) và xuất báo cáo JSON / Terminal kèm mã lệnh khắc phục 1-click.
   - `core/diagrams/`:
-    - `bridge.py`: Điều phối sơ đồ thống nhất.
+    - `bridge.py`: Điều phối sơ đồ thống nhất đa engine (Canvas, PlantUML, Mermaid, Draw.io mxGraph).
+    - `salt_wireframe.py`: Động cơ phác thảo giao diện người dùng (PlantUML Salt UI Wireframe Engine) chuyển đổi đặc tả văn bản/JSON thành vector SVG và ảnh PNG 300+ DPI nhúng tài liệu Word/Obsidian Canvas.
     - `mxgraph.py`: Bộ sinh sơ đồ cấu trúc Draw.io XML native (`MX_INV_01`..`20`) và tự động nhúng vào `.docx` / `.pptx`.
     - `code_to_diagram.py`: Bộ quét mã nguồn tĩnh Python AST & SQL/Prisma DDL sinh sơ đồ Class/ERD tự động kèm bộ xuất Vector SVG thuần Python (`export_mxgraph_to_svg`).
     - `editor.py`: Trình biên tập Canvas tương tác 2 chiều.
     - `legacy/`: Các renderer kế thừa (`canvas`, `plantuml`, `mermaid`).
 
 ### 2.2. `server/` — Tầng Giao Thức & Cung Cấp Dịch Vụ (Web API, MCP, SSE)
-- `app.py`: REST API Server nhẹ nhàng dựa trên `http.server`, phục vụ Web Studio cổng `8000`. Cung cấp endpoints cho conversion, history, mail merge, ocr, diff, math, static assets, trọn bộ PDF Pro Endpoints, Atomic Office Endpoints, Formula Playbook Endpoints, và trọn bộ BA Enterprise Endpoints (`/api/ba/templates`, `/api/ba/story/lint`, `/api/ba/story/export`, `/api/ba/usecase/lint`, `/api/ba/usecase/export`, `/api/ba/brd/generate`, `/api/ba/data-dict/scan-excel`, `/api/ba/data-dict/scan-ddl`, `/api/ba/data-dict/export`, `/api/ba/reconciliation/run`, `/api/ba/uat/generate`).
-- `mcp_server.py`: Model Context Protocol Server (STDIO JSON-RPC 2.0) tương thích với Claude Desktop, Cursor, và Antigravity IDE. Đăng ký **23 tools** chuẩn:
+- `app.py`: REST API Server nhẹ nhàng dựa trên `http.server`, phục vụ Web Studio cổng `8000`. Cung cấp endpoints cho conversion, history, mail merge, ocr, diff, math, static assets, trọn bộ PDF Pro Endpoints, Atomic Office Endpoints, Formula Playbook Endpoints, trọn bộ Enterprise Printing Endpoints (`/api/print/printers`, `/api/print/job`), và trọn bộ BA Enterprise Endpoints (`/api/ba/templates`, `/api/ba/story/lint`, `/api/ba/story/export`, `/api/ba/usecase/lint`, `/api/ba/usecase/export`, `/api/ba/brd/generate`, `/api/ba/data-dict/scan-excel`, `/api/ba/data-dict/scan-ddl`, `/api/ba/data-dict/export`, `/api/ba/reconciliation/run`, `/api/ba/uat/generate`, `/api/ba/rtm/generate`, `/api/ba/dbml/convert`, `/api/ba/satsuma/lineage`, `/api/ba/sql/test-suite`, `/api/ba/scope-creep/audit`, `/api/ba/obsidian/export-vault`, `/api/ba/obsidian/compile-vault`, `/api/ba/openapi/scan`, `/api/ba/decision-table/generate`, `/api/ba/meeting/parse`, `/api/diagram/wireframe/render`).
+- `mcp_server.py`: Model Context Protocol Server (STDIO JSON-RPC 2.0) tương thích với Claude Desktop, Cursor, và Antigravity IDE. Đăng ký **38 tools** chuẩn:
   - Macro Tools (11): `env_doctor`, `doc_convert`, `doc_inspect`, `doc_insert_diagram`, `docx_patch`, `docx_apply_preset`, `docx_sanitize_vietnamese`, `pptx_synthesize`, `diagram_render`, `doc_mail_merge`, `doc_redline_diff`, `doc_ocr_scan`, `pdf_quick_tools`.
   - Atomic Office Tools (8): `xlsx_set_cell`, `xlsx_set_range`, `xlsx_insert_rows`, `xlsx_find_anchor`, `docx_inspect_placeholders`, `docx_replace_text`, `docx_insert_paragraph`, `docx_insert_table`.
   - Formula Playbook Tool (1): `xlsx_formula_helper`.
-  - Yearbook Studio Tools (2): `yearbook_auto_layout`, `yearbook_export`.
   - Document Security Tool (1): `doc_security_audit`.
-- `job_manager.py`: Server-Sent Events (SSE) background task manager và job queue, cho phép theo dõi tiến trình OCR, mail merge, render và xuất bản kỷ yếu theo thời gian thực.
+  - Enterprise BA Hub Tools (10): `ba_story_lint`, `ba_rtm_matrix`, `ba_dbml_convert`, `ba_sql_integrity_suite`, `ba_obsidian_export_vault`, `ba_obsidian_compile_vault`, `ba_openapi_scan`, `ba_decision_table`, `ba_meeting_parse`, `ba_wireframe_render`.
+  - Enterprise Printing Tools (2): `doc_list_printers`, `doc_print_job`.
+- `job_manager.py`: Server-Sent Events (SSE) background task manager và job queue, cho phép theo dõi tiến trình OCR, mail merge, render và in ấn theo thời gian thực.
 - `db.py`: Zero-config SQLite database (`history.db`) lưu trữ lịch sử chuyển đổi và tải tệp.
 
 ### 2.3. `cli/` — Tầng Giao Diện Dòng Lệnh (CLI Layer)
-`cli/ai_tools.py` và facade tại root `ai_tools_cli.py` cung cấp 33 subcommands hoàn chỉnh cho AI Agents và terminal users:
+`cli/ai_tools.py` và facade tại root `ai_tools_cli.py` cung cấp bộ subcommands hoàn chỉnh cho AI Agents và terminal users:
 - `doctor`: Kiểm tra sức khỏe môi trường.
 - `convert`: Chuyển đổi phổ quát 5 định dạng (PDF, DOCX, MD, PPTX, XLSX).
 - `md-toc`: Tạo, xem trước và tự động đồng bộ hóa mục lục tương tác trực tiếp trong tệp Markdown.
@@ -121,7 +134,6 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
 - `docx-tokens`, `docx-replace`: Atomic Word CLI tools (quét biến & thay thế text bảo tồn OpenXML run).
 - `xlsx-set`, `xlsx-insert-rows`: Atomic Excel CLI tools (sửa ô hợp nhất & mở rộng dòng kèm dịch công thức).
 - `xlsx-formulas`: Cẩm nang tra cứu và xuất Excel Formula Playbook 2 sheets.
-- `yearbook-layout`, `yearbook-build`: Tự động dàn trang photobook và đóng gói ZIP bàn giao thợ thiết kế / nhà in.
 - `doc-security`: Kiểm tra và tẩy rửa an ninh tài liệu, formula injection, OLE PE binary, và PII (Cloudflare Harness).
 - `docx-mail-merge`: Trộn thư hàng loạt Word + Excel/JSON.
 - `docx-apply-preset`, `docx-sanitize-vietnamese`: Chuẩn hóa thể thức hành chính & chính tả.
@@ -129,13 +141,26 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
 - `pdf-tools`: Bộ 16 công cụ PDF Pro Studio (`merge`, `split`, `rotate`, `clean`, `watermark`, `compress`, `redact`, `protect`, `normalize-a4`, `giap-lai`, `extract-tables`, `images-to-pdf`, `export-images-zip`, `sign`, `flatten`, `reorganize`).
 - `ocr-scan`: Bóc tách tài liệu scan và loại bỏ dấu mộc đỏ.
 - `diagram-render`, `plantuml-render`, `mermaid-render`, `spec-render`, `diagram-editor`: Sơ đồ kỹ thuật.
+- `wireframe-render`: Render phác thảo UI wireframe PlantUML Salt sang ảnh PNG/SVG phân giải cao.
+- `ba-story-lint`, `ba-story-export`: Thẩm định chất lượng User Story và xuất bản Word/Markdown.
+- `ba-usecase-lint`, `ba-usecase-export`: Đặc tả Use Cases Cockburn và xuất bản bảng OpenXML.
+- `ba-rtm-matrix`: Lập ma trận truy xuất nguồn gốc yêu cầu RTM (Excel/Word).
+- `ba-dbml-convert`: Chuyển đổi 2 chiều DBML ↔ SQL DDL ↔ Excel Data Dictionary.
+- `ba-satsuma-lineage`: Ngôn ngữ ánh xạ luồng dữ liệu Source ➔ Target và đồ thị Data Lineage.
+- `ba-sql-suite`: 7 bài test SQL tự động kiểm định tính toàn vẹn dữ liệu UAT.
+- `ba-scope-creep`: Phân tích phình to phạm vi và biến động ngữ nghĩa (Semantic Deltas).
+- `ba-obsidian-export`, `ba-obsidian-compile`: Đóng gói và biên dịch 2 chiều Obsidian Vault (.zip).
+- `ba-openapi`: Quét tài liệu API OpenAPI / Swagger Contract sang từ điển dữ liệu Data Dictionary.
+- `ba-decision-table`: Sinh và kiểm toán tính toàn vẹn / mâu thuẫn của bảng quyết định BABOK v3.
+- `ba-meeting-parser`: Bóc tách biên bản họp thô thành Stories, Business Rules, và Action items.
+- `print-list`, `print-doc`: Liệt kê máy in hệ thống và thực hiện in ngầm với bộ tối ưu hóa in ấn (N-Up, Booklet, Ink Saver, Margin Guard).
 - `qa-audit`: Master QA diagnostic and repair pipeline 13 Cổng (`tools/unified_qa_diagnostic.py`).
 
 ### 2.4. `ui/` & `src/` — Tầng Giao Diện Người Dùng (Desktop GUI & Web Studio)
 - `ui/`: Desktop GUI Tkinter độc lập (`main.py`) và Native WebView App Mode (`ui/webview_launcher.py`) hỗ trợ chạy offline không cần trình duyệt.
 - `src/`: Web Studio trên nền Vite ES6 modules và Vanilla CSS Glassmorphism:
   - `src/main.js` (~295 dòng): Orchestrator nhẹ quản lý theme, toast notifications, health polling, tab routing và khởi tạo các studio modules.
-  - `src/modules/`: Tách rời hoàn toàn theo từng phân hệ chuyên biệt: `presentation_studio.js`, `spreadsheet_studio.js`, `document_hub.js`, `diagram_studio.js`, `math_studio.js`, `formula_playbook.js`, `history_drawer.js`, `constants.js`, và `yearbook_studio.js` (optional local-only module qua `import.meta.glob`).
+  - `src/modules/`: 10 modules phân hệ chuyên biệt: `presentation_studio.js`, `spreadsheet_studio.js`, `document_hub.js`, `diagram_studio.js`, `formula_playbook.js`, `history_drawer.js`, `ba_requirements.js`, `ba_data_process.js`, `ba_audit_recon.js`, `constants.js`.
 
 
 ### 2.5. `tools/` — Tầng Tiện Ích QA & Giao Nộp (Diagnostics & Deliverables)

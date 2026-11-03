@@ -19,6 +19,7 @@ The workspace includes preconfigured Antigravity customizations:
 - **Skill 4**: [mxgraph-diagram-engineering](.agents/skills/mxgraph-diagram-engineering/SKILL.md) — Draw.io (.drawio / XML) pure mxGraphModel generation, layout, orthogonal routing, and monochrome line-art.
 - **Skill 5**: [technical-diagrams](.agents/skills/technical-diagrams/SKILL.md) — Declarative diagram rendering (Canvas, Mermaid, PlantUML), orthogonal Manhattan routing, and collision prevention.
 - **Skill 6**: [security-audit](.agents/skills/security-audit/SKILL.md) — Cloudflare-seeded defensive security audit harness (Reconnaissance, Coverage-Led Hunting, Adversarial Validation, Structured Schema, Zero-Dependency Verification, Reporting).
+- **Skill 7**: [ba-workspace](.agents/skills/ba-workspace/SKILL.md) — Enterprise Business Analysis Workstation (BABOK v3 / IEEE 830 BRD/SRS, User Stories & Gherkin AC Linter, Use Cases, RTM Traceability, DBML 2-Way, Satsuma Data Mapping, SQL Integrity Suite, Scope Creep & Semantic Diff, Obsidian Two-Way Vault, OpenAPI Scanner, Decision Tables, Meeting Parser, and PlantUML Salt Wireframes).
 - **Rule 1**: [rule_technical_diagram_standards.md](.agents/rules/rule_technical_diagram_standards.md) — English screen names, codebase-truth action labels, multi-line wrapping (`\n`), and automated AABB collision detection.
 - **Rule 2**: [rule_decoupled_document_converter.md](.agents/rules/rule_decoupled_document_converter.md) — Table OpenXML invariants (`cantSplit`, `tblHeader`, `vAlign="center"`) and decoupled styling.
 - **Rule 3**: [rule_feature_lifecycle_and_doc_sync.md](.agents/rules/rule_feature_lifecycle_and_doc_sync.md) — Documentation synchronization (`CHANGELOG.md`, `ARCHITECTURE.md`, `README.md`, and Core Docs Triad) on feature completions (`ERR_DOC_SYNC_001`).
@@ -31,6 +32,7 @@ The workspace includes preconfigured Antigravity customizations:
 - **Rule 10**: [rule_context_recovery_protocol.md](.agents/rules/rule_context_recovery_protocol.md) — Recovery invariants and checkpoint protocols.
 - **Rule 11**: [rule_quality_gate_and_verification.md](.agents/rules/rule_quality_gate_and_verification.md) — Mandatory multi-layer quality gate audit before task completion.
 - **Rule 12**: [rule_security_audit_standards.md](.agents/rules/rule_security_audit_standards.md) — Mandatory security principles, Adversarial Verifier protocol, and document safety invariants (`ERR_SEC_001`–`005`).
+- **Rule 13**: [rule_render_cloud_deployment_and_sync.md](.agents/rules/rule_render_cloud_deployment_and_sync.md) — Render Cloud 24/7 Deployment, Single-Port Container Invariants (`RND_INV_01`–`08`), Docker Cache Preservation, and Pre-Deploy Verification.
 
 ---
 
@@ -71,6 +73,22 @@ When user requests you to perform document tasks or draw diagrams, run these com
 | **Insert Excel Rows & Shift Formulas** | `python ai_tools_cli.py xlsx-insert-rows <file.xlsx> --sheet <sheet> --start-row <row> --count <n>` |
 | **Inspect Word Template Tokens** | `python ai_tools_cli.py docx-tokens <tpl.docx> [--json]` |
 | **Atomic Word Text Replace** | `python ai_tools_cli.py docx-replace <doc.docx> --data <patch.json>` |
+| **User Story BABOK Linter** | `python ai_tools_cli.py ba-story-lint --story-id <id> --title <title> --persona <role> --action <act> --value <val> --ac <ac>` |
+| **User Story Export (DOCX/MD)** | `python ai_tools_cli.py ba-story-export <story.json> -o <story.docx>` |
+| **Cockburn Use Case Export** | `python ai_tools_cli.py ba-usecase-export <spec.json> -o <usecase.docx>` |
+| **Requirements Traceability Matrix (RTM)** | `python ai_tools_cli.py ba-rtm-matrix <spec.json> -o <rtm.xlsx>` |
+| **DBML 2-Way Convert (SQL <-> DBML)** | `python ai_tools_cli.py ba-dbml-convert <input.sql|input.dbml> -o <output>` |
+| **Satsuma Data Lineage Graph** | `python ai_tools_cli.py ba-satsuma-lineage <mapping.satsuma> -o <lineage.png>` |
+| **7-Gate SQL Data Integrity Suite** | `python ai_tools_cli.py ba-sql-suite <schema.sql> -o <tests.sql>` |
+| **Scope Creep & Semantic Diff** | `python ai_tools_cli.py ba-scope-creep <v1.docx> <v2.docx> -o <report.docx>` |
+| **Export Obsidian Vault (.zip)** | `python ai_tools_cli.py ba-obsidian-export --project <name> -o <vault.zip>` |
+| **Compile Obsidian Vault to Word BRD** | `python ai_tools_cli.py ba-obsidian-compile <vault.zip> -o <brd.docx>` |
+| **OpenAPI / Swagger Data Dict Scan** | `python ai_tools_cli.py ba-openapi <swagger.json> -o <dict.xlsx>` |
+| **BABOK Decision Table Matrix** | `python ai_tools_cli.py ba-decision-table <spec.json> -o <matrix.docx> [--audit]` |
+| **Meeting Notes to Stories Parser** | `python ai_tools_cli.py ba-meeting-parser <notes.md> -o <stories.docx>` |
+| **PlantUML Salt UI Wireframe Render** | `python ai_tools_cli.py wireframe-render <spec.json> -o <wireframe.png>` |
+| **List System Hardware Printers** | `python ai_tools_cli.py print-list` |
+| **Enterprise Silent Print Document** | `python ai_tools_cli.py print-doc <file.pdf|docx> [--printer <name>] [--n-up 2] [--grayscale] [--duplex]` |
 | **Sync Core Docs Triad (MD->DOCX+PDF)** | `python tools/sync_core_docs.py [--build|--check]` |
 | **Launch Desktop GUI** | `python main.py` |
 
@@ -107,6 +125,20 @@ When executing tasks programmatically via Python, MCP, or CLI, dispatch accordin
 | **Declarative Workflow Pipeline** | File/Dir + Spec | `doc_run_pipeline(...)` | `ai_tools_cli.py run-pipeline` | `core.pipeline.engine` |
 | **AST Code-to-Diagram & SVG Export** | Python / SQL / Prisma | `diagram_from_code(...)` | `ai_tools_cli.py code-to-diagram` | `core.diagrams.code_to_diagram` |
 | **Launch Native Web Studio App Mode** | Desktop App | (CLI / GUI Button) | `ai_tools_cli.py desktop-web` | `ui.webview_launcher.launch_native_web_studio` |
+| **User Story BABOK Linter** | JSON / Text Spec | `ba_story_lint(...)` | `ai_tools_cli.py ba-story-lint` | `core.ba_hub.story_builder` |
+| **Requirements Traceability Matrix** | Spec JSON | `ba_rtm_matrix(...)` | `ai_tools_cli.py ba-rtm-matrix` | `core.ba_hub.rtm_matrix` |
+| **DBML 2-Way Schema Conversion** | DBML / SQL DDL | `ba_dbml_convert(...)` | `ai_tools_cli.py ba-dbml-convert` | `core.ba_hub.dbml_converter` |
+| **Satsuma Data Lineage Graph** | Satsuma Spec | (via CLI / API) | `ai_tools_cli.py ba-satsuma-lineage` | `core.ba_hub.satsuma_engine` |
+| **7-Gate SQL Integrity Test Suite** | SQL DDL Schema | `ba_sql_integrity_suite(...)` | `ai_tools_cli.py ba-sql-suite` | `core.ba_hub.sql_integrity` |
+| **Scope Creep & Semantic Diff** | DOCX v1 + DOCX v2 | (via CLI / API) | `ai_tools_cli.py ba-scope-creep` | `core.ba_hub.scope_creep` |
+| **Obsidian Vault Export (.zip)** | Project Spec | `ba_obsidian_export_vault(...)` | `ai_tools_cli.py ba-obsidian-export` | `core.ba_hub.obsidian_vault` |
+| **Obsidian Vault Compile to Word** | Vault .zip Archive | `ba_obsidian_compile_vault(...)` | `ai_tools_cli.py ba-obsidian-compile` | `core.ba_hub.obsidian_vault` |
+| **OpenAPI / Swagger Data Dict Scan** | Swagger JSON / YAML | `ba_openapi_scan(...)` | `ai_tools_cli.py ba-openapi` | `core.ba_hub.data_dictionary` |
+| **BABOK Decision Table Matrix** | Condition/Action Spec | `ba_decision_table(...)` | `ai_tools_cli.py ba-decision-table` | `core.ba_hub.decision_table` |
+| **Meeting Notes to Stories Parser** | Markdown / Text Notes | `ba_meeting_parse(...)` | `ai_tools_cli.py ba-meeting-parser` | `core.ba_hub.meeting_parser` |
+| **PlantUML Salt UI Wireframe** | Salt Text / Spec | `ba_wireframe_render(...)` | `ai_tools_cli.py wireframe-render` | `core.diagrams.salt_wireframe` |
+| **List Hardware System Printers** | Hardware Spooler | `doc_list_printers(...)` | `ai_tools_cli.py print-list` | `core.printing.printer_manager` |
+| **Enterprise Silent Print Document** | PDF / DOCX + Print Spec | `doc_print_job(...)` | `ai_tools_cli.py print-doc` | `core.printing.printer_manager` |
 
 ---
 
@@ -122,9 +154,10 @@ antigravity-doc-handler/
 │   ├── xlsx/                   # Universal Excel Engine, Validator, Streaming, Formula Playbook, Reporting
 │   ├── security/               # Cloudflare Document Auditor & Deep CDR / PII Sanitizer
 │   ├── pipeline/               # Declarative Multi-Step Workflow Pipeline Engine
-│   ├── ba_hub/                 # BA Enterprise Hub (Stories, Use Cases, RTM, DBML, Satsuma, SQL Tests, Scope Creep)
+│   ├── ba_hub/                 # BA Enterprise Hub (14 Modules: Stories, Use Cases, RTM, DBML, Satsuma, SQL Tests, Scope Creep, Obsidian Vault, OpenAPI, Decision Table, Meeting Parser)
+│   ├── printing/               # Enterprise Printing Engine (Windows Spooler win32print, Grayscale, N-Up, Booklet, Watermark, Margin Guard)
 │   └── env_doctor.py           # 12-Component Environment Health Doctor
-├── server/                     # Layer 2: Web Studio REST API (:8000), MCP Server (32 Tools), SSE Jobs, SQLite
+├── server/                     # Layer 2: Web Studio REST API (:8000), MCP Server (38 Tools), SSE Jobs, SQLite
 ├── cli/                        # Layer 2: Unified AI CLI Dispatcher & Subcommands
 ├── ui/                         # Layer 1: Desktop GUI (Tkinter) & Native WebView App Launcher
 ├── src/                        # Layer 1: Vite ES6 Web Studio Frontend & Modular Controllers
@@ -141,7 +174,7 @@ antigravity-doc-handler/
 ├── mcp_server.py               # Official Entrypoint: Model Context Protocol STDIO Server
 ├── spec_diagram_engine.py      # Official Entrypoint: SVG Canvas Precision Diagram CLI
 ├── diagram_editor.py           # Official Entrypoint: Interactive Canvas Diagram Editor
-└── .agents/                    # Antigravity Customizations (6 Skills & 12 Rules)
+└── .agents/                    # Antigravity Customizations (7 Skills & 13 Rules)
 ```
 
 ---

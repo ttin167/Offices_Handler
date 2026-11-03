@@ -1013,6 +1013,153 @@ TOOL_DEFINITIONS = [
             },
             "required": ["source_path"]
         }
+    },
+    {
+        "name": "ba_openapi_scan",
+        "description": "Scans OpenAPI 3.x / Swagger 2.0 specifications to generate structured Data Dictionaries and Endpoint Catalogs in Excel (.xlsx) or Word (.docx).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "spec_path_or_text": {
+                    "type": "string",
+                    "description": "Path to openapi.json/yaml file or raw JSON/YAML string"
+                },
+                "output_format": {
+                    "type": "string",
+                    "enum": ["excel", "docx", "json"],
+                    "default": "excel"
+                },
+                "output_path": {
+                    "type": "string",
+                    "description": "Optional destination file path (.xlsx, .docx, or .json)"
+                }
+            },
+            "required": ["spec_path_or_text"]
+        }
+    },
+    {
+        "name": "ba_decision_table",
+        "description": "BABOK v3 Decision Table Generator: audits condition/action logic for completeness, contradictions, and redundancies, and exports to styled Word (.docx) or Excel (.xlsx).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "spec_path_or_dict": {
+                    "type": "string",
+                    "description": "Path to decision table JSON spec or raw JSON string"
+                },
+                "run_audit": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Whether to run completeness and contradiction audit"
+                },
+                "output_format": {
+                    "type": "string",
+                    "enum": ["docx", "excel", "json"],
+                    "default": "docx"
+                },
+                "output_path": {
+                    "type": "string",
+                    "description": "Optional destination file path"
+                }
+            },
+            "required": ["spec_path_or_dict"]
+        }
+    },
+    {
+        "name": "ba_meeting_parse",
+        "description": "Stakeholder Meeting Notes to Requirements Parser: extracts User Stories, Business Rules, Decisions, and Action Items into Word (.docx), Markdown (.md), or JSON.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "notes_path_or_text": {
+                    "type": "string",
+                    "description": "Path to meeting notes file or raw markdown/text"
+                },
+                "output_format": {
+                    "type": "string",
+                    "enum": ["docx", "md", "json"],
+                    "default": "docx"
+                },
+                "output_path": {
+                    "type": "string",
+                    "description": "Optional destination file path"
+                }
+            },
+            "required": ["notes_path_or_text"]
+        }
+    },
+    {
+        "name": "ba_wireframe_render",
+        "description": "Renders PlantUML Salt UI Wireframe mockups into vector-grade 300+ DPI PNG images from JSON specs or raw Salt code.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "spec_path_or_text": {
+                    "type": "string",
+                    "description": "Path to wireframe JSON spec or raw Salt code"
+                },
+                "output_png_path": {
+                    "type": "string",
+                    "description": "Destination PNG path"
+                },
+                "scale": {
+                    "type": "number",
+                    "default": 2.0,
+                    "description": "Resolution scale factor"
+                }
+            },
+            "required": ["spec_path_or_text", "output_png_path"]
+        }
+    },
+    {
+        "name": "doc_list_printers",
+        "description": "Discovers and lists all physical, network, and virtual system printers available on the host machine.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {}
+        }
+    },
+    {
+        "name": "doc_print_job",
+        "description": "Submits a document (PDF, DOCX, XLSX) to a system printer with silent spooling and pre-print optimizations (Grayscale toner saver, N-Up, Booklet, Watermark, Margin Guard ERR_PRINT_001).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to document file to print (.pdf, .docx, or .xlsx)"
+                },
+                "printer_name": {
+                    "type": "string",
+                    "description": "Optional printer name (defaults to system default printer)"
+                },
+                "copies": {
+                    "type": "integer",
+                    "default": 1
+                },
+                "grayscale": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Convert pages to grayscale to save color toner"
+                },
+                "n_up": {
+                    "type": "integer",
+                    "enum": [1, 2, 4],
+                    "default": 1,
+                    "description": "Pages per sheet (1, 2, or 4)"
+                },
+                "booklet": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Arrange pages in 2-sided booklet order"
+                },
+                "watermark": {
+                    "type": "string",
+                    "description": "Optional security watermark text"
+                }
+            },
+            "required": ["file_path"]
+        }
     }
 ]
 
@@ -1913,6 +2060,146 @@ def execute_diagram_from_code(args: Dict[str, Any]) -> Dict[str, Any]:
     )
 
 
+def execute_ba_openapi_scan(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.ba_hub.data_dictionary import scan_openapi_spec, FieldMappingEngine
+
+    spec = args["spec_path_or_text"]
+    data = scan_openapi_spec(spec)
+    fmt = args.get("output_format", "excel").lower()
+    out_path = args.get("output_path")
+
+    if fmt == "docx" or (out_path and out_path.endswith(".docx")):
+        final_out = out_path or "output/openapi_data_dict.docx"
+        FieldMappingEngine.export_openapi_to_docx(data, final_out)
+        return {"success": True, "output_path": final_out, "format": "docx", "schemas": data["schemas_count"], "endpoints": data["endpoints_count"]}
+    elif fmt == "json" or (out_path and out_path.endswith(".json")):
+        if out_path:
+            with open(out_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            return {"success": True, "output_path": out_path, "format": "json", "data": data}
+        return {"success": True, "format": "json", "data": data}
+    else:
+        final_out = out_path or "output/openapi_data_dict.xlsx"
+        FieldMappingEngine.export_openapi_to_excel(data, final_out)
+        return {"success": True, "output_path": final_out, "format": "excel", "schemas": data["schemas_count"], "endpoints": data["endpoints_count"]}
+
+
+def execute_ba_decision_table(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.ba_hub.decision_table import DecisionTable
+
+    spec_raw = args["spec_path_or_dict"]
+    if isinstance(spec_raw, str):
+        if os.path.isfile(spec_raw):
+            with open(spec_raw, "r", encoding="utf-8") as f:
+                spec_dict = json.load(f)
+        else:
+            spec_dict = json.loads(spec_raw)
+    else:
+        spec_dict = spec_raw
+
+    dt = DecisionTable.from_dict(spec_dict)
+    audit_res = None
+    if args.get("run_audit", True):
+        audit_res = dt.audit_completeness_and_contradictions().to_dict()
+
+    fmt = args.get("output_format", "docx").lower()
+    out_path = args.get("output_path")
+    exported_file = None
+
+    if fmt == "excel" or (out_path and out_path.endswith(".xlsx")):
+        exported_file = out_path or f"output/{dt.table_id}_matrix.xlsx"
+        dt.export_to_excel(exported_file)
+    elif fmt == "docx" or (out_path and out_path.endswith(".docx")):
+        exported_file = out_path or f"output/{dt.table_id}_matrix.docx"
+        dt.export_to_docx(exported_file)
+
+    return {
+        "success": True,
+        "table_id": dt.table_id,
+        "title": dt.title,
+        "audit": audit_res,
+        "exported_file": exported_file,
+    }
+
+
+def execute_ba_meeting_parse(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.ba_hub.meeting_parser import MeetingNotesParser
+
+    raw = args["notes_path_or_text"]
+    if os.path.isfile(raw):
+        with open(raw, "r", encoding="utf-8") as f:
+            text = f.read()
+    else:
+        text = raw
+
+    parsed = MeetingNotesParser.parse_text(text)
+    fmt = args.get("output_format", "docx").lower()
+    out_path = args.get("output_path")
+    exported_file = None
+
+    if fmt == "docx" or (out_path and out_path.endswith(".docx")):
+        exported_file = out_path or "output/meeting_requirements.docx"
+        MeetingNotesParser.export_to_docx(parsed, exported_file)
+    elif fmt == "md" or (out_path and out_path.endswith(".md")):
+        exported_file = out_path or "output/meeting_requirements.md"
+        MeetingNotesParser.export_to_markdown(parsed, exported_file)
+
+    return {
+        "success": True,
+        "parsed": parsed.to_dict(),
+        "exported_file": exported_file,
+    }
+
+
+def execute_ba_wireframe_render(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.diagrams.salt_wireframe import SaltWireframeEngine
+
+    spec_raw = args["spec_path_or_text"]
+    if isinstance(spec_raw, str) and os.path.isfile(spec_raw):
+        with open(spec_raw, "r", encoding="utf-8") as f:
+            content = f.read()
+        try:
+            spec_data = json.loads(content)
+        except Exception:
+            spec_data = content
+    else:
+        spec_data = spec_raw
+
+    out_png = args["output_png_path"]
+    scale = float(args.get("scale", 2.0))
+    return SaltWireframeEngine.render_salt_to_png(spec_data, out_png, scale=scale)
+
+
+def execute_doc_list_printers(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.printing import PrinterManager
+
+    printers = PrinterManager.list_printers()
+    default_p = PrinterManager.get_default_printer()
+    return {
+        "success": True,
+        "total_printers": len(printers),
+        "default_printer": default_p,
+        "printers": printers,
+    }
+
+
+def execute_doc_print_job(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.printing import PrinterManager
+
+    opt_options = {
+        "grayscale": args.get("grayscale", False),
+        "n_up": int(args.get("n_up", 1)),
+        "booklet": args.get("booklet", False),
+        "watermark": args.get("watermark"),
+    }
+    return PrinterManager.print_file(
+        file_path=args["file_path"],
+        printer_name=args.get("printer_name"),
+        copies=int(args.get("copies", 1)),
+        optimizer_options=opt_options,
+    )
+
+
 TOOL_DISPATCHER = {
     "doc_convert": execute_doc_convert,
     "doc_inspect": execute_doc_inspect,
@@ -1935,16 +2222,23 @@ TOOL_DISPATCHER = {
     "docx_insert_paragraph": execute_docx_insert_paragraph,
     "docx_insert_table": execute_docx_insert_table,
     "xlsx_formula_helper": execute_xlsx_formula_helper,
-    # BA Enterprise Workstation Tools (from Top 4 Open-Source Repos)
+    # BA Enterprise Workstation Tools
     "ba_story_lint": execute_ba_story_lint,
     "ba_rtm_matrix": execute_ba_rtm_matrix,
     "ba_dbml_convert": execute_ba_dbml_convert,
     "ba_sql_integrity_suite": execute_ba_sql_integrity_suite,
     "ba_obsidian_export_vault": execute_ba_obsidian_export_vault,
     "ba_obsidian_compile_vault": execute_ba_obsidian_compile_vault,
+    "ba_openapi_scan": execute_ba_openapi_scan,
+    "ba_decision_table": execute_ba_decision_table,
+    "ba_meeting_parse": execute_ba_meeting_parse,
+    "ba_wireframe_render": execute_ba_wireframe_render,
+    # Enterprise Printing Engine Tools
+    "doc_list_printers": execute_doc_list_printers,
+    "doc_print_job": execute_doc_print_job,
     # Cloudflare Security Audit Tool
     "doc_security_audit": execute_doc_security_audit,
-    # v4.6.0 Enterprise Upgrade Tools (5 new tools -> 28 total)
+    # Enterprise Omni-Pipeline & Reporting Tools
     "pdf_crypto_sign_and_pdfa": execute_pdf_crypto_sign_and_pdfa,
     "xlsx_to_brief_report": execute_xlsx_to_brief_report,
     "xlsx_consolidate_workbooks": execute_xlsx_consolidate_workbooks,

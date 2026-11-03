@@ -92,6 +92,12 @@ class TestMCPServer(unittest.TestCase):
             "ba_sql_integrity_suite",
             "ba_obsidian_export_vault",
             "ba_obsidian_compile_vault",
+            "ba_openapi_scan",
+            "ba_decision_table",
+            "ba_meeting_parse",
+            "ba_wireframe_render",
+            "doc_list_printers",
+            "doc_print_job",
             "doc_security_audit",
             "pdf_crypto_sign_and_pdfa",
             "xlsx_to_brief_report",
@@ -99,7 +105,7 @@ class TestMCPServer(unittest.TestCase):
             "doc_run_pipeline",
             "diagram_from_code",
         ]
-        self.assertEqual(len(tools), 32)
+        self.assertEqual(len(tools), 38)
         for expected in expected_tools:
             self.assertIn(expected, tool_names)
 

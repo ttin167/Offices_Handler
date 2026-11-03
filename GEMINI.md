@@ -40,6 +40,7 @@ Khi bắt đầu làm bất kỳ tác vụ nào thuộc domain dưới đây, **
 | Security audit, Cloudflare, Macro scan, Formula/DDE Injection, PII scrubbing, XXE | `rule_security_audit_standards.md` |
 | Version bump, release mới, cập nhật phiên bản, package.json, changelog | `rule_version_synchronization_and_release_invariants.md` |
 | Feature completion, hoàn tất tính năng, cập nhật changelog, architecture, doc sync | `rule_feature_lifecycle_and_doc_sync.md` |
+| Render Cloud deploy, render.yaml, Dockerfile, 512MB RAM, Build Cache | `rule_render_cloud_deployment_and_sync.md` |
 | `/learn` invoked, writing new Rule, writing new Skill | `rule_learning_and_skill_authoring.md` |
 | git commit, git push | `rule_git_workflow.md` |
 

@@ -11,14 +11,31 @@ Features:
 from __future__ import annotations
 
 import datetime
+import json
 import os
+from pathlib import Path
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import openpyxl
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
+
+try:
+    import yaml
+except ImportError:
+    yaml = None
+
+try:
+    from docx import Document
+    from docx.shared import Inches, Pt, RGBColor
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.enum.table import WD_TABLE_ALIGNMENT
+    from docx.oxml import parse_xml
+    from docx.oxml.ns import nsdecls
+except ImportError:
+    Document = None
 
 
 @dataclass
@@ -236,6 +253,182 @@ class DataDictionaryScanner:
 
         return tables
 
+    @classmethod
+    def scan_openapi(cls, spec_input: Union[str, dict, Path]) -> Dict[str, Any]:
+        """
+        Parses an OpenAPI 3.x or Swagger 2.0 specification (dict, JSON/YAML string, or file path).
+        Extracts endpoints, schemas, parameters, and translates them into DataField dictionaries.
+        """
+        raw_dict: Dict[str, Any] = {}
+        if isinstance(spec_input, dict):
+            raw_dict = spec_input
+        elif isinstance(spec_input, (str, Path)):
+            spec_str = str(spec_input).strip()
+            if os.path.isfile(spec_str):
+                with open(spec_str, "r", encoding="utf-8") as f:
+                    content = f.read()
+            else:
+                content = spec_str
+
+            try:
+                raw_dict = json.loads(content)
+            except Exception:
+                if yaml is not None:
+                    try:
+                        raw_dict = yaml.safe_load(content) or {}
+                    except Exception as ye:
+                        raise ValueError(f"Không thể phân tích định dạng OpenAPI (JSON/YAML): {ye}")
+                else:
+                    raise ValueError("Tệp không phải JSON hợp lệ và thư viện PyYAML chưa được cài đặt.")
+
+        info = raw_dict.get("info", {})
+        title = info.get("title", "API Contract Specification")
+        version = str(info.get("version", "1.0.0"))
+        description = info.get("description", "")
+        spec_version = raw_dict.get("openapi") or raw_dict.get("swagger") or "3.0.0"
+
+        components = raw_dict.get("components", {})
+        schemas_raw = components.get("schemas", {}) if "components" in raw_dict else raw_dict.get("definitions", {})
+
+        tables: List[Dict[str, Any]] = []
+        all_fields: List[DataField] = []
+
+        def _map_openapi_type(prop: Dict[str, Any]) -> str:
+            t = prop.get("type", "string")
+            fmt = prop.get("format", "")
+            if t == "integer":
+                return "BIGINT" if fmt == "int64" else "INT"
+            elif t == "number":
+                return "FLOAT" if fmt == "float" else "DECIMAL(18,4)"
+            elif t == "boolean":
+                return "BOOLEAN"
+            elif t == "string":
+                if fmt in ("date", "date-time"):
+                    return "DATETIME"
+                elif fmt == "binary":
+                    return "BLOB/BYTEA"
+                elif fmt == "uuid":
+                    return "UUID"
+                max_l = prop.get("maxLength")
+                return f"VARCHAR({max_l})" if max_l else "VARCHAR(255)"
+            elif t == "array":
+                items = prop.get("items", {})
+                inner_type = items.get("type", "object") if isinstance(items, dict) else "OBJECT"
+                return f"ARRAY<{str(inner_type).upper()}>"
+            elif t == "object":
+                return "JSON/OBJECT"
+            return str(t).upper()
+
+        for schema_name, schema_def in schemas_raw.items():
+            if not isinstance(schema_def, dict):
+                continue
+            properties = schema_def.get("properties", {})
+            required_props = set(schema_def.get("required", []))
+
+            schema_fields: List[DataField] = []
+            for prop_name, prop_def in properties.items():
+                if not isinstance(prop_def, dict):
+                    continue
+                d_type = _map_openapi_type(prop_def)
+                is_req = prop_name in required_props
+                nullable_val = "NO" if is_req else "YES"
+                if "nullable" in prop_def:
+                    nullable_val = "YES" if prop_def["nullable"] else "NO"
+
+                rules_list = []
+                if "minimum" in prop_def: rules_list.append(f"min: {prop_def['minimum']}")
+                if "maximum" in prop_def: rules_list.append(f"max: {prop_def['maximum']}")
+                if "minLength" in prop_def: rules_list.append(f"minLen: {prop_def['minLength']}")
+                if "maxLength" in prop_def: rules_list.append(f"maxLen: {prop_def['maxLength']}")
+                if "pattern" in prop_def: rules_list.append(f"regex: {prop_def['pattern']}")
+                if "enum" in prop_def: rules_list.append(f"enum: {prop_def['enum']}")
+
+                samples = []
+                if "example" in prop_def:
+                    samples.append(str(prop_def["example"]))
+                elif "default" in prop_def:
+                    samples.append(str(prop_def["default"]))
+
+                is_pk = prop_name.lower() in ("id", f"{schema_name.lower()}_id", f"{schema_name.lower()}id")
+
+                df = DataField(
+                    field_name=prop_name,
+                    display_name=prop_def.get("title") or prop_name.replace("_", " ").title(),
+                    data_type=d_type,
+                    nullable=nullable_val,
+                    is_primary_key=is_pk,
+                    description=prop_def.get("description") or f"Thuộc tính {prop_name} trong đối tượng {schema_name}.",
+                    business_rules="; ".join(rules_list),
+                    sample_values=samples
+                )
+                schema_fields.append(df)
+                all_fields.append(df)
+
+            tables.append({
+                "table_name": schema_name,
+                "fields": [f.to_dict() for f in schema_fields],
+                "raw_fields": schema_fields
+            })
+
+        endpoints: List[Dict[str, Any]] = []
+        paths = raw_dict.get("paths", {})
+        for path_str, path_item in paths.items():
+            if not isinstance(path_item, dict):
+                continue
+            for method in ("get", "post", "put", "patch", "delete", "options", "head"):
+                op = path_item.get(method)
+                if not isinstance(op, dict):
+                    continue
+                op_id = op.get("operationId") or f"{method.upper()} {path_str}"
+                summary = op.get("summary") or op.get("description") or ""
+                tags = op.get("tags", [])
+
+                param_fields = []
+                for p in op.get("parameters", []):
+                    if not isinstance(p, dict):
+                        continue
+                    p_name = p.get("name", "")
+                    p_in = p.get("in", "query")
+                    p_req = p.get("required", False)
+                    p_schema = p.get("schema", {})
+                    p_type = _map_openapi_type(p_schema) if isinstance(p_schema, dict) and p_schema else "STRING"
+                    param_fields.append({
+                        "name": p_name,
+                        "in": p_in,
+                        "required": p_req,
+                        "type": p_type,
+                        "description": p.get("description", "")
+                    })
+
+                resps = []
+                for status_code, resp_def in op.get("responses", {}).items():
+                    resps.append({
+                        "status": str(status_code),
+                        "description": resp_def.get("description", "") if isinstance(resp_def, dict) else str(resp_def)
+                    })
+
+                endpoints.append({
+                    "method": method.upper(),
+                    "path": path_str,
+                    "operation_id": op_id,
+                    "summary": summary,
+                    "tags": tags,
+                    "parameters": param_fields,
+                    "responses": resps
+                })
+
+        return {
+            "title": title,
+            "version": version,
+            "spec_version": spec_version,
+            "description": description,
+            "endpoints_count": len(endpoints),
+            "schemas_count": len(tables),
+            "tables": tables,
+            "endpoints": endpoints,
+            "all_fields_count": len(all_fields)
+        }
+
 
 class FieldMappingEngine:
     """Generates Source-to-Target Data Mapping Matrices for System Integrations."""
@@ -408,4 +601,317 @@ class FieldMappingEngine:
         os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
         wb.save(output_path)
         return output_path
+
+    @staticmethod
+    def export_openapi_to_excel(api_data: Dict[str, Any], output_path: str) -> str:
+        wb = openpyxl.Workbook()
+        
+        # Sheet 1: Endpoints
+        ws1 = wb.active
+        ws1.title = "API_Endpoints"
+        ws1.views.sheetView[0].showGridLines = True
+
+        title = api_data.get("title", "API Contract")
+        version = api_data.get("version", "1.0.0")
+
+        ws1.merge_cells("A1:E1")
+        c1 = ws1["A1"]
+        c1.value = f"DANH MỤC API ENDPOINTS — {title.upper()} (v{version})"
+        c1.font = Font(name="Segoe UI", size=13, bold=True, color="FFFFFF")
+        c1.fill = PatternFill(start_color="1E3A8A", end_color="1E3A8A", fill_type="solid")
+        c1.alignment = Alignment(horizontal="center", vertical="center")
+        ws1.row_dimensions[1].height = 36
+
+        headers1 = ["STT", "Phương Thức", "Đường Dẫn Endpoint", "Tóm Tắt Chức Năng", "Tham Số / Yêu Cầu"]
+        ws1.row_dimensions[3].height = 26
+        header_fill = PatternFill(start_color="0F172A", end_color="0F172A", fill_type="solid")
+        header_font = Font(name="Segoe UI", size=10, bold=True, color="FFFFFF")
+        for col_idx, h in enumerate(headers1, start=1):
+            cell = ws1.cell(row=3, column=col_idx, value=h)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        method_colors = {
+            "GET": ("0284C7", "F0F9FF"),
+            "POST": ("16A34A", "F0FDF4"),
+            "PUT": ("D97706", "FFFBEB"),
+            "PATCH": ("CA8A04", "FEFCE8"),
+            "DELETE": ("DC2626", "FEF2F2"),
+        }
+
+        endpoints = api_data.get("endpoints", [])
+        for idx, ep in enumerate(endpoints, start=1):
+            r = 3 + idx
+            ws1.row_dimensions[r].height = 24
+            ws1.cell(row=r, column=1, value=idx).alignment = Alignment(horizontal="center", vertical="center")
+
+            m = ep.get("method", "GET")
+            m_cell = ws1.cell(row=r, column=2, value=m)
+            fg_color, bg_color = method_colors.get(m, ("475569", "F8FAFC"))
+            m_cell.font = Font(name="Segoe UI", size=9.5, bold=True, color=fg_color)
+            m_cell.fill = PatternFill(start_color=bg_color, end_color=bg_color, fill_type="solid")
+            m_cell.alignment = Alignment(horizontal="center", vertical="center")
+
+            p_cell = ws1.cell(row=r, column=3, value=ep.get("path", ""))
+            p_cell.font = Font(name="Consolas", size=9.5, bold=True, color="0F172A")
+            p_cell.alignment = Alignment(horizontal="left", vertical="center")
+
+            ws1.cell(row=r, column=4, value=ep.get("summary", "")).alignment = Alignment(horizontal="left", vertical="center")
+
+            # Format parameters
+            params = ep.get("parameters", [])
+            p_desc = ", ".join([f"{p.get('name')}:{p.get('type')}" for p in params[:4]]) if params else "-"
+            ws1.cell(row=r, column=5, value=p_desc).alignment = Alignment(horizontal="left", vertical="center")
+
+            for c in range(1, 6):
+                ws1.cell(row=r, column=c).border = Border(
+                    top=Side(style="thin", color="E2E8F0"), bottom=Side(style="thin", color="E2E8F0"),
+                    left=Side(style="thin", color="E2E8F0"), right=Side(style="thin", color="E2E8F0")
+                )
+
+        ws1.column_dimensions["A"].width = 6
+        ws1.column_dimensions["B"].width = 14
+        ws1.column_dimensions["C"].width = 38
+        ws1.column_dimensions["D"].width = 36
+        ws1.column_dimensions["E"].width = 30
+
+        # Sheet 2: Data Dictionary (All Schemas)
+        ws2 = wb.create_sheet(title="Data_Schemas")
+        ws2.views.sheetView[0].showGridLines = True
+
+        ws2.merge_cells("A1:H1")
+        c2 = ws2["A1"]
+        c2.value = f"TỪ ĐIỂN DỮ LIỆU ĐỐI TƯỢNG (DATA SCHEMAS DICTIONARY) — {title.upper()}"
+        c2.font = Font(name="Segoe UI", size=13, bold=True, color="FFFFFF")
+        c2.fill = PatternFill(start_color="0F172A", end_color="0F172A", fill_type="solid")
+        c2.alignment = Alignment(horizontal="center", vertical="center")
+        ws2.row_dimensions[1].height = 36
+
+        headers2 = ["STT", "Đối Tượng / Schema", "Tên Thuộc Tính", "Kiểu Dữ Liệu", "Bắt Buộc?", "Ràng Buộc / Rules", "Mô Tả", "Ví Dụ (Sample)"]
+        ws2.row_dimensions[3].height = 26
+        for col_idx, h in enumerate(headers2, start=1):
+            cell = ws2.cell(row=3, column=col_idx, value=h)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        curr_row = 4
+        item_stt = 1
+        for tbl in api_data.get("tables", []):
+            s_name = tbl.get("table_name", "")
+            for fld in tbl.get("fields", []):
+                ws2.row_dimensions[curr_row].height = 22
+                ws2.cell(row=curr_row, column=1, value=item_stt).alignment = Alignment(horizontal="center", vertical="center")
+                ws2.cell(row=curr_row, column=2, value=s_name).font = Font(name="Segoe UI", size=9.5, bold=True, color="1E3A8A")
+                ws2.cell(row=curr_row, column=3, value=fld.get("field", "")).font = Font(name="Consolas", size=9.5, color="0284C7")
+                ws2.cell(row=curr_row, column=4, value=fld.get("type", "VARCHAR")).alignment = Alignment(horizontal="center", vertical="center")
+
+                null_cell = ws2.cell(row=curr_row, column=5, value=fld.get("nullable", "YES"))
+                null_cell.alignment = Alignment(horizontal="center", vertical="center")
+                if fld.get("nullable") == "NO":
+                    null_cell.font = Font(name="Segoe UI", size=9.5, bold=True, color="DC2626")
+
+                ws2.cell(row=curr_row, column=6, value=fld.get("rules", "-")).alignment = Alignment(horizontal="left", vertical="center")
+                ws2.cell(row=curr_row, column=7, value=fld.get("description", "")).alignment = Alignment(horizontal="left", vertical="center")
+                ws2.cell(row=curr_row, column=8, value=fld.get("samples", "-")).alignment = Alignment(horizontal="left", vertical="center")
+
+                for c in range(1, 9):
+                    ws2.cell(row=curr_row, column=c).border = Border(
+                        top=Side(style="thin", color="E2E8F0"), bottom=Side(style="thin", color="E2E8F0"),
+                        left=Side(style="thin", color="E2E8F0"), right=Side(style="thin", color="E2E8F0")
+                    )
+
+                curr_row += 1
+                item_stt += 1
+
+        ws2.column_dimensions["A"].width = 6
+        ws2.column_dimensions["B"].width = 22
+        ws2.column_dimensions["C"].width = 25
+        ws2.column_dimensions["D"].width = 16
+        ws2.column_dimensions["E"].width = 12
+        ws2.column_dimensions["F"].width = 24
+        ws2.column_dimensions["G"].width = 34
+        ws2.column_dimensions["H"].width = 20
+
+        os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+        wb.save(output_path)
+        return output_path
+
+    @staticmethod
+    def export_openapi_to_docx(api_data: Dict[str, Any], output_path: str) -> str:
+        if Document is None:
+            raise RuntimeError("Thư viện python-docx chưa được cài đặt.")
+
+        doc = Document()
+        for sec in doc.sections:
+            sec.top_margin = Inches(0.8)
+            sec.bottom_margin = Inches(0.8)
+            sec.left_margin = Inches(0.9)
+            sec.right_margin = Inches(0.9)
+
+        # Title
+        p_title = doc.add_paragraph()
+        p_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        title = api_data.get("title", "API Contract Specification")
+        version = api_data.get("version", "1.0.0")
+        r_title = p_title.add_run(f"ĐẶC TẢ GIAO DIỆN LẬP TRÌNH ỨNG DỤNG (API SPECIFICATION)\n{title.upper()}")
+        r_title.bold = True
+        r_title.font.size = Pt(16)
+        r_title.font.color.rgb = RGBColor(15, 23, 42)
+
+        p_sub = doc.add_paragraph()
+        p_sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        r_sub = p_sub.add_run(f"Phiên bản API: v{version} | OpenAPI: {api_data.get('spec_version', '3.0')} | Ngày xuất: {datetime.date.today().strftime('%d/%m/%Y')}")
+        r_sub.italic = True
+        r_sub.font.size = Pt(10)
+        r_sub.font.color.rgb = RGBColor(100, 116, 139)
+
+        doc.add_paragraph().paragraph_format.space_after = Pt(12)
+
+        # 1. Endpoints Table
+        doc.add_heading("1. Danh Mục Các Điểm Cuối (API Endpoints)", level=1)
+        endpoints = api_data.get("endpoints", [])
+        if endpoints:
+            tbl_ep = doc.add_table(rows=len(endpoints) + 1, cols=4)
+            tbl_ep.alignment = WD_TABLE_ALIGNMENT.CENTER
+            tbl_ep.autofit = False
+
+            headers = ["STT", "Phương Thức", "Đường Dẫn Endpoint", "Mô Tả Chức Năng"]
+            col_widths = [Inches(0.6), Inches(1.3), Inches(2.8), Inches(2.0)]
+
+            # Header row
+            hdr_cells = tbl_ep.rows[0].cells
+            tbl_ep.rows[0]._tr.get_or_add_trPr().append(parse_xml(f'<w:tblHeader {nsdecls("w")}/>'))
+            tbl_ep.rows[0]._tr.get_or_add_trPr().append(parse_xml(f'<w:cantSplit {nsdecls("w")}/>'))
+
+            for i, h_text in enumerate(headers):
+                cell = hdr_cells[i]
+                cell.width = col_widths[i]
+                p = cell.paragraphs[0]
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                r = p.add_run(h_text)
+                r.bold = True
+                r.font.size = Pt(9.5)
+                r.font.color.rgb = RGBColor(255, 255, 255)
+                tcPr = cell._tc.get_or_add_tcPr()
+                tcPr.append(parse_xml(f'<w:shd {nsdecls("w")} w:fill="0F172A"/>'))
+                tcPr.append(parse_xml(f'<w:vAlign {nsdecls("w")} w:val="center"/>'))
+
+            for idx, ep in enumerate(endpoints, start=1):
+                row = tbl_ep.rows[idx]
+                row._tr.get_or_add_trPr().append(parse_xml(f'<w:cantSplit {nsdecls("w")}/>'))
+                
+                cells = row.cells
+                for ci, w in enumerate(col_widths):
+                    cells[ci].width = w
+                    tcPr = cells[ci]._tc.get_or_add_tcPr()
+                    tcPr.append(parse_xml(f'<w:vAlign {nsdecls("w")} w:val="center"/>'))
+                    if idx % 2 == 0:
+                        tcPr.append(parse_xml(f'<w:shd {nsdecls("w")} w:fill="F8FAFC"/>'))
+
+                cells[0].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                cells[0].paragraphs[0].add_run(str(idx)).font.size = Pt(9)
+
+                m = ep.get("method", "GET")
+                p_m = cells[1].paragraphs[0]
+                p_m.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                r_m = p_m.add_run(m)
+                r_m.bold = True
+                r_m.font.size = Pt(9)
+                if m == "GET": r_m.font.color.rgb = RGBColor(2, 132, 199)
+                elif m == "POST": r_m.font.color.rgb = RGBColor(22, 163, 74)
+                elif m == "PUT": r_m.font.color.rgb = RGBColor(217, 119, 6)
+                elif m == "DELETE": r_m.font.color.rgb = RGBColor(220, 38, 38)
+
+                p_path = cells[2].paragraphs[0]
+                r_path = p_path.add_run(ep.get("path", ""))
+                r_path.font.name = "Consolas"
+                r_path.font.size = Pt(8.5)
+
+                p_desc = cells[3].paragraphs[0]
+                r_desc = p_desc.add_run(ep.get("summary", "-"))
+                r_desc.font.size = Pt(9)
+
+        doc.add_paragraph().paragraph_format.space_after = Pt(12)
+
+        # 2. Schemas Table
+        doc.add_heading("2. Từ Điển Dữ Liệu Đối Tượng (Data Schemas)", level=1)
+        for tbl in api_data.get("tables", []):
+            s_name = tbl.get("table_name", "Schema")
+            fields = tbl.get("fields", [])
+
+            h2 = doc.add_heading(f"Đối tượng (Schema): {s_name}", level=2)
+            h2.paragraph_format.space_before = Pt(8)
+            h2.paragraph_format.space_after = Pt(4)
+
+            if not fields:
+                doc.add_paragraph("Không có thuộc tính khai báo.")
+                continue
+
+            tbl_schema = doc.add_table(rows=len(fields) + 1, cols=6)
+            tbl_schema.alignment = WD_TABLE_ALIGNMENT.CENTER
+            tbl_schema.autofit = False
+
+            s_headers = ["STT", "Thuộc Tính (Field)", "Kiểu", "Null?", "Rules / Ràng Buộc", "Mô Tả Nghiệp Vụ"]
+            s_widths = [Inches(0.5), Inches(1.8), Inches(1.1), Inches(0.7), Inches(1.4), Inches(1.5)]
+
+            # Header
+            tbl_schema.rows[0]._tr.get_or_add_trPr().append(parse_xml(f'<w:tblHeader {nsdecls("w")}/>'))
+            tbl_schema.rows[0]._tr.get_or_add_trPr().append(parse_xml(f'<w:cantSplit {nsdecls("w")}/>'))
+            for ci, h_text in enumerate(s_headers):
+                cell = tbl_schema.rows[0].cells[ci]
+                cell.width = s_widths[ci]
+                p = cell.paragraphs[0]
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                r = p.add_run(h_text)
+                r.bold = True
+                r.font.size = Pt(9)
+                r.font.color.rgb = RGBColor(255, 255, 255)
+                tcPr = cell._tc.get_or_add_tcPr()
+                tcPr.append(parse_xml(f'<w:shd {nsdecls("w")} w:fill="1E293B"/>'))
+                tcPr.append(parse_xml(f'<w:vAlign {nsdecls("w")} w:val="center"/>'))
+
+            for f_idx, fld in enumerate(fields, start=1):
+                row = tbl_schema.rows[f_idx]
+                row._tr.get_or_add_trPr().append(parse_xml(f'<w:cantSplit {nsdecls("w")}/>'))
+                cells = row.cells
+                for ci, w in enumerate(s_widths):
+                    cells[ci].width = w
+                    tcPr = cells[ci]._tc.get_or_add_tcPr()
+                    tcPr.append(parse_xml(f'<w:vAlign {nsdecls("w")} w:val="center"/>'))
+                    if f_idx % 2 == 0:
+                        tcPr.append(parse_xml(f'<w:shd {nsdecls("w")} w:fill="F8FAFC"/>'))
+
+                cells[0].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                cells[0].paragraphs[0].add_run(str(f_idx)).font.size = Pt(8.5)
+
+                cells[1].paragraphs[0].add_run(fld.get("field", "")).font.name = "Consolas"
+                cells[1].paragraphs[0].runs[0].font.size = Pt(8.5)
+                cells[1].paragraphs[0].runs[0].font.color.rgb = RGBColor(2, 132, 199)
+
+                cells[2].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                cells[2].paragraphs[0].add_run(fld.get("type", "VARCHAR")).font.size = Pt(8.5)
+
+                cells[3].paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
+                r_null = cells[3].paragraphs[0].add_run(fld.get("nullable", "YES"))
+                r_null.font.size = Pt(8.5)
+                if fld.get("nullable") == "NO":
+                    r_null.bold = True
+                    r_null.font.color.rgb = RGBColor(220, 38, 38)
+
+                cells[4].paragraphs[0].add_run(fld.get("rules", "-")).font.size = Pt(8.5)
+                cells[5].paragraphs[0].add_run(fld.get("description", "")).font.size = Pt(8.5)
+
+            doc.add_paragraph().paragraph_format.space_after = Pt(8)
+
+        os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+        doc.save(output_path)
+        return output_path
+
+
+def scan_openapi_spec(spec_input: Union[str, dict, Path]) -> Dict[str, Any]:
+    """Standalone helper function to scan OpenAPI / Swagger specifications."""
+    return DataDictionaryScanner.scan_openapi(spec_input)
+
 
