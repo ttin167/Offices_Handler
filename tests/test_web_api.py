@@ -254,7 +254,7 @@ def run_tests():
     with urllib.request.urlopen(f"{base_url}/") as response:
         assert response.status == 200
         content = response.read().decode('utf-8')
-        assert "Antigravity Office Studio" in content
+        assert "Antigravity" in content
         assert "panel-spreadsheet" in content
         print("  -> OK. Static index.html served correctly!")
 

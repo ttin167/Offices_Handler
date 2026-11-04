@@ -134,6 +134,8 @@ import {
 
   Book,
 
+  Terminal,
+
 
 
 } from 'lucide';
@@ -286,6 +288,8 @@ const studioIcons = {
   Plus,
 
   Book,
+
+  Terminal,
 
 };
 
