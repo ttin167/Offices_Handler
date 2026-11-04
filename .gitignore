@@ -54,7 +54,8 @@ Desktop.ini
 # Heavy precompiled binaries (download on demand to prevent bloating repo history)
 *.jar
 tools/plantuml.jar
-
+tools/disable_mpo.reg
+tools/enable_mpo.reg
 # Web runtime uploads, outputs & slide previews
 output/
 .web_uploads/

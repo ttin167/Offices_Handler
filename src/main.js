@@ -153,6 +153,7 @@ import { initDocumentHub } from './modules/document_hub.js';
 import { initDiagramStudio } from './modules/diagram_studio.js';
 import { initFormulaPlaybook } from './modules/formula_playbook.js';
 import { initPrintStudio } from './modules/print_studio.js';
+import { initGuideModal } from './modules/guide_modal.js';
 
 
 
@@ -687,6 +688,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initDocumentHub(sharedCtx);
   initDiagramStudio(sharedCtx);
   initPrintStudio(sharedCtx);
+  initGuideModal(sharedCtx);
 
 
 
