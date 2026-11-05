@@ -1097,25 +1097,47 @@ BA_TOOL_DEFINITIONS = [
     },
     {
         "name": "ba_wireframe_render",
-        "description": "Renders PlantUML Salt UI Wireframe mockups into vector-grade 300+ DPI PNG images from JSON specs or raw Salt code.",
+        "description": "Renders PlantUML Salt UI Wireframe mockups into pure vector SVG or 300+ DPI PNG images from JSON specs, 6 built-in BA templates, or raw Salt code, with optional 1-Click Word (.docx) injection.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "spec_path_or_text": {
                     "type": "string",
-                    "description": "Path to wireframe JSON spec or raw Salt code"
+                    "description": "Path to wireframe JSON spec, raw Salt code, or template ID"
+                },
+                "template": {
+                    "type": "string",
+                    "enum": ["login_auth", "crud_table", "wizard_form", "modal_confirm", "mobile_screen", "dashboard_kpi"],
+                    "description": "Optional built-in BA wireframe template ID"
                 },
                 "output_png_path": {
                     "type": "string",
-                    "description": "Destination PNG path"
+                    "description": "Destination output path (.png or .svg)"
+                },
+                "format": {
+                    "type": "string",
+                    "enum": ["png", "svg", "both"],
+                    "default": "png",
+                    "description": "Output format: 'png' (300 DPI), 'svg' (pure vector), or 'both'"
+                },
+                "inject_docx_path": {
+                    "type": "string",
+                    "description": "Optional Word (.docx) file path to inject the rendered wireframe into (ERR_DOCX_005)"
+                },
+                "heading": {
+                    "type": "string",
+                    "description": "Optional target heading in Word document"
+                },
+                "caption": {
+                    "type": "string",
+                    "description": "Optional figure caption below wireframe in Word document"
                 },
                 "scale": {
                     "type": "number",
                     "default": 2.0,
                     "description": "Resolution scale factor"
                 }
-            },
-            "required": ["spec_path_or_text", "output_png_path"]
+            }
         }
     },
     {
@@ -2310,20 +2332,49 @@ def execute_ba_meeting_parse(args: Dict[str, Any]) -> Dict[str, Any]:
 def execute_ba_wireframe_render(args: Dict[str, Any]) -> Dict[str, Any]:
     from core.diagrams.salt_wireframe import SaltWireframeEngine
 
-    spec_raw = args["spec_path_or_text"]
+    spec_raw = args.get("spec_path_or_text") or args.get("template") or "login_auth"
     if isinstance(spec_raw, str) and os.path.isfile(spec_raw):
         with open(spec_raw, "r", encoding="utf-8") as f:
             content = f.read()
         try:
-            spec_data = json.loads(content)
+            spec_data: Any = json.loads(content)
         except Exception:
             spec_data = content
     else:
         spec_data = spec_raw
 
-    out_png = args["output_png_path"]
+    inject_docx = args.get("inject_docx_path")
+    if inject_docx:
+        return SaltWireframeEngine.inject_wireframe_into_docx(
+            docx_path=inject_docx,
+            spec_or_code=spec_data,
+            heading=args.get("heading"),
+            caption=args.get("caption") or "Hình: Phác thảo giao diện màn hình (UI Wireframe Mockup)",
+        )
+
+    fmt = str(args.get("format", "png")).lower()
+    out_path = args.get("output_png_path") or args.get("output_path")
     scale = float(args.get("scale", 2.0))
-    return SaltWireframeEngine.render_salt_to_png(spec_data, out_png, scale=scale)
+
+    if fmt == "svg" or (out_path and out_path.lower().endswith(".svg")):
+        return SaltWireframeEngine.render_salt_to_svg(spec_data, output_path=out_path)
+    if fmt == "both":
+        base_out = out_path or "output/wireframe.png"
+        svg_out = os.path.splitext(base_out)[0] + ".svg"
+        png_out = os.path.splitext(base_out)[0] + ".png"
+        res_svg = SaltWireframeEngine.render_salt_to_svg(spec_data, output_path=svg_out)
+        res_png = SaltWireframeEngine.render_salt_to_png(spec_data, output_path=png_out, scale=scale)
+        return {
+            "success": True,
+            "svg_path": res_svg["svg_path"],
+            "png_path": res_png["png_path"],
+            "svg": res_svg["svg"],
+            "dimensions_px": res_png["dimensions_px"],
+            "salt_code": res_svg["salt_code"],
+        }
+
+    target_png = out_path or "output/wireframe.png"
+    return SaltWireframeEngine.render_salt_to_png(spec_data, target_png, scale=scale)
 
 
 def execute_doc_list_printers(args: Dict[str, Any]) -> Dict[str, Any]:

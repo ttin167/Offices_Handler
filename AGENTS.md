@@ -89,7 +89,7 @@ When user requests you to perform document tasks or draw diagrams, run these com
 | **OpenAPI / Swagger Data Dict Scan** | `python ai_tools_cli.py ba-openapi <swagger.json> -o <dict.xlsx>` |
 | **BABOK Decision Table Matrix** | `python ai_tools_cli.py ba-decision-table <spec.json> -o <matrix.docx> [--audit]` |
 | **Meeting Notes to Stories Parser** | `python ai_tools_cli.py ba-meeting-parser <notes.md> -o <stories.docx>` |
-| **PlantUML Salt UI Wireframe Render** | `python ai_tools_cli.py wireframe-render <spec.json> -o <wireframe.png>` |
+| **PlantUML Salt UI Wireframe Render** | `python ai_tools_cli.py wireframe-render [<spec.json>] [-t <template>] [-f {png,svg,both}] [--inject-doc <doc.docx>] -o <out>` |
 | **Init Labor Law Local Knowledge Vault** | `python ai_tools_cli.py law-init-vault [-o <dir>]` |
 | **Labor Law Sub-10ms Local FTS5 Search** | `python ai_tools_cli.py law-search <query> [-c <cat>] [-l <n>]` |
 | **Legal 2026+ Story Compliance Linter** | `python ai_tools_cli.py law-story-lint <story.json>` |

@@ -901,6 +901,14 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                 })
                 return
 
+            elif path == "/api/diagram/wireframe/templates":
+                from core.diagrams.salt_wireframe import SaltWireframeEngine
+                self._send_json({
+                    "success": True,
+                    "templates": SaltWireframeEngine.get_templates()
+                })
+                return
+
             elif path == "/api/info":
 
                 self._send_json({
@@ -1868,19 +1876,116 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
             # Diagram: PlantUML Salt UI Wireframe
             elif path == "/api/diagram/wireframe/render":
                 payload = self._read_body_json()
-                spec_or_code = payload.get("spec") or payload.get("code")
+                spec_or_code = payload.get("spec") or payload.get("code") or payload.get("template")
                 scale = float(payload.get("scale", 2.0))
+                fmt = str(payload.get("format", "png")).lower()
                 if not spec_or_code:
                     self._send_json({"success": False, "error": "Thiếu mã đặc tả giao diện Wireframe"}, status=400)
                     return
 
                 from core.diagrams.salt_wireframe import SaltWireframeEngine
                 ts = int(time.time() * 1000)
-                out_name = f"wireframe_{ts}.png"
-                out_file = os.path.join(OUTPUT_DIR, out_name)
-                res = SaltWireframeEngine.render_salt_to_png(spec_or_code, out_file, scale=scale)
+
+                if fmt == "svg":
+                    out_svg_name = f"wireframe_{ts}.svg"
+                    out_svg_file = os.path.join(OUTPUT_DIR, out_svg_name)
+                    res_svg = SaltWireframeEngine.render_salt_to_svg(spec_or_code, out_svg_file)
+                    qsvg = urllib.parse.quote(out_svg_name)
+                    self._send_json({
+                        "success": True,
+                        "svg": res_svg["svg"],
+                        "svg_url": f"/api/download/{qsvg}",
+                        "filename": out_svg_name,
+                        "download_url": f"/api/download/{qsvg}",
+                        "dimensions": res_svg["dimensions_px"],
+                        "salt_code": res_svg["salt_code"],
+                    })
+                elif fmt == "both":
+                    out_svg_name = f"wireframe_{ts}.svg"
+                    out_svg_file = os.path.join(OUTPUT_DIR, out_svg_name)
+                    res_svg = SaltWireframeEngine.render_salt_to_svg(spec_or_code, out_svg_file)
+
+                    out_png_name = f"wireframe_{ts}.png"
+                    out_png_file = os.path.join(OUTPUT_DIR, out_png_name)
+                    res_png = SaltWireframeEngine.render_salt_to_png(spec_or_code, out_png_file, scale=scale)
+
+                    qsvg = urllib.parse.quote(out_svg_name)
+                    qpng = urllib.parse.quote(out_png_name)
+                    self._send_json({
+                        "success": True,
+                        "svg": res_svg["svg"],
+                        "svg_url": f"/api/download/{qsvg}",
+                        "png_url": f"/api/download/{qpng}",
+                        "filename": out_png_name,
+                        "download_url": f"/api/download/{qpng}",
+                        "dimensions": res_png["dimensions_px"],
+                        "salt_code": res_svg["salt_code"],
+                    })
+                else:
+                    out_name = f"wireframe_{ts}.png"
+                    out_file = os.path.join(OUTPUT_DIR, out_name)
+                    res = SaltWireframeEngine.render_salt_to_png(spec_or_code, out_file, scale=scale)
+                    qbname = urllib.parse.quote(out_name)
+                    self._send_json({
+                        "success": True,
+                        "filename": out_name,
+                        "download_url": f"/api/download/{qbname}",
+                        "png_url": f"/api/download/{qbname}",
+                        "dimensions": res["dimensions_px"],
+                        "salt_code": res["salt_code"],
+                    })
+                return
+
+            # Diagram: 1-Click Wireframe Injection into Word (.docx)
+            elif path == "/api/diagram/wireframe/inject-doc":
+                payload = self._read_body_json()
+                spec_or_code = payload.get("spec") or payload.get("code") or payload.get("template")
+                if not spec_or_code:
+                    self._send_json({"success": False, "error": "Thiếu mã đặc tả giao diện Wireframe"}, status=400)
+                    return
+
+                docx_param = payload.get("docx_path") or payload.get("file")
+                heading = payload.get("heading")
+                caption = payload.get("caption") or "Hình: Phác thảo giao diện màn hình (UI Wireframe Mockup)"
+                max_width_cm = float(payload.get("max_width_cm", 14.0))
+
+                from core.diagrams.salt_wireframe import SaltWireframeEngine
+                ts = int(time.time() * 1000)
+
+                resolved_docx = resolve_file_path(docx_param) if docx_param else None
+                if resolved_docx and os.path.isfile(resolved_docx):
+                    base_stem = os.path.splitext(os.path.basename(resolved_docx))[0]
+                    out_name = f"{base_stem}_wireframe_{ts}.docx"
+                    out_file = os.path.join(OUTPUT_DIR, out_name)
+                    res = SaltWireframeEngine.inject_wireframe_into_docx(
+                        docx_path=resolved_docx,
+                        spec_or_code=spec_or_code,
+                        output_path=out_file,
+                        heading=heading,
+                        caption=caption,
+                        max_width_cm=max_width_cm,
+                    )
+                else:
+                    out_name = f"BRD_Wireframe_Spec_{ts}.docx"
+                    out_file = os.path.join(OUTPUT_DIR, out_name)
+                    res = SaltWireframeEngine.inject_wireframe_into_docx(
+                        docx_path=out_file,
+                        spec_or_code=spec_or_code,
+                        output_path=out_file,
+                        heading=heading or "Phác Thảo Giao Diện Màn Hình (UI Wireframe)",
+                        caption=caption,
+                        max_width_cm=max_width_cm,
+                    )
+
                 qbname = urllib.parse.quote(out_name)
-                self._send_json({"success": True, "filename": out_name, "download_url": f"/api/download/{qbname}", "dimensions": res["dimensions_px"]})
+                self._send_json({
+                    "success": True,
+                    "filename": out_name,
+                    "download_url": f"/api/download/{qbname}",
+                    "width_cm": res["width_cm"],
+                    "height_cm": res["height_cm"],
+                    "dimensions": res["dimensions_px"],
+                })
                 return
 
             # Enterprise Printing: Submit Print Job

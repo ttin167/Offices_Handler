@@ -147,6 +147,7 @@ import {
 
 import { initHistoryDrawer } from './modules/history_drawer.js';
 import { initRequirementsHub } from './modules/ba_requirements.js';
+import { initWireframeStudio } from './modules/wireframe_studio.js';
 import { initDataProcessStudio } from './modules/ba_data_process.js';
 import { initAuditReconStudio } from './modules/ba_audit_recon.js';
 import { initPresentationStudio } from './modules/presentation_studio.js';
@@ -547,6 +548,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const panels = {
     requirements: document.getElementById('panel-requirements'),
+    wireframe: document.getElementById('panel-wireframe'),
     'data-process': document.getElementById('panel-data-process'),
     'audit-recon': document.getElementById('panel-audit-recon'),
     documents: document.getElementById('panel-documents'),
@@ -684,6 +686,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   initRequirementsHub(sharedCtx);
+  initWireframeStudio(sharedCtx);
   initDataProcessStudio(sharedCtx);
   initAuditReconStudio(sharedCtx);
   initPresentationStudio(sharedCtx);

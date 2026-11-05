@@ -48,7 +48,9 @@ Hệ thống được tổ chức theo mô hình phân tầng chặt chẽ (Clea
 ## 2. Chi Tiết Trách Nhiệm Từng Tầng (Layer Responsibilities)
 
 ### 2.1. `core/` — Tầng Lõi Nghiệp Vụ Tài Liệu & Đồ Họa (Core Engines)
+
 Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập tài liệu văn phòng / đồ họa.
+
 - **Quy tắc phụ thuộc**: Tuyệt đối không import từ `server/`, `ui/`, hoặc `cli/`. Chỉ nhận tham số thuần túy (Python dict, dataclass, file path) và trả về kết quả.
 - **Các phân hệ cốt lõi**:
   - `core/docx/`:
@@ -112,14 +114,15 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
     - `run_doctor.py`: Tự động quét kiểm tra 12 thành phần môi trường (Python, LibreOffice, Tesseract, Chromium, PlantUML, font chữ) và xuất báo cáo JSON / Terminal kèm mã lệnh khắc phục 1-click.
   - `core/diagrams/`:
     - `bridge.py`: Điều phối sơ đồ thống nhất đa engine (Canvas, PlantUML, Mermaid, Draw.io mxGraph).
-    - `salt_wireframe.py`: Động cơ phác thảo giao diện người dùng (PlantUML Salt UI Wireframe Engine) chuyển đổi đặc tả văn bản/JSON thành vector SVG và ảnh PNG 300+ DPI nhúng tài liệu Word/Obsidian Canvas.
+    - `salt_wireframe.py`: Động cơ phác thảo giao diện người dùng (Rapid Low-Fi PlantUML Salt UI Wireframe Studio) hỗ trợ Dual-Mode (JSON Spec One-Way Generator & Direct Salt Code), thư viện 6 mẫu giao diện nghiệp vụ chuẩn BA (`WIREFRAME_TEMPLATES`), kết xuất kép vector SVG (`-tsvg` nền trong suốt monochrome) và ảnh PNG 300+ DPI (`-charset UTF-8`), cùng cơ chế nhúng 1-Click vào tài liệu Word (`.docx`) bảo toàn lề in an toàn $\le 14.0\text{cm}$ (`ERR_DOCX_005`) và dọn tệp tạm trong khối `try...finally` (`ERR_PIPE_001`).
     - `mxgraph.py`: Bộ sinh sơ đồ cấu trúc Draw.io XML native (`MX_INV_01`..`20`) và tự động nhúng vào `.docx` / `.pptx`.
     - `code_to_diagram.py`: Bộ quét mã nguồn tĩnh Python AST & SQL/Prisma DDL sinh sơ đồ Class/ERD tự động kèm bộ xuất Vector SVG thuần Python (`export_mxgraph_to_svg`).
     - `editor.py`: Trình biên tập Canvas tương tác 2 chiều.
     - `legacy/`: Các renderer kế thừa (`canvas`, `plantuml`, `mermaid`).
 
 ### 2.2. `server/` — Tầng Giao Thức & Cung Cấp Dịch Vụ (Web API, MCP, SSE)
-- `app.py`: REST API Server nhẹ nhàng dựa trên `http.server`, phục vụ Web Studio cổng `8000`. Cung cấp endpoints cho conversion, history, mail merge, ocr, diff, math, static assets, trọn bộ PDF Pro Endpoints, Atomic Office Endpoints, Formula Playbook Endpoints, trọn bộ Enterprise Printing Endpoints (`/api/print/printers`, `/api/print/job`), trọn bộ System Maintenance Endpoints (`/api/system/maintenance`, `/api/system/vitals`), và trọn bộ BA Enterprise Endpoints (`/api/ba/templates`, `/api/ba/story/lint`, `/api/ba/story/export`, `/api/ba/usecase/lint`, `/api/ba/usecase/export`, `/api/ba/brd/generate`, `/api/ba/data-dict/scan-excel`, `/api/ba/data-dict/scan-ddl`, `/api/ba/data-dict/export`, `/api/ba/reconciliation/run`, `/api/ba/uat/generate`, `/api/ba/rtm/generate`, `/api/ba/dbml/convert`, `/api/ba/satsuma/lineage`, `/api/ba/sql/test-suite`, `/api/ba/scope-creep/audit`, `/api/ba/obsidian/export-vault`, `/api/ba/obsidian/compile-vault`, `/api/ba/openapi/scan`, `/api/ba/decision-table/generate`, `/api/ba/meeting/parse`, `/api/diagram/wireframe/render`).
+
+- `app.py`: REST API Server nhẹ nhàng dựa trên `http.server`, phục vụ Web Studio cổng `8000`. Cung cấp endpoints cho conversion, history, mail merge, ocr, diff, math, static assets, trọn bộ PDF Pro Endpoints, Atomic Office Endpoints, Formula Playbook Endpoints, trọn bộ Enterprise Printing Endpoints (`/api/print/printers`, `/api/print/job`), trọn bộ System Maintenance Endpoints (`/api/system/maintenance`, `/api/system/vitals`), trọn bộ UI Wireframe Studio Endpoints (`/api/diagram/wireframe/templates`, `/api/diagram/wireframe/render`, `/api/diagram/wireframe/inject-doc`), và trọn bộ BA Enterprise Endpoints (`/api/ba/templates`, `/api/ba/story/lint`, `/api/ba/story/export`, `/api/ba/usecase/lint`, `/api/ba/usecase/export`, `/api/ba/brd/generate`, `/api/ba/data-dict/scan-excel`, `/api/ba/data-dict/scan-ddl`, `/api/ba/data-dict/export`, `/api/ba/reconciliation/run`, `/api/ba/uat/generate`, `/api/ba/rtm/generate`, `/api/ba/dbml/convert`, `/api/ba/satsuma/lineage`, `/api/ba/sql/test-suite`, `/api/ba/scope-creep/audit`, `/api/ba/obsidian/export-vault`, `/api/ba/obsidian/compile-vault`, `/api/ba/openapi/scan`, `/api/ba/decision-table/generate`, `/api/ba/meeting/parse`).
 - `mcp_server.py`: Model Context Protocol Server (STDIO JSON-RPC 2.0) tương thích với Claude Desktop, Cursor, và Antigravity IDE. Đăng ký **43 tools** chuẩn:
   - Macro Tools (11): `env_doctor`, `doc_convert`, `doc_inspect`, `doc_insert_diagram`, `docx_patch`, `docx_apply_preset`, `docx_sanitize_vietnamese`, `pptx_synthesize`, `diagram_render`, `doc_mail_merge`, `doc_redline_diff`, `doc_ocr_scan`, `pdf_quick_tools`.
   - Atomic Office Tools (8): `xlsx_set_cell`, `xlsx_set_range`, `xlsx_insert_rows`, `xlsx_find_anchor`, `docx_inspect_placeholders`, `docx_replace_text`, `docx_insert_paragraph`, `docx_insert_table`.
@@ -133,7 +136,9 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
 - `db.py`: Zero-config SQLite database (`history.db`) lưu trữ lịch sử chuyển đổi và tải tệp.
 
 ### 2.3. `cli/` — Tầng Giao Diện Dòng Lệnh (CLI Layer)
+
 `cli/ai_tools.py` và facade tại root `ai_tools_cli.py` cung cấp bộ subcommands hoàn chỉnh cho AI Agents và terminal users:
+
 - `doctor`: Kiểm tra sức khỏe môi trường.
 - `convert`: Chuyển đổi phổ quát 5 định dạng (PDF, DOCX, MD, PPTX, XLSX).
 - `md-toc`: Tạo, xem trước và tự động đồng bộ hóa mục lục tương tác trực tiếp trong tệp Markdown.
@@ -148,7 +153,7 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
 - `pdf-tools`: Bộ 16 công cụ PDF Pro Studio (`merge`, `split`, `rotate`, `clean`, `watermark`, `compress`, `redact`, `protect`, `normalize-a4`, `giap-lai`, `extract-tables`, `images-to-pdf`, `export-images-zip`, `sign`, `flatten`, `reorganize`).
 - `ocr-scan`: Bóc tách tài liệu scan và loại bỏ dấu mộc đỏ.
 - `diagram-render`, `plantuml-render`, `mermaid-render`, `spec-render`, `diagram-editor`: Sơ đồ kỹ thuật.
-- `wireframe-render`: Render phác thảo UI wireframe PlantUML Salt sang ảnh PNG/SVG phân giải cao.
+- `wireframe-render`: Render phác thảo UI wireframe PlantUML Salt sang ảnh vector SVG / PNG 300+ DPI, liệt kê 6 mẫu nghiệp vụ chuẩn BA (`--template`, `--list-templates`) và nhúng 1-click vào Word (`--inject-doc`).
 - `ba-story-lint`, `ba-story-export`: Thẩm định chất lượng User Story và xuất bản Word/Markdown.
 - `ba-usecase-lint`, `ba-usecase-export`: Đặc tả Use Cases Cockburn và xuất bản bảng OpenXML.
 - `ba-rtm-matrix`: Lập ma trận truy xuất nguồn gốc yêu cầu RTM (Excel/Word).
@@ -167,13 +172,14 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
 - `qa-audit`: Master QA diagnostic and repair pipeline 13 Cổng (`tools/unified_qa_diagnostic.py`).
 
 ### 2.4. `ui/` & `src/` — Tầng Giao Diện Người Dùng (Desktop GUI & Web Studio)
+
 - `ui/`: Desktop GUI Tkinter độc lập (`main.py`) và Native WebView App Mode (`ui/webview_launcher.py`) hỗ trợ chạy offline không cần trình duyệt.
 - `src/`: Web Studio trên nền Vite ES6 modules và Vanilla CSS Glassmorphism:
   - `src/main.js` (~295 dòng): Orchestrator nhẹ quản lý theme, toast notifications, health polling, tab routing và khởi tạo các studio modules.
-  - `src/modules/`: 10 modules phân hệ chuyên biệt: `presentation_studio.js`, `spreadsheet_studio.js`, `document_hub.js`, `diagram_studio.js`, `formula_playbook.js`, `history_drawer.js`, `ba_requirements.js`, `ba_data_process.js`, `ba_audit_recon.js`, `constants.js`.
-
+  - `src/modules/`: 13 modules phân hệ chuyên biệt: `presentation_studio.js`, `spreadsheet_studio.js`, `document_hub.js`, `diagram_studio.js`, `formula_playbook.js`, `history_drawer.js`, `ba_requirements.js`, `wireframe_studio.js`, `ba_data_process.js`, `ba_audit_recon.js`, `print_studio.js`, `guide_modal.js`, `constants.js`.
 
 ### 2.5. `tools/` — Tầng Tiện Ích QA & Giao Nộp (Diagnostics & Deliverables)
+
 - `tools/unified_qa_diagnostic.py`: Động cơ chẩn đoán toàn diện 13 Cổng cho DOCX, XLSX, PPTX, Draw.io, và ảnh scan với khả năng tự sửa lỗi (Safe Non-destructive Repair).
 - `tools/format_diff_excel.py`: Tiện ích so khớp định dạng 12 cổng bảng tính Excel.
 - `tools/bump_version.py` & `tools/sync_core_docs.py`: Tự động đồng bộ 10 điểm neo phiên bản (`ERR_VER_001`) và kiểm định đối xứng ngữ nghĩa bộ tài liệu lõi (`ERR_DOC_SYNC_001`).
@@ -185,6 +191,7 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
 ## 3. Tiêu Chuẩn Clean-Room MIT & Tương Thích Linux/Docker (Zero-COM)
 
 Dự án được thiết kế theo chuẩn Clean-Room độc lập 100% với hệ điều hành:
+
 1. **Chuỗi Fallback Zero-COM**:
    - Trên Windows: Ưu tiên Win32 COM nếu có MS Office và không bị khóa tiến trình.
    - Trên Linux / macOS / Docker: Tự động chuyển tiếp sang LibreOffice Headless (`soffice --headless --convert-to pdf`) hoặc thư viện Python thuần (`PyMuPDF`, `openpyxl`, `python-docx`, `python-pptx`).
@@ -196,6 +203,7 @@ Dự án được thiết kế theo chuẩn Clean-Room độc lập 100% với h
 ## 4. Ma Trận Bất Biến & Cổng Kiểm Định Chất Lượng (Invariant Quality Gates)
 
 ### 4.1. Word Document Invariants (ERR_DOCX)
+
 - `ERR_DOCX_001` (**The Last Paragraph Rule**): Mọi cell bảng (`<w:tc>`) bắt buộc kết thúc bằng tối thiểu một thẻ `<w:p>`.
 - `ERR_DOCX_002` (**Run Text Overwrite**): Cập nhật văn bản qua `run.text`, không gán `cell.text = "..."`.
 - `ERR_DOCX_003` (**Multi-Page Table Flags**): Bảng $\ge 10$ hàng bắt buộc có `<w:cantSplit/>` và `<w:tblHeader/>`.
@@ -203,6 +211,7 @@ Dự án được thiết kế theo chuẩn Clean-Room độc lập 100% với h
 - `ERR_DOCX_008` (**Valid Track Changes XML**): Thẻ `<w:ins>` / `<w:del>` phải có `w:id` dương duy nhất, `w:author`, `w:date` ISO-8601, và dùng `<w:delText>` cho văn bản xóa.
 
 ### 4.2. Excel Spreadsheet Invariants (ERR_XLSX)
+
 - `ERR_XLSX_001` (**Prototype Row Style Cloning**): Clone 100% style từ hàng mẫu template sang hàng mới.
 - `ERR_XLSX_002` (**Dynamic Formula Shifting**): Dịch chuyển công thức động qua Regex khi chèn thêm hàng.
 - `ERR_XLSX_004` (**Safe Merged-Cell Handling**): Chỉ gán giá trị vào Top-Left; đồng bộ border toàn dải ô gộp.
@@ -212,6 +221,7 @@ Dự án được thiết kế theo chuẩn Clean-Room độc lập 100% với h
 - `ERR_XLSX_008` (**Print-Ready Setup**): Khóa trang in A4, `fitToPage=True`, lề chuẩn, căn giữa trang ngang.
 
 ### 4.3. PowerPoint Presentation Invariants (PPTX_INV)
+
 - `PPTX_INV_01` (**Widescreen 16:9 Master**): Slide xuất tỷ lệ chuẩn 16:9 (13.333 x 7.5 in / 1280 x 720 pt).
 - `PPTX_INV_02` (**Aspect-Ratio Lock**): Hình ảnh và sơ đồ khóa tỷ lệ khung hình, không bị méo tỷ lệ.
 - `PPTX_INV_04` (**Zero Text Overflow & Word Wrap**): Bắt buộc `word_wrap = True` trên mọi text frame có nội dung.
@@ -222,10 +232,12 @@ Dự án được thiết kế theo chuẩn Clean-Room độc lập 100% với h
 - `PPTX_INV_14` (**Native OpenXML Charts & Embedded Excel**): Biểu đồ dùng thẻ `<c:chart>` nhúng workbook Excel ẩn.
 
 ### 4.4. Conversion & Scan Invariants (ERR_CONV)
+
 - `ERR_CONV_004` (**Zombie Lock Files Cleanup**): Quét và dọn sạch các tệp lock rác `.~lock.*` và `~$*`.
 - `ERR_CONV_005` (**Scan & Red-Stamp Recovery**): Lọc dấu mộc đỏ qua không gian màu HSV và nắn góc nghiêng ảnh scan.
 
 ### 4.5. Draw.io & Diagram Invariants (MX_INV)
+
 - `MX_INV_01` (**Pure Native Hierarchy**): Sơ đồ Draw.io là các thẻ `<mxCell>` native, không bọc `<UserObject>` chứa raw code.
 - `MX_INV_02` (**Minimalist & Well-Formed XML**): XML sạch, không chứa metadata rác, đóng thẻ 100%.
 - `MX_INV_08` (**Collision-Free Labels & Masks**): Mọi nhãn đường nối line phải có `labelBackgroundColor=#ffffff` chống đè chữ.
