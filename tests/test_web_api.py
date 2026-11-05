@@ -275,6 +275,30 @@ def run_tests():
         assert "filename*=" in cd_header or "filename=" in cd_header
         print("  -> OK. Downloaded Vietnamese file successfully without socket hang up!")
 
+    # Test 13: GET /api/system/vitals
+    print("Testing GET /api/system/vitals...")
+    with urllib.request.urlopen(f"{base_url}/api/system/vitals") as response:
+        assert response.status == 200
+        vitals = json.loads(response.read().decode("utf-8"))
+        assert "os_platform" in vitals
+        assert "disk_free_gb" in vitals
+        print("  -> OK. Vitals received:", vitals.get("os_platform"), vitals.get("disk_free_gb"), "GB free")
+
+    # Test 14: POST /api/system/maintenance (Dry-Run)
+    print("Testing POST /api/system/maintenance (Dry-Run)...")
+    payload_maint = json.dumps({"dry_run": True, "clean_locks": True, "reap_processes": False}).encode("utf-8")
+    req_maint = urllib.request.Request(
+        f"{base_url}/api/system/maintenance",
+        data=payload_maint,
+        headers={"Content-Type": "application/json"}
+    )
+    with urllib.request.urlopen(req_maint) as response:
+        assert response.status == 200
+        maint_data = json.loads(response.read().decode("utf-8"))
+        assert maint_data.get("dry_run") is True
+        assert "vitals" in maint_data
+        print("  -> OK. System maintenance dry-run API executed successfully in", maint_data.get("execution_time_sec"), "s")
+
     server.shutdown()
     server.server_close()
     print("All web_api_server endpoint unit tests PASSED successfully!")

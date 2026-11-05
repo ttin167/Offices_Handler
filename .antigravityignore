@@ -115,18 +115,19 @@ Desktop.ini
 *.swo
 
 # ------------------------------------------------------------------------------
-# 11. LOCAL FPT.IHRP & BA ENTERPRISE WORKSTATION (CONFIDENTIAL IP, LOCAL-ONLY)
+# 11. LOCAL LABOR LAW & BA ENTERPRISE WORKSTATION (CONFIDENTIAL IP, LOCAL-ONLY)
 # ------------------------------------------------------------------------------
 core/ba_hub/
 cli/ba_commands.py
 cli/ba_print_commands.py
 .agents/skills/ba-workspace/
 tests/test_ba_*.py
-tests/test_ihrp_*.py
-ihrp_knowledge_vault/
-*.ihrp_vault.zip
-.ihrp_fts.db
-.ihrp_fts.db*
-data/ihrp/
+tests/test_labor_law_*.py
+tests/test_regulatory_*.py
+labor_law_vault/
+*.labor_law_vault.zip
+.labor_law_fts.db
+.labor_law_fts.db*
+data/labor_law/
 
 

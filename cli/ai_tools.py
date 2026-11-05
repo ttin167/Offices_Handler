@@ -23,6 +23,7 @@ Subcommands:
   xlsx-mutate     — Mutate Excel template in-place (row/col expansion, style cloning, chart relink)
   xlsx-validate   — Validate Excel sheet against reference template across 12 Quality Gates (Invariant E6)
   doctor          — Run Zero-Setup Environment Doctor diagnostic suite (v4.0)
+  system-maintenance — Automated periodic workspace maintenance, lock purge, process reaper, and SQLite vacuum
 
   python ai_tools_cli.py doctor
   python ai_tools_cli.py doctor --json
@@ -2526,7 +2527,10 @@ Examples:
     from cli.print_commands import register_print_subcommands
     register_print_subcommands(sub)
 
-    # Optional local BA Enterprise Hub & iHRP subcommands (only registered if core/ba_hub is present)
+    from cli.maintenance_commands import register_maintenance_subcommands
+    register_maintenance_subcommands(sub)
+
+    # Optional local BA Enterprise Hub & Labor Law subcommands (only registered if core/ba_hub is present)
     try:
         import core.ba_hub  # type: ignore
         from cli.ba_print_commands import register_ba_print_subcommands

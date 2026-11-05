@@ -105,18 +105,19 @@ class TestMCPServer(unittest.TestCase):
             "xlsx_consolidate_workbooks",
             "doc_run_pipeline",
             "diagram_from_code",
+            "system_maintenance",
         ]
         if HAS_BA_HUB:
             expected_tools.extend([
-                "ihrp_knowledge_search",
-                "ihrp_legal_story_lint",
-                "ihrp_scan_policy_document",
-                "ihrp_approve_staging_update",
+                "law_knowledge_search",
+                "law_compliance_lint",
+                "regulatory_watch_scan",
+                "regulatory_approve_update",
             ])
             self.assertEqual(len(tools), len(expected_tools))
         else:
             office_expected = [
-                t for t in expected_tools if not t.startswith("ba_") and not t.startswith("ihrp_")
+                t for t in expected_tools if not t.startswith("ba_") and not t.startswith("law_") and not t.startswith("regulatory_")
             ]
             self.assertEqual(len(tools), len(office_expected))
             expected_tools = office_expected
@@ -263,6 +264,32 @@ class TestMCPServer(unittest.TestCase):
         finally:
             if os.path.exists(csv_path):
                 os.remove(csv_path)
+
+    def test_11_tools_call_system_maintenance(self):
+        req = {
+            "jsonrpc": "2.0",
+            "id": 104,
+            "method": "tools/call",
+            "params": {
+                "name": "system_maintenance",
+                "arguments": {
+                    "dry_run": True,
+                    "clean_locks": True,
+                    "reap_processes": False,
+                    "vacuum_db": True,
+                    "clear_cache": False,
+                }
+            }
+        }
+        res = handle_rpc_request(req)
+        self.assertIsNotNone(res)
+        self.assertEqual(res["id"], 104)
+        self.assertIn("result", res)
+        self.assertFalse(res["result"]["isError"])
+        data = json.loads(res["result"]["content"][0]["text"])
+        self.assertTrue(data.get("dry_run"))
+        self.assertIn("vitals", data)
+        self.assertIn("databases_vacuumed", data)
 
 
 if __name__ == "__main__":

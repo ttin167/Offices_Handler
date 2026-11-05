@@ -4338,8 +4338,8 @@ legacy_crm.f_name -> digital_bank.full_name [Concatenate]"></textarea>
             <button class="guide-nav-item" data-guide-cat="ba_hub">
               <i data-lucide="briefcase"></i><span>7. BA Workstation</span>
             </button>
-            <button class="guide-nav-item" data-guide-cat="ihrp_vault">
-              <i data-lucide="shield-check"></i><span>8. FPT.iHRP Vault &amp; Luật</span>
+            <button class="guide-nav-item" data-guide-cat="law_vault">
+              <i data-lucide="shield-check"></i><span>8. Cẩm Nang Pháp Lý &amp; Lương</span>
             </button>
             <button class="guide-nav-item" data-guide-cat="cli_mcp">
               <i data-lucide="terminal"></i><span>9. Tích Hợp AI &amp; CLI</span>
@@ -4361,7 +4361,7 @@ legacy_crm.f_name -> digital_bank.full_name [Concatenate]"></textarea>
               <div class="guide-alert-box alert-success">
                 <strong>Hệ thống vận hành theo kiến trúc Hai Tầng (Dual-Mode Architecture):</strong>
                 <br/>• <strong>Bản Web / Cloud (Render.com)</strong>: Tập trung 100% vào Tin học Văn phòng (PDF, Word, Excel, Slide, Sơ đồ, In ấn), tối ưu RAM siêu nhẹ dưới 512MB.
-                <br/>• <strong>Bản Máy Trạm (Local Machine)</strong>: Toàn bộ tính năng Văn phòng + 14 Phân hệ BA Doanh nghiệp (BABOK Stories, Use Cases, RTM, DBML, Satsuma Lineage, SQL Suite, FPT.iHRP Vault &amp; Watcher).
+                <br/>• <strong>Bản Máy Trạm (Local Machine)</strong>: Toàn bộ tính năng Văn phòng + 14 Phân hệ BA Doanh nghiệp (BABOK Stories, Use Cases, RTM, DBML, Satsuma Lineage, SQL Suite, Cẩm Nang Luật Lao Động &amp; Regulatory Watcher).
               </div>
 
               <div class="guide-grid-2">
@@ -4701,10 +4701,10 @@ legacy_crm.f_name -> digital_bank.full_name [Concatenate]"></textarea>
               </div>
             </div>
 
-            <!-- 8. FPT.iHRP Vault -->
-            <div class="guide-content-panel" data-guide-cat="ihrp_vault">
+            <!-- 8. Labor Law & Payroll Vault -->
+            <div class="guide-content-panel" data-guide-cat="law_vault">
               <div class="guide-section-header">
-                <h2><i data-lucide="shield-check" style="color:#10b981;"></i> FPT.iHRP Vault &amp; Đường Ống Pháp Lý Lao Động</h2>
+                <h2><i data-lucide="shield-check" style="color:#10b981;"></i> Cẩm Nang Pháp Lý Lao Động &amp; Tiền Lương Việt Nam</h2>
                 <p>Kho tri thức pháp lý nhân sự 2026+, bộ máy tìm kiếm FTS5 sub-10ms và đường ống tự động giám sát luật mới.</p>
               </div>
 
@@ -4727,10 +4727,10 @@ legacy_crm.f_name -> digital_bank.full_name [Concatenate]"></textarea>
                     <span>Tra Cứu SQLite FTS5 Sub-10ms</span>
                     <span class="guide-badge">FTS5 Engine</span>
                   </div>
-                  <p>Tìm kiếm toàn văn siêu tốc trong toàn bộ kho tri thức FPT.iHRP cục bộ:</p>
+                  <p>Tìm kiếm toàn văn siêu tốc trong toàn bộ kho tri thức cẩm nang pháp lý cục bộ:</p>
                   <div class="guide-code-box">
-                    <code>python ai_tools_cli.py ihrp-search "mức tham chiếu lương tối thiểu"</code>
-                    <button class="guide-copy-btn" data-copy='python ai_tools_cli.py ihrp-search "mức tham chiếu lương tối thiểu"'><i data-lucide="copy"></i> Copy</button>
+                    <code>python ai_tools_cli.py law-search "mức tham chiếu lương tối thiểu"</code>
+                    <button class="guide-copy-btn" data-copy='python ai_tools_cli.py law-search "mức tham chiếu lương tối thiểu"'><i data-lucide="copy"></i> Copy</button>
                   </div>
                 </div>
 
@@ -4741,12 +4741,12 @@ legacy_crm.f_name -> digital_bank.full_name [Concatenate]"></textarea>
                   </div>
                   <p>Tự động bóc tách Nghị định/Thông tư mới, sinh bản thảo cập nhật và gửi email cảnh báo qua SMTP Gmail. Giữ nguyên tắc Human-in-the-Loop Gate (phải có xác nhận của con người trước khi sáp nhập vào kho dữ liệu chính):</p>
                   <div class="guide-code-box">
-                    <code>python ai_tools_cli.py ihrp-watch-scan --sample-2027</code>
-                    <button class="guide-copy-btn" data-copy="python ai_tools_cli.py ihrp-watch-scan --sample-2027"><i data-lucide="copy"></i> Copy</button>
+                    <code>python ai_tools_cli.py law-watch-scan --sample-2027</code>
+                    <button class="guide-copy-btn" data-copy="python ai_tools_cli.py law-watch-scan --sample-2027"><i data-lucide="copy"></i> Copy</button>
                   </div>
                   <div class="guide-code-box" style="margin-top:8px;">
-                    <code>python ai_tools_cli.py ihrp-merge-update --draft KB-LAW-2027-UPDATE-DRAFT.md</code>
-                    <button class="guide-copy-btn" data-copy="python ai_tools_cli.py ihrp-merge-update --draft KB-LAW-2027-UPDATE-DRAFT.md"><i data-lucide="copy"></i> Copy</button>
+                    <code>python ai_tools_cli.py law-merge-update --draft KB-LAW-2027-DRAFT.md</code>
+                    <button class="guide-copy-btn" data-copy="python ai_tools_cli.py law-merge-update --draft KB-LAW-2027-DRAFT.md"><i data-lucide="copy"></i> Copy</button>
                   </div>
                 </div>
 
@@ -4777,7 +4777,7 @@ legacy_crm.f_name -> digital_bank.full_name [Concatenate]"></textarea>
                   <code>{"mcpServers": {"antigravity-studio": {"command": "python", "args": ["d:/New folder (4)/antigravity-doc-handler-main/mcp_server.py"]}}}</code>
                   <button class="guide-copy-btn" data-copy='{"mcpServers": {"antigravity-studio": {"command": "python", "args": ["d:/New folder (4)/antigravity-doc-handler-main/mcp_server.py"]}}}'><i data-lucide="copy"></i> Copy</button>
                 </div>
-                <p style="margin-top:8px;">MCP Server cung cấp đầy đủ 30 công cụ văn phòng (Cloud mode) hoặc 42 công cụ toàn diện kèm BA &amp; iHRP (Local mode).</p>
+                <p style="margin-top:8px;">MCP Server cung cấp đầy đủ 30 công cụ văn phòng (Cloud mode) hoặc 43 công cụ toàn diện kèm BA, Cẩm Nang Luật &amp; Bảo Trì Hệ Thống (Local mode).</p>
               </div>
 
               <div class="guide-card">
@@ -4793,6 +4793,7 @@ legacy_crm.f_name -> digital_bank.full_name [Concatenate]"></textarea>
                   <li><code>python ai_tools_cli.py diagram-render spec.json -o out.png</code>: Render sơ đồ kỹ thuật 300+ DPI.</li>
                   <li><code>python ai_tools_cli.py pptx-build spec.json -o deck.pptx</code>: Tạo bài thuyết trình 16:9 Widescreen.</li>
                   <li><code>python ai_tools_cli.py print-doc file.pdf --n-up 2</code>: In tài liệu trực tiếp ra máy in phần cứng.</li>
+                  <li><code>python ai_tools_cli.py system-maintenance</code>: Dọn dẹp tệp khóa zombie (~$*), kết liễu tiến trình ngầm mồ côi, thu gọn CSDL SQLite, xóa cache và kiểm tra Windows MPO.</li>
                 </ul>
               </div>
             </div>
@@ -4857,6 +4858,18 @@ legacy_crm.f_name -> digital_bank.full_name [Concatenate]"></textarea>
                     <li>Vào Windows Settings ➔ System ➔ Power &amp; battery.</li>
                     <li>Chọn Power mode: <strong>Best performance</strong> khi cắm sạc.</li>
                   </ul>
+                </div>
+
+                <div class="guide-card">
+                  <div class="guide-card-title">
+                    <span>5. Chạy Lệnh Bảo Trì &amp; Kiểm Tra MPO Định Kỳ</span>
+                    <span class="guide-badge">Lệnh CLI Tự Động</span>
+                  </div>
+                  <p>Quét và dọn sạch các tiến trình ngầm mồ côi (headless LibreOffice/Edge), thu hồi RAM và kiểm tra xem MPO có bị bật lại không:</p>
+                  <div class="guide-code-box" style="font-size:12px;">
+                    <code>python ai_tools_cli.py system-maintenance</code>
+                    <button class="guide-copy-btn" data-copy="python ai_tools_cli.py system-maintenance"><i data-lucide="copy"></i> Copy</button>
+                  </div>
                 </div>
               </div>
             </div>

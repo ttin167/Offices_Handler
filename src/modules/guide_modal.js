@@ -3,7 +3,7 @@
  *
  * Provides a searchable, categorized, in-app documentation center
  * covering all modules: Document Hub, Spreadsheet Studio, Diagram Studio,
- * Presentation Studio, Enterprise Printing, BA Enterprise Hub, FPT.iHRP Vault,
+ * Presentation Studio, Enterprise Printing, BA Enterprise Hub, Labor Law & Payroll Vault,
  * MCP & CLI Tooling, and System Performance Tips.
  */
 

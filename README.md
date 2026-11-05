@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Release: v4.6.0](https://img.shields.io/badge/Release-v4.6.0_Production-success.svg)](CHANGELOG.md)
 [![Tests: 323 Passed](https://img.shields.io/badge/Tests-330%2F330_Passed-brightgreen.svg)](tests/)
-[![MCP Tools: 38](https://img.shields.io/badge/MCP_Tools-38_Available-blue.svg)](server/mcp_server.py)
+[![MCP Tools: 43](https://img.shields.io/badge/MCP_Tools-43_Available-blue.svg)](server/mcp_server.py)
 [![Antigravity Skills: 7](https://img.shields.io/badge/Antigravity_Skills-7_Specialized-indigo.svg)](.agents/skills/)
 [![Antigravity IDE Ready](https://img.shields.io/badge/Antigravity_AI-Compatible-orange.svg)](AGENTS.md)
 [![Resolution: 300+ DPI](https://img.shields.io/badge/DPI-300%2B_Vector_Grade-purple.svg)](spec_diagram_engine.py)

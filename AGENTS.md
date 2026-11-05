@@ -5,6 +5,7 @@ Welcome, AI Agent! This file is your operational manual for `antigravity-doc-han
 ## 📦 What is this Repository?
 
 `antigravity-doc-handler` is a specialized Python toolkit designed for:
+
 1. **High-Fidelity Document Processing**: Bidirectional conversion between PDF, DOCX, and Markdown with zero data loss, OpenXML table repair, and decoupled styling.
 2. **Precision Technical Diagram Engine**: Programmatic and declarative generation of publication-grade Hub & Spoke architecture and mobile screen flow diagrams (300+ DPI, vector SVG + headless Chromium PNG).
 
@@ -13,6 +14,7 @@ Welcome, AI Agent! This file is your operational manual for `antigravity-doc-han
 ## 🛠 Available Skills & Rules
 
 The workspace includes preconfigured Antigravity customizations:
+
 - **Skill 1**: [doc-handler](.agents/skills/doc-handler/SKILL.md) — PDF/Word/Markdown conversion, OpenXML table repair, document inspection, and JSON supremacy mental model.
 - **Skill 2**: [excel-automation](.agents/skills/excel-automation/SKILL.md) — Template-driven OpenXML Excel processing, token extraction, live KPI linking, 6 enterprise subsystems, and streaming mode.
 - **Skill 3**: [felo-slides](.agents/skills/felo-slides/SKILL.md) — 16:9 widescreen presentation synthesis, Slide Master inheritance, and locked aspect-ratio diagram injection.
@@ -41,8 +43,9 @@ The workspace includes preconfigured Antigravity customizations:
 When user requests you to perform document tasks or draw diagrams, run these commands:
 
 | Task | Command Line |
-|---|---|
+| --- | --- |
 | **Zero-Setup Environment Doctor** | `python ai_tools_cli.py doctor [--json]` |
+| **Periodic System Maintenance (7-Pillars)** | `python ai_tools_cli.py system-maintenance [--dry-run] [--json]` |
 | **Model Context Protocol (MCP) Server** | `python mcp_server.py` (STDIO JSON-RPC 2.0) |
 | **Web Studio Server & SSE Queue** | `python web_api_server.py 8000` |
 | **Unified Multi-Engine Diagram Render** | `python ai_tools_cli.py diagram-render <spec.json> -o <out.png>` |
@@ -58,7 +61,7 @@ When user requests you to perform document tasks or draw diagrams, run these com
 | **Insert Image into DOCX** | `python -m ai_tools_cli insert-diagram <doc.docx> <img.png> -s "Heading" -c "Caption"` |
 | **Legal Redline Diff (Track Changes)** | `python ai_tools_cli.py docx-diff <v1.docx> <v2.docx> -o <diff.docx>` |
 | **Batch Mail Merge & Templating** | `python ai_tools_cli.py docx-mail-merge <tpl.docx> <data.json> -o <merged.docx>` |
-| **Unified QA Audit (13 Gates / OpenXML)** | `python ai_tools_cli.py qa-audit <doc.docx|sheet.xlsx> [--security] [--sanitize] [--strict]` |
+| **Unified QA Audit (13 Gates / OpenXML)** | `python ai_tools_cli.py qa-audit <doc.docx | sheet.xlsx> [--security] [--sanitize] [--strict]` |
 | **Document Security Audit & Sanitizer** | `python ai_tools_cli.py doc-security <doc> [--sanitize] [-o clean_doc]` |
 | **Vietnamese OCR & Scan Recovery** | `python ai_tools_cli.py ocr-scan <scan.pdf> -o <out.md> [--lang vie+eng]` |
 | **Build 16:9 Presentation from Spec** | `python ai_tools_cli.py pptx-build <spec.json> -o <deck.pptx> [--template <tpl.pptx>]` |
@@ -77,7 +80,7 @@ When user requests you to perform document tasks or draw diagrams, run these com
 | **User Story Export (DOCX/MD)** | `python ai_tools_cli.py ba-story-export <story.json> -o <story.docx>` |
 | **Cockburn Use Case Export** | `python ai_tools_cli.py ba-usecase-export <spec.json> -o <usecase.docx>` |
 | **Requirements Traceability Matrix (RTM)** | `python ai_tools_cli.py ba-rtm-matrix <spec.json> -o <rtm.xlsx>` |
-| **DBML 2-Way Convert (SQL <-> DBML)** | `python ai_tools_cli.py ba-dbml-convert <input.sql|input.dbml> -o <output>` |
+| **DBML 2-Way Convert (SQL <-> DBML)** | `python ai_tools_cli.py ba-dbml-convert <input.sql | input.dbml> -o <output>` |
 | **Satsuma Data Lineage Graph** | `python ai_tools_cli.py ba-satsuma-lineage <mapping.satsuma> -o <lineage.png>` |
 | **7-Gate SQL Data Integrity Suite** | `python ai_tools_cli.py ba-sql-suite <schema.sql> -o <tests.sql>` |
 | **Scope Creep & Semantic Diff** | `python ai_tools_cli.py ba-scope-creep <v1.docx> <v2.docx> -o <report.docx>` |
@@ -87,16 +90,16 @@ When user requests you to perform document tasks or draw diagrams, run these com
 | **BABOK Decision Table Matrix** | `python ai_tools_cli.py ba-decision-table <spec.json> -o <matrix.docx> [--audit]` |
 | **Meeting Notes to Stories Parser** | `python ai_tools_cli.py ba-meeting-parser <notes.md> -o <stories.docx>` |
 | **PlantUML Salt UI Wireframe Render** | `python ai_tools_cli.py wireframe-render <spec.json> -o <wireframe.png>` |
-| **Init FPT.iHRP Local Knowledge Vault** | `python ai_tools_cli.py ihrp-init-vault [-o <dir>]` |
-| **FPT.iHRP Sub-10ms Local FTS5 Search** | `python ai_tools_cli.py ihrp-search <query> [-c <cat>] [-l <n>]` |
-| **Legal 2026 User Story Compliance Linter** | `python ai_tools_cli.py ihrp-story-lint <story.json>` |
-| **Payroll Reconciliation (Excel 12-Gate)** | `python ai_tools_cli.py ihrp-reconcile-payroll <client.xlsx> <ihrp.xlsx>` |
-| **Test SMTP Gmail Policy Alert Email** | `python ai_tools_cli.py ihrp-notify-test [--email <recipient>]` |
-| **Auto-Scan & Stage New Decree/Circular** | `python ai_tools_cli.py ihrp-watch-scan [--file <doc>] [--sample-2027] [--skip-email]` |
-| **1-Click Human-in-the-Loop Merge Draft** | `python ai_tools_cli.py ihrp-merge-update --draft <draft_filename>` |
+| **Init Labor Law Local Knowledge Vault** | `python ai_tools_cli.py law-init-vault [-o <dir>]` |
+| **Labor Law Sub-10ms Local FTS5 Search** | `python ai_tools_cli.py law-search <query> [-c <cat>] [-l <n>]` |
+| **Legal 2026+ Story Compliance Linter** | `python ai_tools_cli.py law-story-lint <story.json>` |
+| **Payroll Reconciliation (Excel 12-Gate)** | `python ai_tools_cli.py law-reconcile-payroll <client.xlsx> <standard.xlsx>` |
+| **Test SMTP Gmail Policy Alert Email** | `python ai_tools_cli.py law-notify-test [--email <recipient>]` |
+| **Auto-Scan & Stage New Decree/Circular** | `python ai_tools_cli.py law-watch-scan [--file <doc>] [--sample-2027] [--skip-email]` |
+| **1-Click Human-in-the-Loop Merge Draft** | `python ai_tools_cli.py law-merge-update --draft <draft_filename>` |
 | **List System Hardware Printers** | `python ai_tools_cli.py print-list` |
-| **Enterprise Silent Print Document** | `python ai_tools_cli.py print-doc <file.pdf|docx> [--printer <name>] [--n-up 2] [--grayscale] [--duplex]` |
-| **Sync Core Docs Triad (MD->DOCX+PDF)** | `python tools/sync_core_docs.py [--build|--check]` |
+| **Enterprise Silent Print Document** | `python ai_tools_cli.py print-doc <file.pdf | docx> [--printer <name>] [--n-up 2] [--grayscale] [--duplex]` |
+| **Sync Core Docs Triad (MD->DOCX+PDF)** | `python tools/sync_core_docs.py [--build | --check]` |
 | **Launch Desktop GUI** | `python main.py` |
 
 ---
@@ -106,7 +109,7 @@ When user requests you to perform document tasks or draw diagrams, run these com
 When executing tasks programmatically via Python, MCP, or CLI, dispatch according to this matrix:
 
 | User Task / Intent | Input Type | MCP Tool | CLI Subcommand | Core Module |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | **System Diagnostics** | Environment | `env_doctor()` | `ai_tools_cli.py doctor` | `core.env_doctor.run_doctor` |
 | **Convert Doc (Lossless)** | PDF / DOCX / MD / HTML | `doc_convert(...)` | `ai_tools_cli.py convert` | `core.converter.engine.convert_universal` |
 | **PDF Pro Suite & Security** | PDF / Images / Stamp | `pdf_quick_tools(...)` | `ai_tools_cli.py pdf-tools` | `core.converter.pdf_toolkit` |
@@ -144,13 +147,14 @@ When executing tasks programmatically via Python, MCP, or CLI, dispatch accordin
 | **BABOK Decision Table Matrix** | Condition/Action Spec | `ba_decision_table(...)` | `ai_tools_cli.py ba-decision-table` | `core.ba_hub.decision_table` |
 | **Meeting Notes to Stories Parser** | Markdown / Text Notes | `ba_meeting_parse(...)` | `ai_tools_cli.py ba-meeting-parser` | `core.ba_hub.meeting_parser` |
 | **PlantUML Salt UI Wireframe** | Salt Text / Spec | `ba_wireframe_render(...)` | `ai_tools_cli.py wireframe-render` | `core.diagrams.salt_wireframe` |
-| **FPT.iHRP Local FTS5 Search** | Query / Keywords | `ihrp_knowledge_search(...)` | `ai_tools_cli.py ihrp-search` | `core.ba_hub.ihrp_search` |
-| **Legal 2026/2027 Story Linter** | User Story Spec | `ihrp_legal_story_lint(...)` | `ai_tools_cli.py ihrp-story-lint` | `core.ba_hub.ihrp_ba_bridge` |
-| **Auto-Scan & Stage Legal Decree** | Document / Text Spec | `ihrp_scan_policy_document(...)` | `ai_tools_cli.py ihrp-watch-scan` | `core.ba_hub.ihrp_watcher` |
-| **1-Click Human-in-the-Loop Merge** | Draft Filename | `ihrp_approve_staging_update(...)` | `ai_tools_cli.py ihrp-merge-update` | `core.ba_hub.ihrp_watcher` |
-| **Test SMTP Gmail Alert Dispatch** | Recipient Address | (via CLI) | `ai_tools_cli.py ihrp-notify-test` | `core.ba_hub.ihrp_notifier` |
+| **Labor Law Local FTS5 Search** | Query / Keywords | `law_knowledge_search(...)` | `ai_tools_cli.py law-search` | `core.ba_hub.labor_law_search` |
+| **Legal 2026/2027 Story Linter** | User Story Spec | `law_compliance_lint(...)` | `ai_tools_cli.py law-story-lint` | `core.ba_hub.labor_law_compliance` |
+| **Auto-Scan & Stage Legal Decree** | Document / Text Spec | `regulatory_watch_scan(...)` | `ai_tools_cli.py law-watch-scan` | `core.ba_hub.regulatory_watcher` |
+| **1-Click Human-in-the-Loop Merge** | Draft Filename | `regulatory_approve_update(...)` | `ai_tools_cli.py law-merge-update` | `core.ba_hub.regulatory_watcher` |
+| **Test SMTP Gmail Alert Dispatch** | Recipient Address | (via CLI) | `ai_tools_cli.py law-notify-test` | `core.ba_hub.regulatory_notifier` |
 | **List Hardware System Printers** | Hardware Spooler | `doc_list_printers(...)` | `ai_tools_cli.py print-list` | `core.printing.printer_manager` |
 | **Enterprise Silent Print Document** | PDF / DOCX + Print Spec | `doc_print_job(...)` | `ai_tools_cli.py print-doc` | `core.printing.printer_manager` |
+| **Periodic System Maintenance (7-Pillars)** | System Workspace | `system_maintenance(...)` | `ai_tools_cli.py system-maintenance` | `core.system_maintenance` |
 
 ---
 
@@ -168,8 +172,9 @@ antigravity-doc-handler/
 │   ├── pipeline/               # Declarative Multi-Step Workflow Pipeline Engine
 │   ├── ba_hub/                 # BA Enterprise Hub (14 Modules: Stories, Use Cases, RTM, DBML, Satsuma, SQL Tests, Scope Creep, Obsidian Vault, OpenAPI, Decision Table, Meeting Parser)
 │   ├── printing/               # Enterprise Printing Engine (Windows Spooler win32print, Grayscale, N-Up, Booklet, Watermark, Margin Guard)
-│   └── env_doctor.py           # 12-Component Environment Health Doctor
-├── server/                     # Layer 2: Web Studio REST API (:8000), MCP Server (38 Tools), SSE Jobs, SQLite
+│   ├── env_doctor.py           # 12-Component Environment Health Doctor
+│   └── system_maintenance.py   # 7-Pillar Enterprise System Maintenance & MPO Guard
+├── server/                     # Layer 2: Web Studio REST API (:8000), MCP Server (43 Tools), SSE Jobs, SQLite
 ├── cli/                        # Layer 2: Unified AI CLI Dispatcher & Subcommands
 ├── ui/                         # Layer 1: Desktop GUI (Tkinter) & Native WebView App Launcher
 ├── src/                        # Layer 1: Vite ES6 Web Studio Frontend & Modular Controllers
@@ -193,7 +198,8 @@ antigravity-doc-handler/
 
 ## 🎯 Important Invariants & Diagram Selection Rules
 
-### Diagram Engine Selection Rules (MANDATORY):
+### Diagram Engine Selection Rules (MANDATORY)
+
 1. **Always Read `"engine"` Field First**: Dispatch to `"canvas"`, `"mermaid"`, or `"plantuml"`.
 2. **Tuân Thủ Chuẩn Phân Loại 12 Loại Sơ Đồ Kỹ Thuật**:
    - **`canvas` Engine** (1):

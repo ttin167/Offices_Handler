@@ -27,7 +27,7 @@ Hệ thống được tổ chức theo mô hình phân tầng chặt chẽ (Clea
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                            3. Core Document & Automation Engine                        │
 │  core/docx/     │ core/pptx/     │ core/xlsx/     │ core/converter/ │ core/pipeline/   │
-│  core/diagrams/ │ core/security/ │ core/ba_hub/   │ core/env_doctor │                  │
+│  core/diagrams/ │ core/security/ │ core/ba_hub/   │ core/env_doctor │ core/maintenance │
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
                                             │
                                             ▼
@@ -95,9 +95,11 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
     - `obsidian_vault.py`: Động cơ đóng gói & biên dịch 2 chiều Obsidian Vault (`.zip`), xuất đồ thị tri thức yêu cầu (Knowledge Graph) với liên kết `[[Wikilinks]]` và biên dịch ngược sang Word BRD (`<w:bookmarkStart>`, `<w:hyperlink>`).
     - `decision_table.py`: Động cơ sinh và kiểm toán bảng quyết định logic điều kiện - hành động (Decision Table & Matrix Generator) chuẩn BABOK v3, kiểm tra tính toàn vẹn (Completeness) và mâu thuẫn (Contradiction).
     - `meeting_parser.py`: Bộ bóc tách biên bản họp nghiệp vụ thô (Meeting Notes Parser) thành User Stories 3 thành phần, Quy tắc nghiệp vụ (Business Rules), Giả định (Assumptions) và Hành động (Action Items).
-    - `ihrp_kb.py`: Quản trị và sinh kho tri thức nhân sự FPT.iHRP & Pháp lý 2026 cục bộ (19 atomic notes + native Obsidian Canvas v1.0 `Project_Overview.canvas`), cách ly bảo mật 100% tại máy trạm.
-    - `ihrp_search.py`: Động cơ tìm kiếm toàn văn cục bộ siêu tốc SQLite FTS5 (`unicode61 remove_diacritics 2`) tra cứu luật lao động, chính sách 2026, CSDL iHRP và tham số tính lương với độ trễ $< 1\text{ms}$.
-    - `ihrp_ba_bridge.py`: Cầu nối khai thác tri thức cho BA: Bộ kiểm toán tuân thủ luật lao động & sinh kịch bản Gherkin AC (OT đêm 200%/210%, trần BHXH/BHYT 50.6M vs BHTN 106.2M, giảm trừ gia cảnh 15.5M/6.2M, tuổi nghỉ hưu 2026), tích hợp đối soát bảng lương `DataReconciliationEngine`, và Bảng quyết định BABOK v3.
+    - `labor_law_kb.py`: Quản trị và sinh kho tri thức Luật Lao Động, Tiền Lương & Quản trị Nhân sự Việt Nam 2026+ cục bộ (20 atomic notes + native Obsidian Canvas v1.0 `Legal_Overview.canvas`), cách ly bảo mật 100% tại máy trạm (`labor_law_vault/`).
+    - `labor_law_search.py`: Động cơ tìm kiếm toàn văn cục bộ siêu tốc SQLite FTS5 (`unicode61 remove_diacritics 2`) tra cứu luật lao động, chính sách 2026+, và tham số tính lương với độ trễ $< 2\text{ms}$ (`.labor_law_fts.db`).
+    - `labor_law_compliance.py`: Cầu nối khai thác tri thức cho BA: Bộ kiểm toán tuân thủ luật lao động & sinh kịch bản Gherkin AC (OT đêm 200%/210%, trần BHXH/BHYT 50.6M vs BHTN 106.2M, giảm trừ gia cảnh 15.5M/6.2M, tuổi nghỉ hưu 2026), tích hợp đối soát bảng lương `DataReconciliationEngine`, và Bảng quyết định BABOK v3.
+    - `regulatory_watcher.py`: Đường ống tự động giám sát văn bản quy phạm pháp luật (Regulatory Watcher), bóc tách tham số chính sách mới, sinh bản thảo Staging và cơ chế phê duyệt 1-Click sáp nhập kho tri thức kèm Atomic Rollback Guard.
+    - `regulatory_notifier.py`: Module gửi email cảnh báo chính sách mới qua giao thức SMTP Gmail bảo mật không phụ thuộc thư viện ngoài.
   - `core/printing/` (Enterprise Printing Engine):
     - `printer_manager.py`: Bộ điều phối máy in doanh nghiệp, giao tiếp trực tiếp Windows Spooler API qua `win32print`, tự động phát hiện danh sách máy in mạng/nội bộ, hỗ trợ in ngầm (Silent Print) không cần hộp thoại UI, cơ chế fallback Edge Headless và Virtual Spool đệm PDF trên môi trường Linux/Cloud container.
     - `print_optimizer.py`: Bộ tiền xử lý tài liệu in ấn bằng PyMuPDF (`fitz`): Chuyển đổi thang xám (Grayscale Ink Saver), bố cục ghép trang đa trang N-Up (2-Up / 4-Up), sắp xếp thứ tự trang in đóng sách (Booklet Duplex Imposition), dấu thủy ấn bảo mật (Confidential Watermark), và chốt chặn an toàn lề in chống mất chữ `ERR_PRINT_001` (Margin Safety Guard $\ge 5\text{mm}$).
@@ -117,14 +119,16 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
     - `legacy/`: Các renderer kế thừa (`canvas`, `plantuml`, `mermaid`).
 
 ### 2.2. `server/` — Tầng Giao Thức & Cung Cấp Dịch Vụ (Web API, MCP, SSE)
-- `app.py`: REST API Server nhẹ nhàng dựa trên `http.server`, phục vụ Web Studio cổng `8000`. Cung cấp endpoints cho conversion, history, mail merge, ocr, diff, math, static assets, trọn bộ PDF Pro Endpoints, Atomic Office Endpoints, Formula Playbook Endpoints, trọn bộ Enterprise Printing Endpoints (`/api/print/printers`, `/api/print/job`), và trọn bộ BA Enterprise Endpoints (`/api/ba/templates`, `/api/ba/story/lint`, `/api/ba/story/export`, `/api/ba/usecase/lint`, `/api/ba/usecase/export`, `/api/ba/brd/generate`, `/api/ba/data-dict/scan-excel`, `/api/ba/data-dict/scan-ddl`, `/api/ba/data-dict/export`, `/api/ba/reconciliation/run`, `/api/ba/uat/generate`, `/api/ba/rtm/generate`, `/api/ba/dbml/convert`, `/api/ba/satsuma/lineage`, `/api/ba/sql/test-suite`, `/api/ba/scope-creep/audit`, `/api/ba/obsidian/export-vault`, `/api/ba/obsidian/compile-vault`, `/api/ba/openapi/scan`, `/api/ba/decision-table/generate`, `/api/ba/meeting/parse`, `/api/diagram/wireframe/render`).
-- `mcp_server.py`: Model Context Protocol Server (STDIO JSON-RPC 2.0) tương thích với Claude Desktop, Cursor, và Antigravity IDE. Đăng ký **38 tools** chuẩn:
+- `app.py`: REST API Server nhẹ nhàng dựa trên `http.server`, phục vụ Web Studio cổng `8000`. Cung cấp endpoints cho conversion, history, mail merge, ocr, diff, math, static assets, trọn bộ PDF Pro Endpoints, Atomic Office Endpoints, Formula Playbook Endpoints, trọn bộ Enterprise Printing Endpoints (`/api/print/printers`, `/api/print/job`), trọn bộ System Maintenance Endpoints (`/api/system/maintenance`, `/api/system/vitals`), và trọn bộ BA Enterprise Endpoints (`/api/ba/templates`, `/api/ba/story/lint`, `/api/ba/story/export`, `/api/ba/usecase/lint`, `/api/ba/usecase/export`, `/api/ba/brd/generate`, `/api/ba/data-dict/scan-excel`, `/api/ba/data-dict/scan-ddl`, `/api/ba/data-dict/export`, `/api/ba/reconciliation/run`, `/api/ba/uat/generate`, `/api/ba/rtm/generate`, `/api/ba/dbml/convert`, `/api/ba/satsuma/lineage`, `/api/ba/sql/test-suite`, `/api/ba/scope-creep/audit`, `/api/ba/obsidian/export-vault`, `/api/ba/obsidian/compile-vault`, `/api/ba/openapi/scan`, `/api/ba/decision-table/generate`, `/api/ba/meeting/parse`, `/api/diagram/wireframe/render`).
+- `mcp_server.py`: Model Context Protocol Server (STDIO JSON-RPC 2.0) tương thích với Claude Desktop, Cursor, và Antigravity IDE. Đăng ký **43 tools** chuẩn:
   - Macro Tools (11): `env_doctor`, `doc_convert`, `doc_inspect`, `doc_insert_diagram`, `docx_patch`, `docx_apply_preset`, `docx_sanitize_vietnamese`, `pptx_synthesize`, `diagram_render`, `doc_mail_merge`, `doc_redline_diff`, `doc_ocr_scan`, `pdf_quick_tools`.
   - Atomic Office Tools (8): `xlsx_set_cell`, `xlsx_set_range`, `xlsx_insert_rows`, `xlsx_find_anchor`, `docx_inspect_placeholders`, `docx_replace_text`, `docx_insert_paragraph`, `docx_insert_table`.
   - Formula Playbook Tool (1): `xlsx_formula_helper`.
   - Document Security Tool (1): `doc_security_audit`.
   - Enterprise BA Hub Tools (10): `ba_story_lint`, `ba_rtm_matrix`, `ba_dbml_convert`, `ba_sql_integrity_suite`, `ba_obsidian_export_vault`, `ba_obsidian_compile_vault`, `ba_openapi_scan`, `ba_decision_table`, `ba_meeting_parse`, `ba_wireframe_render`.
   - Enterprise Printing Tools (2): `doc_list_printers`, `doc_print_job`.
+  - Vietnamese Labor Law & Regulatory Tools (4): `law_knowledge_search`, `law_compliance_lint`, `regulatory_watch_scan`, `regulatory_approve_update`.
+  - System Maintenance Tool (1): `system_maintenance`.
 - `job_manager.py`: Server-Sent Events (SSE) background task manager và job queue, cho phép theo dõi tiến trình OCR, mail merge, render và in ấn theo thời gian thực.
 - `db.py`: Zero-config SQLite database (`history.db`) lưu trữ lịch sử chuyển đổi và tải tệp.
 
@@ -156,9 +160,10 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
 - `ba-openapi`: Quét tài liệu API OpenAPI / Swagger Contract sang từ điển dữ liệu Data Dictionary.
 - `ba-decision-table`: Sinh và kiểm toán tính toàn vẹn / mâu thuẫn của bảng quyết định BABOK v3.
 - `ba-meeting-parser`: Bóc tách biên bản họp thô thành Stories, Business Rules, và Action items.
-- `ihrp-init-vault`, `ihrp-search`, `ihrp-story-lint`, `ihrp-reconcile-payroll`: Quản trị kho tri thức FPT.iHRP cục bộ, tìm kiếm FTS5 sub-1ms, linter kịch bản nghiệp vụ và đối soát bảng lương.
-- `ihrp-notify-test`, `ihrp-watch-scan`, `ihrp-merge-update`: Đường ống giám sát pháp lý tự động (Regulatory Watcher), gửi email thông báo HTML qua SMTP Gmail, và phê duyệt sáp nhập 1-Click với Atomic Rollback Guard.
+- `law-init-vault`, `law-search`, `law-story-lint`, `law-reconcile-payroll`: Quản trị kho tri thức Luật Lao Động & Tiền Lương cục bộ, tìm kiếm FTS5 sub-2ms, linter kịch bản tuân thủ pháp lý và đối soát bảng lương.
+- `law-notify-test`, `law-watch-scan`, `law-merge-update`: Đường ống giám sát pháp lý tự động (Regulatory Watcher), gửi email thông báo HTML qua SMTP Gmail, và phê duyệt sáp nhập 1-Click với Atomic Rollback Guard.
 - `print-list`, `print-doc`: Liệt kê máy in hệ thống và thực hiện in ngầm với bộ tối ưu hóa in ấn (N-Up, Booklet, Ink Saver, Margin Guard).
+- `system-maintenance`: Bộ công cụ bảo trì hệ thống 7 trụ cột (dọn lock files ~$*, kết liễu tiến trình mồ côi, vacuum SQLite, dọn cache, chẩn đoán Windows MPO).
 - `qa-audit`: Master QA diagnostic and repair pipeline 13 Cổng (`tools/unified_qa_diagnostic.py`).
 
 ### 2.4. `ui/` & `src/` — Tầng Giao Diện Người Dùng (Desktop GUI & Web Studio)

@@ -668,7 +668,7 @@ TOOL_DEFINITIONS = [
 ]
 
 # ---------------------------------------------------------------------------
-# BA Enterprise Hub & FPT.iHRP Tools (Local-Only, Activated if core.ba_hub exists)
+# BA Enterprise Hub & Labor Law Tools (Local-Only, Activated if core.ba_hub exists)
 # ---------------------------------------------------------------------------
 
 BA_TOOL_DEFINITIONS = [
@@ -1169,8 +1169,8 @@ BA_TOOL_DEFINITIONS = [
         }
     },
     {
-        "name": "ihrp_knowledge_search",
-        "description": "Ultra-fast (<10ms) local full-text search on FPT.iHRP HR domain knowledge base, Vietnam Labor Code 2019, Social Insurance 2024/2026, and PIT regulations. Supports unaccented Vietnamese.",
+        "name": "law_knowledge_search",
+        "description": "Ultra-fast (<10ms) local full-text search on Vietnam Labor Law, Social Insurance 2024/2026, PIT regulations, and enterprise HR knowledge base. Supports unaccented Vietnamese.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -1180,7 +1180,7 @@ BA_TOOL_DEFINITIONS = [
                 },
                 "category": {
                     "type": "string",
-                    "description": "Optional category filter ('Phap_Ly_Lao_Dong', 'Nghiep_Vu_iHRP', 'Data_Dictionary', 'Bieu_Mau_Du_An')"
+                    "description": "Optional category filter ('Luat_Lao_Dong', 'Bao_Hiem', 'Thue_TNCN', 'Quy_Chuan_Nhan_Su', 'Bieu_Mau_Doanh_Nghiep')"
                 },
                 "limit": {
                     "type": "integer",
@@ -1192,8 +1192,8 @@ BA_TOOL_DEFINITIONS = [
         }
     },
     {
-        "name": "ihrp_legal_story_lint",
-        "description": "Audits a Business Analyst User Story & Gherkin scenarios against Vietnamese Labor Law (BLLĐ 2019) and 2026 Legal Policy changes (Mức tham chiếu NĐ 161/2026, PIT 15.5M/6.2M, Tuổi nghỉ hưu).",
+        "name": "law_compliance_lint",
+        "description": "Audits a Business Analyst User Story & Gherkin scenarios against Vietnamese Labor Law (BLLĐ 2019) and 2026+ Legal Policy changes (Mức tham chiếu NĐ 161/2026, PIT 15.5M/6.2M, Tuổi nghỉ hưu NĐ 135/2020).",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -1206,7 +1206,7 @@ BA_TOOL_DEFINITIONS = [
         }
     },
     {
-        "name": "ihrp_scan_policy_document",
+        "name": "regulatory_watch_scan",
         "description": "Scans legal decree, circular, or text for HR regulations, extracts structured parameters (4 regional minimum wages, reference levels, PIT deductions), generates Staging Draft, and dispatches email alert.",
         "inputSchema": {
             "type": "object",
@@ -1235,8 +1235,8 @@ BA_TOOL_DEFINITIONS = [
         }
     },
     {
-        "name": "ihrp_approve_staging_update",
-        "description": "Human-in-the-Loop 1-Click approval to merge a staged policy draft into the active FPT.iHRP knowledge vault with Atomic Rollback Guard and instant FTS5 re-indexing.",
+        "name": "regulatory_approve_update",
+        "description": "Human-in-the-Loop 1-Click approval to merge a staged policy draft into the active labor law knowledge vault with Atomic Rollback Guard and instant FTS5 re-indexing.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -1247,10 +1247,69 @@ BA_TOOL_DEFINITIONS = [
             },
             "required": ["draft_filename"]
         }
+    },
+    {
+        "name": "system_maintenance",
+        "description": "Execute periodic workspace maintenance, purge zombie lock files (~$*), reap orphaned headless processes, vacuum SQLite databases, clean bytecode cache, and diagnose Windows MPO stuttering.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "dry_run": {
+                    "type": "boolean",
+                    "description": "Simulation mode without modifying files or terminating processes",
+                    "default": False
+                },
+                "clean_locks": {
+                    "type": "boolean",
+                    "description": "Pillar 1: Purge zombie lock files (~$*.docx, .~lock.*#)",
+                    "default": True
+                },
+                "clean_temp": {
+                    "type": "boolean",
+                    "description": "Pillar 1: Purge temporary pipeline files (step_*_temp.*, scoped_dir*)",
+                    "default": True
+                },
+                "reap_processes": {
+                    "type": "boolean",
+                    "description": "Pillar 2: Terminate orphaned headless processes (soffice, headless chromium)",
+                    "default": True
+                },
+                "vacuum_db": {
+                    "type": "boolean",
+                    "description": "Pillar 3: Vacuum and checkpoint SQLite databases (studio_history.db, FTS5)",
+                    "default": True
+                },
+                "clear_cache": {
+                    "type": "boolean",
+                    "description": "Pillar 4: Remove __pycache__, *.pyc, and .pytest_cache directories",
+                    "default": True
+                },
+                "rotate_logs": {
+                    "type": "boolean",
+                    "description": "Pillar 5: Rotate logs exceeding 10MB and prune old task logs",
+                    "default": True
+                },
+                "prune_outputs": {
+                    "type": "boolean",
+                    "description": "Pillar 5: Prune old generated outputs in .web_outputs/ (opt-in)",
+                    "default": False
+                },
+                "prune_days": {
+                    "type": "integer",
+                    "description": "Retention period in days for output pruning (default: 7)",
+                    "default": 7
+                },
+                "check_mpo": {
+                    "type": "boolean",
+                    "description": "Pillar 6: Check Windows DWM Multiplane Overlay (MPO) mouse stuttering status",
+                    "default": True
+                }
+            }
+        }
     }
 ]
 
-# Check if BA Enterprise Hub & iHRP modules are available locally
+# Check if BA Enterprise Hub & Labor Law modules are available locally
 try:
     import core.ba_hub  # type: ignore
     HAS_BA_HUB = True
@@ -2297,23 +2356,23 @@ def execute_doc_print_job(args: Dict[str, Any]) -> Dict[str, Any]:
     )
 
 
-def execute_ihrp_knowledge_search(args: Dict[str, Any]) -> Dict[str, Any]:
-    from core.ba_hub.ihrp_search import search_ihrp_knowledge
+def execute_law_knowledge_search(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.ba_hub.labor_law_search import search_labor_law_knowledge
     query = args["query"]
     cat = args.get("category")
     limit = int(args.get("limit", 5))
-    return search_ihrp_knowledge(query=query, category=cat, limit=limit)
+    return search_labor_law_knowledge(query=query, category=cat, limit=limit)
 
 
-def execute_ihrp_legal_story_lint(args: Dict[str, Any]) -> Dict[str, Any]:
-    from core.ba_hub.ihrp_ba_bridge import IHRPLegalStoryBridge
+def execute_law_compliance_lint(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.ba_hub.labor_law_compliance import LaborLawComplianceLinter
     story = args["story"]
     period = args.get("period")
-    return IHRPLegalStoryBridge.audit_legal_compliance(story, period=period)
+    return LaborLawComplianceLinter.audit_legal_compliance(story, period=period)
 
 
-def execute_ihrp_scan_policy_document(args: Dict[str, Any]) -> Dict[str, Any]:
-    from core.ba_hub.ihrp_watcher import RegulatoryWatcherPipeline
+def execute_regulatory_watch_scan(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.ba_hub.regulatory_watcher import RegulatoryWatcherPipeline
     source = args.get("file_path") or args.get("raw_text")
     use_2027 = bool(args.get("use_sample_2027", False))
     use_pit = bool(args.get("use_sample_pit", False))
@@ -2326,10 +2385,41 @@ def execute_ihrp_scan_policy_document(args: Dict[str, Any]) -> Dict[str, Any]:
     )
 
 
-def execute_ihrp_approve_staging_update(args: Dict[str, Any]) -> Dict[str, Any]:
-    from core.ba_hub.ihrp_watcher import HumanInTheLoopMergeManager
+def execute_regulatory_approve_update(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.ba_hub.regulatory_watcher import HumanInTheLoopMergeManager
     draft_filename = args["draft_filename"]
     return HumanInTheLoopMergeManager.merge_draft(draft_filename)
+
+
+def execute_system_maintenance(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.system_maintenance import SystemMaintenanceEngine
+    engine = SystemMaintenanceEngine()
+    dry_run = bool(args.get("dry_run", False))
+    clean_locks = bool(args.get("clean_locks", True))
+    clean_temp = bool(args.get("clean_temp", True))
+    reap_processes = bool(args.get("reap_processes", True))
+    vacuum_db = bool(args.get("vacuum_db", True))
+    clear_cache = bool(args.get("clear_cache", True))
+    rotate_logs = bool(args.get("rotate_logs", True))
+    prune_outputs = bool(args.get("prune_outputs", False))
+    prune_days = int(args.get("prune_days", 7))
+    check_mpo = bool(args.get("check_mpo", True))
+    fix_mpo = bool(args.get("fix_mpo", False))
+
+    report = engine.run_all(
+        dry_run=dry_run,
+        clean_locks=clean_locks,
+        clean_temp=clean_temp,
+        reap_processes=reap_processes,
+        vacuum_db=vacuum_db,
+        clear_cache=clear_cache,
+        rotate_logs=rotate_logs,
+        prune_outputs=prune_outputs,
+        prune_days=prune_days,
+        check_mpo=check_mpo,
+        fix_mpo=fix_mpo,
+    )
+    return report.to_dict()
 
 
 TOOL_DISPATCHER = {
@@ -2366,6 +2456,7 @@ TOOL_DISPATCHER = {
     "xlsx_consolidate_workbooks": execute_xlsx_consolidate_workbooks,
     "doc_run_pipeline": execute_doc_run_pipeline,
     "diagram_from_code": execute_diagram_from_code,
+    "system_maintenance": execute_system_maintenance,
 }
 
 BA_TOOL_DISPATCHER = {
@@ -2379,11 +2470,11 @@ BA_TOOL_DISPATCHER = {
     "ba_openapi_scan": execute_ba_openapi_scan,
     "ba_decision_table": execute_ba_decision_table,
     "ba_meeting_parse": execute_ba_meeting_parse,
-    # FPT.iHRP HR Domain & Legal 2026/2027 Tools
-    "ihrp_knowledge_search": execute_ihrp_knowledge_search,
-    "ihrp_legal_story_lint": execute_ihrp_legal_story_lint,
-    "ihrp_scan_policy_document": execute_ihrp_scan_policy_document,
-    "ihrp_approve_staging_update": execute_ihrp_approve_staging_update,
+    # Vietnam Labor Law & Regulatory Tools
+    "law_knowledge_search": execute_law_knowledge_search,
+    "law_compliance_lint": execute_law_compliance_lint,
+    "regulatory_watch_scan": execute_regulatory_watch_scan,
+    "regulatory_approve_update": execute_regulatory_approve_update,
 }
 
 if HAS_BA_HUB:

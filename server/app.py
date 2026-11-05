@@ -983,6 +983,11 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
                 self._send_json(run_doctor())
 
+            elif path == "/api/system/vitals":
+
+                from core.system_maintenance import SystemMaintenanceEngine
+                self._send_json(SystemMaintenanceEngine().get_system_vitals())
+
 
 
             elif path == "/api/presets":
@@ -1312,6 +1317,29 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
             elif path == "/api/upload":
 
                 self._handle_upload(content_type)
+
+            # Endpoint 1.5: System Maintenance & Vitals
+
+            elif path == "/api/system/maintenance":
+
+                payload = self._read_body_json()
+                from core.system_maintenance import SystemMaintenanceEngine
+                engine = SystemMaintenanceEngine()
+                report = engine.run_all(
+                    dry_run=bool(payload.get("dry_run", False)),
+                    clean_locks=bool(payload.get("clean_locks", True)),
+                    clean_temp=bool(payload.get("clean_temp", True)),
+                    reap_processes=bool(payload.get("reap_processes", True)),
+                    vacuum_db=bool(payload.get("vacuum_db", True)),
+                    clear_cache=bool(payload.get("clear_cache", True)),
+                    rotate_logs=bool(payload.get("rotate_logs", True)),
+                    prune_outputs=bool(payload.get("prune_outputs", False)),
+                    prune_days=int(payload.get("prune_days", 7)),
+                    check_mpo=bool(payload.get("check_mpo", True)),
+                    fix_mpo=bool(payload.get("fix_mpo", False)),
+                )
+                self._send_json(report.to_dict())
+                return
 
 
 
