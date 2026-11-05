@@ -135,9 +135,9 @@ import {
   Book,
 
   Terminal,
-
-
-
+  Archive,
+  Scale,
+  SearchX,
 } from 'lucide';
 
 
@@ -148,6 +148,7 @@ import {
 import { initHistoryDrawer } from './modules/history_drawer.js';
 import { initRequirementsHub } from './modules/ba_requirements.js';
 import { initWireframeStudio } from './modules/wireframe_studio.js';
+import { initLaborLawVault } from './modules/labor_law_vault.js';
 import { initDataProcessStudio } from './modules/ba_data_process.js';
 import { initAuditReconStudio } from './modules/ba_audit_recon.js';
 import { initPresentationStudio } from './modules/presentation_studio.js';
@@ -291,7 +292,9 @@ const studioIcons = {
   Book,
 
   Terminal,
-
+  Archive,
+  Scale,
+  SearchX,
 };
 
 
@@ -548,6 +551,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const panels = {
     requirements: document.getElementById('panel-requirements'),
+    'law-vault': document.getElementById('panel-law-vault'),
     wireframe: document.getElementById('panel-wireframe'),
     'data-process': document.getElementById('panel-data-process'),
     'audit-recon': document.getElementById('panel-audit-recon'),
@@ -686,6 +690,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   initRequirementsHub(sharedCtx);
+  initLaborLawVault(sharedCtx);
   initWireframeStudio(sharedCtx);
   initDataProcessStudio(sharedCtx);
   initAuditReconStudio(sharedCtx);

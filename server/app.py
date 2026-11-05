@@ -42,6 +42,8 @@ import json
 
 import os
 
+import re
+
 import sys
 
 import threading
@@ -907,6 +909,52 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     "success": True,
                     "templates": SaltWireframeEngine.get_templates()
                 })
+                return
+
+            elif path == "/api/law/categories":
+                from core.ba_hub.labor_law_search import get_vault_groups
+                self._send_json({
+                    "success": True,
+                    "categories": get_vault_groups()
+                })
+                return
+
+            elif path == "/api/law/articles":
+                from core.ba_hub.labor_law_search import list_vault_documents, search_labor_law_knowledge
+                query_params = urllib.parse.parse_qs(parsed_url.query)
+                query_str = query_params.get("query", [""])[0].strip()
+                category = query_params.get("category", [""])[0].strip() or None
+                if category == "all":
+                    category = None
+                limit = int(query_params.get("limit", [50])[0])
+
+                if query_str:
+                    res = search_labor_law_knowledge(query_str, category=category, limit=limit)
+                    self._send_json({
+                        "success": True,
+                        "query": res.get("query", query_str),
+                        "total": res.get("total", 0),
+                        "count": res.get("total", 0),
+                        "results": res.get("hits", []),
+                        "elapsed_ms": res.get("elapsed_ms", 0.0),
+                    })
+                else:
+                    docs = list_vault_documents(group_id=category)
+                    self._send_json({"success": True, "documents": docs, "count": len(docs)})
+                return
+
+            elif path == "/api/law/article":
+                from core.ba_hub.labor_law_search import get_vault_document_detail
+                query_params = urllib.parse.parse_qs(parsed_url.query)
+                doc_id = query_params.get("id", [""])[0].strip()
+                if not doc_id:
+                    self._send_json({"success": False, "error": "Thiếu tham số 'id' tài liệu"}, status=400)
+                    return
+                detail = get_vault_document_detail(doc_id)
+                if not detail:
+                    self._send_json({"success": False, "error": f"Không tìm thấy tài liệu '{doc_id}'"}, status=404)
+                    return
+                self._send_json(detail)
                 return
 
             elif path == "/api/info":
@@ -1986,6 +2034,53 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     "height_cm": res["height_cm"],
                     "dimensions": res["dimensions_px"],
                 })
+                return
+
+            # Labor Law: Export Single Article to Word (.docx)
+            elif path == "/api/law/export-docx":
+                payload = self._read_body_json()
+                doc_id = payload.get("id") or payload.get("doc_id") or payload.get("path")
+                if not doc_id:
+                    self._send_json({"success": False, "error": "Thiếu mã tài liệu cần xuất Word ('id')"}, status=400)
+                    return
+
+                from core.ba_hub.labor_law_search import export_vault_article_to_docx
+                ts = int(time.time() * 1000)
+                safe_id = re.sub(r"[^\w\-]", "_", str(doc_id))
+                out_name = f"LaborLaw_{safe_id}_{ts}.docx"
+                out_file = os.path.join(OUTPUT_DIR, out_name)
+
+                try:
+                    res = export_vault_article_to_docx(doc_id, out_file)
+                    qbname = urllib.parse.quote(out_name)
+                    self._send_json({
+                        "success": True,
+                        "filename": out_name,
+                        "download_url": f"/api/download/{qbname}",
+                        "title": res["title"],
+                        "doc_id": res["doc_id"],
+                        "elapsed_sec": res["elapsed_sec"],
+                    })
+                except Exception as e:
+                    self._send_json({"success": False, "error": f"Lỗi xuất Word: {str(e)}"}, status=500)
+                return
+
+            # Labor Law: Export Entire Vault as Obsidian ZIP
+            elif path == "/api/law/export-vault":
+                from core.ba_hub.labor_law_kb import LaborLawVaultManager
+                ts = int(time.time() * 1000)
+                out_name = f"Vietnam_Labor_Law_Vault_{ts}.zip"
+                out_file = os.path.join(OUTPUT_DIR, out_name)
+                try:
+                    LaborLawVaultManager.export_vault_zip(output_zip=out_file)
+                    qbname = urllib.parse.quote(out_name)
+                    self._send_json({
+                        "success": True,
+                        "filename": out_name,
+                        "download_url": f"/api/download/{qbname}",
+                    })
+                except Exception as e:
+                    self._send_json({"success": False, "error": f"Lỗi đóng gói Vault: {str(e)}"}, status=500)
                 return
 
             # Enterprise Printing: Submit Print Job
@@ -5124,8 +5219,6 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
                 export_type = payload.get("export_type", "handoff_zip").lower()
 
-                import re
-
                 clean_title = re.sub(r'[^\w\d\-_]', '_', spec.get("title", "Yearbook"))
 
                 t0 = time.time()
@@ -6425,8 +6518,6 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                 cb(10.0, "Đang khởi tạo động cơ xuất bản kỷ yếu...")
 
                 export_type = payload.get("export_type", "handoff_zip").lower()
-
-                import re
 
                 clean_title = re.sub(r'[^\w\d\-_]', '_', spec.get("title", "Yearbook"))
 

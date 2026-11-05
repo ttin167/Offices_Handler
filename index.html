@@ -69,49 +69,46 @@
         <button class="nav-tab active" data-tab="requirements">
           <span class="nav-icon"><i data-lucide="file-text"></i></span>
           <span>Requirements Hub</span>
-          <span class="pill-badge">BABOK / SRS</span>
+        </button>
+
+        <button class="nav-tab" data-tab="law-vault">
+          <span class="nav-icon"><i data-lucide="book-open"></i></span>
+          <span>Cẩm Nang Luật</span>
         </button>
 
         <button class="nav-tab" data-tab="wireframe">
           <span class="nav-icon"><i data-lucide="layout-grid"></i></span>
           <span>UI Wireframe</span>
-          <span class="pill-badge">Salt / Mockup</span>
         </button>
 
         <button class="nav-tab" data-tab="data-process">
           <span class="nav-icon"><i data-lucide="database"></i></span>
           <span>Data &amp; Process</span>
-          <span class="pill-badge">Data Dict / Mapping</span>
         </button>
 
         <button class="nav-tab" data-tab="audit-recon">
           <span class="nav-icon"><i data-lucide="shield-check"></i></span>
           <span>Audit &amp; Recon</span>
-          <span class="pill-badge">Reconciliation / UAT</span>
         </button>
 
         <button class="nav-tab" data-tab="documents">
           <span class="nav-icon"><i data-lucide="refresh-cw"></i></span>
           <span>Document Hub</span>
-          <span class="pill-badge">PDF / DOCX / MD</span>
         </button>
 
         <button class="nav-tab" data-tab="spreadsheet">
           <span class="nav-icon"><i data-lucide="table"></i></span>
           <span>Spreadsheet Studio</span>
-          <span class="pill-badge">XLSX Enterprise</span>
         </button>
 
         <button class="nav-tab" data-tab="diagrams">
           <span class="nav-icon"><i data-lucide="network"></i></span>
           <span>Diagram Studio</span>
-          <span class="pill-badge">Draw.io / UML</span>
         </button>
 
         <button class="nav-tab" data-tab="presentation">
           <span class="nav-icon"><i data-lucide="presentation"></i></span>
           <span>Presentation</span>
-          <span class="pill-badge">PPTX v2</span>
         </button>
       </nav>
 
@@ -3757,7 +3754,102 @@
       </section>
 
       <!-- =================================================================== -->
-      <!-- TAB 1B: RAPID LOW-FI UI WIREFRAME & MOCKUP STUDIO                   -->
+      <!-- TAB 1B: CẨM NANG PHÁP LÝ LAO ĐỘNG & TIỀN LƯƠNG VIỆT NAM (LAW VAULT) -->
+      <!-- =================================================================== -->
+      <section class="tab-panel" id="panel-law-vault">
+        <div class="panel-hero">
+          <div class="hero-content">
+            <h1 class="hero-title">Cẩm Nang Pháp Lý Lao Động, Tiền Lương &amp; Nhân Sự Việt Nam</h1>
+            <p class="hero-desc">Kho tri thức chuẩn hóa 19 tài liệu quy phạm (BLLĐ 2019, Luật BHXH 2024, Luật Việc Làm, Nghị định 145/2020, Thuế TNCN 2026/2027) phục vụ BA thiết kế hệ thống tính lương, bảo hiểm và nhân sự chuẩn xác.</p>
+          </div>
+          <div class="hero-meta">
+            <div class="meta-pill"><i data-lucide="database"></i> SQLite FTS5 Sub-10ms</div>
+            <div class="meta-pill"><i data-lucide="file-check"></i> 1-Click DOCX / Vault Export</div>
+          </div>
+        </div>
+
+        <!-- 3-Column Knowledge Workstation (Obsidian / Notion Style) -->
+        <div class="law-vault-layout">
+          <!-- Col 1: Statutory Groups Sidebar (280px) -->
+          <div class="law-col-groups">
+            <div class="law-groups-header">
+              <span class="law-groups-title"><i data-lucide="layers"></i> Nhóm Văn Bản</span>
+              <button type="button" id="btn-law-export-vault" class="btn btn-sm btn-secondary" title="Xuất toàn bộ cẩm nang thành Obsidian Vault ZIP">
+                <i data-lucide="archive"></i> Vault .zip
+              </button>
+            </div>
+            <div class="law-groups-list" id="law-groups-container">
+              <!-- Dynamically populated from /api/law/categories -->
+            </div>
+          </div>
+
+          <!-- Col 2: Article Directory & Sub-10ms FTS5 Search (340px) -->
+          <div class="law-col-articles">
+            <div class="law-search-box">
+              <i data-lucide="search" class="law-search-icon"></i>
+              <input type="text" id="law-search-input" class="ba-input" placeholder="Tìm kiếm nhanh (mức tham chiếu, 15.5M, OT)..." spellcheck="false" />
+              <button type="button" id="btn-law-clear-search" class="btn-clear-search" title="Xóa tìm kiếm" style="display: none;">
+                <i data-lucide="x"></i>
+              </button>
+            </div>
+            <div class="law-articles-subhead">
+              <span id="law-articles-count-label">19 bài viết quy chuẩn</span>
+              <span id="law-search-perf-badge" style="display: none;" class="law-badge-perf">0 ms</span>
+            </div>
+            <div class="law-articles-list" id="law-articles-container">
+              <!-- Dynamically populated from /api/law/articles -->
+            </div>
+          </div>
+
+          <!-- Col 3: Markdown Reader & BA Parameters Inspector (Flex-1) -->
+          <div class="law-col-reader">
+            <div id="law-reader-empty" class="law-reader-empty-state">
+              <i data-lucide="book-open" class="empty-icon"></i>
+              <h3>Chọn một bài viết để tra cứu chi tiết</h3>
+              <p>Hệ thống hỗ trợ tra cứu nguyên văn, căn cứ pháp lý, trích xuất tham số cấu hình tiền lương và xuất khẩu tài liệu Word 1-click.</p>
+            </div>
+
+            <div id="law-reader-content" class="law-reader-view" style="display: none;">
+              <!-- Reader Header -->
+              <div class="law-reader-header">
+                <div class="law-reader-title-group">
+                  <div class="law-reader-tags" id="law-reader-tags"></div>
+                  <h2 class="law-reader-title" id="law-reader-title">Tiêu đề bài viết</h2>
+                  <div class="law-reader-source" id="law-reader-source"></div>
+                </div>
+                <div class="law-reader-actions">
+                  <button type="button" id="btn-law-export-docx" class="btn btn-primary btn-sm">
+                    <i data-lucide="download"></i> Xuất Word (.docx)
+                  </button>
+                </div>
+              </div>
+
+              <!-- Parameter Inspector Accordion / Box -->
+              <div id="law-params-container" class="law-params-card" style="display: none;">
+                <div class="law-params-header">
+                  <div class="law-params-title">
+                    <i data-lucide="sliders"></i> Tham Số Cấu Hình Nghiệp Vụ (BA Config Parameters)
+                  </div>
+                  <button type="button" id="btn-law-copy-params" class="btn btn-secondary btn-sm">
+                    <i data-lucide="copy"></i> Sao Chép YAML
+                  </button>
+                </div>
+                <div class="law-params-body">
+                  <pre><code id="law-params-code"></code></pre>
+                </div>
+              </div>
+
+              <!-- Main Article Body -->
+              <div class="law-reader-body" id="law-reader-markdown">
+                <!-- Rendered Markdown HTML -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- =================================================================== -->
+      <!-- TAB 1C: RAPID LOW-FI UI WIREFRAME & MOCKUP STUDIO                   -->
       <!-- =================================================================== -->
       <section class="tab-panel" id="panel-wireframe">
         <div class="panel-hero">
@@ -3773,10 +3865,10 @@
 
         <div class="ba-workbench-container">
           <!-- Top Template & Mode Toolbar -->
-          <div class="ba-toolbar" style="flex-wrap: wrap; gap: 12px;">
-            <div class="ba-toolbar-group">
+          <div class="ba-toolbar wf-toolbar">
+            <div class="wf-toolbar-group">
               <label><strong>6 Mẫu Giao Diện Chuẩn BA:</strong></label>
-              <select id="wf-template-select" class="ba-select" style="min-width: 280px;">
+              <select id="wf-template-select" class="ba-select wf-template-select">
                 <option value="login_auth">[Authentication] Màn Hình Đăng Nhập &amp; 2FA</option>
                 <option value="crud_table">[Data Grid] Bảng Quản Trị &amp; Bộ Lọc Dữ Liệu</option>
                 <option value="wizard_form">[Multi-Step Form] Biểu Mẫu Nhập Liệu Đa Bước</option>
@@ -3790,7 +3882,7 @@
             </div>
 
             <!-- Quick Preset Chips -->
-            <div class="ba-toolbar-group" style="flex-wrap: wrap; gap: 6px;">
+            <div class="wf-preset-chips">
               <button type="button" class="btn btn-sm btn-secondary wf-preset-chip active" data-tpl="login_auth">Login / 2FA</button>
               <button type="button" class="btn btn-sm btn-secondary wf-preset-chip" data-tpl="crud_table">CRUD Table</button>
               <button type="button" class="btn btn-sm btn-secondary wf-preset-chip" data-tpl="wizard_form">Wizard 3 Bước</button>
@@ -3800,14 +3892,14 @@
             </div>
           </div>
 
-          <!-- Split-Screen Authoring & Live SVG Preview -->
-          <div class="ba-grid-2" style="grid-template-columns: 1fr 1.15fr; gap: 20px; align-items: start;">
+          <!-- Split-Screen Authoring & Live SVG Preview (50/50 Grid) -->
+          <div class="wf-grid-2">
             <!-- Left Column: Dual-Mode Editor & Word Injection Config -->
             <div class="ba-column-main">
-              <div class="ba-card">
-                <div class="ba-card-header" style="flex-wrap: wrap; gap: 8px;">
+              <div class="ba-card wf-editor-card">
+                <div class="ba-card-header">
                   <div class="ba-card-title"><i data-lucide="code"></i> Trình Soạn Thảo Wireframe Kép (Dual-Mode Editor)</div>
-                  <div style="display: flex; gap: 6px;">
+                  <div class="wf-mode-toggle">
                     <button type="button" class="btn btn-sm btn-secondary wf-mode-btn active" data-wf-mode="salt">
                       <i data-lucide="terminal"></i> Chế Độ 2: Salt Code
                     </button>
@@ -3818,25 +3910,25 @@
                 </div>
 
                 <div class="ba-card-body">
-                  <div id="wf-editor-mode-label" style="font-size: 12px; color: #38bdf8; margin-bottom: 8px; font-weight: 500;">
+                  <div id="wf-editor-mode-label" class="wf-mode-hint">
                     Chế độ Salt Code: Chỉnh sửa trực tiếp cú pháp @startsalt ... @endsalt
                   </div>
 
                   <!-- Quick Widget Snippet Bar -->
-                  <div id="wf-snippet-toolbar" style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; padding: 8px; background: #090d16; border: 1px solid #334155; border-radius: 6px;">
-                    <span style="font-size: 11px; color: #94a3b8; display: flex; align-items: center; margin-right: 4px;">Chèn nhanh:</span>
-                    <button type="button" class="btn btn-sm btn-secondary wf-snippet-btn" data-snippet="button" style="font-size: 11px; padding: 3px 8px;">+ [Nút bấm]</button>
-                    <button type="button" class="btn btn-sm btn-secondary wf-snippet-btn" data-snippet="input" style="font-size: 11px; padding: 3px 8px;">+ "Ô nhập"</button>
-                    <button type="button" class="btn btn-sm btn-secondary wf-snippet-btn" data-snippet="droplist" style="font-size: 11px; padding: 3px 8px;">+ ^Dropdown^</button>
-                    <button type="button" class="btn btn-sm btn-secondary wf-snippet-btn" data-snippet="checkbox" style="font-size: 11px; padding: 3px 8px;">+ [X] Checkbox</button>
-                    <button type="button" class="btn btn-sm btn-secondary wf-snippet-btn" data-snippet="radio" style="font-size: 11px; padding: 3px 8px;">+ (X) Radio</button>
-                    <button type="button" class="btn btn-sm btn-secondary wf-snippet-btn" data-snippet="table" style="font-size: 11px; padding: 3px 8px;">+ {# Bảng }</button>
-                    <button type="button" class="btn btn-sm btn-secondary wf-snippet-btn" data-snippet="tabs" style="font-size: 11px; padding: 3px 8px;">+ {/ Tabs }</button>
+                  <div id="wf-snippet-toolbar" class="wf-snippet-bar">
+                    <span class="wf-snippet-label">Chèn nhanh:</span>
+                    <button type="button" class="btn btn-sm btn-secondary wf-snippet-btn" data-snippet="button">+ [Nút bấm]</button>
+                    <button type="button" class="btn btn-sm btn-secondary wf-snippet-btn" data-snippet="input">+ "Ô nhập"</button>
+                    <button type="button" class="btn btn-sm btn-secondary wf-snippet-btn" data-snippet="droplist">+ ^Dropdown^</button>
+                    <button type="button" class="btn btn-sm btn-secondary wf-snippet-btn" data-snippet="checkbox">+ [X] Checkbox</button>
+                    <button type="button" class="btn btn-sm btn-secondary wf-snippet-btn" data-snippet="radio">+ (X) Radio</button>
+                    <button type="button" class="btn btn-sm btn-secondary wf-snippet-btn" data-snippet="table">+ {# Bảng }</button>
+                    <button type="button" class="btn btn-sm btn-secondary wf-snippet-btn" data-snippet="tabs">+ {/ Tabs }</button>
                   </div>
 
-                  <textarea id="wf-code-editor" class="ba-input" rows="16" style="width: 100%; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.55; background: #090d16;" spellcheck="false"></textarea>
+                  <textarea id="wf-code-editor" class="wf-code-area" rows="16" spellcheck="false"></textarea>
 
-                  <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap;">
+                  <div class="wf-editor-footer">
                     <button type="button" id="btn-wf-copy-code" class="btn btn-secondary">
                       <i data-lucide="copy"></i> Sao Chép Mã
                     </button>
@@ -3848,28 +3940,28 @@
               </div>
 
               <!-- Card 2: 1-Click Word BRD Injection -->
-              <div class="ba-card" style="margin-top: 16px;">
+              <div class="ba-card wf-docx-card">
                 <div class="ba-card-header">
                   <div class="ba-card-title"><i data-lucide="file-text"></i> Nhúng 1-Click Vào Tài Liệu Word BRD / SRS (ERR_DOCX_005)</div>
                   <div class="ba-badge-info" style="font-size: 11px; color: #4ade80;">Auto Margin Guard &le; 14.0 cm</div>
                 </div>
                 <div class="ba-card-body">
-                  <p style="font-size: 12.5px; color: #cbd5e1; margin: 0 0 10px; line-height: 1.5;">
+                  <p class="wf-docx-desc">
                     Tự động kết xuất ảnh PNG 300 DPI sắc nét, khóa tỷ lệ khung hình vừa khít lề in trang A4 và gắn dòng chú thích (Caption) căn giữa. Nếu không chọn tệp Word có sẵn, hệ thống tự động khởi tạo tệp đặc tả Word mới.
                   </p>
-                  <div style="display: flex; flex-direction: column; gap: 10px;">
+                  <div class="wf-docx-fields">
                     <div>
                       <label style="font-size: 12px; font-weight: 600;">Tệp Word đích (.docx - Để trống để tạo tệp BRD mới):</label>
-                      <input type="file" id="wf-docx-file" accept=".docx" class="ba-input" style="width: 100%;" />
+                      <input type="file" id="wf-docx-file" accept=".docx" class="ba-input" style="width: 100%; box-sizing: border-box;" />
                     </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="wf-docx-row-2">
                       <div>
                         <label style="font-size: 12px; font-weight: 600;">Tiêu đề mục chèn (Heading):</label>
-                        <input type="text" id="wf-docx-heading" class="ba-input" value="Phác Thảo Giao Diện Màn Hình (UI Wireframe)" style="width: 100%;" />
+                        <input type="text" id="wf-docx-heading" class="ba-input" value="Phác Thảo Giao Diện Màn Hình (UI Wireframe)" style="width: 100%; box-sizing: border-box;" />
                       </div>
                       <div>
                         <label style="font-size: 12px; font-weight: 600;">Chú thích hình ảnh (Caption):</label>
-                        <input type="text" id="wf-docx-caption" class="ba-input" value="Hình: Phác thảo giao diện màn hình (UI Wireframe Mockup)" style="width: 100%;" />
+                        <input type="text" id="wf-docx-caption" class="ba-input" value="Hình: Phác thảo giao diện màn hình (UI Wireframe Mockup)" style="width: 100%; box-sizing: border-box;" />
                       </div>
                     </div>
                     <div style="display: flex; justify-content: flex-end; margin-top: 4px;">
@@ -3884,22 +3976,22 @@
 
             <!-- Right Column: Live Vector SVG Canvas & Export Toolbar -->
             <div class="ba-column-side">
-              <div class="ba-card">
-                <div class="ba-card-header" style="flex-wrap: wrap; gap: 8px;">
+              <div class="ba-card wf-preview-card">
+                <div class="ba-card-header">
                   <div class="ba-card-title"><i data-lucide="eye"></i> Khung Xem Trước Trực Tiếp (Live Vector SVG Canvas)</div>
-                  <span id="wf-dimensions-badge" style="font-size: 11px; color: #38bdf8; background: rgba(56, 189, 248, 0.12); padding: 3px 8px; border-radius: 999px;">Sẵn sàng kết xuất</span>
+                  <span id="wf-dimensions-badge" style="font-size: 11px; color: var(--cyan-neon); background: rgba(56, 189, 248, 0.12); padding: 3px 8px; border-radius: 999px;">Sẵn sàng kết xuất</span>
                 </div>
 
                 <div class="ba-card-body">
                   <!-- Zoom & Export Action Bar -->
-                  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; padding: 8px 10px; background: #0f172a; border-radius: 8px; border: 1px solid #334155;">
-                    <div style="display: flex; align-items: center; gap: 6px;">
+                  <div class="wf-preview-bar">
+                    <div class="wf-zoom-group">
                       <button type="button" id="btn-wf-zoom-out" class="btn btn-sm btn-secondary" title="Thu nhỏ"><i data-lucide="zoom-out"></i></button>
-                      <span id="wf-zoom-badge" style="font-size: 12px; font-weight: 600; min-width: 48px; text-align: center;">100%</span>
+                      <span id="wf-zoom-badge" class="wf-zoom-label">100%</span>
                       <button type="button" id="btn-wf-zoom-in" class="btn btn-sm btn-secondary" title="Phóng to"><i data-lucide="zoom-in"></i></button>
                       <button type="button" id="btn-wf-zoom-reset" class="btn btn-sm btn-secondary" title="Đặt lại 100%">100%</button>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
+                    <div class="wf-export-group">
                       <button type="button" id="btn-wf-download-svg" class="btn btn-sm btn-secondary" disabled>
                         <i data-lucide="download"></i> Tải SVG Vector
                       </button>
@@ -3910,13 +4002,13 @@
                   </div>
 
                   <!-- SVG Preview Box -->
-                  <div style="min-height: 440px; max-height: 640px; overflow: auto; background: #f8fafc; border: 2px dashed #475569; border-radius: 10px; padding: 24px; display: flex; justify-content: center; align-items: flex-start;">
-                    <div id="wf-empty-state" style="text-align: center; color: #475569; padding: 80px 20px;">
-                      <i data-lucide="layout-grid" style="width: 42px; height: 42px; margin-bottom: 10px; color: #64748b;"></i>
-                      <div style="font-size: 14px; font-weight: 600; color: #334155;">Chọn mẫu giao diện hoặc nhấn "Kết Xuất Wireframe"</div>
-                      <div style="font-size: 12px; color: #64748b; margin-top: 4px;">Bản vẽ Vector SVG nền trong suốt sẽ hiển thị tức thì tại đây.</div>
+                  <div class="wf-canvas-box">
+                    <div id="wf-empty-state" class="wf-empty-state">
+                      <i data-lucide="layout-grid" class="wf-empty-icon"></i>
+                      <div class="wf-empty-title">Chọn mẫu giao diện hoặc nhấn "Kết Xuất Wireframe"</div>
+                      <div class="wf-empty-subtitle">Bản vẽ Vector SVG nền trong suốt sẽ hiển thị tức thì tại đây.</div>
                     </div>
-                    <div id="wf-svg-viewport" style="display: none; justify-content: center; align-items: flex-start; width: 100%;"></div>
+                    <div id="wf-svg-viewport" class="wf-svg-viewport"></div>
                   </div>
                 </div>
               </div>
