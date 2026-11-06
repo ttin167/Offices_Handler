@@ -2213,25 +2213,16 @@ def _docx_to_pdf_via_edge(
         # Stamp vector page numbering at bottom-right (Trang 01/18)
         try:
             import fitz
-            from core.converter.pdf_toolkit import _find_system_font
             pdf_doc = fitz.open(abs_pdf)
             total_p = len(pdf_doc)
-            ttf_font = _find_system_font()
             for p_idx in range(total_p):
                 page = pdf_doc[p_idx]
                 pw, ph = page.rect.width, page.rect.height
                 label = f"Trang {p_idx + 1:02d}/{total_p:02d}"
-                fname = "helv"
-                if ttf_font:
-                    try:
-                        page.insert_font(fontname="footer_vn", fontfile=ttf_font)
-                        fname = "footer_vn"
-                    except Exception:
-                        pass
                 text_w = len(label) * (9.0 * 0.48)
                 pt = fitz.Point(pw - 36.0 - text_w, ph - 18.0)
                 shape = page.new_shape()
-                shape.insert_text(pt, label, fontname=fname, fontsize=9, color=(0.25, 0.3, 0.38))
+                shape.insert_text(pt, label, fontname="helv", fontsize=9, color=(0.25, 0.3, 0.38))
                 shape.commit()
             tmp_stamped = abs_pdf + ".stamped.pdf"
             pdf_doc.save(tmp_stamped, garbage=3, deflate=True)

@@ -239,14 +239,14 @@ class TestExcelCoreEngine(unittest.TestCase):
         """Verify headless openpyxl reader produces structured JSON snapshot without Microsoft Excel."""
         from core.xlsx.reader import read_xlsx
 
-        mock_path = os.path.join(self.output_dir, "mock_template.xlsx")
-        if not os.path.isfile(mock_path):
-            wb = openpyxl.Workbook()
-            ws = wb.active
-            assert ws is not None
-            ws.title = "Test Cases"
-            ws["A1"] = "Test Header"
-            wb.save(mock_path)
+        mock_path = os.path.join(self.output_dir, "mock_reader_template.xlsx")
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        assert ws is not None
+        ws.title = "Test Cases"
+        ws["A1"] = "PROJECT: {{PROJECT_TITLE}}"
+        ws["A1"].font = Font(name="Segoe UI", size=14, bold=True)
+        wb.save(mock_path)
         self.assertTrue(os.path.isfile(mock_path))
 
         snapshot = read_xlsx(mock_path, engine="openpyxl")

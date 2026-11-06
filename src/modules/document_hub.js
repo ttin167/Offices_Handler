@@ -51,11 +51,65 @@ function handleDocFileSelected(file) {
   if (docFileInfo) docFileInfo.style.display = 'flex';
   if (btnConvertDoc) btnConvertDoc.disabled = false;
   showToast(`Đã chọn tài liệu: ${file.name}`, 'info');
+
+  // Smart OCR Auto-Routing Guard (v5.0)
+  const existingAlert = document.getElementById('scanned-pdf-warning');
+  if (existingAlert) existingAlert.remove();
+
+  if (ext === '.pdf') {
+    uploadFileToServer(file).then((upRes) => {
+      const serverPath = upRes.filepath || upRes.file_path || (upRes.first_file && upRes.first_file.file_path);
+      state.docServerPath = serverPath;
+      if (serverPath) {
+        fetch('/api/doc/inspect-scanned', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ file_path: serverPath }),
+        })
+          .then((r) => r.json())
+          .then((res) => {
+            if (res.success && res.is_scanned) {
+              const alertBox = document.createElement('div');
+              alertBox.id = 'scanned-pdf-warning';
+              alertBox.style.cssText =
+                'display: flex; align-items: center; justify-content: space-between; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 8px; padding: 10px 14px; margin-top: 12px; color: #f59e0b; font-size: 13px;';
+              alertBox.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <i data-lucide="alert-triangle"></i>
+                  <span>Phát hiện <strong>PDF scan thuần ảnh</strong>. Bạn nên dùng <strong>Vietnamese OCR</strong> để trích xuất văn bản có thể chỉnh sửa.</span>
+                </div>
+                <button type="button" class="btn-sm btn-primary" id="btn-switch-to-ocr" style="white-space: nowrap; margin-left: 10px; font-size: 12px; padding: 5px 12px; cursor: pointer;">Chuyển sang OCR</button>
+              `;
+              if (docFileInfo && docFileInfo.parentNode) {
+                docFileInfo.parentNode.appendChild(alertBox);
+                if (refreshLucideIcons) refreshLucideIcons();
+                const btnSwitch = document.getElementById('btn-switch-to-ocr');
+                if (btnSwitch) {
+                  btnSwitch.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const ocrTabBtn = document.querySelector('#doc-subtabs-nav .sub-tab-btn[data-doc-subtab="ocr"]');
+                    if (ocrTabBtn) {
+                      ocrTabBtn.click();
+                      if (typeof setOcrSelectedFile === 'function') {
+                        setOcrSelectedFile(file);
+                      }
+                    }
+                  });
+                }
+              }
+            }
+          })
+          .catch(() => {});
+      }
+    }).catch(() => {});
+  }
 }
 
 function clearDocFile() {
   state.docFile = null;
   state.docServerPath = null;
+  const existingAlert = document.getElementById('scanned-pdf-warning');
+  if (existingAlert) existingAlert.remove();
   if (docFileInput) docFileInput.value = '';
   if (docFileInfo) docFileInfo.style.display = 'none';
   if (docDropZone) {
@@ -612,20 +666,27 @@ const ocrResPages = document.getElementById('ocr-res-pages');
 const ocrResultFilename = document.getElementById('ocr-result-filename');
 const btnDownloadOcr = document.getElementById('btn-download-ocr');
 
+function setOcrSelectedFile(file) {
+  if (!file) return;
+  ocrFile = file;
+  const ext = file.name.substring(file.name.lastIndexOf('.')).replace('.', '').toUpperCase();
+  if (ocrFileName) ocrFileName.textContent = file.name;
+  if (ocrFileSize) ocrFileSize.textContent = formatBytes(file.size);
+  if (ocrFileExt) ocrFileExt.textContent = ext;
+  if (ocrDropZone) {
+    const c = ocrDropZone.querySelector('.drop-zone-content');
+    if (c) c.style.display = 'none';
+  }
+  if (ocrFileInfo) ocrFileInfo.style.display = 'flex';
+  if (btnRunOcr) btnRunOcr.disabled = false;
+}
+
 if (ocrDropZone && ocrFileInput) {
   ocrDropZone.addEventListener('click', () => ocrFileInput.click());
   if (btnBrowseOcr) btnBrowseOcr.addEventListener('click', (e) => { e.stopPropagation(); ocrFileInput.click(); });
   ocrFileInput.addEventListener('change', (e) => {
     if (e.target.files && e.target.files.length > 0) {
-      ocrFile = e.target.files[0];
-      const ext = ocrFile.name.substring(ocrFile.name.lastIndexOf('.')).replace('.', '').toUpperCase();
-      if (ocrFileName) ocrFileName.textContent = ocrFile.name;
-      if (ocrFileSize) ocrFileSize.textContent = formatBytes(ocrFile.size);
-      if (ocrFileExt) ocrFileExt.textContent = ext;
-      const c = ocrDropZone.querySelector('.drop-zone-content');
-      if (c) c.style.display = 'none';
-      if (ocrFileInfo) ocrFileInfo.style.display = 'flex';
-      if (btnRunOcr) btnRunOcr.disabled = false;
+      setOcrSelectedFile(e.target.files[0]);
     }
   });
   if (btnRemoveOcr) {
@@ -908,6 +969,8 @@ const btnApplySign = document.getElementById('btn-apply-sign');
 const btnApplyGiaplai = document.getElementById('btn-apply-giaplai');
 const btnApplyNormalize = document.getElementById('btn-apply-normalize');
 const btnApplyExtractTables = document.getElementById('btn-apply-extract-tables');
+const btnApplyFillForm = document.getElementById('btn-apply-fill-form');
+const btnInspectPdfFields = document.getElementById('btn-inspect-pdf-fields');
 
 const pdfProProgress = document.getElementById('pdf-pro-progress-container');
 const pdfProProgressFill = document.getElementById('pdf-pro-progress-fill');
@@ -1004,6 +1067,7 @@ function setPdfToolButtonsEnabled(enabled) {
   if (btnApplyProtect) btnApplyProtect.disabled = !enabled;
   if (btnApplyNormalize) btnApplyNormalize.disabled = !enabled;
   if (btnApplyExtractTables) btnApplyExtractTables.disabled = !enabled;
+  if (btnApplyFillForm) btnApplyFillForm.disabled = !enabled;
   if (btnApplyGiaplai) btnApplyGiaplai.disabled = !(enabled && giapLaiStampServerPath);
   updateSignApplyButtonState();
 }
@@ -1440,6 +1504,62 @@ if (btnApplyExtractTables) {
       {},
       'Bóc tách bảng biểu sang Excel',
       btnApplyExtractTables
+    );
+  });
+}
+
+const pdfFormDataInput = document.getElementById('pdf-form-data-input');
+const pdfFormFlattenCheck = document.getElementById('pdf-form-flatten-check');
+
+if (btnInspectPdfFields) {
+  btnInspectPdfFields.addEventListener('click', async () => {
+    if (!pdfProServerPath) {
+      showToast('Vui lòng tải lên tệp PDF trước khi quét form!', 'warning');
+      return;
+    }
+    try {
+      showToast('Đang quét các trường biểu mẫu PDF...', 'info');
+      const res = await fetch('/api/pdf/inspect-form', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file_path: pdfProServerPath }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Quét form thất bại');
+      if (!data.fields || data.fields.length === 0) {
+        showToast('Không tìm thấy trường biểu mẫu tương tác (AcroForm) trong PDF này.', 'info');
+        return;
+      }
+      const sample = {};
+      data.fields.forEach((f) => {
+        sample[f.field_name] = f.field_value !== null ? f.field_value : (f.field_type === 'CheckBox' ? false : 'Giá trị mẫu');
+      });
+      if (pdfFormDataInput) {
+        pdfFormDataInput.value = JSON.stringify(sample, null, 2);
+      }
+      if (btnApplyFillForm) btnApplyFillForm.disabled = false;
+      showToast(`Đã tìm thấy ${data.total_fields} trường form!`, 'success');
+    } catch (err) {
+      showToast(`Lỗi quét form: ${err.message}`, 'error');
+    }
+  });
+}
+
+if (btnApplyFillForm) {
+  btnApplyFillForm.addEventListener('click', () => {
+    let formData = {};
+    try {
+      formData = JSON.parse(pdfFormDataInput?.value || '{}');
+    } catch (e) {
+      showToast('Dữ liệu JSON không hợp lệ. Vui lòng kiểm tra lại!', 'error');
+      return;
+    }
+    const flatten = pdfFormFlattenCheck ? pdfFormFlattenCheck.checked : true;
+    executePdfProAction(
+      'fill-form',
+      { form_data: formData, flatten: flatten },
+      'Điền dữ liệu Form PDF',
+      btnApplyFillForm
     );
   });
 }

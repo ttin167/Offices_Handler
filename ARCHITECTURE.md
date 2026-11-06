@@ -54,11 +54,11 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
 - **Quy tắc phụ thuộc**: Tuyệt đối không import từ `server/`, `ui/`, hoặc `cli/`. Chỉ nhận tham số thuần túy (Python dict, dataclass, file path) và trả về kết quả.
 - **Các phân hệ cốt lõi**:
   - `core/docx/`:
-    - `reader.py` / `writer.py`: Đọc và ghi tài liệu Word OpenXML, duy trì `<w:cantSplit/>`, `<w:tblHeader/>`, `<w:vAlign w:val="center"/>`.
+    - `reader.py` / `writer.py`: Đọc và ghi tài liệu Word OpenXML, duy trì `<w:cantSplit/>`, `<w:tblHeader/>`, `<w:vAlign w:val="center"/>`; hỗ trợ vá hình ảnh động `{{IMAGE:key}}` và ngắt dòng OpenXML `<w:br/>` an toàn trong `patch_docx_template`.
     - `lists.py`: Động cơ đánh số tự động OpenXML (`numId` động, `startOverride=1`, bullet 3 cấp, checkbox `☐`/`☑`).
     - `math.py`: Kiến trúc toán học Dual-Mode (OpenXML Multi-Run & OMML `<m:oMath>`).
     - `diff_engine.py`: So sánh tài liệu pháp lý và AI Track Changes (`<w:ins>`, `<w:del>`, `<w:delText>`, `word/comments.xml`).
-    - `mail_merge.py`: Studio trộn thư hàng loạt từ template Word + dataset Excel/JSON, hỗ trợ logic `{{IF}}` và xuất file `.zip`.
+    - `mail_merge.py`: Studio trộn thư hàng loạt từ template Word + dataset Excel/JSON, hỗ trợ logic `{{IF}}`, lặp dòng bảng danh sách con lồng nhau `{{#TABLE:Items}}...{{/TABLE}}` (`_process_nested_table_blocks`) và xuất file `.zip`.
     - `nd30_preset.py`: Tự động áp dụng thể thức văn bản hành chính theo Nghị định 30/2020/NĐ-CP (lề in, quốc hiệu, tiêu ngữ, bảng 2 cột).
     - `vietnamese_sanitizer.py`: Chuẩn hóa typographic tiếng Việt (Unicode NFC, khoảng trắng dấu câu, En-dash `–`).
     - `charts.py`: Kết xuất vector SVG và PNG phân giải cao cho 5 loại biểu đồ, giới hạn lề in ấn $\le 14\text{cm}$.
@@ -82,7 +82,7 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
     - `table_extractor.py`: Semantic Table Extractor với Matrix Post-Processor; ưu tiên chiến lược `lines_strict` vector borders, thuật toán cắt bỏ cột ma `_prune_ghost_columns`, ghép nối bảng đa trang liên tục `_stitch_multipage_tables`, tái tạo ô gộp tiêu đề 2 tầng `_detect_table_header_structure`, cố định dòng tiêu đề `freeze_panes = 'A3'/'A2'`, lọc bảng hành chính NĐ30, xử lý an toàn ô gộp `<w:gridSpan>` và `<w:vMerge>` (`ERR_XLSX_004`), giữ nguyên số 0 ở đầu cho mã định danh `@` (`ERR_XLSX_007`), thiết lập in ấn A4 ngang (`ERR_XLSX_008`).
     - `ocr_pipeline.py`: Pipeline bóc tách PDF/ảnh scan tiếng Việt (`vie+eng`), bộ lọc mộc đỏ HSV (`ERR_CONV_005`), nắn thẳng ảnh scan tự động (`deskew`).
     - `pdf_renderer.py`: Bộ chuyển đổi PDF phổ quát (`UniversalPdfRenderer`) với chuỗi ưu tiên: Win32 COM ➔ LibreOffice Headless ➔ PyMuPDF.
-    - `pdf_toolkit.py`: Phân hệ PDF Pro Studio & iLovePDF Killer Features (True Redaction `ERR_PDF_001`, AES-256 Encryption, Dấu giáp lai đa trang overlap 8% `ERR_PDF_002`, Chuẩn hóa A4 vector `ERR_PDF_003`, Bóc bảng sang Excel `ERR_XLSX_007`, Tổ chức trang trực quan kèm chèn trang trắng A4, Chuyển đổi 2 chiều Ảnh ↔ PDF, Ký tên điện tử & đóng dấu bù góc xoay `page.derotation_matrix`, Làm phẳng 2 chế độ Vector Bake & Strict Raster kèm dọn sạch metadata ẩn `doc.scrub`).
+    - `pdf_toolkit.py`: Phân hệ PDF Pro Studio & iLovePDF Killer Features (True Redaction `ERR_PDF_001`, AES-256 Encryption, Dấu giáp lai đa trang overlap 8% `ERR_PDF_002`, Chuẩn hóa A4 vector `ERR_PDF_003`, Bóc bảng sang Excel `ERR_XLSX_007`, Tổ chức trang trực quan kèm chèn trang trắng A4, Chuyển đổi 2 chiều Ảnh ↔ PDF, Ký tên điện tử & đóng dấu bù góc xoay `page.derotation_matrix`, Làm phẳng 2 chế độ Vector Bake & Strict Raster kèm dọn sạch metadata ẩn `doc.scrub`, Quét và điền biểu mẫu tương tác AcroForms `inspect_pdf_form_fields` & `fill_pdf_form_fields`).
   - `core/ba_hub/` (BA Enterprise Workstation Engine):
     - `templates.py`: Khung mẫu thực chiến chuẩn ngành Ngân hàng số (NAPAS 247, eKYC), Thương mại điện tử (Checkout, Voucher) và Kho vận (WMS Inbound).
     - `story_builder.py`: Khung soạn thảo User Story & Gherkin AC tương tác, bộ thẩm định chất lượng tự động `StoryQualityLinter` (chấm điểm 0-100%, kiểm tra Role specificity, Business value, Given-When-Then, Happy/Negative paths) và xuất bản OpenXML Word / Markdown.

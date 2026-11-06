@@ -858,6 +858,55 @@ def _apply_section_break(doc: DocumentType, sec_data: dict[str, Any]) -> Any:
 # In-Place Template Patching Engine (Run-Merging Token Replacement)
 # ---------------------------------------------------------------------------
 
+def _set_run_text_with_breaks(run, text: str) -> None:
+    """Sets text on a run, replacing '\n' with proper OpenXML <w:br/> line breaks."""
+    if "\n" not in text:
+        run.text = text
+        return
+    parts = text.split("\n")
+    run.text = parts[0]
+    for p in parts[1:]:
+        run.add_break()
+        if p:
+            run.add_text(p)
+
+
+def _replace_image_in_paragraph(paragraph, img_key: str, img_spec: Union[str, Dict[str, Any]]) -> bool:
+    """
+    Replaces an image placeholder {{IMAGE:key}} or {{key}} inside paragraph with an inline picture.
+    Preserves paragraph alignment and formatting.
+    """
+    if img_key not in paragraph.text:
+        return False
+
+    img_path = ""
+    width_in = None
+    if isinstance(img_spec, str):
+        img_path = img_spec
+    elif isinstance(img_spec, dict):
+        img_path = img_spec.get("path", "")
+        width_in = img_spec.get("width_in") or img_spec.get("width")
+
+    if not img_path or not os.path.isfile(img_path):
+        return False
+
+    # Remove the placeholder text from runs
+    for r in paragraph.runs:
+        if img_key in r.text:
+            r.text = r.text.replace(img_key, "")
+
+    if img_key in paragraph.text:
+        paragraph.text = paragraph.text.replace(img_key, "")
+
+    # Add picture run
+    run = paragraph.add_run()
+    if width_in and isinstance(width_in, (int, float)):
+        run.add_picture(img_path, width=Inches(float(width_in)))
+    else:
+        run.add_picture(img_path, width=Inches(3.5))
+    return True
+
+
 def _replace_text_in_paragraph(paragraph, replacements: dict[str, str]) -> int:
     """
     Replaces {{KEY}} placeholders in a paragraph.
@@ -880,7 +929,8 @@ def _replace_text_in_paragraph(paragraph, replacements: dict[str, str]) -> int:
         replaced_in_single_run = False
         for r in runs:
             if key in r.text:
-                r.text = r.text.replace(key, val)
+                new_text = r.text.replace(key, val)
+                _set_run_text_with_breaks(r, new_text)
                 replaced_in_single_run = True
                 total_replaced += 1
 
@@ -912,7 +962,7 @@ def _replace_text_in_paragraph(paragraph, replacements: dict[str, str]) -> int:
                 # First run gets the replacement text
                 first_start, first_end, first_run = matching_runs[0]
                 prefix = first_run.text[:max(0, k_idx - first_start)]
-                first_run.text = prefix + val
+                _set_run_text_with_breaks(first_run, prefix + val)
 
                 # Subsequent overlapping runs have the matched slice stripped
                 for other_start, other_end, other_run in matching_runs[1:]:
@@ -962,8 +1012,34 @@ def patch_docx_template(
     doc = Document(template_path)
     text_rep = dict(text_replacements or {})
     block_rep = dict(block_replacements or {})
+    image_rep: Dict[str, Any] = {}
+    IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".svg", ".webp", ".gif", ".bmp"}
+
+    def _check_and_register_image(k: str, v: Any) -> bool:
+        if isinstance(v, dict) and v.get("type") == "image":
+            image_rep[k] = v
+            return True
+        if isinstance(v, str):
+            clean_v = v.strip()
+            _, ext = os.path.splitext(clean_v.lower())
+            if ext in IMAGE_EXTS and os.path.isfile(clean_v):
+                image_rep[k] = {"type": "image", "path": clean_v}
+                return True
+        k_upper = k.upper()
+        if ("IMAGE:" in k_upper or "IMG:" in k_upper) and isinstance(v, str) and os.path.isfile(v.strip()):
+            image_rep[k] = {"type": "image", "path": v.strip()}
+            return True
+        return False
+
+    # Filter incoming replacements
+    for k, v in list(text_rep.items()):
+        if _check_and_register_image(k, v):
+            del text_rep[k]
+
     if replacements:
         for k, v in replacements.items():
+            if _check_and_register_image(k, v):
+                continue
             if isinstance(v, (dict, list)):
                 block_rep[k] = v
             else:
@@ -998,6 +1074,37 @@ def patch_docx_template(
                     for cell in row.cells:
                         for p in cell.paragraphs:
                             _replace_text_in_paragraph(p, text_rep)
+
+    # 1.5. Rich-Media Image Replacements
+    if image_rep:
+        for p in doc.paragraphs:
+            for ik, iv in image_rep.items():
+                _replace_image_in_paragraph(p, ik, iv)
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    for p in cell.paragraphs:
+                        for ik, iv in image_rep.items():
+                            _replace_image_in_paragraph(p, ik, iv)
+        for sec in doc.sections:
+            for p in sec.header.paragraphs:
+                for ik, iv in image_rep.items():
+                    _replace_image_in_paragraph(p, ik, iv)
+            for table in sec.header.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        for p in cell.paragraphs:
+                            for ik, iv in image_rep.items():
+                                _replace_image_in_paragraph(p, ik, iv)
+            for p in sec.footer.paragraphs:
+                for ik, iv in image_rep.items():
+                    _replace_image_in_paragraph(p, ik, iv)
+            for table in sec.footer.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        for p in cell.paragraphs:
+                            for ik, iv in image_rep.items():
+                                _replace_image_in_paragraph(p, ik, iv)
 
     # 2. Block Replacements (Anchors in Document Body)
     if block_rep:

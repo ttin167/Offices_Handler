@@ -2430,6 +2430,12 @@
 
                 </button>
 
+                <button type="button" class="pdf-action-pill" data-action="acroforms">
+
+                  <i data-lucide="form-input"></i> Điền Biểu Mẫu Form
+
+                </button>
+
               </div>
 
 
@@ -3102,6 +3108,31 @@
 
                 </div>
 
+              </div>
+
+              <!-- Action Card 8: AcroForms Fill -->
+              <div class="pdf-action-card" id="pdf-action-pane-acroforms" style="display: none;">
+                <div class="action-card-header">
+                  <div class="action-card-title"><i data-lucide="form-input"></i> Điền Tự Động Biểu Mẫu PDF (AcroForms)</div>
+                  <div class="action-card-desc">Tự động phát hiện các trường form biểu mẫu tương tác (Text fields, Checkbox) và điền dữ liệu theo định dạng JSON.</div>
+                </div>
+                <div class="form-group" style="margin-top: 15px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <label class="form-label" style="margin-bottom: 0;">Dữ Liệu Điền Form (JSON):</label>
+                    <button type="button" class="btn-sm btn-secondary" id="btn-inspect-pdf-fields" style="font-size: 11px; padding: 3px 8px; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="scan"></i> Quét Các Trường Form</button>
+                  </div>
+                  <textarea id="pdf-form-data-input" class="code-textarea" rows="6" style="width: 100%; font-family: 'Consolas', monospace; font-size: 12px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 8px; color: #e2e8f0;" placeholder='{\n  "HoVaTen": "Nguyễn Văn A",\n  "Email": "nguyenvana@example.com",\n  "DongY": true\n}'></textarea>
+                </div>
+                <div class="form-check" style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">
+                  <input type="checkbox" id="pdf-form-flatten-check" class="checkbox-input" checked />
+                  <label for="pdf-form-flatten-check" class="check-label" style="font-size: 12px; color: #cbd5e1; cursor: pointer;">Làm phẳng form sau khi điền (Flatten PDF không cho sửa đổi)</label>
+                </div>
+                <div class="action-buttons-group" style="margin-top: 15px;">
+                  <button type="button" class="btn-primary glow-btn" id="btn-apply-fill-form" disabled>
+                    <span class="btn-icon"><i data-lucide="check"></i></span>
+                    <span>ĐIỀN DỮ LIỆU VÀO FORM PDF</span>
+                  </button>
+                </div>
               </div>
 
 

@@ -247,14 +247,14 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "pdf_quick_tools",
-        "description": "Comprehensive PDF Toolkit: merge, split, rotate, remove blank pages, watermark, compress, permanent redact sensitive info (CCCD/phone/email/salary), protect with AES-256 password & permissions, normalize to standard A4 with Bates Numbering, apply Giáp Lai stamp across pages, and extract tables to Excel (.xlsx).",
+        "description": "Comprehensive PDF Toolkit: merge, split, rotate, remove blank pages, watermark, compress, permanent redact sensitive info (CCCD/phone/email/salary), protect with AES-256 password & permissions, normalize to standard A4 with Bates Numbering, apply Giáp Lai stamp across pages, extract tables to Excel (.xlsx), inspect interactive AcroForm fields, and fill PDF form fields.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "action": {
                     "type": "string",
-                    "description": "Action: 'merge', 'split', 'rotate', 'clean', 'watermark', 'compress', 'redact', 'protect', 'normalize_a4', 'giap_lai', 'extract_tables'",
-                    "enum": ["merge", "split", "rotate", "clean", "watermark", "compress", "redact", "protect", "normalize_a4", "giap_lai", "extract_tables"]
+                    "description": "Action: 'merge', 'split', 'rotate', 'clean', 'watermark', 'compress', 'redact', 'protect', 'normalize_a4', 'giap_lai', 'extract_tables', 'inspect_form', 'fill_form'",
+                    "enum": ["merge", "split", "rotate", "clean", "watermark", "compress", "redact", "protect", "normalize_a4", "giap_lai", "extract_tables", "inspect_form", "fill_form"]
                 },
                 "input_path": {
                     "type": "string",
@@ -1752,6 +1752,21 @@ def execute_pdf_quick_tools(args: Dict[str, Any]) -> Dict[str, Any]:
             inp,
             out or os.path.splitext(inp)[0] + "_tables.xlsx",
         )
+
+    elif action in ("inspect_form", "inspect-form"):
+        if not inp:
+            raise ValueError("'inspect_form' requires 'input_path'")
+        from core.converter.pdf_toolkit import inspect_pdf_form_fields
+        return inspect_pdf_form_fields(inp)
+
+    elif action in ("fill_form", "fill-form"):
+        if not inp:
+            raise ValueError("'fill_form' requires 'input_path'")
+        from core.converter.pdf_toolkit import fill_pdf_form_fields
+        form_data = args.get("form_data") or {}
+        flatten = bool(args.get("flatten", False))
+        out_p = out or os.path.splitext(inp)[0] + "_filled.pdf"
+        return fill_pdf_form_fields(inp, out_p, form_data, flatten=flatten)
 
     else:
         raise ValueError(f"Unknown PDF action: {action}")

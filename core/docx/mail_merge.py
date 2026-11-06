@@ -10,6 +10,7 @@ Capabilities:
 
 from __future__ import annotations
 
+import copy
 import csv
 import datetime
 import io
@@ -337,6 +338,104 @@ def _sanitize_filename(name: str) -> str:
     return cleaned.strip() or "document"
 
 
+def _process_nested_table_blocks(doc: Document, record: Dict[str, Any]) -> None:
+    """
+    Finds and expands dynamic table repeating rows.
+    Supports:
+      1. {{#TABLE:key}} or {{#ROWS:key}} or {{#key}} in row, where record[key] is a list of dicts.
+      2. Rows containing {{key.field}} or {{item.field}} where record[key] is a list of dicts.
+      3. Automatic parsing if record[key] is a JSON string representing a list of dicts.
+    """
+    try:
+        from docx.table import _Row
+    except ImportError:
+        return
+
+    table_block_re = re.compile(r"\{\{#(?:TABLE|ROWS)?:?\s*([A-Za-z0-9_\.\-]+)\}\}", re.IGNORECASE)
+    table_end_re = re.compile(r"\{\{/(?:TABLE|ROWS)?:?\s*([A-Za-z0-9_\.\-]+)\}\}", re.IGNORECASE)
+
+    # Normalize record lists from JSON strings if needed
+    normalized_record: Dict[str, Any] = dict(record)
+    for k, v in record.items():
+        if isinstance(v, str) and v.strip().startswith("[") and v.strip().endswith("]"):
+            try:
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    normalized_record[k] = parsed
+            except Exception:
+                pass
+
+    for table in doc.tables:
+        rows_to_remove = []
+        for row in list(table.rows):
+            row_text = "".join(cell.text for cell in row.cells)
+            match = table_block_re.search(row_text)
+            list_key: Optional[str] = None
+            if match:
+                list_key = match.group(1).strip()
+            else:
+                for k, v in normalized_record.items():
+                    if isinstance(v, list) and v and isinstance(v[0], dict):
+                        if f"{{{{{k}." in row_text or f"{{{k}." in row_text or "{{item." in row_text or "{item." in row_text:
+                            list_key = k
+                            break
+
+            if not list_key or list_key not in normalized_record:
+                continue
+
+            raw_items = normalized_record[list_key]
+            if not isinstance(raw_items, list):
+                continue
+
+            parent = row._tr.getparent()
+            if parent is None:
+                continue
+
+            row_idx = parent.index(row._tr)
+
+            for item_idx, item in enumerate(raw_items, start=1):
+                if not isinstance(item, dict):
+                    continue
+
+                cloned_tr = copy.deepcopy(row._tr)
+                parent.insert(row_idx, cloned_tr)
+                row_idx += 1
+                cloned_row = _Row(cloned_tr, table)
+
+                item_replacements: Dict[str, str] = {
+                    "{{index}}": str(item_idx),
+                    "{index}": str(item_idx),
+                    "{{stt}}": str(item_idx),
+                    "{stt}": str(item_idx),
+                }
+
+                if match:
+                    item_replacements[match.group(0)] = ""
+                for end_m in table_end_re.finditer(row_text):
+                    item_replacements[end_m.group(0)] = ""
+
+                for ik, iv in item.items():
+                    str_iv = str(iv)
+                    item_replacements[f"{{{{{ik}}}}}"] = str_iv
+                    item_replacements[f"{{{ik}}}"] = str_iv
+                    item_replacements[f"{{{{{list_key}.{ik}}}}}"] = str_iv
+                    item_replacements[f"{{{list_key}.{ik}}}"] = str_iv
+                    item_replacements[f"{{{{item.{ik}}}}}"] = str_iv
+                    item_replacements[f"{{item.{ik}}}"] = str_iv
+
+                for cell in cloned_row.cells:
+                    for p in cell.paragraphs:
+                        _replace_text_in_paragraph(p, item_replacements)
+
+            rows_to_remove.append(row)
+
+        for r in rows_to_remove:
+            p_elem = r._tr.getparent()
+            if p_elem is not None:
+                p_elem.remove(r._tr)
+
+
+
 def execute_mail_merge(
     template_path: Optional[str] = None,
     data_source: Optional[Union[str, List[Dict[str, Any]]]] = None,
@@ -453,6 +552,9 @@ def execute_mail_merge(
                 _resolve_paragraph_conditionals(p)
             for p in s.footer.paragraphs:
                 _resolve_paragraph_conditionals(p)
+
+        # 4.5. Resolve Nested Repeating Table Rows ({{#TABLE:...}} or {{#ROWS:...}})
+        _process_nested_table_blocks(doc, record)
 
         # 5. Apply Token Replacements using run-merging
         for p in doc.paragraphs:

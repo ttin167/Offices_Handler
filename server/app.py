@@ -4166,7 +4166,27 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
                     return
 
+                elif action in ("inspect-form", "inspect_form", "form-inspect"):
+                    from core.converter.pdf_toolkit import inspect_pdf_form_fields
+                    details = inspect_pdf_form_fields(src)
+                    self._send_json(details)
+                    return
 
+                elif action in ("fill-form", "fill_form", "form-fill"):
+                    from core.converter.pdf_toolkit import fill_pdf_form_fields
+                    form_data = payload.get("form_data") or payload.get("data") or {}
+                    flatten = bool(payload.get("flatten", False))
+                    out_file = os.path.join(OUTPUT_DIR, f"{base_name}_filled.pdf")
+                    details = fill_pdf_form_fields(src, out_file, form_data, flatten=flatten)
+                    out_name = os.path.basename(out_file)
+                    self._send_json({
+                        "success": True,
+                        "action": "fill_form",
+                        "filename": out_name,
+                        "download_url": f"/api/download/{urllib.parse.quote(out_name)}",
+                        "details": details
+                    })
+                    return
 
                 else:
 
@@ -5446,7 +5466,52 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
                 return
 
+            elif path in ("/api/pdf/inspect-form", "/api/pdf/form/inspect"):
+                from core.converter.pdf_toolkit import inspect_pdf_form_fields
+                payload = self._read_body_json()
+                input_param = payload.get("pdf_path") or payload.get("file_path") or payload.get("filepath") or payload.get("filename")
+                src = resolve_file_path(input_param) if input_param else None
+                if not src:
+                    self._send_json({"success": False, "error": f"PDF file not found: {input_param}"}, status=400)
+                    return
+                res = inspect_pdf_form_fields(src)
+                self._send_json(res)
+                return
 
+            elif path in ("/api/pdf/fill-form", "/api/pdf/form/fill"):
+                from core.converter.pdf_toolkit import fill_pdf_form_fields
+                payload = self._read_body_json()
+                input_param = payload.get("pdf_path") or payload.get("file_path") or payload.get("filepath") or payload.get("filename")
+                src = resolve_file_path(input_param) if input_param else None
+                if not src:
+                    self._send_json({"success": False, "error": f"PDF file not found: {input_param}"}, status=400)
+                    return
+                form_data = payload.get("form_data") or payload.get("data") or {}
+                flatten = bool(payload.get("flatten", False))
+                base_name = os.path.splitext(os.path.basename(src))[0]
+                out_name = f"{base_name}_filled.pdf"
+                out_path = os.path.join(OUTPUT_DIR, out_name)
+                res = fill_pdf_form_fields(src, out_path, form_data, flatten=flatten)
+                res["filename"] = out_name
+                res["download_url"] = f"/api/download/{urllib.parse.quote(out_name)}"
+                self._send_json(res)
+                return
+
+            elif path in ("/api/doc/inspect-scanned", "/api/ocr/inspect-scanned"):
+                from core.converter.ocr_pipeline import is_scanned_pdf
+                payload = self._read_body_json()
+                input_param = payload.get("file_path") or payload.get("path") or payload.get("filepath") or payload.get("filename")
+                src = resolve_file_path(input_param) if input_param else None
+                if not src:
+                    self._send_json({"success": False, "error": f"File not found: {input_param}"}, status=400)
+                    return
+                is_scanned, stats = is_scanned_pdf(src)
+                self._send_json({
+                    "success": True,
+                    "is_scanned": is_scanned,
+                    "stats": stats
+                })
+                return
 
             elif path == "/api/xlsx/to-brief":
 

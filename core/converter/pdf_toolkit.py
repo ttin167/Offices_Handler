@@ -560,7 +560,7 @@ def normalize_and_number_pdf(
         if bates_prefix or number_pages:
             curr_p = pno + start_number
             clean_prefix = (bates_prefix or "").strip()
-            bottom_strip = src_page.get_text("text", clip=fitz.Rect(0, sh * 0.90, sw, sh)).strip()
+            bottom_strip = src_page.get_text("text", clip=fitz.Rect(0, sh * 0.90, sw, sh)).strip().replace("\xa0", " ")
             already_has_page_num = bool(re.search(r"Trang\s+\d+\s*/\s*\d+", bottom_strip, re.IGNORECASE))
             if clean_prefix:
                 bates_text = bates_pattern.format(prefix=clean_prefix, page=curr_p, total=total_pages)
@@ -570,14 +570,6 @@ def normalize_and_number_pdf(
                 bates_text = ""
 
             if bates_text:
-                fontname = "helv"
-                if ttf_font:
-                    try:
-                        new_page.insert_font(fontname="bates_font", fontfile=ttf_font)
-                        fontname = "bates_font"
-                    except Exception:
-                        pass
-
                 text_w = len(bates_text) * (font_size * 0.48)
 
                 if position == "bottom-right":
@@ -595,7 +587,7 @@ def normalize_and_number_pdf(
                 shape.insert_text(
                     pt,
                     bates_text,
-                    fontname=fontname,
+                    fontname="helv",
                     fontsize=font_size,
                     color=(0.2, 0.25, 0.3),
                 )
@@ -1757,6 +1749,110 @@ def convert_to_pdfa(
         "total_pages": total_pages,
         "prohibited_elements_stripped": removed_prohibited,
     }
+
+
+def inspect_pdf_form_fields(pdf_path: str) -> Dict[str, Any]:
+    """
+    Scans a PDF file for interactive form fields (AcroForm widgets).
+    Returns list of discovered field definitions: name, type, value, page, rect.
+    """
+    if not os.path.isfile(pdf_path):
+        raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+
+    doc = fitz.open(pdf_path)
+    fields: List[Dict[str, Any]] = []
+    try:
+        for page_idx in range(len(doc)):
+            page = doc[page_idx]
+            for widget in page.widgets():
+                w_info = {
+                    "field_name": widget.field_name or "",
+                    "field_type": getattr(widget, "field_type_string", "unknown"),
+                    "field_type_id": getattr(widget, "field_type", None),
+                    "field_value": widget.field_value,
+                    "field_flags": getattr(widget, "field_flags", 0),
+                    "page": page_idx + 1,
+                    "rect": [round(coord, 2) for coord in list(widget.rect)],
+                }
+                fields.append(w_info)
+    finally:
+        doc.close()
+
+    return {
+        "success": True,
+        "pdf_path": os.path.abspath(pdf_path),
+        "total_fields": len(fields),
+        "fields": fields,
+    }
+
+
+def fill_pdf_form_fields(
+    pdf_path: str,
+    output_path: str,
+    form_data: Dict[str, Any],
+    flatten: bool = False,
+) -> Dict[str, Any]:
+    """
+    Fills interactive AcroForm fields in a PDF with provided form_data mapping.
+    Matches field_name case-insensitively or exact match.
+    Optionally flattens widgets into static page content.
+    """
+    if not os.path.isfile(pdf_path):
+        raise FileNotFoundError(f"PDF file not found: {pdf_path}")
+
+    dest = os.path.abspath(output_path)
+    out_dir = os.path.dirname(dest)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+
+    doc = fitz.open(pdf_path)
+    filled_count = 0
+    updated_fields: List[Dict[str, Any]] = []
+
+    lookup = {str(k).strip().lower(): v for k, v in form_data.items()}
+
+    try:
+        for page_idx in range(len(doc)):
+            page = doc[page_idx]
+            for widget in page.widgets():
+                w_name = (widget.field_name or "").strip()
+                match_val = None
+                if w_name in form_data:
+                    match_val = form_data[w_name]
+                elif w_name.lower() in lookup:
+                    match_val = lookup[w_name.lower()]
+
+                if match_val is not None:
+                    # Checkbox handling
+                    if getattr(widget, "field_type", None) == getattr(fitz, "PDF_WIDGET_TYPE_CHECKBOX", 2) or getattr(widget, "field_type_string", "") == "CheckBox":
+                        if isinstance(match_val, bool):
+                            widget.field_value = match_val
+                        elif str(match_val).strip().lower() in ("true", "1", "yes", "on", "x", "check"):
+                            widget.field_value = True
+                        else:
+                            widget.field_value = False
+                    else:
+                        widget.field_value = str(match_val)
+
+                    widget.update()
+                    filled_count += 1
+                    updated_fields.append({"name": w_name, "value": match_val, "page": page_idx + 1})
+
+        doc.save(dest, garbage=3, deflate=True)
+    finally:
+        doc.close()
+
+    if flatten:
+        flatten_pdf(dest, dest, mode="vector")
+
+    return {
+        "success": True,
+        "output_path": dest,
+        "total_filled": filled_count,
+        "updated_fields": updated_fields,
+        "flattened": flatten,
+    }
+
 
 
 

@@ -323,6 +323,47 @@ def wrap_pdf_tools_handler(orig_handler: Callable[[argparse.Namespace], int]) ->
             print(f"[OK] Converted PDF to archival {res['pdfa_standard']}: {res['output_path']}")
             return 0
 
+        if action in ("inspect-form", "inspect_form", "form-inspect"):
+            from core.converter.pdf_toolkit import inspect_pdf_form_fields
+
+            if not args.input:
+                print("[ERROR] 'inspect-form' requires an input file (-i file.pdf)", file=sys.stderr)
+                return 1
+            res = inspect_pdf_form_fields(args.input)
+            if getattr(args, "json", False):
+                print(json.dumps(res, ensure_ascii=False, indent=2))
+            else:
+                print(f"[OK] Found {res['total_fields']} form field(s) in: {args.input}")
+                for f in res["fields"]:
+                    print(f"  * [P.{f['page']}] {f['field_name']} ({f['field_type']}): value={repr(f['field_value'])}")
+            return 0
+
+        if action in ("fill-form", "fill_form", "form-fill"):
+            from core.converter.pdf_toolkit import fill_pdf_form_fields
+
+            if not args.input:
+                print("[ERROR] 'fill-form' requires an input file (-i file.pdf)", file=sys.stderr)
+                return 1
+            raw_data = getattr(args, "form_data", None) or getattr(args, "data", None)
+            form_dict = {}
+            if raw_data:
+                if os.path.isfile(raw_data):
+                    with open(raw_data, "r", encoding="utf-8") as f:
+                        form_dict = json.load(f)
+                else:
+                    try:
+                        form_dict = json.loads(raw_data)
+                    except Exception:
+                        pass
+            out = args.output or os.path.splitext(args.input)[0] + "_filled.pdf"
+            flatten = bool(getattr(args, "flatten", False))
+            res = fill_pdf_form_fields(args.input, out, form_dict, flatten=flatten)
+            if getattr(args, "json", False):
+                print(json.dumps(res, ensure_ascii=False, indent=2))
+            else:
+                print(f"[OK] Filled {res['total_filled']} form field(s) (flattened={res['flattened']}) -> {res['output_path']}")
+            return 0
+
         return orig_handler(args)
 
     return _wrapped
@@ -367,7 +408,7 @@ def register_v46_subcommands(
     for act in p_pdft._actions:
         if act.dest == "action" and act.choices is not None:
             choices_list = list(act.choices)
-            for extra in ("crypto-sign", "pdfa"):
+            for extra in ("crypto-sign", "pdfa", "inspect-form", "fill-form"):
                 if extra not in choices_list:
                     choices_list.append(extra)
             act.choices = choices_list
@@ -378,6 +419,8 @@ def register_v46_subcommands(
     p_pdft.add_argument("--pfx-pwd", default=None, help="Optional PKCS#12 password")
     p_pdft.add_argument("--pdfa-part", type=int, default=2, choices=[1, 2, 3], help="PDF/A standard part (default: 2)")
     p_pdft.add_argument("--pdfa-conf", default="B", choices=["A", "B", "U"], help="PDF/A conformance level (default: B)")
+    p_pdft.add_argument("--form-data", default=None, help="JSON string or file path containing field_name: value mapping for fill-form")
+    p_pdft.add_argument("--flatten", action="store_true", help="Flatten form widgets into static vectors after fill-form")
     p_pdft.set_defaults(func=wrap_pdf_tools_handler(orig_pdf_func))
 
     # 2. Extend doc-security flags
