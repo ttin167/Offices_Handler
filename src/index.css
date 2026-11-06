@@ -8024,3 +8024,912 @@ sup,
 [data-theme="light"] .law-divider {
   border-top-color: #e2e8f0;
 }
+
+/* ========================================================================= */
+/* 31. PHASE 3: IN-BROWSER DOCUMENT VIEWER & SHIMMER SKELETON (G3 UX)        */
+/* ========================================================================= */
+
+.doc-viewer-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 15, 29, 0.88);
+  backdrop-filter: blur(8px);
+  z-index: 2500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.doc-viewer-modal-container {
+  background: var(--bg-surface, #1e293b);
+  border: 1px solid var(--border-medium, #334155);
+  border-radius: 14px;
+  width: 95vw;
+  max-width: 1400px;
+  height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+}
+
+.doc-viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: rgba(15, 23, 42, 0.95);
+  border-bottom: 1px solid var(--border-medium, #334155);
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.doc-viewer-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.viewer-type-badge {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.badge-pdf { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4); }
+.badge-docx { background: rgba(59, 130, 246, 0.2); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.4); }
+.badge-xlsx, .badge-xls, .badge-xlsm { background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.4); }
+
+.doc-viewer-filename {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary, #f8fafc);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.doc-viewer-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.viewer-zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.viewer-zoom-level {
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted, #94a3b8);
+  min-width: 44px;
+  text-align: center;
+}
+
+.viewer-tool-btn {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-primary, #f8fafc);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.viewer-tool-btn:hover {
+  background: var(--color-primary, #38bdf8);
+  color: #0f172a;
+  border-color: var(--color-primary, #38bdf8);
+}
+
+.viewer-tool-btn.btn-close-viewer:hover {
+  background: var(--rose-danger, #f43f5e);
+  color: #fff;
+  border-color: var(--rose-danger, #f43f5e);
+}
+
+.viewer-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-medium, #334155);
+  margin: 0 4px;
+}
+
+.doc-viewer-body {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  background: #090d16;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ------------------------------------------------------------------------- */
+/* CHỐT CHẶN G3: SHIMMER SKELETON ANIMATION                                  */
+/* ------------------------------------------------------------------------- */
+
+@keyframes shimmerWave {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.viewer-shimmer-wrapper {
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  height: 100%;
+  overflow: hidden;
+}
+
+.shimmer-box, .shimmer-line, .shimmer-row, .shimmer-card {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.12) 50%, rgba(255, 255, 255, 0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmerWave 1.8s infinite cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 6px;
+}
+
+.shimmer-header { display: flex; gap: 12px; align-items: center; }
+.shimmer-title { width: 320px; height: 24px; }
+.shimmer-tag { width: 60px; height: 20px; }
+.shimmer-toolbar { display: flex; gap: 8px; }
+.shimmer-btn { width: 36px; height: 32px; }
+.shimmer-btn-wide { width: 90px; height: 32px; }
+
+.shimmer-body.shimmer-page {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.shimmer-line { height: 16px; }
+.line-100 { width: 100%; }
+.line-95 { width: 95%; }
+.line-90 { width: 90%; }
+.line-85 { width: 85%; }
+.line-75 { width: 75%; }
+.line-60 { width: 60%; }
+.shimmer-card { width: 100%; height: 120px; margin: 10px 0; }
+
+.shimmer-body.shimmer-grid {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.shimmer-grid-header { height: 28px; width: 100%; }
+.shimmer-row { height: 24px; width: 100%; }
+
+.shimmer-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--color-primary, #38bdf8);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 10px;
+}
+
+.shimmer-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(56, 189, 248, 0.2);
+  border-top-color: var(--color-primary, #38bdf8);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ------------------------------------------------------------------------- */
+/* PDF VIEWER EMBED                                                          */
+/* ------------------------------------------------------------------------- */
+
+.pdf-viewer-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #1e293b;
+}
+
+/* ------------------------------------------------------------------------- */
+/* XLSX INTERACTIVE MULTI-SHEET GRID                                         */
+/* ------------------------------------------------------------------------- */
+
+.xlsx-viewer-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.xlsx-formula-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: rgba(15, 23, 42, 0.85);
+  border-bottom: 1px solid var(--border-medium, #334155);
+}
+
+.formula-cell-address {
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-primary, #38bdf8);
+  min-width: 50px;
+  padding: 2px 8px;
+  background: rgba(56, 189, 248, 0.1);
+  border-radius: 4px;
+  text-align: center;
+}
+
+.formula-fx {
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  color: var(--text-muted, #94a3b8);
+  font-style: italic;
+}
+
+.formula-cell-value {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  color: #fff;
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+.xlsx-grid-wrapper {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+}
+
+.xlsx-grid-scroll {
+  display: inline-block;
+  min-width: 100%;
+}
+
+.xlsx-render-table {
+  border-collapse: collapse;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 12px;
+  min-width: 100%;
+  color: var(--text-primary, #f8fafc);
+}
+
+.xlsx-render-table th, .xlsx-render-table td {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.xlsx-row-num-col, .xlsx-col-header, .xlsx-row-num {
+  background: #141c2e;
+  color: #94a3b8;
+  font-weight: 600;
+  font-size: 11px;
+  text-align: center;
+  user-select: none;
+}
+
+.xlsx-col-header { min-width: 80px; }
+.xlsx-row-num { width: 45px; }
+
+.xlsx-cell {
+  background: #0d131f;
+  cursor: cell;
+}
+
+.xlsx-cell:hover {
+  background: rgba(56, 189, 248, 0.08);
+}
+
+.xlsx-cell.selected {
+  outline: 2px solid var(--color-primary, #38bdf8);
+  outline-offset: -1px;
+  background: rgba(56, 189, 248, 0.15) !important;
+}
+
+.xlsx-cell.has-formula {
+  position: relative;
+}
+
+.xlsx-cell.has-formula::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  border-width: 0 4px 4px 0;
+  border-style: solid;
+  border-color: transparent var(--color-primary, #38bdf8) transparent transparent;
+}
+
+.xlsx-tabs-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: #0c101a;
+  border-top: 1px solid var(--border-medium, #334155);
+  overflow-x: auto;
+}
+
+.xlsx-tab-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted, #94a3b8);
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.xlsx-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+.xlsx-tab-btn.active {
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: var(--color-primary, #38bdf8);
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------------- */
+/* DOCX AST RICH PAPER PAGE RENDERER                                         */
+/* ------------------------------------------------------------------------- */
+
+.docx-page-scroll {
+  flex: 1;
+  overflow: auto;
+  padding: 30px;
+  display: flex;
+  justify-content: center;
+}
+
+.docx-paper-page {
+  width: 816px; /* standard 8.5in at 96 DPI */
+  min-height: 1056px; /* 11in */
+  background: #ffffff;
+  color: #1e293b;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  padding: 72px; /* 0.75in margins */
+  border-radius: 4px;
+  font-family: "Segoe UI", Arial, sans-serif;
+  line-height: 1.5;
+}
+
+.docx-h1 { font-size: 22pt; font-weight: 700; color: #0f172a; margin-top: 24px; margin-bottom: 12px; border-bottom: 2px solid #38bdf8; padding-bottom: 6px; }
+.docx-h2 { font-size: 16pt; font-weight: 600; color: #1e293b; margin-top: 18px; margin-bottom: 8px; }
+.docx-h3 { font-size: 13pt; font-weight: 600; color: #334155; margin-top: 14px; margin-bottom: 6px; }
+.docx-p { font-size: 11pt; margin-bottom: 10px; color: #334155; }
+.docx-list-item { font-size: 11pt; margin-left: 24px; margin-bottom: 6px; position: relative; }
+.docx-list-item::before { content: "•"; position: absolute; left: -14px; color: #38bdf8; font-weight: bold; }
+
+.docx-rendered-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 10pt;
+}
+
+.docx-rendered-table th, .docx-rendered-table td {
+  border: 1px solid #cbd5e1;
+  padding: 8px 12px;
+}
+
+.docx-rendered-table th {
+  background: #f1f5f9;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.docx-cell-p {
+  margin: 0;
+}
+
+/* ------------------------------------------------------------------------- */
+/* VISUAL FIELD MAPPER (2-COLUMN INTERACTIVE DRAG/SELECT)                    */
+/* ------------------------------------------------------------------------- */
+
+.vfm-wrapper {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid var(--border-medium, #334155);
+  border-radius: 10px;
+  padding: 16px;
+  margin-top: 12px;
+}
+
+.vfm-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.vfm-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vfm-badge.badge-success { background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.3); }
+.vfm-badge.badge-warning { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+
+.vfm-progress-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.vfm-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #38bdf8, #22c55e);
+  transition: width 0.3s ease;
+}
+
+.vfm-grid {
+  display: grid;
+  grid-template-columns: 1fr 60px 1.2fr;
+  gap: 12px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted, #94a3b8);
+  margin-bottom: 10px;
+}
+
+.vfm-col-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vfm-rows-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.vfm-row {
+  display: grid;
+  grid-template-columns: 1fr 60px 1.2fr;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.15s ease;
+}
+
+.vfm-row.is-mapped {
+  border-color: rgba(34, 197, 94, 0.3);
+  background: rgba(34, 197, 94, 0.03);
+}
+
+.vfm-token-pill {
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  font-weight: 600;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.1);
+  padding: 4px 8px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.vfm-connector-cell {
+  display: flex;
+  justify-content: center;
+}
+
+.vfm-link-arrow {
+  color: #64748b;
+  display: flex;
+  align-items: center;
+}
+
+.vfm-link-arrow.active {
+  color: #22c55e;
+}
+
+.vfm-select {
+  width: 100%;
+  background: #0f172a;
+  color: #f8fafc;
+  border: 1px solid var(--border-medium, #334155);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.vfm-sample-hint {
+  display: block;
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vfm-preview-card {
+  margin-top: 14px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 8px;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.vfm-preview-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #cbd5e1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.vfm-preview-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.vfm-chip {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.vfm-chip.chip-filled {
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #86efac;
+}
+
+.vfm-chip.chip-empty {
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #fcd34d;
+}
+
+/* Light Mode Overrides for Viewer */
+[data-theme="light"] .doc-viewer-modal-container {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+[data-theme="light"] .doc-viewer-header {
+  background: #f1f5f9;
+  border-bottom-color: #e2e8f0;
+}
+
+[data-theme="light"] .doc-viewer-filename {
+  color: #0f172a;
+}
+
+[data-theme="light"] .viewer-tool-btn {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+[data-theme="light"] .doc-viewer-body {
+  background: #e2e8f0;
+}
+
+/* ========================================================================= */
+/* 32. PHASE 4: AI COPILOT SIDEBAR & UNIVERSAL FTS5 RAG WORKSPACE            */
+/* ========================================================================= */
+
+.copilot-toggle-btn {
+  border-color: rgba(56, 189, 248, 0.35) !important;
+  background: rgba(56, 189, 248, 0.08) !important;
+}
+
+.copilot-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 15, 29, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 2600;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.copilot-drawer-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.copilot-sidebar-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 440px;
+  max-width: 92vw;
+  height: 100vh;
+  background: var(--bg-surface, #0f172a);
+  border-left: 1px solid var(--border-medium, #334155);
+  z-index: 2601;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: -20px 0 40px rgba(0, 0, 0, 0.6);
+}
+
+.copilot-sidebar-drawer.open {
+  transform: translateX(0);
+}
+
+.copilot-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-medium, #334155);
+  background: rgba(15, 23, 42, 0.95);
+}
+
+.copilot-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.copilot-title-wrap h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary, #f8fafc);
+}
+
+.copilot-sub {
+  font-size: 11px;
+  color: var(--color-primary, #38bdf8);
+  font-family: var(--font-mono, monospace);
+}
+
+.copilot-config-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.25);
+  border-bottom: 1px solid var(--border-medium, #334155);
+}
+
+.copilot-select {
+  flex: 1;
+  background: #0b1120;
+  color: #f8fafc;
+  border: 1px solid var(--border-medium, #334155);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 11.5px;
+}
+
+.copilot-quick-prompts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.copilot-quick-chip {
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  color: #7dd3fc;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.copilot-quick-chip:hover {
+  background: rgba(56, 189, 248, 0.2);
+  color: #fff;
+}
+
+.copilot-messages-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.copilot-msg {
+  display: flex;
+  flex-direction: column;
+}
+
+.copilot-msg-user {
+  align-items: flex-end;
+}
+
+.copilot-msg-assistant {
+  align-items: flex-start;
+}
+
+.copilot-msg-bubble {
+  max-width: 92%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.copilot-msg-user .copilot-msg-bubble {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #fff;
+  border-bottom-right-radius: 2px;
+}
+
+.copilot-msg-assistant .copilot-msg-bubble {
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-primary, #f8fafc);
+  border-bottom-left-radius: 2px;
+}
+
+.copilot-citations {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.copilot-citation-pill {
+  font-size: 10.5px;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #86efac;
+  padding: 2px 8px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.copilot-cards-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.copilot-action-card {
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.copilot-action-card:hover {
+  border-color: #38bdf8;
+  background: rgba(56, 189, 248, 0.1);
+  transform: translateY(-1px);
+}
+
+.copilot-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.copilot-card-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.copilot-card-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.copilot-card-desc {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.copilot-msg-meta {
+  font-size: 10px;
+  color: #64748b;
+  margin-top: 8px;
+  font-family: var(--font-mono, monospace);
+}
+
+.copilot-input-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--border-medium, #334155);
+  background: rgba(15, 23, 42, 0.95);
+}
+
+.copilot-textarea {
+  flex: 1;
+  background: #0b1120;
+  color: #f8fafc;
+  border: 1px solid var(--border-medium, #334155);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12.5px;
+  resize: none;
+  font-family: inherit;
+}
+
+.copilot-send-btn {
+  padding: 10px 14px;
+  border-radius: 8px;
+}

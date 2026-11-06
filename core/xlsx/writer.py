@@ -461,11 +461,16 @@ class UniversalExcelEngine:
         return safe_set_cell(ws, coordinate, value=value, formula=formula, **kwargs)
 
     def save(self, output_path: Optional[str] = None) -> str:
-        """Save workbook preserving package integrity (ERR_XLSX_006)."""
+        """Save workbook preserving package integrity (ERR_XLSX_006) and populating formula cache."""
         target = output_path or self.source_path
         if not target:
             raise ValueError("No output path specified for workbook save")
         self.wb.save(target)
+        try:
+            from core.xlsx.formula_evaluator import ASTFormulaEvaluator
+            ASTFormulaEvaluator.populate_cached_values(target)
+        except Exception:
+            pass
         return target
 
     def find_anchor(self, sheet_name: str, keyword: str, max_row: int = 150) -> Optional[Tuple[int, int]]:
@@ -1351,12 +1356,17 @@ class UniversalExcelEngine:
         return modified
 
     def save(self, output_path: str) -> str:
-        """Saves mutated workbook preserving DrawingML packages (ERR_XLSX_006)."""
+        """Saves mutated workbook preserving DrawingML packages (ERR_XLSX_006) and populating formula cache."""
         dest = os.path.abspath(output_path)
         out_dir = os.path.dirname(dest)
         if out_dir:
             os.makedirs(out_dir, exist_ok=True)
         self.wb.save(dest)
+        try:
+            from core.xlsx.formula_evaluator import ASTFormulaEvaluator
+            ASTFormulaEvaluator.populate_cached_values(dest)
+        except Exception:
+            pass
         return dest
 
 
@@ -1623,6 +1633,11 @@ def write_xlsx(
         apply_worksheet_print_setup(ws)
 
     wb.save(output_path)
+    try:
+        from core.xlsx.formula_evaluator import ASTFormulaEvaluator
+        ASTFormulaEvaluator.populate_cached_values(output_path)
+    except Exception:
+        pass
     return os.path.abspath(output_path)
 
 

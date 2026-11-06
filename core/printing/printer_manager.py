@@ -25,9 +25,11 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 try:
     import win32api
+    import win32con
     import win32print
 except ImportError:
     win32api = None
+    win32con = None
     win32print = None
 
 from .print_optimizer import PrintOptimizer
@@ -131,6 +133,101 @@ class PrinterManager:
         return None
 
     @classmethod
+    def get_device_capabilities(cls, printer_name: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Inspects printer hardware capabilities (DC_BINS, DC_DUPLEX, DC_PAPERS)
+        with Guard G2 to prevent crashing on virtual printers or generic drivers.
+        """
+        target = printer_name or cls.get_default_printer()
+        if not target or sys.platform != "win32" or win32print is None or win32con is None:
+            return {
+                "printer": target,
+                "supported_bins": (),
+                "supports_duplex": False,
+                "is_virtual": True,
+            }
+
+        try:
+            try:
+                bins = win32print.DeviceCapabilities(target, "", win32con.DC_BINS)
+            except Exception:
+                bins = ()
+
+            try:
+                duplex_flag = win32print.DeviceCapabilities(target, "", win32con.DC_DUPLEX)
+                supports_duplex = bool(duplex_flag == 1)
+            except Exception:
+                supports_duplex = False
+
+            is_virtual = any(v in target.lower() for v in ["pdf", "xps", "onenote", "fax"])
+            return {
+                "printer": target,
+                "supported_bins": bins,
+                "supports_duplex": supports_duplex,
+                "is_virtual": is_virtual,
+            }
+        except Exception:
+            return {
+                "printer": target,
+                "supported_bins": (),
+                "supports_duplex": False,
+                "is_virtual": True,
+            }
+
+    @classmethod
+    def apply_devmode(
+        cls,
+        printer_name: str,
+        tray_id: Optional[int] = None,
+        duplex: Optional[str] = None,
+    ) -> bool:
+        """
+        Safely configures printer hardware DEVMODE with Guard G2 capabilities check.
+        """
+        if sys.platform != "win32" or win32print is None or win32con is None:
+            return False
+
+        caps = cls.get_device_capabilities(printer_name)
+
+        # Guard G2: Check tray capability before applying
+        valid_tray = None
+        if tray_id is not None:
+            if tray_id in caps["supported_bins"]:
+                valid_tray = tray_id
+
+        # Guard G2: Check duplex capability
+        valid_duplex = None
+        if duplex and caps["supports_duplex"]:
+            dup_lower = duplex.lower()
+            if dup_lower in ("vertical", "long", "long-edge"):
+                valid_duplex = win32con.DMDUP_VERTICAL
+            elif dup_lower in ("horizontal", "short", "short-edge"):
+                valid_duplex = win32con.DMDUP_HORIZONTAL
+            elif dup_lower in ("simplex", "none", "single"):
+                valid_duplex = win32con.DMDUP_SIMPLEX
+
+        if valid_tray is None and valid_duplex is None:
+            return False
+
+        try:
+            h_printer = win32print.OpenPrinter(printer_name, {"DesiredAccess": win32print.PRINTER_ALL_ACCESS})
+            try:
+                p_info = win32print.GetPrinter(h_printer, 2)
+                devmode = p_info.get("pDevMode")
+                if devmode:
+                    if valid_tray is not None:
+                        devmode.DefaultSource = valid_tray
+                    if valid_duplex is not None:
+                        devmode.Duplex = valid_duplex
+                    win32print.SetPrinter(h_printer, 2, p_info, 0)
+                    return True
+            finally:
+                win32print.ClosePrinter(h_printer)
+        except Exception:
+            pass
+        return False
+
+    @classmethod
     def print_file(
         cls,
         file_path: str,
@@ -139,6 +236,8 @@ class PrinterManager:
         job_title: Optional[str] = None,
         silent: bool = True,
         optimizer_options: Optional[Dict[str, Any]] = None,
+        tray_id: Optional[int] = None,
+        duplex: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Submits a document to the specified printer or system default printer.
@@ -151,12 +250,16 @@ class PrinterManager:
         job_id = f"JOB-{int(time.time())}-{uuid.uuid4().hex[:6]}"
         job_name = job_title or os.path.basename(file_path)
 
+        # Step 0: Apply DEVMODE settings if physical printer on Windows (Guard G2)
+        devmode_applied = False
+        if sys.platform == "win32" and (tray_id is not None or duplex is not None):
+            devmode_applied = cls.apply_devmode(target_printer, tray_id=tray_id, duplex=duplex)
+
         # Step 1: Ensure PDF format for printing
         ext = os.path.splitext(file_path)[1].lower()
         printable_pdf = file_path
 
         if ext != ".pdf":
-            # Auto-convert to PDF via universal converter
             try:
                 from core.converter.engine import convert_universal
                 temp_pdf = os.path.join(tempfile.gettempdir(), f"{job_id}_converted.pdf")
@@ -165,15 +268,19 @@ class PrinterManager:
             except Exception as ce:
                 raise RuntimeError(f"Không thể chuyển đổi {ext} sang PDF để in: {ce}")
 
-        # Step 2: Apply Print Optimizer (Grayscale, N-Up, Booklet, Watermark, Margin Guard)
+        # Step 2: Apply Print Optimizer (Vector Grayscale, N-Up, Booklet Creep, Watermark, Margin Guard)
         if optimizer_options:
             optimized_pdf = os.path.join(tempfile.gettempdir(), f"{job_id}_optimized.pdf")
             PrintOptimizer.optimize_pdf(
                 input_pdf_path=printable_pdf,
                 output_pdf_path=optimized_pdf,
                 grayscale=optimizer_options.get("grayscale", False),
+                vector_grayscale=optimizer_options.get("vector_grayscale", True),
+                dpi=optimizer_options.get("dpi", 300),
                 n_up=optimizer_options.get("n_up", 1),
                 booklet=optimizer_options.get("booklet", False),
+                creep_compensation=optimizer_options.get("creep_compensation", True),
+                paper_thickness_pt=optimizer_options.get("paper_thickness_pt", 0.28),
                 watermark_text=optimizer_options.get("watermark"),
                 margin_guard_mm=optimizer_options.get("margin_guard_mm", 5.0),
             )

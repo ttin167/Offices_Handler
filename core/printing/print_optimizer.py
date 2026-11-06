@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import math
 import os
+import re
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -46,6 +47,10 @@ class PrintOptimizer:
         booklet: bool = False,
         watermark_text: Optional[str] = None,
         margin_guard_mm: float = 5.0,
+        vector_grayscale: bool = True,
+        dpi: int = 300,
+        creep_compensation: bool = True,
+        paper_thickness_pt: float = 0.28,
     ) -> Dict[str, Any]:
         """
         Executes complete pre-print optimization chain on a PDF file.
@@ -68,7 +73,11 @@ class PrintOptimizer:
 
         # Step 2: Booklet or N-Up imposition
         if booklet:
-            current_doc = cls._apply_booklet_imposition(current_doc)
+            current_doc = cls._apply_booklet_imposition(
+                current_doc,
+                creep_compensation=creep_compensation,
+                paper_thickness_pt=paper_thickness_pt,
+            )
         elif n_up in (2, 4):
             current_doc = cls._apply_n_up(current_doc, n_up)
 
@@ -76,9 +85,12 @@ class PrintOptimizer:
         if watermark_text and watermark_text.strip():
             current_doc = cls._apply_watermark(current_doc, watermark_text.strip())
 
-        # Step 4: Grayscale Conversion
+        # Step 4: Grayscale Conversion (Vector /DeviceGray or High-Res Raster)
         if grayscale:
-            current_doc = cls._apply_grayscale(current_doc)
+            if vector_grayscale:
+                current_doc = cls._apply_vector_grayscale(current_doc)
+            else:
+                current_doc = cls._apply_raster_grayscale(current_doc, dpi=dpi)
 
         os.makedirs(os.path.dirname(os.path.abspath(output_pdf_path)), exist_ok=True)
         current_doc.save(output_pdf_path, garbage=3, deflate=True)
@@ -92,8 +104,10 @@ class PrintOptimizer:
             "original_pages": orig_page_count,
             "optimized_pages": final_page_count,
             "grayscale": grayscale,
+            "vector_grayscale": vector_grayscale if grayscale else False,
             "n_up": n_up,
             "booklet": booklet,
+            "creep_compensation": creep_compensation if booklet else False,
             "watermark": watermark_text,
             "margin_guard_mm": margin_guard_mm,
             "output_pdf": output_pdf_path,
@@ -166,10 +180,16 @@ class PrintOptimizer:
         return out_doc
 
     @classmethod
-    def _apply_booklet_imposition(cls, doc: fitz.Document) -> fitz.Document:
+    def _apply_booklet_imposition(
+        cls,
+        doc: fitz.Document,
+        creep_compensation: bool = True,
+        paper_thickness_pt: float = 0.28,
+    ) -> fitz.Document:
         """
         Rearranges pages for 2-sided saddle-stitch booklet printing.
-        Pads page count to a multiple of 4, then pairs pages.
+        Pads page count to a multiple of 4, then pairs pages with optional
+        creep / shingling compensation to prevent margin drift on thick booklets.
         """
         out_doc = fitz.open()
         total = len(doc)
@@ -177,19 +197,14 @@ class PrintOptimizer:
         needed = (4 - rem) % 4
         padded_total = total + needed
 
-        # Virtual page order for booklet:
-        # Sheet 1 Front: (Page N, Page 1)
-        # Sheet 1 Back:  (Page 2, Page N-1)
-        # Sheet 2 Front: (Page N-2, Page 3)
-        # etc.
         booklet_pairs: List[Tuple[int, int]] = []
         left = 1
         right = padded_total
 
         while left < right:
-            # Front of sheet: (right, left)
+            # Front of sheet: (right - 1, left - 1)
             booklet_pairs.append((right - 1, left - 1))
-            # Back of sheet: (left + 1, right - 1)
+            # Back of sheet: (left, right - 2)
             booklet_pairs.append((left, right - 2))
             left += 2
             right -= 2
@@ -198,10 +213,15 @@ class PrintOptimizer:
         sheet_h = cls.A4_WIDTH
         col_w = sheet_w / 2.0
 
-        for p_left, p_right in booklet_pairs:
+        for pair_idx, (p_left, p_right) in enumerate(booklet_pairs):
+            sheet_idx = pair_idx // 2
+            creep = (sheet_idx * paper_thickness_pt) if creep_compensation else 0.0
+
             new_page = out_doc.new_page(width=sheet_w, height=sheet_h)
-            rect_left = fitz.Rect(10, 10, col_w - 5, sheet_h - 10)
-            rect_right = fitz.Rect(col_w + 5, 10, sheet_w - 10, sheet_h - 10)
+            # Left slot: shifts toward center fold (+creep)
+            rect_left = fitz.Rect(10 + creep, 10, col_w - 5 + creep, sheet_h - 10)
+            # Right slot: shifts toward center fold (-creep)
+            rect_right = fitz.Rect(col_w + 5 - creep, 10, sheet_w - 10 - creep, sheet_h - 10)
 
             if p_left < total:
                 new_page.show_pdf_page(rect_left, doc, p_left)
@@ -233,13 +253,55 @@ class PrintOptimizer:
         return doc
 
     @classmethod
-    def _apply_grayscale(cls, doc: fitz.Document) -> fitz.Document:
-        """Converts document pages to pure grayscale raster to save color toner."""
+    def _apply_vector_grayscale(cls, doc: fitz.Document) -> fitz.Document:
+        """
+        Converts document to DeviceGray while strictly preserving vector text,
+        fonts, drawing paths and infinite sharpness (v5.0 Industrial Standard).
+        """
+        for pno in range(len(doc)):
+            page = doc[pno]
+
+            # 1. Vector content stream conversion
+            c_xrefs = page.get_contents()
+            for xref in c_xrefs:
+                raw_bytes = doc.xref_stream(xref)
+                if raw_bytes:
+                    stream_text = raw_bytes.decode('latin1', errors='replace')
+                    pat_rg = r'(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+rg\b'
+                    pat_RG = r'(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+RG\b'
+
+                    def _rg2gray(m: re.Match) -> str:
+                        r, g, b = float(m.group(1)), float(m.group(2)), float(m.group(3))
+                        return f"{round(0.299 * r + 0.587 * g + 0.114 * b, 4)} g"
+
+                    def _RG2gray(m: re.Match) -> str:
+                        r, g, b = float(m.group(1)), float(m.group(2)), float(m.group(3))
+                        return f"{round(0.299 * r + 0.587 * g + 0.114 * b, 4)} G"
+
+                    mod_text = re.sub(pat_rg, _rg2gray, stream_text)
+                    mod_text = re.sub(pat_RG, _RG2gray, mod_text)
+                    doc.update_stream(xref, mod_text.encode('latin1'))
+
+            # 2. Embedded raster images conversion to grayscale
+            try:
+                for img_info in page.get_images():
+                    img_xref = img_info[0]
+                    pix = fitz.Pixmap(doc, img_xref)
+                    if pix.colorspace and pix.colorspace.name != fitz.csGRAY.name:
+                        gray_pix = fitz.Pixmap(fitz.csGRAY, pix)
+                        doc.update_stream(img_xref, gray_pix.tobytes("png"))
+            except Exception:
+                pass
+
+        return doc
+
+    @classmethod
+    def _apply_raster_grayscale(cls, doc: fitz.Document, dpi: int = 300) -> fitz.Document:
+        """Converts document pages to high-resolution grayscale raster."""
         out_doc = fitz.open()
 
         for page in doc:
-            # Render page to grayscale pixmap at 200 DPI for print sharpness
-            pix = page.get_pixmap(dpi=200, colorspace=fitz.csGRAY)
+            pix = page.get_pixmap(dpi=dpi, colorspace=fitz.csGRAY)
             img_bytes = pix.tobytes("png")
 
             new_page = out_doc.new_page(width=page.rect.width, height=page.rect.height)
@@ -247,6 +309,13 @@ class PrintOptimizer:
 
         doc.close()
         return out_doc
+
+    @classmethod
+    def _apply_grayscale(cls, doc: fitz.Document, vector_mode: bool = True, dpi: int = 300) -> fitz.Document:
+        """Grayscale dispatcher supporting both vector and raster modes."""
+        if vector_mode:
+            return cls._apply_vector_grayscale(doc)
+        return cls._apply_raster_grayscale(doc, dpi=dpi)
 
 
 def optimize_pdf_for_printing(
@@ -257,6 +326,10 @@ def optimize_pdf_for_printing(
     booklet: bool = False,
     watermark_text: Optional[str] = None,
     margin_guard_mm: float = 5.0,
+    vector_grayscale: bool = True,
+    dpi: int = 300,
+    creep_compensation: bool = True,
+    paper_thickness_pt: float = 0.28,
 ) -> Dict[str, Any]:
     return PrintOptimizer.optimize_pdf(
         input_pdf_path=input_pdf_path,
@@ -266,4 +339,8 @@ def optimize_pdf_for_printing(
         booklet=booklet,
         watermark_text=watermark_text,
         margin_guard_mm=margin_guard_mm,
+        vector_grayscale=vector_grayscale,
+        dpi=dpi,
+        creep_compensation=creep_compensation,
+        paper_thickness_pt=paper_thickness_pt,
     )

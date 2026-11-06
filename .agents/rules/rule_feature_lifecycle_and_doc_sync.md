@@ -47,7 +47,7 @@ Khi nhiệm vụ có yêu cầu nâng phiên bản (ví dụ: `4.2.0` $\to$ `4.3
 
 ### D. Đồng Bộ Bộ Đôi Tài Liệu Cốt Lõi (Core Technical & User Documentation Triad: MD -> DOCX & PDF)
 Bên cạnh `CHANGELOG.md` và `ARCHITECTURE.md`, hệ sinh thái quy định **BỘ ĐÔI TÀI LIỆU CỐT LÕI (CORE DOCS)** bắt buộc phải duy trì tính toàn vẹn và đồng bộ theo thời gian thực:
-1. **Tài liệu Kiến trúc**: `docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V4.md` (Báo cáo tiến hóa kiến trúc đa tầng, ma trận so sánh các phiên bản v1 $\to$ v4+, các phân hệ Core và quy chuẩn bất biến).
+1. **Tài liệu Kiến trúc**: `docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V5.md` (Báo cáo tiến hóa kiến trúc đa tầng, ma trận so sánh các phiên bản v1 $\to$ v5+, các phân hệ Core và quy chuẩn bất biến).
 2. **Tài liệu Hướng dẫn sử dụng**: `docs/HUONG_DAN_SU_DUNG_CHI_TIET_TUNG_TINH_NANG.md` (Cẩm nang thao tác cho người dùng cuối qua Web Studio, Desktop GUI, AI CLI, và MCP Server).
 
 **Quy chuẩn Bộ Ba Định Dạng (Triad Invariant)**:

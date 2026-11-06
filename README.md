@@ -4,14 +4,14 @@
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Release: v4.6.0](https://img.shields.io/badge/Release-v4.6.0_Production-success.svg)](CHANGELOG.md)
-[![Tests: 323 Passed](https://img.shields.io/badge/Tests-330%2F330_Passed-brightgreen.svg)](tests/)
-[![MCP Tools: 43](https://img.shields.io/badge/MCP_Tools-43_Available-blue.svg)](server/mcp_server.py)
+[![Release: v5.0.0](https://img.shields.io/badge/Release-v5.0.0_Production-success.svg)](CHANGELOG.md)
+[![Tests: 431 Passed](https://img.shields.io/badge/Tests-431%2F431_Passed-brightgreen.svg)](tests/)
+[![MCP Tools: 46](https://img.shields.io/badge/MCP_Tools-46_Available-blue.svg)](server/mcp_server.py)
 [![Antigravity Skills: 7](https://img.shields.io/badge/Antigravity_Skills-7_Specialized-indigo.svg)](.agents/skills/)
 [![Antigravity IDE Ready](https://img.shields.io/badge/Antigravity_AI-Compatible-orange.svg)](AGENTS.md)
 [![Resolution: 300+ DPI](https://img.shields.io/badge/DPI-300%2B_Vector_Grade-purple.svg)](spec_diagram_engine.py)
 
-> 🚀 **Xem toàn bộ lộ trình tiến hóa & so sánh tính năng v1.0 → v4.6.0 tại [CHANGELOG.md](CHANGELOG.md)**.
+> 🚀 **Xem toàn bộ lộ trình tiến hóa & so sánh tính năng v1.0 → v5.0.0 tại [CHANGELOG.md](CHANGELOG.md)**.
 
 ---
 
@@ -54,7 +54,12 @@ Chuyển đổi toàn diện hệ thống thành không gian làm việc chuyên
   - **UAT Acceptance Checklist Matrix Generator**: Tự động sinh bảng kiểm thử nghiệm thu người dùng kèm in-cell dropdown validation (`Pass`/`Fail`/`Blocked`) và định dạng màu sắc tự động.
   - **Legal Redline Diff**: So sánh 2 phiên bản tài liệu yêu cầu (BRD/SRS v1 vs v2) bằng Track Changes OpenXML pháp lý (gạch ngang đỏ nội dung xóa, gạch chân xanh nội dung thêm mới).
 
-### 🆕 Highlights in v4.6.0 Production Grade (Enterprise Omni-Pipeline, Deep CDR, PAdES/PDF-A & Code-to-Diagram Suite)
+### 🆕 Highlights in v5.0.0 Production Grade (Enterprise Omni-Studio, AST Offline Formula Engine, Industrial Vector Print, In-Browser Viewers & Universal FTS5 RAG Copilot)
+- **4-Phase Enterprise Omni-Studio Architecture & 4 Production Guards (v5.0.0)**:
+  - *Phase 1 — AST Offline Formula Evaluator & COM Process Watchdog (`core.xlsx.formula_evaluator`, `core.converter.com_watchdog`, `server.routes`)*: Pure-Python AST evaluator computing 30+ Excel functions (`SUM`, `AVERAGE`, `COUNT`, `COUNTA`, `COUNTIF`, `COUNTIFS`, `SUMIF`, `SUMIFS`, `AVERAGEIF`, `AVERAGEIFS`, `IF`, `IFS`, `IFERROR`, `XLOOKUP`, `VLOOKUP`, `INDEX`, `MATCH`, `TEXTJOIN`, etc.) and injecting cached `<v>` tags directly into OpenXML (`populate_cached_values`); `ComProcessWatchdog` isolating Win32 COM threads with 20s timeout; modular `Router` singleton.
+  - *Phase 2 — Industrial Vector Grayscale, Booklet Shingling Creep & Persistent WAL Queue (`core.printing`, `server.job_queue`)*: Native `/DeviceGray` PDF operator conversion preserving infinite vector text clarity; Saddle-Stitch Booklet Creep compensation ($\Delta x = k \times \text{thickness\_pt}$); **Guard G2 (`DeviceCapabilities DC_BINS`)** hardware tray capability check before `DEVMODE` mutation; **Guard G1 (`PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;`)** SQLite `PersistentJobQueue` with exponential backoff and crash recovery (`recover_stale_jobs`).
+  - *Phase 3 — In-Browser Document Viewers & Visual Field Mapper (`src/modules/document_viewer_modal.js`, `src/modules/visual_field_mapper.js`)*: Zero-CDN in-browser viewers for PDF, DOCX (AST A4 Paper Page), and XLSX (multi-sheet grid with `fx` formula bar) wrapped in **Guard G3 (Shimmer Skeleton Loading UX)**; interactive two-column Mail Merge token-to-column mapper with 3-tier Auto-Match and Live Record Preview.
+  - *Phase 4 — Universal FTS5 RAG & Hybrid AI Copilot Workspace (`core.ba_hub.universal_rag`, `core.ba_hub.copilot_provider`, `src/modules/ai_copilot_sidebar.js`)*: Multi-format semantic chunking (PDF, DOCX, XLSX, CSV, JSON, MD) indexed in SQLite FTS5 (`unicode61 remove_diacritics 2`, $< 5\text{ms}$ latency); polymorphic `CopilotOrchestrator` supporting Local Ollama (`localhost:11434`), Google Gemini API (1M+ context), and Deterministic Offline RAG fallback with interactive **Action Cards**.
 - **6 Strategic Enterprise Subsystems & 5 Production Edge-Case Guards (v4.6.0)**:
   - *Subsystem 1 — Cryptographic PDF Signing (PKCS#7 / PAdES) & ISO 19005-2 PDF/A-2b (`core.converter.pdf_toolkit`)*: Embeds ISO `/Type /Sig` dictionaries with SHA-256 document digests, `.pfx`/`.p12` X.509 certificate support (`crypto_sign_pdf`, `verify_pdf_crypto_signature`), and converts documents into archival **PDF/A-2b** (`convert_to_pdfa`) with XMP `pdfaid:part=2`, `pdfaid:conformance=B`, and sRGB `OutputIntents`.
   - *Subsystem 2 — Two-Way Spreadsheet Reporting (`core.xlsx.reporting` & Guard #3 `ERR_XLSX_015`)*: Converts `.xlsx` workbooks directly into executive brief reports in `.docx`, `.md`, and `.pdf` (`excel_to_brief`) with Dual-Workbook formula evaluation (`data_only=True` + `data_only=False` fallback computing `SUM`, `AVERAGE`, `COUNT`, `MIN`, `MAX` when cached values are `None`) and multi-workbook consolidation (`consolidate_workbooks`).

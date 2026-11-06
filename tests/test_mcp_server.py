@@ -106,6 +106,9 @@ class TestMCPServer(unittest.TestCase):
             "doc_run_pipeline",
             "diagram_from_code",
             "system_maintenance",
+            "xlsx_evaluate_formulas",
+            "universal_rag_search",
+            "copilot_assist",
         ]
         if HAS_BA_HUB:
             expected_tools.extend([

@@ -1,0 +1,170 @@
+# -*- coding: utf-8 -*-
+"""
+server.routes.copilot_routes — REST API Endpoints for Universal RAG & Hybrid AI Copilot Workspace.
+"""
+
+from __future__ import annotations
+
+import os
+import tempfile
+from typing import Any, Optional
+
+from .base import router, send_json, send_error, read_json_body
+
+
+def _resolve_safe_path(path_str: Optional[str]) -> Optional[str]:
+    if not path_str or not isinstance(path_str, str):
+        return None
+    cleaned = path_str.strip()
+    if not cleaned:
+        return None
+
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    allowed_roots = [
+        base_dir,
+        os.path.join(base_dir, "uploads"),
+        os.path.join(base_dir, "output"),
+        tempfile.gettempdir(),
+    ]
+    candidates = [
+        cleaned,
+        os.path.join(base_dir, cleaned),
+        os.path.join(base_dir, "uploads", cleaned),
+        os.path.join(base_dir, "uploads", os.path.basename(cleaned)),
+        os.path.join(base_dir, "output", os.path.basename(cleaned)),
+    ]
+    for cand in candidates:
+        abs_c = os.path.abspath(cand)
+        if os.path.isfile(abs_c):
+            norm_cand = os.path.normpath(abs_c)
+            for r in allowed_roots:
+                norm_r = os.path.normpath(r)
+                try:
+                    if os.path.commonpath([norm_r, norm_cand]) == norm_r:
+                        return abs_c
+                except (ValueError, OSError):
+                    pass
+    return None
+
+
+@router.get("/api/copilot/status")
+def handle_copilot_status(handler: Any) -> None:
+    """Returns Hybrid LLM connector status and Universal RAG index statistics."""
+    try:
+        from core.ba_hub.copilot_provider import CopilotOrchestrator
+        from core.ba_hub.universal_rag import UniversalRAGEngine
+
+        orch = CopilotOrchestrator()
+        rag = UniversalRAGEngine()
+        send_json(
+            handler,
+            {
+                "success": True,
+                "copilot": orch.status(),
+                "rag": rag.get_stats(),
+            },
+        )
+    except Exception as exc:
+        send_error(handler, f"Lỗi kiểm tra trạng thái Copilot: {exc}", status=500)
+
+
+@router.post("/api/copilot/index")
+def handle_copilot_index(handler: Any) -> None:
+    """Indexes a document or raw text into the Universal FTS5 RAG Knowledge Base."""
+    body = read_json_body(handler)
+    raw_path = (
+        body.get("file_path")
+        or body.get("filepath")
+        or body.get("path")
+        or body.get("filename")
+    )
+    raw_text = body.get("content") or body.get("text")
+
+    try:
+        from core.ba_hub.universal_rag import UniversalRAGEngine
+
+        rag = UniversalRAGEngine()
+        if raw_path:
+            resolved = _resolve_safe_path(raw_path)
+            if not resolved:
+                send_error(handler, f"Không tìm thấy tệp để lập chỉ mục RAG: {raw_path}", status=404)
+                return
+            res = rag.index_file(resolved)
+            send_json(handler, res)
+            return
+
+        if raw_text:
+            doc_id = str(body.get("doc_id") or "DOC-INLINE-001")
+            fname = str(body.get("title") or "Inline_Note.md")
+            res = rag.index_text(doc_id=doc_id, filename=fname, content=str(raw_text))
+            send_json(handler, res)
+            return
+
+        send_error(handler, "Cần truyền 'file_path' hoặc 'content' để lập chỉ mục RAG.", status=400)
+    except Exception as exc:
+        send_error(handler, f"Lỗi lập chỉ mục Universal RAG: {exc}", status=500)
+
+
+@router.post("/api/copilot/search")
+def handle_copilot_search(handler: Any) -> None:
+    """Searches Universal RAG FTS5 index."""
+    body = read_json_body(handler)
+    query = str(body.get("query") or body.get("q") or "").strip()
+    if not query:
+        send_error(handler, "Tham số 'query' không được để trống.", status=400)
+        return
+
+    top_k = int(body.get("top_k") or body.get("limit") or 5)
+    file_type = body.get("file_type")
+
+    try:
+        from core.ba_hub.universal_rag import UniversalRAGEngine
+
+        rag = UniversalRAGEngine()
+        chunks = rag.search(query=query, top_k=top_k, file_type=file_type)
+        send_json(
+            handler,
+            {
+                "success": True,
+                "query": query,
+                "total": len(chunks),
+                "results": chunks,
+            },
+        )
+    except Exception as exc:
+        send_error(handler, f"Lỗi tìm kiếm Universal RAG: {exc}", status=500)
+
+
+@router.post("/api/copilot/chat")
+def handle_copilot_chat(handler: Any) -> None:
+    """Executes RAG-augmented chat across Local Ollama or Cloud Gemini providers."""
+    body = read_json_body(handler)
+    prompt = str(body.get("prompt") or body.get("message") or body.get("query") or "").strip()
+    if not prompt:
+        send_error(handler, "Tham số 'prompt' không được để trống.", status=400)
+        return
+
+    mode = str(body.get("provider") or body.get("mode") or "local").lower()
+    top_k = int(body.get("top_k") or 5)
+    active_file = body.get("active_file") or body.get("filepath")
+
+    try:
+        from core.ba_hub.copilot_provider import CopilotOrchestrator
+        from core.ba_hub.universal_rag import UniversalRAGEngine
+
+        rag = UniversalRAGEngine()
+        if active_file:
+            resolved = _resolve_safe_path(active_file)
+            if resolved:
+                try:
+                    rag.index_file(resolved)
+                except Exception:
+                    pass
+
+        chunks = rag.search(query=prompt, top_k=top_k)
+        orch = CopilotOrchestrator()
+        resp = orch.chat(prompt=prompt, context_chunks=chunks, mode=mode)
+        send_json(handler, resp.to_dict())
+    except Exception as exc:
+        send_error(handler, f"Lỗi xử lý AI Copilot Chat: {exc}", status=500)
+

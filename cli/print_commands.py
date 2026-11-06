@@ -134,8 +134,12 @@ def cmd_print_doc(args: argparse.Namespace) -> int:
     try:
         opt_options = {
             "grayscale": getattr(args, "grayscale", False),
+            "vector_grayscale": not getattr(args, "raster_grayscale", False),
+            "dpi": int(getattr(args, "dpi", 300)),
             "n_up": int(getattr(args, "n_up", 1)),
             "booklet": getattr(args, "booklet", False),
+            "creep_compensation": getattr(args, "creep", False),
+            "paper_thickness_pt": float(getattr(args, "paper_thickness", 0.28)),
             "watermark": getattr(args, "watermark", None),
             "margin_guard_mm": float(getattr(args, "margin_guard", 5.0)),
         }
@@ -143,7 +147,9 @@ def cmd_print_doc(args: argparse.Namespace) -> int:
             file_path=src,
             printer_name=getattr(args, "printer", None),
             copies=int(getattr(args, "copies", 1)),
-            optimizer_options=opt_options
+            optimizer_options=opt_options,
+            tray_id=getattr(args, "tray", None),
+            duplex=getattr(args, "duplex", None),
         )
         print(f"[OK] Print Job Dispatched: {res['job_id']} -> Printer: {res['printer']} ({res['status']})")
         return 0
@@ -180,13 +186,19 @@ def register_print_subcommands(sub: argparse._SubParsersAction) -> None:
     p_plist.set_defaults(func=cmd_print_list)
 
     # 3. print-doc
-    p_pdoc = sub.add_parser("print-doc", help="Silent document printing with ink-saver & booklet optimizer")
+    p_pdoc = sub.add_parser("print-doc", help="Silent document printing with vector grayscale, booklet creep & DEVMODE tray")
     p_pdoc.add_argument("file", help="Path to document (.pdf, .docx, .xlsx)")
     p_pdoc.add_argument("--printer", default=None, help="Target printer name (default: system default printer)")
     p_pdoc.add_argument("--copies", type=int, default=1, help="Number of copies (default: 1)")
     p_pdoc.add_argument("--grayscale", action="store_true", help="Convert pages to grayscale (toner saver)")
+    p_pdoc.add_argument("--raster-grayscale", action="store_true", help="Use rasterized grayscale instead of native vector /DeviceGray")
+    p_pdoc.add_argument("--dpi", type=int, default=300, choices=[150, 300, 600], help="Raster fallback DPI (default: 300)")
     p_pdoc.add_argument("--n-up", type=int, default=1, choices=[1, 2, 4], help="N-Up pages per sheet (1, 2, 4)")
-    p_pdoc.add_argument("--booklet", action="store_true", help="Arrange pages in 2-sided booklet order")
+    p_pdoc.add_argument("--booklet", action="store_true", help="Arrange pages in 2-sided saddle-stitch booklet order")
+    p_pdoc.add_argument("--creep", action="store_true", help="Enable Booklet Shingling Creep compensation for inner sheets")
+    p_pdoc.add_argument("--paper-thickness", type=float, default=0.28, help="Paper thickness in pt for creep calculation (default: 0.28pt ~ 80gsm)")
+    p_pdoc.add_argument("--tray", type=int, default=None, help="Hardware paper tray bin ID (validated via DeviceCapabilities DC_BINS Guard G2)")
+    p_pdoc.add_argument("--duplex", default=None, choices=["simplex", "vertical", "horizontal"], help="Hardware duplex mode")
     p_pdoc.add_argument("--watermark", default=None, help="Security watermark text across pages")
     p_pdoc.add_argument("--margin-guard", type=float, default=5.0, help="Safety margin in mm (ERR_PRINT_001)")
     p_pdoc.set_defaults(func=cmd_print_doc)

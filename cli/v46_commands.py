@@ -157,6 +157,131 @@ def cmd_desktop_web(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_xlsx_eval(args: argparse.Namespace) -> int:
+    from core.xlsx.formula_evaluator import ASTFormulaEvaluator, populate_cached_values
+    import openpyxl
+
+    src = os.path.abspath(args.file)
+    if not os.path.isfile(src):
+        print(f"[ERROR] Excel workbook not found: {src}", file=sys.stderr)
+        return 1
+
+    out_path = os.path.abspath(args.output) if getattr(args, "output", None) else src
+    try:
+        if out_path != src:
+            import shutil
+            shutil.copy2(src, out_path)
+
+        wb = openpyxl.load_workbook(out_path, data_only=False)
+        evaluator = ASTFormulaEvaluator(wb)
+        eval_map = evaluator.evaluate_workbook()
+        total_formulas = sum(len(sheet_vals) for sheet_vals in eval_map.values())
+        populated = populate_cached_values(out_path)
+        res = {
+            "success": True,
+            "file": out_path,
+            "formulas_evaluated": total_formulas,
+            "xml_cached_values_injected": populated,
+            "sheets": eval_map,
+        }
+        if getattr(args, "json", False):
+            print(json.dumps(res, ensure_ascii=False, indent=2, default=str))
+        else:
+            print(
+                f"[OK] AST Formula Evaluator: Evaluated {total_formulas} formula(s) & injected {populated} OpenXML <v> cached value(s) -> {out_path}"
+            )
+        return 0
+    except Exception as exc:
+        print(f"[ERROR] xlsx-eval failed: {exc}", file=sys.stderr)
+        return 2
+
+
+def cmd_rag_index(args: argparse.Namespace) -> int:
+    from core.ba_hub.universal_rag import UniversalRAGEngine
+
+    src = os.path.abspath(args.file)
+    if not os.path.isfile(src):
+        print(f"[ERROR] File to index not found: {src}", file=sys.stderr)
+        return 1
+
+    try:
+        rag = UniversalRAGEngine(db_path=getattr(args, "db", None))
+        res = rag.index_file(src)
+        if getattr(args, "json", False):
+            print(json.dumps(res, ensure_ascii=False, indent=2))
+        else:
+            print(
+                f"[OK] Universal FTS5 RAG Indexed: {res['file_name']} ({res['doc_type'].upper()}, {res['chunks_indexed']} chunks) -> doc_id={res['doc_id']}"
+            )
+        return 0
+    except Exception as exc:
+        print(f"[ERROR] rag-index failed: {exc}", file=sys.stderr)
+        return 2
+
+
+def cmd_rag_search(args: argparse.Namespace) -> int:
+    from core.ba_hub.universal_rag import UniversalRAGEngine
+
+    try:
+        rag = UniversalRAGEngine(db_path=getattr(args, "db", None))
+        if getattr(args, "index_file", None):
+            rag.index_file(os.path.abspath(args.index_file))
+        hits = rag.search(
+            query=args.query,
+            top_k=int(getattr(args, "top_k", 5)),
+            doc_type=getattr(args, "type", None),
+        )
+        res = {
+            "success": True,
+            "query": args.query,
+            "count": len(hits),
+            "results": [h.to_dict() for h in hits],
+        }
+        if getattr(args, "json", False):
+            print(json.dumps(res, ensure_ascii=False, indent=2))
+        else:
+            print(f"[OK] Universal RAG FTS5 Search ('{args.query}') -> {len(hits)} hit(s):")
+            for idx, h in enumerate(hits, start=1):
+                print(f"  {idx}. [{h.doc_type.upper()}] {h.file_name} ({h.section_ref}) — {h.content[:140]}...")
+        return 0
+    except Exception as exc:
+        print(f"[ERROR] rag-search failed: {exc}", file=sys.stderr)
+        return 2
+
+
+def cmd_copilot_chat(args: argparse.Namespace) -> int:
+    from core.ba_hub.copilot_provider import CopilotOrchestrator
+    from core.ba_hub.universal_rag import UniversalRAGEngine
+
+    try:
+        rag = UniversalRAGEngine(db_path=getattr(args, "db", None))
+        if getattr(args, "index_file", None):
+            rag.index_file(os.path.abspath(args.index_file))
+        rag_hits = rag.search(args.prompt, top_k=int(getattr(args, "top_k", 5)))
+        rag_dicts = [h.to_dict() for h in rag_hits]
+
+        orchestrator = CopilotOrchestrator(mode=getattr(args, "provider", "hybrid"))
+        resp = orchestrator.chat(
+            prompt=args.prompt,
+            rag_chunks=rag_dicts,
+            prefer_cloud=getattr(args, "provider", "hybrid") == "cloud",
+        )
+        out = resp.to_dict()
+        if getattr(args, "json", False):
+            print(json.dumps(out, ensure_ascii=False, indent=2))
+        else:
+            print(f"[COPILOT ({resp.provider} / {resp.model} — {resp.latency_ms}ms)]")
+            print(resp.answer)
+            if resp.action_cards:
+                print("\n[ACTION CARDS]")
+                for c in resp.action_cards:
+                    print(f"  * [{c.action_type}] {c.title}: {c.description}")
+        return 0
+    except Exception as exc:
+        print(f"[ERROR] copilot-chat failed: {exc}", file=sys.stderr)
+        return 2
+
+
 def wrap_pdf_tools_handler(orig_handler: Callable[[argparse.Namespace], int]) -> Callable[[argparse.Namespace], int]:
     """Extends cmd_pdf_tools with `crypto-sign` and `pdfa` actions."""
     def _wrapped(args: argparse.Namespace) -> int:
@@ -311,4 +436,38 @@ def register_v46_subcommands(
     p_dw.add_argument("--dry-run", action="store_true", help="Verify server & print command without blocking on UI")
     p_dw.add_argument("--json", action="store_true", help="Output JSON launch info")
     p_dw.set_defaults(func=cmd_desktop_web)
+
+    # 8. Subcommand: xlsx-eval (v5.0 Offline AST Formula Evaluator)
+    p_xeval = sub.add_parser("xlsx-eval", help="Evaluate Excel formulas offline via AST and populate OpenXML <v> cached values")
+    p_xeval.add_argument("file", help="Path to .xlsx workbook")
+    p_xeval.add_argument("-o", "--output", default=None, help="Optional output .xlsx path (default: in-place update)")
+    p_xeval.add_argument("--json", action="store_true", help="Output JSON evaluation summary")
+    p_xeval.set_defaults(func=cmd_xlsx_eval)
+
+    # 9. Subcommand: rag-index (v5.0 Universal FTS5 RAG Indexer)
+    p_ridx = sub.add_parser("rag-index", help="Index a document (PDF/DOCX/XLSX/CSV/JSON/MD) into the Universal SQLite FTS5 RAG store")
+    p_ridx.add_argument("file", help="Path to document file to index")
+    p_ridx.add_argument("--db", default=None, help="Optional custom FTS5 database path")
+    p_ridx.add_argument("--json", action="store_true", help="Output JSON index summary")
+    p_ridx.set_defaults(func=cmd_rag_index)
+
+    # 10. Subcommand: rag-search (v5.0 Universal FTS5 RAG Search)
+    p_rsrch = sub.add_parser("rag-search", help="Search the Universal SQLite FTS5 RAG store (supports unaccented Vietnamese)")
+    p_rsrch.add_argument("query", help="Search query or keywords")
+    p_rsrch.add_argument("-k", "--top-k", type=int, default=5, help="Max results to return (default: 5)")
+    p_rsrch.add_argument("-t", "--type", default=None, choices=["pdf", "docx", "xlsx", "csv", "json", "md"], help="Filter by document format")
+    p_rsrch.add_argument("--index-file", default=None, help="Optional file to index immediately before searching")
+    p_rsrch.add_argument("--db", default=None, help="Optional custom FTS5 database path")
+    p_rsrch.add_argument("--json", action="store_true", help="Output JSON search results")
+    p_rsrch.set_defaults(func=cmd_rag_search)
+
+    # 11. Subcommand: copilot-chat (v5.0 Hybrid AI Copilot Workspace)
+    p_cop = sub.add_parser("copilot-chat", help="Query the Hybrid AI Copilot (Local Ollama / Cloud Gemini / Deterministic RAG) with Action Cards")
+    p_cop.add_argument("prompt", help="User question or instruction for the AI Copilot")
+    p_cop.add_argument("-p", "--provider", default="hybrid", choices=["hybrid", "local", "cloud"], help="Connector mode: hybrid, local (Ollama), or cloud (Gemini)")
+    p_cop.add_argument("-k", "--top-k", type=int, default=5, help="Number of RAG context chunks to retrieve")
+    p_cop.add_argument("--index-file", default=None, help="Optional document file to index into RAG before querying")
+    p_cop.add_argument("--db", default=None, help="Optional custom FTS5 database path")
+    p_cop.add_argument("--json", action="store_true", help="Output JSON response with citations and Action Cards")
+    p_cop.set_defaults(func=cmd_copilot_chat)
 

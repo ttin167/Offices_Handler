@@ -98,7 +98,11 @@ When user requests you to perform document tasks or draw diagrams, run these com
 | **Auto-Scan & Stage New Decree/Circular** | `python ai_tools_cli.py law-watch-scan [--file <doc>] [--sample-2027] [--skip-email]` |
 | **1-Click Human-in-the-Loop Merge Draft** | `python ai_tools_cli.py law-merge-update --draft <draft_filename>` |
 | **List System Hardware Printers** | `python ai_tools_cli.py print-list` |
-| **Enterprise Silent Print Document** | `python ai_tools_cli.py print-doc <file.pdf | docx> [--printer <name>] [--n-up 2] [--grayscale] [--duplex]` |
+| **Enterprise Silent Print Document** | `python ai_tools_cli.py print-doc <file.pdf | docx> [--printer <name>] [--n-up 2] [--grayscale] [--booklet] [--creep] [--tray <id>] [--duplex vertical]` |
+| **Offline AST Excel Formula Evaluator** | `python ai_tools_cli.py xlsx-eval <file.xlsx> [-o <out.xlsx>] [--json]` |
+| **Universal FTS5 RAG File Indexer** | `python ai_tools_cli.py rag-index <file> [--json]` |
+| **Universal FTS5 RAG Semantic Search** | `python ai_tools_cli.py rag-search <query> [-k <top_k>] [-t <type>] [--json]` |
+| **Hybrid AI Copilot Terminal Chat** | `python ai_tools_cli.py copilot-chat <prompt> [-p {hybrid,local,cloud}] [--index-file <file>] [--json]` |
 | **Sync Core Docs Triad (MD->DOCX+PDF)** | `python tools/sync_core_docs.py [--build | --check]` |
 | **Launch Desktop GUI** | `python main.py` |
 
@@ -154,6 +158,9 @@ When executing tasks programmatically via Python, MCP, or CLI, dispatch accordin
 | **Test SMTP Gmail Alert Dispatch** | Recipient Address | (via CLI) | `ai_tools_cli.py law-notify-test` | `core.ba_hub.regulatory_notifier` |
 | **List Hardware System Printers** | Hardware Spooler | `doc_list_printers(...)` | `ai_tools_cli.py print-list` | `core.printing.printer_manager` |
 | **Enterprise Silent Print Document** | PDF / DOCX + Print Spec | `doc_print_job(...)` | `ai_tools_cli.py print-doc` | `core.printing.printer_manager` |
+| **Offline AST Formula Evaluator** | XLSX Workbook | `xlsx_evaluate_formulas(...)` | `ai_tools_cli.py xlsx-eval` | `core.xlsx.formula_evaluator` |
+| **Universal FTS5 RAG Search** | Multi-Format File + Query | `universal_rag_search(...)` | `ai_tools_cli.py rag-search` | `core.ba_hub.universal_rag` |
+| **Hybrid AI Copilot Assistant** | Prompt + RAG Context | `copilot_assist(...)` | `ai_tools_cli.py copilot-chat` | `core.ba_hub.copilot_provider` |
 | **Periodic System Maintenance (7-Pillars)** | System Workspace | `system_maintenance(...)` | `ai_tools_cli.py system-maintenance` | `core.system_maintenance` |
 
 ---
@@ -163,18 +170,18 @@ When executing tasks programmatically via Python, MCP, or CLI, dispatch accordin
 ```
 antigravity-doc-handler/
 ├── core/                       # Layer 3: Core Document & Diagram Engines
-│   ├── converter/              # Universal Converter, Decoupled MD, OCR, PDF Toolkit
+│   ├── converter/              # Universal Converter, Decoupled MD, OCR, PDF Toolkit, COM Watchdog
 │   ├── diagrams/               # Diagram Bridge, mxGraph, Code-to-Diagram, Editor, Legacy
 │   ├── docx/                   # OpenXML Reader/Writer, Lists, Math, Diff, Mail Merge, Presets
 │   ├── pptx/                   # 16:9 Widescreen Engine, DOCX-to-PPTX, Charts, Math
-│   ├── xlsx/                   # Universal Excel Engine, Validator, Streaming, Formula Playbook, Reporting
+│   ├── xlsx/                   # Universal Excel Engine, AST Formula Evaluator, Validator, Streaming, Playbook, Reporting
 │   ├── security/               # Cloudflare Document Auditor & Deep CDR / PII Sanitizer
 │   ├── pipeline/               # Declarative Multi-Step Workflow Pipeline Engine
-│   ├── ba_hub/                 # BA Enterprise Hub (14 Modules: Stories, Use Cases, RTM, DBML, Satsuma, SQL Tests, Scope Creep, Obsidian Vault, OpenAPI, Decision Table, Meeting Parser)
-│   ├── printing/               # Enterprise Printing Engine (Windows Spooler win32print, Grayscale, N-Up, Booklet, Watermark, Margin Guard)
+│   ├── ba_hub/                 # BA Enterprise Hub & Universal FTS5 RAG + Hybrid AI Copilot
+│   ├── printing/               # Enterprise Printing Engine (Vector /DeviceGray, Booklet Creep, DEVMODE Guard G2)
 │   ├── env_doctor.py           # 12-Component Environment Health Doctor
 │   └── system_maintenance.py   # 7-Pillar Enterprise System Maintenance & MPO Guard
-├── server/                     # Layer 2: Web Studio REST API (:8000), MCP Server (43 Tools), SSE Jobs, SQLite
+├── server/                     # Layer 2: Web Studio REST API (:8000), Modular Routes, MCP Server (46 Tools), Persistent WAL Queue
 ├── cli/                        # Layer 2: Unified AI CLI Dispatcher & Subcommands
 ├── ui/                         # Layer 1: Desktop GUI (Tkinter) & Native WebView App Launcher
 ├── src/                        # Layer 1: Vite ES6 Web Studio Frontend & Modular Controllers
@@ -184,7 +191,7 @@ antigravity-doc-handler/
 │   ├── sync_core_docs.py       # Core Docs Triad Compiler & Semantic Auditor (ERR_DOC_SYNC_001)
 │   └── plantuml.jar            # Local PlantUML JAR (v1.2026+, bundled C4 standard library)
 ├── specs/                      # Declarative Diagram Specs (flow_*.json, master_erd_*.json)
-├── tests/                      # 330 Automated Test Suites (tests/test_*.py)
+├── tests/                      # 431 Automated Test Suites (tests/test_*.py)
 ├── main.py                     # Official Entrypoint: Desktop GUI & Native Web App Mode
 ├── ai_tools_cli.py             # Official Entrypoint: Unified CLI Dispatcher for AI Agents
 ├── web_api_server.py           # Official Entrypoint: Web Studio REST API Server

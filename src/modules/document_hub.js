@@ -23,6 +23,11 @@ const docEmptyState = document.getElementById('doc-empty-state');
 const docResultFilename = document.getElementById('doc-result-filename');
 const docResultTime = document.getElementById('doc-result-time');
 const btnDownloadConverted = document.getElementById('btn-download-converted');
+const btnPreviewConverted = document.getElementById('btn-preview-converted');
+const btnPreviewInputDoc = document.getElementById('btn-preview-input-doc');
+
+let lastConvertedFileName = '';
+let lastConvertedPath = '';
 
 function handleDocFileSelected(file) {
   if (!file) return;
@@ -97,6 +102,27 @@ if (btnRemoveDocFile) {
   });
 }
 
+if (btnPreviewInputDoc) {
+  btnPreviewInputDoc.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (state.docFile && window.openDocumentViewer) {
+      window.openDocumentViewer({ file: state.docFile, filename: state.docFile.name });
+    } else {
+      showToast('Vui lòng chọn tài liệu trước khi xem trước', 'warning');
+    }
+  });
+}
+
+if (btnPreviewConverted) {
+  btnPreviewConverted.addEventListener('click', () => {
+    if (lastConvertedFileName && window.openDocumentViewer) {
+      window.openDocumentViewer({ filename: lastConvertedFileName, filepath: lastConvertedPath });
+    } else {
+      showToast('Chưa có tệp kết quả để xem trước', 'warning');
+    }
+  });
+}
+
 // Target Format Matrix Selection
 const matrixCards = document.querySelectorAll('.matrix-card');
 const xlsxExtractionHint = document.getElementById('xlsx-extraction-hint');
@@ -154,6 +180,9 @@ if (btnConvertDoc) {
       if (docProgressStatus) docProgressStatus.textContent = 'Hoàn tất!';
 
       const outFileName = data.output_file || data.filename || (data.result_path ? data.result_path.split(/[\\/]/).pop() : '');
+      lastConvertedFileName = outFileName;
+      lastConvertedPath = data.output_path || data.result_path || outFileName;
+
       if (docResultFilename) docResultFilename.textContent = outFileName;
       if (docResultTime) docResultTime.textContent = new Date().toLocaleTimeString();
       if (btnDownloadConverted) {
@@ -259,7 +288,30 @@ async function inspectMmTemplate(file) {
           .map((t) => `<span class="token-pill"><i data-lucide="tag"></i> {{${t}}}</span>`)
           .join('');
         mmTokensCard.style.display = 'block';
+        if (window.visualFieldMapper) {
+          window.visualFieldMapper.setTokens(data.tokens);
+        }
         refreshLucideIcons();
+      }
+    }
+  } catch (_) {}
+}
+
+async function inspectMmDataset(file) {
+  try {
+    const uploadRes = await uploadFileToServer(file);
+    const serverPath = uploadRes.filepath || uploadRes.file_path;
+    if (!serverPath) return;
+
+    const res = await fetch('/api/mail-merge/inspect-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: serverPath }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (window.visualFieldMapper) {
+        window.visualFieldMapper.setDataset({ columns: data.columns, sample: data.sample });
       }
     }
   } catch (_) {}
@@ -310,6 +362,7 @@ if (mmDataDropZone && mmDataFileInput) {
       if (content) content.style.display = 'none';
       if (mmDataFileInfo) mmDataFileInfo.style.display = 'flex';
       checkMmReady();
+      inspectMmDataset(f);
     }
   });
   if (btnRemoveMmData) {
@@ -348,6 +401,7 @@ if (btnRunMailMerge) {
       const zipToggle = document.getElementById('mm-zip-toggle');
       const pattern = patInput && patInput.value.trim() ? patInput.value.trim() : null;
       const wantZip = zipToggle ? zipToggle.checked : true;
+      const fieldMappings = window.visualFieldMapper ? window.visualFieldMapper.getMappings() : null;
 
       const res = await fetch('/api/mail-merge', {
         method: 'POST',
@@ -357,6 +411,7 @@ if (btnRunMailMerge) {
           data: dataPath,
           pattern: pattern,
           zip: wantZip ? `mail_merge_${Date.now()}.zip` : null,
+          field_mapping: fieldMappings,
         }),
       });
 

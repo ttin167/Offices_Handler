@@ -74,7 +74,7 @@ if sys.platform == "win32":
 
 
 
-APP_VERSION = "4.6.0"
+APP_VERSION = "5.0.0"
 
 
 
@@ -857,6 +857,14 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
                 return
 
+            # Modular route dispatch (v5.0 Enterprise)
+            try:
+                from server.routes import Router
+                if Router.get_instance().dispatch(self, "GET", path):
+                    return
+            except Exception:
+                pass
+
 
 
             if path == "/api/health":
@@ -1280,6 +1288,14 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
                 return
 
+            # Modular route dispatch (v5.0 Enterprise)
+            try:
+                from server.routes import Router
+                if Router.get_instance().dispatch(self, "GET", path):
+                    return
+            except Exception:
+                pass
+
 
 
             if path.startswith("/api/history/"):
@@ -1329,6 +1345,14 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
         if not self._check_auth(path):
 
             return
+
+        # Modular route dispatch (v5.0 Enterprise)
+        try:
+            from server.routes import Router
+            if Router.get_instance().dispatch(self, "POST", path):
+                return
+        except Exception:
+            pass
 
 
 
@@ -4558,6 +4582,8 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
 
 
+                field_mapping = payload.get("field_mapping") or payload.get("mapping")
+
                 res = execute_mail_merge(
 
                     template_path=tpl,
@@ -4569,6 +4595,8 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     filename_pattern=pattern,
 
                     zip_output=zip_path,
+
+                    field_mapping=field_mapping,
 
                 )
 

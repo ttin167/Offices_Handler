@@ -46,7 +46,7 @@
 
             <span class="brand-title">ANTIGRAVITY</span>
 
-            <span class="brand-subtitle">BA Workstation v4.6.0</span>
+            <span class="brand-subtitle">Office Studio v5.0.0</span>
 
           </div>
 
@@ -115,6 +115,14 @@
 
 
       <div class="header-right">
+
+        <button class="history-toggle-btn copilot-toggle-btn" id="btn-toggle-copilot" title="Trợ lý AI Copilot &amp; Universal FTS5 RAG">
+
+          <span class="history-icon"><i data-lucide="sparkles"></i></span>
+
+          <span class="history-label">AI Copilot</span>
+
+        </button>
 
         <button class="history-toggle-btn" id="btn-open-guide-modal" title="Cẩm nang hướng dẫn sử dụng toàn diện">
 
@@ -1484,6 +1492,8 @@
 
                   <span class="file-size" id="doc-file-size">0 KB</span>
 
+                  <button type="button" class="btn-sm btn-secondary" id="btn-preview-input-doc" title="Xem trước tài liệu" style="margin-right: 6px; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; font-size: 11px;"><i data-lucide="eye"></i> Xem Trước</button>
+
                   <button type="button" class="btn-remove-file" id="btn-remove-doc-file" title="Gỡ file"><i data-lucide="x"></i></button>
 
                 </div>
@@ -1650,6 +1660,8 @@
 
                   <a href="#" class="btn-primary" id="btn-download-converted" download><i data-lucide="download"></i> Tải Tệp Về</a>
 
+                  <button type="button" class="btn-secondary" id="btn-preview-converted" style="margin-left: 8px; display: inline-flex; align-items: center; gap: 6px;"><i data-lucide="eye"></i> Xem Trước Trực Tiếp</button>
+
                 </div>
 
               </div>
@@ -1775,6 +1787,22 @@
                 <label class="form-label"><i data-lucide="tag"></i> Biến Token Phát Hiện Trong Template:</label>
 
                 <div class="tokens-badge-container" id="mm-tokens-list"></div>
+
+              </div>
+
+
+
+              <!-- Visual Field Mapper (2-Column Interactive Mapping) -->
+
+              <div class="form-group" id="visual-field-mapper-group" style="margin-top: 14px;">
+
+                <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+
+                  <span><i data-lucide="network"></i> Ánh Xạ Trường Trực Quan (Visual Field Mapping):</span>
+
+                </label>
+
+                <div id="visual-field-mapper-container"></div>
 
               </div>
 
@@ -4496,6 +4524,37 @@ legacy_crm.f_name -> digital_bank.full_name [Concatenate]"></textarea>
 
 
 
+    <!-- In-Browser Universal Document Viewer Modal (Phase 3 Enterprise Omni-Studio) -->
+    <div class="doc-viewer-modal-backdrop" id="modal-document-viewer" style="display: none;">
+      <div class="doc-viewer-modal-container">
+        <!-- Viewer Header Bar -->
+        <div class="doc-viewer-header">
+          <div class="doc-viewer-title-group">
+            <span class="viewer-type-badge badge-docx" id="doc-viewer-badge">DOCX</span>
+            <h3 class="doc-viewer-filename" id="doc-viewer-filename">Tài liệu xem trước</h3>
+          </div>
+          <div class="doc-viewer-toolbar">
+            <div class="viewer-zoom-controls">
+              <button type="button" class="viewer-tool-btn" id="btn-viewer-zoom-out" title="Thu nhỏ (-)"><i data-lucide="zoom-out"></i></button>
+              <span class="viewer-zoom-level" id="viewer-zoom-display">100%</span>
+              <button type="button" class="viewer-tool-btn" id="btn-viewer-zoom-in" title="Phóng to (+)"><i data-lucide="zoom-in"></i></button>
+              <button type="button" class="viewer-tool-btn" id="btn-viewer-zoom-reset" title="Tỷ lệ 100%"><i data-lucide="maximize-2"></i></button>
+            </div>
+            <div class="viewer-divider"></div>
+            <button type="button" class="viewer-tool-btn" id="btn-viewer-print" title="In tài liệu này"><i data-lucide="printer"></i> In</button>
+            <button type="button" class="viewer-tool-btn" id="btn-viewer-download" title="Tải xuống tệp"><i data-lucide="download"></i> Tải Về</button>
+            <button type="button" class="viewer-tool-btn" id="btn-viewer-fullscreen" title="Toàn màn hình"><i data-lucide="maximize"></i></button>
+            <button type="button" class="viewer-tool-btn btn-close-viewer" id="btn-close-doc-viewer" title="Đóng cửa sổ (Esc)"><i data-lucide="x"></i></button>
+          </div>
+        </div>
+
+        <!-- Viewer Body -->
+        <div class="doc-viewer-body" id="doc-viewer-content">
+          <!-- Dynamically populated: Shimmer Skeleton, PDF iframe, XLSX grid, or DOCX paper page -->
+        </div>
+      </div>
+    </div>
+
     <!-- Enterprise Print Modal -->
     <div class="modal-backdrop" id="modal-print" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center;">
       <div class="modal-content" style="background: var(--surface-card, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 12px; width: 90%; max-width: 580px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);">
@@ -4575,7 +4634,7 @@ legacy_crm.f_name -> digital_bank.full_name [Concatenate]"></textarea>
             <i data-lucide="book-open" style="color: #38bdf8; width: 22px; height: 22px;"></i>
             <div>
               <h3>Cẩm Nang Hướng Dẫn Sử Dụng &amp; Tra Cứu Nhanh</h3>
-              <span style="font-size: 11px; color: var(--text-secondary);">Antigravity Office &amp; BA Enterprise Studio v4.6.0</span>
+              <span style="font-size: 11px; color: var(--text-secondary);">Antigravity Office &amp; BA Enterprise Studio v5.0.0</span>
             </div>
           </div>
           <div class="guide-search-wrapper">
@@ -5149,6 +5208,59 @@ legacy_crm.f_name -> digital_bank.full_name [Concatenate]"></textarea>
         </div>
       </div>
     </div>
+
+    <!-- Phase 4: AI Copilot Workspace & Universal FTS5 RAG Sidebar -->
+    <div class="copilot-drawer-backdrop" id="copilot-drawer-backdrop"></div>
+    <aside class="copilot-sidebar-drawer" id="copilot-sidebar-drawer">
+      <div class="copilot-drawer-header">
+        <div class="copilot-title-wrap">
+          <i data-lucide="sparkles" style="color: #38bdf8; width: 20px; height: 20px;"></i>
+          <div>
+            <h4>Antigravity AI Copilot</h4>
+            <span class="copilot-sub" id="copilot-rag-stats">FTS5 RAG: 0 tài liệu</span>
+          </div>
+        </div>
+        <button type="button" class="btn-close-drawer" id="btn-close-copilot" title="Đóng AI Copilot">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+
+      <div class="copilot-config-bar">
+        <select id="copilot-provider-select" class="copilot-select" title="Chọn kênh kết nối LLM">
+          <option value="local">Local Ollama (Qwen 2.5 / Llama 3.2 - Bảo mật nội bộ)</option>
+          <option value="cloud">Google Gemini Cloud (1M+ Tokens High-Context)</option>
+          <option value="hybrid">Hybrid Auto-Router (Tự động điều phối)</option>
+        </select>
+        <input type="file" id="copilot-rag-file-input" accept=".pdf,.docx,.xlsx,.csv,.md,.json,.txt" style="display: none;" />
+        <button type="button" class="btn btn-sm btn-secondary" id="btn-copilot-index-file" title="Nạp tài liệu vào Universal FTS5 RAG">
+          <i data-lucide="database"></i> Nạp RAG
+        </button>
+      </div>
+
+      <div class="copilot-quick-prompts">
+        <button type="button" class="copilot-quick-chip" data-prompt="Kiểm định 12 cổng chất lượng bảng tính Excel">Kiểm định 12 cổng Excel</button>
+        <button type="button" class="copilot-quick-chip" data-prompt="Hướng dẫn ánh xạ trường và trộn thư Mail Merge">Trộn thư Mail Merge</button>
+        <button type="button" class="copilot-quick-chip" data-prompt="Cấu hình in ấn Vector Grayscale và Booklet Creep">In ấn Booklet Creep</button>
+        <button type="button" class="copilot-quick-chip" data-prompt="Tra cứu quy định Luật Lao động, BHXH và tính lương OT">Luật Lao động &amp; BHXH</button>
+      </div>
+
+      <div class="copilot-messages-list" id="copilot-messages-list">
+        <div class="copilot-msg copilot-msg-assistant">
+          <div class="copilot-msg-bubble">
+            <div class="copilot-msg-text">
+              Xin chào! Tôi là <strong>Antigravity AI Copilot (v5.0)</strong>. Bạn có thể nạp tài liệu (PDF/DOCX/XLSX/MD) vào kho tri thức <strong>Universal FTS5 RAG</strong> hoặc chọn nhanh các tác vụ tự động bên dưới.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="copilot-input-bar">
+        <textarea id="copilot-chat-input" class="copilot-textarea" rows="2" placeholder="Nhập yêu cầu phân tích tài liệu, công thức Excel hoặc câu hỏi nghiệp vụ..."></textarea>
+        <button type="button" class="btn-primary copilot-send-btn" id="btn-copilot-send" title="Gửi yêu cầu (Enter)">
+          <i data-lucide="play"></i>
+        </button>
+      </div>
+    </aside>
 
         <!-- Bottom Toast Notifications -->
 

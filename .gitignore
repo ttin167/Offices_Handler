@@ -119,5 +119,7 @@ labor_law_vault/
 *.labor_law_vault.zip
 .labor_law_fts.db
 .labor_law_fts.db*
+.universal_rag_fts.db
+.universal_rag_fts.db*
 data/labor_law/
 

@@ -5,7 +5,7 @@ tools/sync_core_docs.py — Core Technical & User Documentation Triad Synchroniz
 
 Implements Invariant ERR_DOC_SYNC_001 Section D:
 Maintains the two foundational core documents in docs/:
-  1. docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V4 (Architecture Evolution Report)
+  1. docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V5 (Architecture Evolution Report)
   2. docs/HUONG_DAN_SU_DUNG_CHI_TIET_TUNG_TINH_NANG (Feature User Guide)
 Enforces the Triad Invariant: MD source -> DOCX -> PDF (Lossless Vector / OpenXML).
 
@@ -43,10 +43,10 @@ CORE_DOCS: List[Dict[str, str]] = [
     {
         "id": "arch",
         "title": "Báo Cáo Tiến Hóa Kiến Trúc",
-        "md": "docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V4.md",
-        "docx": "docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V4.docx",
-        "pdf": "docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V4.pdf",
-        "style": "docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V4.style.yaml",
+        "md": "docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V5.md",
+        "docx": "docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V5.docx",
+        "pdf": "docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V5.pdf",
+        "style": "docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V5.style.yaml",
     },
     {
         "id": "guide",
@@ -54,7 +54,7 @@ CORE_DOCS: List[Dict[str, str]] = [
         "md": "docs/HUONG_DAN_SU_DUNG_CHI_TIET_TUNG_TINH_NANG.md",
         "docx": "docs/HUONG_DAN_SU_DUNG_CHI_TIET_TUNG_TINH_NANG.docx",
         "pdf": "docs/HUONG_DAN_SU_DUNG_CHI_TIET_TUNG_TINH_NANG.pdf",
-        "style": "docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V4.style.yaml",
+        "style": "docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V5.style.yaml",
     },
 ]
 
@@ -103,39 +103,39 @@ def audit_semantic_body_parity(pkg_ver: str) -> Tuple[bool, List[str]]:
     mcp_count = get_expected_mcp_tools_count()
     test_count = get_expected_tests_count()
 
-    # 1. Audit BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V4.md
-    arch_md = os.path.join(BASE_DIR, "docs", "BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V4.md")
+    # 1. Audit BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V5.md
+    arch_md = os.path.join(BASE_DIR, "docs", "BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V5.md")
     if os.path.isfile(arch_md):
         with open(arch_md, "r", encoding="utf-8") as f:
             arch_text = f.read()
 
         # Check Section 2 comparison header
         if f"v{pkg_ver} Production Grade" not in arch_text:
-            errors.append(f"docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V4.md: Section 2 table missing 'v{pkg_ver} Production Grade'")
+            errors.append(f"docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V5.md: Section 2 table missing 'v{pkg_ver} Production Grade'")
 
         # Detect obsolete versions in Section 2 comparison title
-        obsolete_match = re.search(r'## 2\.\s+BẢNG MA TRẬN SO SÁNH TOÀN DIỆN.*v(4\.[0-9]+\.[0-9]+)', arch_text, re.IGNORECASE)
+        obsolete_match = re.search(r'## 2\.\s+BẢNG MA TRẬN SO SÁNH TOÀN DIỆN.*v([0-9]+\.[0-9]+\.[0-9]+)', arch_text, re.IGNORECASE)
         if obsolete_match and obsolete_match.group(1) != pkg_ver:
-            errors.append(f"docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V4.md: Section 2 header still references old version 'v{obsolete_match.group(1)}' instead of 'v{pkg_ver}'")
+            errors.append(f"docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V5.md: Section 2 header still references old version 'v{obsolete_match.group(1)}' instead of 'v{pkg_ver}'")
 
         # Check Conclusion mentions current version
         if f"({pkg_ver} Production Grade)" not in arch_text and f"(v{pkg_ver} Production Grade)" not in arch_text:
-            errors.append(f"docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V4.md: Conclusion missing '(v{pkg_ver} Production Grade)'")
+            errors.append(f"docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V5.md: Conclusion missing '(v{pkg_ver} Production Grade)'")
 
         # Check MCP tools count
         mcp_pattern = rf'(?:{mcp_count}\s+MCP\s+Tools|MCP\s+{mcp_count}-Tool)'
         if not re.search(mcp_pattern, arch_text, re.IGNORECASE):
-            errors.append(f"docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V4.md: Body missing reference to current {mcp_count} MCP Tools Catalog")
+            errors.append(f"docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V5.md: Body missing reference to current {mcp_count} MCP Tools Catalog")
 
         # Check Automated test count
         test_pattern = rf'(?:{test_count}\+|{test_count}/{test_count})'
         if not re.search(test_pattern, arch_text):
-            errors.append(f"docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V4.md: Body missing reference to current test count ({test_count}+)")
+            errors.append(f"docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V5.md: Body missing reference to current test count ({test_count}+)")
 
         # Check dedicated feature section for current version
         feature_section_pattern = rf'v{re.escape(pkg_ver)}'
         if not re.search(rf'##\s+[0-9]+\..*{feature_section_pattern}', arch_text):
-            errors.append(f"docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V4.md: Missing dedicated feature chapter heading for 'v{pkg_ver}'")
+            errors.append(f"docs/BAO_CAO_TIEN_HOA_KIEN_TRUC_V1_TO_V5.md: Missing dedicated feature chapter heading for 'v{pkg_ver}'")
 
     # 2. Audit HUONG_DAN_SU_DUNG_CHI_TIET_TUNG_TINH_NANG.md
     guide_md = os.path.join(BASE_DIR, "docs", "HUONG_DAN_SU_DUNG_CHI_TIET_TUNG_TINH_NANG.md")

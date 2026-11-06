@@ -1,9 +1,9 @@
 {
   "name": "antigravity-ba-workstation",
-  "version": "4.6.0",
+  "version": "5.0.0",
   "private": true,
   "type": "module",
-  "description": "BA Enterprise Workstation — Precision Requirements Engineering, Data Reconciliation & Business Process Studio",
+  "description": "BA Enterprise Workstation \u2014 Precision Requirements Engineering, Data Reconciliation & Business Process Studio",
   "scripts": {
     "dev": "node dev_launcher.js",
     "dev:vite": "vite",

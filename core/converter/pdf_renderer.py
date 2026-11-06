@@ -228,35 +228,59 @@ class UniversalPdfRenderer:
         raise FileNotFoundError(f"Expected converted PDF not produced at: {expected_out}")
 
     def _convert_docx_win32com(self, docx_path: str, target_pdf: str) -> str:
-        """Convert DOCX via Microsoft Word COM automation."""
-        import win32com.client  # type: ignore
+        """Convert DOCX via Microsoft Word COM automation with watchdog protection."""
+        def _do_convert() -> str:
+            import win32com.client  # type: ignore
 
-        word = win32com.client.Dispatch("Word.Application")
-        word.Visible = False
+            word = win32com.client.Dispatch("Word.Application")
+            word.Visible = False
+            try:
+                doc = word.Documents.Open(os.path.abspath(docx_path))
+                # 17 represents wdFormatPDF
+                doc.SaveAs(os.path.abspath(target_pdf), FileFormat=17)
+                doc.Close(False)
+                return target_pdf
+            finally:
+                try:
+                    word.Quit()
+                except Exception:
+                    pass
+
         try:
-            doc = word.Documents.Open(os.path.abspath(docx_path))
-            # 17 represents wdFormatPDF
-            doc.SaveAs(os.path.abspath(target_pdf), FileFormat=17)
-            doc.Close(False)
-            return target_pdf
-        finally:
-            word.Quit()
+            from core.converter.com_watchdog import ComProcessWatchdog
+            return ComProcessWatchdog.run_with_timeout(
+                _do_convert, timeout_sec=20.0, app_type="word"
+            )
+        except (ImportError, ValueError):
+            return _do_convert()
 
     def _convert_pptx_win32com(self, pptx_path: str, target_pdf: str) -> str:
-        """Convert PPTX via Microsoft PowerPoint COM automation."""
-        import win32com.client  # type: ignore
+        """Convert PPTX via Microsoft PowerPoint COM automation with watchdog protection."""
+        def _do_convert() -> str:
+            import win32com.client  # type: ignore
 
-        powerpoint = win32com.client.Dispatch("PowerPoint.Application")
+            powerpoint = win32com.client.Dispatch("PowerPoint.Application")
+            try:
+                deck = powerpoint.Presentations.Open(
+                    os.path.abspath(pptx_path), WithWindow=False
+                )
+                # 32 represents ppSaveAsPDF
+                deck.SaveAs(os.path.abspath(target_pdf), FileFormat=32)
+                deck.Close()
+                return target_pdf
+            finally:
+                try:
+                    powerpoint.Quit()
+                except Exception:
+                    pass
+
         try:
-            deck = powerpoint.Presentations.Open(
-                os.path.abspath(pptx_path), WithWindow=False
+            from core.converter.com_watchdog import ComProcessWatchdog
+            return ComProcessWatchdog.run_with_timeout(
+                _do_convert, timeout_sec=20.0, app_type="powerpoint"
             )
-            # 32 represents ppSaveAsPDF
-            deck.SaveAs(os.path.abspath(target_pdf), FileFormat=32)
-            deck.Close()
-            return target_pdf
-        finally:
-            powerpoint.Quit()
+        except (ImportError, ValueError):
+            return _do_convert()
 
 
 def convert_document_to_pdf(

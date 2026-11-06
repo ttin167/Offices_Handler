@@ -63,7 +63,7 @@ except (ImportError, ValueError):
 
 MCP_PROTOCOL_VERSION = "2024-11-05"
 SERVER_NAME = "antigravity-doc-handler"
-SERVER_VERSION = "4.6.0"
+SERVER_VERSION = "5.0.0"
 
 TOOL_DEFINITIONS = [
     {
@@ -1150,7 +1150,7 @@ BA_TOOL_DEFINITIONS = [
     },
     {
         "name": "doc_print_job",
-        "description": "Submits a document (PDF, DOCX, XLSX) to a system printer with silent spooling and pre-print optimizations (Grayscale toner saver, N-Up, Booklet, Watermark, Margin Guard ERR_PRINT_001).",
+        "description": "Submits a document (PDF, DOCX, XLSX) to a system printer with silent spooling, native vector /DeviceGray grayscale, Booklet Shingling Creep compensation, DEVMODE tray/duplex (Guard G2), and Margin Guard ERR_PRINT_001.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -1171,6 +1171,11 @@ BA_TOOL_DEFINITIONS = [
                     "default": False,
                     "description": "Convert pages to grayscale to save color toner"
                 },
+                "vector_grayscale": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Preserve infinite vector text clarity via /DeviceGray operator conversion"
+                },
                 "n_up": {
                     "type": "integer",
                     "enum": [1, 2, 4],
@@ -1182,12 +1187,106 @@ BA_TOOL_DEFINITIONS = [
                     "default": False,
                     "description": "Arrange pages in 2-sided booklet order"
                 },
+                "creep_compensation": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Enable Booklet Shingling Creep compensation for inner sheets"
+                },
+                "paper_thickness_pt": {
+                    "type": "number",
+                    "default": 0.28,
+                    "description": "Paper thickness in pt for creep calculation (default: 0.28pt)"
+                },
+                "tray_id": {
+                    "type": "integer",
+                    "description": "Optional hardware paper tray bin ID (validated via DeviceCapabilities DC_BINS Guard G2)"
+                },
+                "duplex": {
+                    "type": "string",
+                    "enum": ["simplex", "vertical", "horizontal"],
+                    "description": "Optional hardware duplex mode"
+                },
                 "watermark": {
                     "type": "string",
                     "description": "Optional security watermark text"
                 }
             },
             "required": ["file_path"]
+        }
+    },
+    {
+        "name": "xlsx_evaluate_formulas",
+        "description": "Offline Python AST Formula Evaluator (v5.0): Evaluates 30+ Excel functions (SUM, AVERAGE, COUNT, COUNTA, COUNTIF, COUNTIFS, SUMIF, SUMIFS, AVERAGEIF, AVERAGEIFS, IF, IFS, IFERROR, XLOOKUP, VLOOKUP, INDEX, MATCH, TEXTJOIN, etc.) and injects cached <v> values into OpenXML.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to .xlsx workbook to evaluate and populate cached <v> values"
+                },
+                "output_path": {
+                    "type": "string",
+                    "description": "Optional output .xlsx path (defaults to in-place update)"
+                }
+            },
+            "required": ["file_path"]
+        }
+    },
+    {
+        "name": "universal_rag_search",
+        "description": "Universal Multi-Format SQLite FTS5 Semantic RAG Engine (v5.0): Indexes and searches across PDF, DOCX, XLSX, CSV, JSON, and Markdown files with unaccented Vietnamese support (<5ms latency).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query or keywords"
+                },
+                "index_file_path": {
+                    "type": "string",
+                    "description": "Optional document path (.pdf, .docx, .xlsx, .csv, .json, .md) to index immediately before searching"
+                },
+                "top_k": {
+                    "type": "integer",
+                    "default": 5,
+                    "description": "Maximum number of relevant semantic chunks to return"
+                },
+                "doc_type": {
+                    "type": "string",
+                    "enum": ["pdf", "docx", "xlsx", "csv", "json", "md"],
+                    "description": "Optional document format filter"
+                }
+            },
+            "required": ["query"]
+        }
+    },
+    {
+        "name": "copilot_assist",
+        "description": "Hybrid AI Copilot Workspace Assistant (v5.0): Connects to Local Ollama (localhost:11434), Google Gemini API (1M+ context), or Offline RAG Synthesizer to answer questions with document citations and executable Action Cards.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": "User question, analysis request, or document automation instruction"
+                },
+                "provider_mode": {
+                    "type": "string",
+                    "enum": ["hybrid", "local", "cloud"],
+                    "default": "hybrid",
+                    "description": "LLM Connector mode: 'hybrid', 'local' (Ollama), or 'cloud' (Gemini)"
+                },
+                "index_file_path": {
+                    "type": "string",
+                    "description": "Optional document path to index into Universal RAG before querying"
+                },
+                "top_k": {
+                    "type": "integer",
+                    "default": 5,
+                    "description": "Number of RAG chunks to supply as context"
+                }
+            },
+            "required": ["prompt"]
         }
     },
     {
@@ -2395,8 +2494,11 @@ def execute_doc_print_job(args: Dict[str, Any]) -> Dict[str, Any]:
 
     opt_options = {
         "grayscale": args.get("grayscale", False),
+        "vector_grayscale": bool(args.get("vector_grayscale", True)),
         "n_up": int(args.get("n_up", 1)),
         "booklet": args.get("booklet", False),
+        "creep_compensation": bool(args.get("creep_compensation", False)),
+        "paper_thickness_pt": float(args.get("paper_thickness_pt", 0.28)),
         "watermark": args.get("watermark"),
     }
     return PrinterManager.print_file(
@@ -2404,7 +2506,80 @@ def execute_doc_print_job(args: Dict[str, Any]) -> Dict[str, Any]:
         printer_name=args.get("printer_name"),
         copies=int(args.get("copies", 1)),
         optimizer_options=opt_options,
+        tray_id=args.get("tray_id"),
+        duplex=args.get("duplex"),
     )
+
+
+def execute_xlsx_evaluate_formulas(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.xlsx.formula_evaluator import ASTFormulaEvaluator, populate_cached_values
+    import openpyxl
+
+    src = os.path.abspath(args["file_path"])
+    if not os.path.isfile(src):
+        raise FileNotFoundError(f"Excel workbook not found: {src}")
+
+    out_path = os.path.abspath(args["output_path"]) if args.get("output_path") else src
+    if out_path != src:
+        import shutil
+        shutil.copy2(src, out_path)
+
+    wb = openpyxl.load_workbook(out_path, data_only=False)
+    evaluator = ASTFormulaEvaluator(wb)
+    eval_map = evaluator.evaluate_workbook()
+    total_formulas = sum(len(sheet_vals) for sheet_vals in eval_map.values())
+    populated = populate_cached_values(out_path)
+    return {
+        "success": True,
+        "output_path": out_path,
+        "formulas_evaluated": total_formulas,
+        "xml_cached_values_injected": populated,
+        "sheets": eval_map,
+    }
+
+
+def execute_universal_rag_search(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.ba_hub.universal_rag import UniversalRAGEngine
+
+    rag = UniversalRAGEngine()
+    indexed_info = None
+    if args.get("index_file_path"):
+        indexed_info = rag.index_file(os.path.abspath(args["index_file_path"]))
+
+    hits = rag.search(
+        query=args["query"],
+        top_k=int(args.get("top_k", 5)),
+        doc_type=args.get("doc_type"),
+    )
+    return {
+        "success": True,
+        "query": args["query"],
+        "indexed": indexed_info,
+        "count": len(hits),
+        "results": [h.to_dict() for h in hits],
+    }
+
+
+def execute_copilot_assist(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.ba_hub.copilot_provider import CopilotOrchestrator
+    from core.ba_hub.universal_rag import UniversalRAGEngine
+
+    rag = UniversalRAGEngine()
+    if args.get("index_file_path"):
+        rag.index_file(os.path.abspath(args["index_file_path"]))
+
+    top_k = int(args.get("top_k", 5))
+    rag_hits = rag.search(args["prompt"], top_k=top_k)
+    rag_dicts = [h.to_dict() for h in rag_hits]
+
+    mode = str(args.get("provider_mode", "hybrid")).lower()
+    orchestrator = CopilotOrchestrator(mode=mode)
+    resp = orchestrator.chat(
+        prompt=args["prompt"],
+        rag_chunks=rag_dicts,
+        prefer_cloud=(mode == "cloud"),
+    )
+    return resp.to_dict()
 
 
 def execute_law_knowledge_search(args: Dict[str, Any]) -> Dict[str, Any]:
@@ -2508,6 +2683,10 @@ TOOL_DISPATCHER = {
     "doc_run_pipeline": execute_doc_run_pipeline,
     "diagram_from_code": execute_diagram_from_code,
     "system_maintenance": execute_system_maintenance,
+    # v5.0 Enterprise Omni-Studio Tools
+    "xlsx_evaluate_formulas": execute_xlsx_evaluate_formulas,
+    "universal_rag_search": execute_universal_rag_search,
+    "copilot_assist": execute_copilot_assist,
 }
 
 BA_TOOL_DISPATCHER = {

@@ -158,6 +158,9 @@ import { initDiagramStudio } from './modules/diagram_studio.js';
 import { initFormulaPlaybook } from './modules/formula_playbook.js';
 import { initPrintStudio } from './modules/print_studio.js';
 import { initGuideModal } from './modules/guide_modal.js';
+import { initDocumentViewerModal } from './modules/document_viewer_modal.js';
+import { initVisualFieldMapper } from './modules/visual_field_mapper.js';
+import { initAiCopilotSidebar } from './modules/ai_copilot_sidebar.js';
 
 
 
@@ -671,6 +674,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
+  const docViewer = initDocumentViewerModal({ state, showToast, refreshLucideIcons });
+  const visualFieldMapper = initVisualFieldMapper({ state, showToast, refreshLucideIcons, uploadFileToServer });
+  window.docViewer = docViewer;
+  window.visualFieldMapper = visualFieldMapper;
+
   const sharedCtx = {
 
     state,
@@ -684,6 +692,10 @@ document.addEventListener('DOMContentLoaded', () => {
     formatBytes,
 
     loadHistory,
+
+    docViewer,
+
+    visualFieldMapper,
 
   };
 
@@ -701,6 +713,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initDiagramStudio(sharedCtx);
   initPrintStudio(sharedCtx);
   initGuideModal(sharedCtx);
+  initAiCopilotSidebar(sharedCtx);
 
 
 

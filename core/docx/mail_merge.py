@@ -248,6 +248,7 @@ def read_data_source(
         # Find header row
         header_row_idx = None
         headers: List[str] = []
+
         for r in range(1, min(ws.max_row, 15) + 1):
             row_vals = [str(ws.cell(r, c).value or "").strip() for c in range(1, ws.max_column + 1)]
             non_empty = [v for v in row_vals if v]
@@ -306,6 +307,30 @@ def read_data_source(
         raise ValueError(f"Unsupported data source extension: {ext}. Expected .xlsx, .csv, or .json")
 
 
+def inspect_data_columns(
+    data_source: Union[str, List[Dict[str, Any]]],
+    sheet_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Inspects dataset (CSV, XLSX, JSON) and returns column headers, record count, and sample rows.
+    """
+    records = read_data_source(data_source, sheet_name=sheet_name)
+    columns: List[str] = []
+    if records:
+        col_set = set()
+        for r in records[:10]:
+            for k in r.keys():
+                if k not in col_set:
+                    col_set.add(k)
+                    columns.append(k)
+    return {
+        "success": True,
+        "columns": columns,
+        "total_records": len(records),
+        "sample": records[:5],
+    }
+
+
 def _sanitize_filename(name: str) -> str:
     """Removes invalid filesystem characters for Windows, Linux, and macOS."""
     cleaned = re.sub(r'[\\/*?:"<>|]', "", name)
@@ -324,6 +349,7 @@ def execute_mail_merge(
     progress_callback: Optional[Callable[[float, str], None]] = None,
     template_docx: Optional[str] = None,
     zip_output: Optional[Union[str, bool]] = None,
+    field_mapping: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """
     Executes high-fidelity batch mail merge:
@@ -358,6 +384,16 @@ def execute_mail_merge(
     fn_pattern = filename_pattern or "doc_{index}.docx"
 
     records = read_data_source(data_source, sheet_name=sheet_name)
+    if field_mapping and isinstance(field_mapping, dict):
+        mapped_records = []
+        for r in records:
+            mapped_row = dict(r)
+            for token, col_name in field_mapping.items():
+                if col_name in r:
+                    mapped_row[token] = r[col_name]
+            mapped_records.append(mapped_row)
+        records = mapped_records
+
     total_records = len(records)
     if total_records == 0:
         return {
