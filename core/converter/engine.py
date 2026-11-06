@@ -235,6 +235,9 @@ def convert_universal(
     style_path: Optional[str] = None,
     progress_callback: Optional[Callable[[float, str], None]] = None,
     deck_scope: Optional[str] = None,
+    theme: Optional[str] = None,
+    cover_page: bool = False,
+    enable_math: bool = False,
 ) -> Tuple[bool, str, float]:
     """
     Universal multi-way conversion router between PDF, DOCX, Markdown, PPTX, and Excel (.xlsx).
@@ -289,7 +292,15 @@ def convert_universal(
 
         # Route 5: MD -> DOCX
         elif src_ext == ".md" and dest_ext == ".docx":
-            ok, res = markdown_to_docx(source_path, target_path, style_yaml_path=style_path, progress_callback=progress_callback)
+            ok, res = markdown_to_docx(
+                source_path,
+                target_path,
+                style_yaml_path=style_path,
+                progress_callback=progress_callback,
+                theme=theme,
+                cover_page=cover_page,
+                enable_math=enable_math,
+            )
             return ok, res, time.time() - start_time
 
         # Route 6: MD -> PDF

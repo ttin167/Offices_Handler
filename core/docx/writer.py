@@ -49,18 +49,21 @@ SYMBOL_FALLBACK_REGEX = re.compile(
 from PIL import Image as PILImage
 
 try:
-    from .post_processor import calculate_heuristic_column_widths
+    from .post_processor import calculate_heuristic_column_widths, safe_save_docx
     from .math import add_math_to_paragraph
     from .lists import ListContextTracker, apply_list_formatting, ensure_numbering_definitions
+    from .design_system import format_token_value, format_table_modern_clean, get_theme
 except (ImportError, ValueError):
     try:
-        from core.docx.post_processor import calculate_heuristic_column_widths
+        from core.docx.post_processor import calculate_heuristic_column_widths, safe_save_docx
         from core.docx.math import add_math_to_paragraph
         from core.docx.lists import ListContextTracker, apply_list_formatting, ensure_numbering_definitions
+        from core.docx.design_system import format_token_value, format_table_modern_clean, get_theme
     except (ImportError, ValueError):
-        from core.docx.post_processor import calculate_heuristic_column_widths  # type: ignore
+        from core.docx.post_processor import calculate_heuristic_column_widths, safe_save_docx  # type: ignore
         from core.docx.math import add_math_to_paragraph  # type: ignore
         from core.docx.lists import ListContextTracker, apply_list_formatting, ensure_numbering_definitions  # type: ignore
+        from core.docx.design_system import format_token_value, format_table_modern_clean, get_theme  # type: ignore
 
 __all__ = [
     "write_docx",
@@ -521,6 +524,19 @@ def _embed_image_element(doc: DocumentType, img_data: dict[str, Any], anchor_par
         _write_fallback_card(doc, alt, f"Failed to render image binary: {ex}")
 
 
+def _is_dark_fill(color_hex: Optional[str]) -> bool:
+    if not color_hex:
+        return False
+    clean = color_hex.lstrip("#").strip()
+    if len(clean) != 6:
+        return False
+    try:
+        r, g, b = int(clean[0:2], 16), int(clean[2:4], 16), int(clean[4:6], 16)
+        return (0.2126 * r + 0.7152 * g + 0.0722 * b) < 140
+    except Exception:
+        return False
+
+
 def _write_table(doc: DocumentType, table_data: dict[str, Any], anchor_para=None) -> Any:
     """
     Constructs a production-grade OpenXML table supporting:
@@ -668,13 +684,13 @@ def _write_table(doc: DocumentType, table_data: dict[str, Any], anchor_para=None
                                 text,
                                 base_font_size_pt=float(run_data.get("font_size_pt") or 10.0),
                                 font_name=str(run_data.get("font_name") or "Arial"),
-                                color_rgb=RGBColor(0xFF, 0xFF, 0xFF) if (is_header_row and fill_color in ("#1F4E78", "#2C3E50", "#000080", "#333399") and not run_data.get("font_color")) else _hex_to_rgb(run_data.get("font_color")),
-                                bold=True if (is_header_row and fill_color in ("#1F4E78", "#2C3E50", "#000080", "#333399")) else bool(run_data.get("bold", False))
+                                color_rgb=RGBColor(0xFF, 0xFF, 0xFF) if (is_header_row and _is_dark_fill(fill_color) and not run_data.get("font_color")) else _hex_to_rgb(run_data.get("font_color")),
+                                bold=True if (is_header_row and _is_dark_fill(fill_color)) else bool(run_data.get("bold", False))
                             )
                         else:
                             run = p.add_run(text)
                             _apply_run_format(run, run_data)
-                            if is_header_row and fill_color in ("#1F4E78", "#2C3E50", "#000080", "#333399"):
+                            if is_header_row and _is_dark_fill(fill_color):
                                 if not run_data.get("font_color"):
                                     run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
                                     run.bold = True
@@ -686,12 +702,12 @@ def _write_table(doc: DocumentType, table_data: dict[str, Any], anchor_para=None
                                 p,
                                 raw_text,
                                 base_font_size_pt=10.0,
-                                color_rgb=RGBColor(0xFF, 0xFF, 0xFF) if (is_header_row and fill_color in ("#1F4E78", "#2C3E50", "#000080", "#333399")) else None,
-                                bold=True if (is_header_row and fill_color in ("#1F4E78", "#2C3E50", "#000080", "#333399")) else False
+                                color_rgb=RGBColor(0xFF, 0xFF, 0xFF) if (is_header_row and _is_dark_fill(fill_color)) else None,
+                                bold=True if (is_header_row and _is_dark_fill(fill_color)) else False
                             )
                         else:
                             run = p.add_run(raw_text)
-                            if is_header_row and fill_color in ("#1F4E78", "#2C3E50", "#000080", "#333399"):
+                            if is_header_row and _is_dark_fill(fill_color):
                                 run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
                                 run.bold = True
             elif cell_data.get("text") is not None:
@@ -718,12 +734,12 @@ def _write_table(doc: DocumentType, table_data: dict[str, Any], anchor_para=None
                                 p,
                                 c_line,
                                 base_font_size_pt=10.0,
-                                color_rgb=RGBColor(0xFF, 0xFF, 0xFF) if (is_header_row and fill_color in ("#1F4E78", "#2C3E50", "#000080", "#333399")) else None,
-                                bold=True if (is_header_row and fill_color in ("#1F4E78", "#2C3E50", "#000080", "#333399")) else bool(cell_data.get("font_bold"))
+                                color_rgb=RGBColor(0xFF, 0xFF, 0xFF) if (is_header_row and _is_dark_fill(fill_color)) else None,
+                                bold=True if (is_header_row and _is_dark_fill(fill_color)) else bool(cell_data.get("font_bold"))
                             )
                         else:
                             run = p.add_run(c_line)
-                            if is_header_row and fill_color in ("#1F4E78", "#2C3E50", "#000080", "#333399"):
+                            if is_header_row and _is_dark_fill(fill_color):
                                 run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
                                 run.bold = True
                             elif cell_data.get("font_bold"):
@@ -911,13 +927,35 @@ def _replace_text_in_paragraph(paragraph, replacements: dict[str, str]) -> int:
     """
     Replaces {{KEY}} placeholders in a paragraph.
     Handles split runs by merging text into the first run of the match to preserve formatting.
+    Also supports dynamic token formatters: {{KEY:DATE}}, {{KEY:VND}}, {{KEY:NUM}}.
     """
     total_replaced = 0
     full_text = paragraph.text
     if not full_text:
         return 0
 
-    for key, val in replacements.items():
+    # Expand formatted tokens: e.g. {{SALARY:VND}} or {{START_DATE:DATE}}
+    active_rep = {}
+    fmt_matches = re.findall(r"\{\{([A-Za-z0-9_]+):([A-Za-z0-9_#.,/]+)\}\}", full_text)
+    for base_key, fmt_spec in fmt_matches:
+        full_tok = f"{{{{{base_key}:{fmt_spec}}}}}"
+        raw_val = None
+        if base_key in replacements:
+            raw_val = replacements[base_key]
+        elif f"{{{{{base_key}}}}}" in replacements:
+            raw_val = replacements[f"{{{{{base_key}}}}}"]
+        if raw_val is not None:
+            active_rep[full_tok] = format_token_value(raw_val, fmt_spec)
+
+    for k, v in replacements.items():
+        if k not in active_rep:
+            active_rep[k] = v
+
+    # Sort keys by descending length so formatted and longer tokens are prioritized
+    sorted_keys = sorted(active_rep.keys(), key=len, reverse=True)
+
+    for key in sorted_keys:
+        val = active_rep[key]
         if key not in full_text:
             continue
 
@@ -1145,8 +1183,8 @@ def patch_docx_template(
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
 
-    doc.save(output_path)
-    return os.path.abspath(output_path)
+    saved_path = safe_save_docx(doc, output_path)
+    return os.path.abspath(saved_path)
 
 
 # ---------------------------------------------------------------------------
@@ -1157,6 +1195,8 @@ def write_docx(
     snapshot: dict[str, Any],
     output_path: str,
     template_path: str | None = None,
+    theme: str | None = None,
+    cover_page: bool = False,
 ) -> str:
     """
     Write a DOCX file from a JSON snapshot.
@@ -1165,6 +1205,8 @@ def write_docx(
         snapshot:      Dict produced by docx_reader.read_docx() or declarative generator.
         output_path:   Destination .docx path.
         template_path: Optional path to original DOCX used as style anchor.
+        theme:         Optional theme name ('modern_tech', 'executive_classic', 'nghidinh30').
+        cover_page:    Whether to inject an executive cover page.
 
     Returns:
         Absolute path of the written file.
@@ -1179,6 +1221,18 @@ def write_docx(
                 body.remove(child)
     else:
         doc = Document()
+
+    if cover_page:
+        try:
+            from .design_system import build_cover_page, get_theme
+            th = get_theme(theme)
+            meta = snapshot.get("metadata", {})
+            title_meta = meta.get("title") or "TÀI LIỆU KỸ THUẬT"
+            sub_meta = meta.get("subtitle", "")
+            auth_meta = meta.get("author", "Lead Solution Architect")
+            build_cover_page(doc, title=title_meta, subtitle=sub_meta, author=auth_meta, theme=th)
+        except Exception:
+            pass
 
     # Initial section layout
     sections_data = snapshot.get("sections", [])
@@ -1260,14 +1314,16 @@ def write_docx(
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
 
-    doc.save(output_path)
-    return os.path.abspath(output_path)
+    saved_path = safe_save_docx(doc, output_path)
+    return os.path.abspath(saved_path)
 
 
 def write_docx_from_json_file(
     json_path: str,
     output_path: str,
     template_path: str | None = None,
+    theme: str | None = None,
+    cover_page: bool = False,
 ) -> str:
     """Load a JSON snapshot from file and write it to a DOCX."""
     if not os.path.isfile(json_path):
@@ -1276,7 +1332,7 @@ def write_docx_from_json_file(
     with open(json_path, "r", encoding="utf-8") as f:
         snapshot = json.load(f)
 
-    return write_docx(snapshot, output_path, template_path)
+    return write_docx(snapshot, output_path, template_path, theme=theme, cover_page=cover_page)
 
 
 # ---------------------------------------------------------------------------
@@ -1389,8 +1445,8 @@ def inject_content_into_docx(
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
 
-    doc.save(dest)
-    return dest
+    saved_dest = safe_save_docx(doc, dest)
+    return saved_dest
 
 
 def inject_diagram_into_docx(

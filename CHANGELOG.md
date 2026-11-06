@@ -46,6 +46,11 @@ Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân h�
     4. **Chốt Chặn Điều Hướng OCR Thông Minh (`server/app.py`, `src/modules/document_hub.js`)**: Tự động phát hiện PDF scan thuần ảnh khi người dùng chọn tài liệu trong Universal Converter và hiển thị banner 1-click chuyển hướng sang Vietnamese OCR.
     5. **Kích Hoạt Trực Tiếp Tùy Chọn Đích PowerPoint (`index.html`, `src/modules/document_hub.js`)**: Bổ sung thẻ chọn `.pptx` ngay trong ma trận chuyển đổi Web Studio.
     6. **Bộ Test Suite Mở Rộng**: Tăng tổng số bài test lên **436 tests** (434 passed, 2 skipped, 100% pass rate).
+  - **Khắc Phục Lỗi Hồi Quy Word -> PDF & Xuất Bản Cẩm Nang Pháp Lý 2026+ (Hotfix v5.0.1)**:
+    1. **Khử Rò Rỉ Math Tokenizer (`core/docx/math.py`, `core/converter/markdown.py`)**: Thêm cờ `enable_math: bool = True` (mặc định tắt khi xuất tài liệu nghiệp vụ), chỉ kích hoạt khi phát hiện định giới LaTeX hợp lệ; nâng cấp `is_valid_math_expression` chặn ký tự %, gán code Python, tiếng Việt có dấu; bảo toàn 100% tỷ lệ OT 150%, 200%, 210%, 300%, 390% và code `calculate_insurance_deductions`.
+    2. **Chuẩn Hóa Khung Callout (`core/docx/design_system.py`)**: Loại bỏ glyph Unicode U+2139 (`ℹ`) gây lỗi font biến thành số "1" đầu dòng trong PDF, chuyển sang định dạng text chuẩn hóa `[GHI CHÚ / TRÍCH DẪN]`.
+    3. **Tái Cấu Trúc Sơ Đồ Vòng Đời Nhân Sự 300 DPI (`core/ba_hub/labor_law_kb.py`)**: Tái cấu trúc Mermaid 7 giai đoạn từ hàng ngang 16:1 hẹp sang đồ thị 3 tầng (`flowchart TD` gồm subgraphs P1, P2, P3) kết xuất 300 DPI (`1704x1971` px), chữ to và rõ nét hoàn toàn trong Word & PDF.
+    4. **Xuất Bản Native PDF & COM Watchdog (`core/converter/engine.py`, `server/app.py`)**: Bổ sung hàm xuất bản trực tiếp `export_entire_vault_to_pdf` và endpoint REST API `/api/law/export-full-book?format=pdf` bọc trong `ComProcessWatchdog` 30s timeout và LibreOffice headless fallback.
 
 ### Phiên Bản 4.6.0 (BA Enterprise Workstation & Production Grade Suite)
 - **Tái Cấu Trúc Toàn Diện: Trạm Làm Việc Chuyên Sâu Cho Business Analyst (`core/ba_hub/`)**:

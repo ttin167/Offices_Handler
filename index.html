@@ -32,31 +32,88 @@
 
   <div id="app">
 
-    <!-- Top Navigation Header -->
+    <!-- Top Navigation Header (2-Tier Enterprise Swiss Architecture) -->
 
     <header class="studio-header">
 
-      <div class="header-left">
+      <!-- Tier 1: Branding, Server Status & Global Utilities -->
+      <div class="header-top-bar">
 
-        <div class="brand-logo">
+        <div class="header-left">
 
-          <div class="logo-icon"><i data-lucide="sparkles"></i></div>
+          <div class="brand-logo">
 
-          <div class="brand-text">
+            <div class="logo-icon"><i data-lucide="sparkles"></i></div>
 
-            <span class="brand-title">ANTIGRAVITY</span>
+            <div class="brand-text">
 
-            <span class="brand-subtitle">Office Studio v5.0.0</span>
+              <span class="brand-title">ANTIGRAVITY</span>
+
+              <span class="brand-subtitle">Office Studio v5.0.0</span>
+
+            </div>
+
+          </div>
+
+          <div class="badge-status" id="server-status-badge" title="Trạng thái kết nối máy chủ API">
+
+            <span class="status-dot"></span>
+
+            <span class="status-label">Đang kết nối API...</span>
 
           </div>
 
         </div>
 
-        <div class="badge-status" id="server-status-badge">
 
-          <span class="status-dot"></span>
 
-          <span class="status-label">Đang kết nối API...</span>
+        <div class="header-right">
+
+          <button class="history-toggle-btn copilot-toggle-btn" id="btn-toggle-copilot" title="Trợ lý AI Copilot &amp; Universal FTS5 RAG">
+
+            <span class="history-icon"><i data-lucide="sparkles"></i></span>
+
+            <span class="history-label">AI Copilot</span>
+
+          </button>
+
+          <div class="header-util-actions">
+
+            <button class="header-icon-btn" id="btn-open-guide-modal" title="Cẩm nang hướng dẫn sử dụng toàn diện">
+
+              <i data-lucide="book-open"></i>
+
+              <span class="btn-text">Hướng Dẫn</span>
+
+            </button>
+
+            <button class="header-icon-btn" id="btn-open-print-modal" title="Trạm in ấn doanh nghiệp">
+
+              <i data-lucide="printer"></i>
+
+              <span class="btn-text">In Ấn</span>
+
+            </button>
+
+            <button class="header-icon-btn history-btn-with-badge" id="btn-toggle-history" title="Xem lịch sử chuyển đổi tệp">
+
+              <i data-lucide="history"></i>
+
+              <span class="btn-text">Lịch Sử</span>
+
+              <span class="history-badge" id="history-badge-count">0</span>
+
+            </button>
+
+            <div class="header-v-divider"></div>
+
+            <button class="theme-toggle-btn" id="btn-toggle-theme" title="Chuyển đổi giao diện Sáng / Tối">
+
+              <span class="theme-icon"><i data-lucide="moon"></i></span>
+
+            </button>
+
+          </div>
 
         </div>
 
@@ -64,99 +121,106 @@
 
 
 
-      <!-- Navigation Tabs -->
-      <nav class="nav-tabs" id="main-nav">
-        <button class="nav-tab active" data-tab="requirements">
-          <span class="nav-icon"><i data-lucide="file-text"></i></span>
-          <span>Requirements Hub</span>
-        </button>
+      <!-- Tier 2: Dedicated Module Subnav Strip (Full Horizontal Width, Zero Truncation) -->
+      <nav class="studio-subnav-bar" id="main-nav">
 
-        <button class="nav-tab" data-tab="law-vault">
-          <span class="nav-icon"><i data-lucide="book-open"></i></span>
-          <span>Cẩm Nang Luật</span>
-        </button>
+        <div class="nav-tabs-wrapper">
 
-        <button class="nav-tab" data-tab="wireframe">
-          <span class="nav-icon"><i data-lucide="layout-grid"></i></span>
-          <span>UI Wireframe</span>
-        </button>
+          <div class="nav-tabs" role="tablist">
 
-        <button class="nav-tab" data-tab="data-process">
-          <span class="nav-icon"><i data-lucide="database"></i></span>
-          <span>Data &amp; Process</span>
-        </button>
+            <button class="nav-tab active" data-tab="requirements">
 
-        <button class="nav-tab" data-tab="audit-recon">
-          <span class="nav-icon"><i data-lucide="shield-check"></i></span>
-          <span>Audit &amp; Recon</span>
-        </button>
+              <span class="nav-icon"><i data-lucide="file-text"></i></span>
 
-        <button class="nav-tab" data-tab="documents">
-          <span class="nav-icon"><i data-lucide="refresh-cw"></i></span>
-          <span>Document Hub</span>
-        </button>
+              <span>Requirements Hub</span>
 
-        <button class="nav-tab" data-tab="spreadsheet">
-          <span class="nav-icon"><i data-lucide="table"></i></span>
-          <span>Spreadsheet Studio</span>
-        </button>
+            </button>
 
-        <button class="nav-tab" data-tab="diagrams">
-          <span class="nav-icon"><i data-lucide="network"></i></span>
-          <span>Diagram Studio</span>
-        </button>
 
-        <button class="nav-tab" data-tab="presentation">
-          <span class="nav-icon"><i data-lucide="presentation"></i></span>
-          <span>Presentation</span>
-        </button>
+
+            <button class="nav-tab" data-tab="law-vault">
+
+              <span class="nav-icon"><i data-lucide="book-open"></i></span>
+
+              <span>Cẩm Nang Luật</span>
+
+            </button>
+
+
+
+            <button class="nav-tab" data-tab="wireframe">
+
+              <span class="nav-icon"><i data-lucide="layout-grid"></i></span>
+
+              <span>UI Wireframe</span>
+
+            </button>
+
+
+
+            <button class="nav-tab" data-tab="data-process">
+
+              <span class="nav-icon"><i data-lucide="database"></i></span>
+
+              <span>Data &amp; Process</span>
+
+            </button>
+
+
+
+            <button class="nav-tab" data-tab="audit-recon">
+
+              <span class="nav-icon"><i data-lucide="shield-check"></i></span>
+
+              <span>Audit &amp; Recon</span>
+
+            </button>
+
+
+
+            <button class="nav-tab" data-tab="documents">
+
+              <span class="nav-icon"><i data-lucide="refresh-cw"></i></span>
+
+              <span>Document Hub</span>
+
+            </button>
+
+
+
+            <button class="nav-tab" data-tab="spreadsheet">
+
+              <span class="nav-icon"><i data-lucide="table"></i></span>
+
+              <span>Spreadsheet Studio</span>
+
+            </button>
+
+
+
+            <button class="nav-tab" data-tab="diagrams">
+
+              <span class="nav-icon"><i data-lucide="network"></i></span>
+
+              <span>Diagram Studio</span>
+
+            </button>
+
+
+
+            <button class="nav-tab" data-tab="presentation">
+
+              <span class="nav-icon"><i data-lucide="presentation"></i></span>
+
+              <span>Presentation</span>
+
+            </button>
+
+          </div>
+
+        </div>
+
       </nav>
-
-
-
-      <div class="header-right">
-
-        <button class="history-toggle-btn copilot-toggle-btn" id="btn-toggle-copilot" title="Trợ lý AI Copilot &amp; Universal FTS5 RAG">
-
-          <span class="history-icon"><i data-lucide="sparkles"></i></span>
-
-          <span class="history-label">AI Copilot</span>
-
-        </button>
-
-        <button class="history-toggle-btn" id="btn-open-guide-modal" title="Cẩm nang hướng dẫn sử dụng toàn diện">
-
-          <span class="history-icon"><i data-lucide="book-open"></i></span>
-
-          <span class="history-label">Hướng Dẫn</span>
-
-        </button>
-
-        <button class="history-toggle-btn" id="btn-open-print-modal" title="Trạm in ấn doanh nghiệp">
-
-          <span class="history-icon"><i data-lucide="printer"></i></span>
-
-          <span class="history-label">In Ấn</span>
-
-        </button>
-
-        <button class="history-toggle-btn" id="btn-toggle-history" title="Xem lịch sử chuyển đổi tệp">
-
-          <span class="history-icon"><i data-lucide="history"></i></span>
-
-          <span class="history-label">Lịch Sử</span>
-
-          <span class="history-badge" id="history-badge-count">0</span>
-
-        </button>
-
-        <button class="theme-toggle-btn" id="btn-toggle-theme" title="Chuyển đổi giao diện Sáng / Tối">
-
-          <span class="theme-icon"><i data-lucide="moon"></i></span>
-
-        </button>
-
-      </div>
 
     </header>
 
@@ -1225,6 +1289,10 @@
                 <div class="code-editor-header" style="margin-top: 10px;">
 
                   <span class="editor-label">Dữ Liệu JSON Cấu Trúc</span>
+
+                  <button type="button" class="btn-copy-code" data-copy-target="xlsx-ins-json-output" title="Sao chép JSON cấu trúc">
+                    <i data-lucide="copy"></i> <span>Sao chép</span>
+                  </button>
 
                 </div>
 
@@ -3117,11 +3185,14 @@
                   <div class="action-card-desc">Tự động phát hiện các trường form biểu mẫu tương tác (Text fields, Checkbox) và điền dữ liệu theo định dạng JSON.</div>
                 </div>
                 <div class="form-group" style="margin-top: 15px;">
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <label class="form-label" style="margin-bottom: 0;">Dữ Liệu Điền Form (JSON):</label>
-                    <button type="button" class="btn-sm btn-secondary" id="btn-inspect-pdf-fields" style="font-size: 11px; padding: 3px 8px; display: inline-flex; align-items: center; gap: 4px;"><i data-lucide="scan"></i> Quét Các Trường Form</button>
+                  <div class="code-editor-header">
+                    <span class="editor-label">Dữ Liệu Điền Form (JSON)</span>
+                    <div class="preset-links">
+                      <button type="button" class="btn-sm btn-secondary" id="btn-inspect-pdf-fields"><i data-lucide="scan"></i> Quét Các Trường Form</button>
+                      <button type="button" class="btn-copy-code" data-copy-target="pdf-form-data-input" title="Sao chép JSON"><i data-lucide="copy"></i></button>
+                    </div>
                   </div>
-                  <textarea id="pdf-form-data-input" class="code-textarea" rows="6" style="width: 100%; font-family: 'Consolas', monospace; font-size: 12px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 8px; color: #e2e8f0;" placeholder='{\n  "HoVaTen": "Nguyễn Văn A",\n  "Email": "nguyenvana@example.com",\n  "DongY": true\n}'></textarea>
+                  <textarea id="pdf-form-data-input" class="code-textarea" rows="6" placeholder='{\n  "HoVaTen": "Nguyễn Văn A",\n  "Email": "nguyenvana@example.com",\n  "DongY": true\n}'></textarea>
                 </div>
                 <div class="form-check" style="margin-top: 10px; display: flex; align-items: center; gap: 8px;">
                   <input type="checkbox" id="pdf-form-flatten-check" class="checkbox-input" checked />
@@ -3523,6 +3594,10 @@
 
                   <button type="button" class="preset-btn" id="btn-sample-canvas">Canvas</button>
 
+                  <button type="button" class="btn-copy-code" data-copy-target="diagram-code-input" title="Sao chép mã sơ đồ">
+                    <i data-lucide="copy"></i> <span>Copy</span>
+                  </button>
+
                 </div>
 
               </div>
@@ -3832,13 +3907,15 @@
           <!-- Col 1: Statutory Groups Sidebar (280px) -->
           <div class="law-col-groups">
             <div class="law-groups-header">
-              <span class="law-groups-title"><i data-lucide="layers"></i> Nhóm Văn Bản</span>
-              <div style="display: flex; gap: 6px;">
+              <div class="law-groups-header-top">
+                <span class="law-groups-title"><i data-lucide="layers"></i> Nhóm Văn Bản</span>
+              </div>
+              <div class="law-groups-actions">
                 <button type="button" id="btn-law-export-full-book" class="btn btn-sm btn-primary" title="Xuất toàn bộ 19 văn bản thành 1 tệp Word (.docx) hoàn chỉnh phục vụ in ấn">
-                  <i data-lucide="book"></i> Toàn Bộ (.docx)
+                  <i data-lucide="book"></i> <span>Toàn Bộ (.docx)</span>
                 </button>
                 <button type="button" id="btn-law-export-vault" class="btn btn-sm btn-secondary" title="Xuất toàn bộ cẩm nang thành Obsidian Vault ZIP">
-                  <i data-lucide="archive"></i> Vault .zip
+                  <i data-lucide="archive"></i> <span>Vault .zip</span>
                 </button>
               </div>
             </div>
@@ -3964,11 +4041,11 @@
                 <div class="ba-card-header">
                   <div class="ba-card-title"><i data-lucide="code"></i> Trình Soạn Thảo Wireframe Kép (Dual-Mode Editor)</div>
                   <div class="wf-mode-toggle">
-                    <button type="button" class="btn btn-sm btn-secondary wf-mode-btn active" data-wf-mode="salt">
-                      <i data-lucide="terminal"></i> Chế Độ 2: Salt Code
+                    <button type="button" class="btn btn-sm btn-secondary wf-mode-btn active" data-wf-mode="salt" title="Chế độ Salt Code: Soạn thảo mã PlantUML Salt (@startsalt)">
+                      <i data-lucide="terminal"></i> <span>Salt Code</span>
                     </button>
-                    <button type="button" class="btn btn-sm btn-secondary wf-mode-btn" data-wf-mode="json">
-                      <i data-lucide="file-code"></i> Chế Độ 1: JSON Spec
+                    <button type="button" class="btn btn-sm btn-secondary wf-mode-btn" data-wf-mode="json" title="Chế độ JSON Spec: Soạn thảo đặc tả JSON cấu trúc">
+                      <i data-lucide="file-code"></i> <span>JSON Spec</span>
                     </button>
                   </div>
                 </div>
@@ -4050,10 +4127,9 @@
                   <!-- Zoom & Export Action Bar -->
                   <div class="wf-preview-bar">
                     <div class="wf-zoom-group">
-                      <button type="button" id="btn-wf-zoom-out" class="btn btn-sm btn-secondary" title="Thu nhỏ"><i data-lucide="zoom-out"></i></button>
-                      <span id="wf-zoom-badge" class="wf-zoom-label">100%</span>
-                      <button type="button" id="btn-wf-zoom-in" class="btn btn-sm btn-secondary" title="Phóng to"><i data-lucide="zoom-in"></i></button>
-                      <button type="button" id="btn-wf-zoom-reset" class="btn btn-sm btn-secondary" title="Đặt lại 100%">100%</button>
+                      <button type="button" id="btn-wf-zoom-out" class="btn btn-sm btn-secondary wf-zoom-btn" title="Thu nhỏ (-20%)"><i data-lucide="minus"></i></button>
+                      <button type="button" id="btn-wf-zoom-reset" class="btn btn-sm btn-secondary wf-zoom-reset-btn" title="Nhấp để đặt lại kích thước 100%"><span id="wf-zoom-badge" class="wf-zoom-label">100%</span></button>
+                      <button type="button" id="btn-wf-zoom-in" class="btn btn-sm btn-secondary wf-zoom-btn" title="Phóng to (+20%)"><i data-lucide="plus"></i></button>
                     </div>
                     <div class="wf-export-group">
                       <button type="button" id="btn-wf-download-svg" class="btn btn-sm btn-secondary" disabled>

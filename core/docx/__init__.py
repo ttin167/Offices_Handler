@@ -45,6 +45,21 @@ from .diff_engine import (
     compare_docx_documents,
 )
 from .post_processor import post_process_docx, calculate_heuristic_column_widths
+from .design_system import (
+    DocxTheme,
+    get_theme,
+    build_cover_page,
+    inject_native_toc,
+    setup_header_footer,
+    build_callout_box,
+    build_code_card,
+    format_table_modern_clean,
+    detect_column_alignment,
+    format_token_value,
+    THEME_MODERN_TECH,
+    THEME_EXECUTIVE_CLASSIC,
+    THEME_NGHIDINH30,
+)
 
 __all__ = [
     "read_docx",

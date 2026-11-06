@@ -130,17 +130,22 @@ _CURRENCY_WORDS_RE = re.compile(r"\b(?:triệu|đồng|VNĐ|VND|USD|tháng|năm|
 def is_valid_math_expression(expr: str) -> bool:
     """
     Guard clause to prevent math tokenizer over-triggering on normal dates,
-    Vietnamese slash words (giờ/ngày, lễ/tết), currency ranges, or code identifiers.
+    percentages (150%, 300%), Vietnamese slash words (giờ/ngày, lễ/tết),
+    business terms, currency ranges, or code identifiers/assignments.
     """
     cleaned = (expr or "").strip()
     if not cleaned:
         return False
 
-    # 1. Reject date strings like 31/03, 01/01, 30/04/2026
+    # 1. Reject percentage expressions or business formulas (e.g. 150%, 300%, 150% + 30% = 200%)
+    if re.search(r"\d+%", cleaned) and not any(m in cleaned for m in (r"\frac", r"\sqrt", r"\sum", r"\int")):
+        return False
+
+    # 2. Reject date strings like 31/03, 01/01, 30/04/2026
     if _DATE_OR_FRACTION_RE.match(cleaned):
         return False
 
-    # 2. Strip \text{...} before checking for Vietnamese prose or slash words
+    # 3. Strip \text{...} before checking for Vietnamese prose or slash words
     without_text_macro = re.sub(r"\\text\{[^}]*\}", "", cleaned)
 
     # Reject Vietnamese diacritics or currency/time unit words outside \text{...}
@@ -151,11 +156,20 @@ def is_valid_math_expression(expr: str) -> bool:
     if _WORD_SLASH_WORD_RE.search(without_text_macro):
         return False
 
-    # 3. Reject snake_case code identifiers (e.g. PROBATION_MAX_DAYS_EXEC, base_si_hi)
+    # 4. Reject snake_case code identifiers or python code assignments
     if _SNAKE_CODE_RE.search(without_text_macro):
         return False
-    # Also reject assignment statements with multi-letter snake_case like ee_hi = base_si * 0.08
-    if re.search(r"\b[a-z]{2,}_[a-z]{2,}\b", without_text_macro):
+    if re.search(r"\b[a-z0-9_]{2,}_[a-z0-9_]+\b", without_text_macro):
+        return False
+    if re.search(r"^[a-zA-Z0-9_]+\s*=\s*[a-zA-Z0-9_().*+\-/]+$", without_text_macro):
+        return False
+
+    # 5. Math expression must contain at least one LaTeX macro, power/exponent (^),
+    # or subscript identifier (_{...} or _[a-z0-9])
+    has_latex_macro = bool(re.search(r"\\[a-zA-Z]+", cleaned))
+    has_exp = "^" in cleaned
+    has_sub = bool(re.search(r"_[a-zA-Z0-9{]", cleaned))
+    if not (has_latex_macro or has_exp or has_sub):
         return False
 
     return True
@@ -443,7 +457,7 @@ def add_math_to_paragraph(
             if not is_valid_math_expression(math_expr):
                 _add_run_with_font_fallback(
                     paragraph,
-                    math_expr,
+                    part,
                     base_font=font_name,
                     size_pt=base_font_size_pt,
                     color_rgb=color_rgb,
@@ -474,7 +488,7 @@ def add_math_to_paragraph(
             if not is_valid_math_expression(math_expr):
                 _add_run_with_font_fallback(
                     paragraph,
-                    math_expr,
+                    part,
                     base_font=font_name,
                     size_pt=base_font_size_pt,
                     color_rgb=color_rgb,

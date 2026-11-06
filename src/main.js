@@ -131,9 +131,8 @@ import {
   Pin,
 
   Plus,
-
+  Minus,
   Book,
-
   Terminal,
   Archive,
   Scale,
@@ -291,9 +290,8 @@ const studioIcons = {
   Pin,
 
   Plus,
-
+  Minus,
   Book,
-
   Terminal,
   Archive,
   Scale,
@@ -567,33 +565,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   navTabs.forEach((tab) => {
-
     tab.addEventListener('click', () => {
-
       const targetTab = tab.getAttribute('data-tab');
-
-      if (!panels[targetTab]) return;
-
-
+      const targetPanel = panels[targetTab];
+      if (!targetPanel || tab.classList.contains('active')) return;
 
       navTabs.forEach((t) => t.classList.remove('active'));
-
       tab.classList.add('active');
 
+      Object.values(panels).forEach((p) => {
+        if (p && p !== targetPanel && p.classList.contains('active')) {
+          p.classList.remove('active');
+        }
+      });
 
-
-      Object.values(panels).forEach((p) => p && p.classList.remove('active'));
-
-      panels[targetTab].classList.add('active');
-
-      state.activeTab = targetTab;
-
-
-
-
-
+      requestAnimationFrame(() => {
+        targetPanel.classList.add('active');
+        state.activeTab = targetTab;
+        if (typeof refreshLucideIcons === 'function') {
+          refreshLucideIcons();
+        }
+      });
     });
-
   });
 
 
@@ -716,6 +709,25 @@ document.addEventListener('DOMContentLoaded', () => {
   initAiCopilotSidebar(sharedCtx);
 
 
+
+  // Global Quick Copy Handler for Code Previews
+  document.addEventListener('click', (e) => {
+    const copyBtn = e.target.closest('[data-copy-target]');
+    if (!copyBtn) return;
+    const targetId = copyBtn.getAttribute('data-copy-target');
+    const targetEl = targetId ? document.getElementById(targetId) : null;
+    if (!targetEl) return;
+    const textToCopy = (targetEl.value !== undefined ? targetEl.value : targetEl.textContent) || '';
+    if (!textToCopy.trim()) {
+      showToast('Không có nội dung để sao chép.', 'warning');
+      return;
+    }
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      showToast('Đã sao chép vào bộ nhớ tạm!', 'success');
+    }).catch(() => {
+      showToast('Không thể sao chép nội dung.', 'error');
+    });
+  });
 
   // Initial Lucide icon generation
 

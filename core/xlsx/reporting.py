@@ -270,8 +270,8 @@ def _apply_docx_table_invariants(table: Any) -> None:
     - <w:cantSplit/> on every row
     - <w:vAlign w:val="center"/> on every cell
     """
-    from docx.oxml import OxmlElement
-    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement, parse_xml
+    from docx.oxml.ns import qn, nsdecls
 
     for row_idx, row in enumerate(table.rows):
         trPr = row._tr.get_or_add_trPr()
@@ -290,8 +290,21 @@ def _apply_docx_table_invariants(table: Any) -> None:
                 shd = OxmlElement("w:shd")
                 shd.set(qn("w:val"), "clear")
                 shd.set(qn("w:color"), "auto")
-                shd.set(qn("w:fill"), "0F294A")
+                shd.set(qn("w:fill"), "0F172A")
                 tcPr.append(shd)
+            elif row_idx % 2 == 1 and tcPr.find(qn("w:shd")) is None:
+                shd = OxmlElement("w:shd")
+                shd.set(qn("w:val"), "clear")
+                shd.set(qn("w:color"), "auto")
+                shd.set(qn("w:fill"), "F8FAFC")
+                tcPr.append(shd)
+
+            if tcPr.find(qn("w:tcMar")) is None:
+                tcMar = parse_xml(f'<w:tcMar {nsdecls("w")}><w:top w:w="120" w:type="dxa"/><w:bottom w:w="120" w:type="dxa"/><w:left w:w="160" w:type="dxa"/><w:right w:w="160" w:type="dxa"/></w:tcMar>')
+                tcPr.append(tcMar)
+            if tcPr.find(qn("w:tcBorders")) is None:
+                tcBrd = parse_xml(f'<w:tcBorders {nsdecls("w")}><w:top w:val="single" w:sz="4" w:space="0" w:color="E2E8F0"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="E2E8F0"/><w:left w:val="single" w:sz="4" w:space="0" w:color="E2E8F0"/><w:right w:val="single" w:sz="4" w:space="0" w:color="E2E8F0"/></w:tcBorders>')
+                tcPr.append(tcBrd)
 
 
 def excel_to_brief(
@@ -459,7 +472,17 @@ def excel_to_brief(
             _apply_docx_table_invariants(tbl)
             doc.add_paragraph()
 
-    doc.save(docx_target)
+    try:
+        from core.docx.design_system import setup_header_footer
+        setup_header_footer(doc, header_title=report_title)
+    except Exception:
+        pass
+
+    try:
+        from core.docx.post_processor import safe_save_docx
+        docx_target = safe_save_docx(doc, docx_target)
+    except Exception:
+        doc.save(docx_target)
 
     if fmt == "docx":
         return {

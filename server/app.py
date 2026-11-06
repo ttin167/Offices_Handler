@@ -2087,14 +2087,23 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     self._send_json({"success": False, "error": f"Lỗi xuất Word: {str(e)}"}, status=500)
                 return
 
-            # Labor Law: Export Complete Knowledge Book to Word (.docx)
+            # Labor Law: Export Complete Knowledge Book to Word (.docx) or PDF (.pdf)
             elif path == "/api/law/export-full-book":
-                from core.ba_hub.labor_law_search import export_entire_vault_to_docx
+                payload = self._read_body_json()
+                export_fmt = (payload.get("format") or payload.get("target_ext") or "docx").lower().lstrip(".")
                 ts = int(time.time() * 1000)
-                out_name = f"Cam_Nang_Phap_Ly_Lao_Dong_Tien_Luong_2026_{ts}.docx"
-                out_file = os.path.join(OUTPUT_DIR, out_name)
                 try:
-                    res = export_entire_vault_to_docx(out_file)
+                    if export_fmt == "pdf":
+                        from core.ba_hub.labor_law_search import export_entire_vault_to_pdf
+                        out_name = f"Cam_Nang_Phap_Ly_Lao_Dong_Tien_Luong_2026_{ts}.pdf"
+                        out_file = os.path.join(OUTPUT_DIR, out_name)
+                        res = export_entire_vault_to_pdf(out_file)
+                    else:
+                        from core.ba_hub.labor_law_search import export_entire_vault_to_docx
+                        out_name = f"Cam_Nang_Phap_Ly_Lao_Dong_Tien_Luong_2026_{ts}.docx"
+                        out_file = os.path.join(OUTPUT_DIR, out_name)
+                        res = export_entire_vault_to_docx(out_file)
+
                     qbname = urllib.parse.quote(out_name)
                     self._send_json({
                         "success": True,
@@ -2105,7 +2114,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                         "elapsed_sec": res["elapsed_sec"],
                     })
                 except Exception as e:
-                    self._send_json({"success": False, "error": f"Lỗi xuất tập cẩm nang Word: {str(e)}"}, status=500)
+                    self._send_json({"success": False, "error": f"Lỗi xuất tập cẩm nang: {str(e)}"}, status=500)
                 return
 
             # Labor Law: Export Entire Vault as Obsidian ZIP

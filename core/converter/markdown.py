@@ -924,7 +924,10 @@ def decoupled_to_docx(
     md_path: str,
     docx_path: Optional[str] = None,
     style_yaml_path: Optional[str] = None,
-    progress_callback: Optional[Callable[[float, str], None]] = None
+    progress_callback: Optional[Callable[[float, str], None]] = None,
+    theme: Optional[str] = None,
+    cover_page: bool = False,
+    enable_math: bool = True,
 ) -> Tuple[bool, str]:
     """
     Compiles pure Markdown data (.md) + YAML stylesheet (.style.yaml) into a high-fidelity DOCX.
@@ -978,10 +981,20 @@ def decoupled_to_docx(
     font_family = typo.get("font_family", "Calibri").split(",")[0].strip().replace("'", "").replace('"', "")
     heading_hex = headings.get("color", "#C00000")
     body_hex = typo.get("body_color", "#000000")
-    header_bg_hex = tables_meta.get("header_background", "#FFE8E0").lstrip("#")
-    border_hex = tables_meta.get("border_color", "#000000").lstrip("#")
+    header_bg_hex = tables_meta.get("header_background", "#1E293B").lstrip("#")
+    border_hex = tables_meta.get("border_color", "#E2E8F0").lstrip("#")
 
     doc = docx.Document()
+
+    from core.docx.design_system import get_theme, build_cover_page, inject_native_toc, setup_header_footer, build_callout_box
+    active_theme = get_theme(theme or style_meta.get("theme", "modern_tech"))
+
+    if cover_page or style_meta.get("cover_page") or style_meta.get("cover", False):
+        title_cover = style_meta.get("title") or os.path.splitext(os.path.basename(md_path))[0].replace("_", " ").title()
+        subtitle_cover = style_meta.get("subtitle", "")
+        author_cover = style_meta.get("author", "Lead Solution Architect")
+        org_cover = style_meta.get("org", "KHỐI CÔNG NGHỆ THÔNG TIN & CHUYỂN ĐỔI SỐ")
+        build_cover_page(doc, title=title_cover, subtitle=subtitle_cover, author=author_cover, org=org_cover, theme=active_theme)
 
     # 1. Page Margins
     sec = doc.sections[0]
@@ -1050,6 +1063,33 @@ def decoupled_to_docx(
     table_buffer: List[List[str]] = []
     col_alignments: List[WD_ALIGN_PARAGRAPH] = []
     list_tracker = ListContextTracker(doc)
+
+    in_callout = False
+    callout_lines: List[str] = []
+
+    def flush_callout():
+        nonlocal in_callout, callout_lines
+        if not in_callout or not callout_lines:
+            in_callout = False
+            callout_lines.clear()
+            return
+        try:
+            first_l = callout_lines[0]
+            m_ct = re.match(r"^\[!(NOTE|TIP|WARNING|IMPORTANT|CAUTION|INFO)\]\s*(.*)$", first_l, re.IGNORECASE)
+            if m_ct:
+                c_type = m_ct.group(1).upper()
+                rest = m_ct.group(2).strip()
+                b_lines = ([rest] if rest else []) + callout_lines[1:]
+                build_callout_box(doc, c_type, content=b_lines, theme=active_theme, render_fn=_render_runs)
+            else:
+                build_callout_box(doc, "INFO", content=callout_lines, title="GHI CHÚ / TRÍCH DẪN", theme=active_theme, render_fn=_render_runs)
+        except Exception:
+            for cl in callout_lines:
+                p_c = doc.add_paragraph()
+                p_c.paragraph_format.left_indent = Inches(0.2)
+                _render_runs(p_c, cl)
+        in_callout = False
+        callout_lines.clear()
 
     # Pass 1: Scan headings for Bookmarks and Interactive TOC mapping
     heading_catalog: List[Dict[str, Any]] = []
@@ -1121,6 +1161,16 @@ def decoupled_to_docx(
                     return h_i["bm_name"]
         return None
 
+    def _render_runs(p_dest: docx.text.paragraph.Paragraph, text_val: str) -> None:
+        _add_formatted_runs(
+            p_dest,
+            text_val,
+            font_name=font_family,
+            heading_lookup_fn=resolve_heading_bookmark,
+            link_color_hex=heading_hex.lstrip("#"),
+            enable_math=enable_math,
+        )
+
     def flush_table():
         nonlocal in_table, table_buffer, col_alignments
         if not table_buffer:
@@ -1167,9 +1217,21 @@ def decoupled_to_docx(
                     if r_idx == 0:
                         shading = parse_xml(f'<w:shd {NS_W} w:fill="{header_bg_hex}"/>')
                         tcPr.append(shading)
+                    elif r_idx % 2 == 1:
+                        tcPr.append(parse_xml(f'<w:shd {NS_W} w:fill="F8FAFC"/>'))
 
                     if tcPr.find(qn("w:vAlign")) is None:
                         tcPr.append(parse_xml(f'<w:vAlign {NS_W} w:val="center"/>'))
+
+                    # Roomy cell padding (6pt top/bottom = 120 dxa, 8pt left/right = 160 dxa)
+                    if tcPr.find(qn("w:tcMar")) is None:
+                        tcMar = parse_xml(f'<w:tcMar {NS_W}><w:top w:w="120" w:type="dxa"/><w:bottom w:w="120" w:type="dxa"/><w:left w:w="160" w:type="dxa"/><w:right w:w="160" w:type="dxa"/></w:tcMar>')
+                        tcPr.append(tcMar)
+
+                    # Modern clean borders
+                    if tcPr.find(qn("w:tcBorders")) is None:
+                        tcBrd = parse_xml(f'<w:tcBorders {NS_W}><w:top w:val="single" w:sz="4" w:space="0" w:color="{border_hex}"/><w:bottom w:val="single" w:sz="4" w:space="0" w:color="{border_hex}"/><w:left w:val="single" w:sz="4" w:space="0" w:color="{border_hex}"/><w:right w:val="single" w:sz="4" w:space="0" w:color="{border_hex}"/></w:tcBorders>')
+                        tcPr.append(tcBrd)
 
                     cell.text = ""
                     # Handle multiple lines or list items inside table cells
@@ -1186,12 +1248,12 @@ def decoupled_to_docx(
                             cp = cell.paragraphs[0] if (l_idx == 0 and cell.paragraphs) else cell.add_paragraph()
                             c_item = cell_list_tracker.parse_markdown_line(c_line)
                             if c_item:
-                                _add_formatted_runs(cp, c_item.text)
+                                _render_runs(cp, c_item.text)
                                 num_id = cell_list_tracker.get_num_id_for_item(c_item)
                                 apply_list_formatting(cp, c_item.item_type, c_item.level, num_id, c_item.is_checked)
                             else:
                                 cell_list_tracker.reset_all_lists()
-                                _add_formatted_runs(cp, c_line)
+                                _render_runs(cp, c_line)
                                 cp.paragraph_format.space_before = Pt(2.0)
                                 cp.paragraph_format.space_after = Pt(2.0)
                                 cp.paragraph_format.line_spacing = 1.15
@@ -1199,12 +1261,15 @@ def decoupled_to_docx(
                             if c_idx < len(col_alignments):
                                 cp.alignment = col_alignments[c_idx]
                             else:
-                                cp.alignment = WD_ALIGN_PARAGRAPH.CENTER if c_idx == 0 else WD_ALIGN_PARAGRAPH.LEFT
+                                cp.alignment = WD_ALIGN_PARAGRAPH.CENTER if (c_idx == 0 or r_idx == 0) else WD_ALIGN_PARAGRAPH.LEFT
                             for cr in cp.runs:
                                 cr.font.name = font_family
-                                cr.font.size = Pt(10)
+                                cr.font.size = Pt(10 if r_idx == 0 else 9.5)
                                 if r_idx == 0:
                                     cr.bold = True
+                                    cr.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+                                else:
+                                    cr.font.color.rgb = _hex_to_rgb(body_hex)
 
         table_buffer.clear()
         col_alignments.clear()
@@ -1246,6 +1311,8 @@ def decoupled_to_docx(
             )
         )
         if is_valid_table_row:
+            if in_callout:
+                flush_callout()
             norm_tline = s_line if s_line.endswith("|") else (s_line + " |")
             parts = [p.strip() for p in norm_tline.split("|")[1:-1]]
             if not in_table:
@@ -1266,6 +1333,15 @@ def decoupled_to_docx(
             continue
         elif in_table:
             flush_table()
+
+        # Handle Callout Boxes and Blockquotes (> [!NOTE] or > quote)
+        if s_line.startswith(">"):
+            in_callout = True
+            raw_c = re.sub(r"^>\s?", "", s_line).strip()
+            callout_lines.append(raw_c)
+            continue
+        elif in_callout:
+            flush_callout()
 
         if not s_line:
             continue
@@ -1442,13 +1518,7 @@ def decoupled_to_docx(
             list_item = list_tracker.parse_markdown_line(line)
             if list_item:
                 p = doc.add_paragraph()
-                _add_formatted_runs(
-                    p,
-                    list_item.text,
-                    font_name=font_family,
-                    heading_lookup_fn=resolve_heading_bookmark,
-                    link_color_hex=heading_hex.lstrip("#"),
-                )
+                _render_runs(p, list_item.text)
                 num_id = list_tracker.get_num_id_for_item(list_item)
                 apply_list_formatting(p, list_item.item_type, list_item.level, num_id, list_item.is_checked)
                 if len(s_line) > 75:
@@ -1458,13 +1528,7 @@ def decoupled_to_docx(
             # Plain paragraph: reset list tracker (Zero auto-numbering on plain text)
             list_tracker.reset_all_lists()
             p = doc.add_paragraph()
-            _add_formatted_runs(
-                p,
-                s_line,
-                font_name=font_family,
-                heading_lookup_fn=resolve_heading_bookmark,
-                link_color_hex=heading_hex.lstrip("#"),
-            )
+            _render_runs(p, s_line)
             p.paragraph_format.line_spacing = 1.15
             p.paragraph_format.space_before = Pt(0)
             p.paragraph_format.space_after = Pt(4)
@@ -1492,10 +1556,18 @@ def decoupled_to_docx(
     if in_table:
         flush_table()
 
+    if in_callout:
+        flush_callout()
+
     if in_code_block and code_block_lines:
         _flush_fenced_code_block(doc, code_block_lang, code_block_lines, assets_dir, font_family)
 
-    doc.save(docx_path)
+    try:
+        from core.docx.post_processor import safe_save_docx
+        docx_path = safe_save_docx(doc, docx_path)
+    except Exception:
+        doc.save(docx_path)
+
     try:
         from core.docx.post_processor import inject_page_number_footer
         inject_page_number_footer(docx_path)
@@ -1611,11 +1683,12 @@ def _render_text_runs(
     color_rgb: Optional[RGBColor] = None,
     bold: bool = False,
     italic: bool = False,
+    enable_math: bool = False,
 ) -> None:
     """Render text runs with inline code (`...`), bold, italic, LaTeX math, and symbol fallbacks."""
     if not text:
         return
-    if "$" in text and not ("[" in text and "]" in text):
+    if enable_math and re.search(r"(\$\$.+?\$\$|\$[^\$\n]+?\$)", text) and not ("[" in text and "]" in text):
         add_math_to_paragraph(p, text, font_name=font_name or "Calibri")
         return
 
@@ -1653,6 +1726,7 @@ def _add_formatted_runs(
     font_name: Optional[str] = None,
     heading_lookup_fn: Optional[Callable[[Optional[str], Optional[str]], Optional[str]]] = None,
     link_color_hex: str = "0F294A",
+    enable_math: bool = False,
 ) -> None:
     """
     Parse inline Markdown links, line breaks, backticks, bold, italic, and LaTeX math
@@ -1660,8 +1734,8 @@ def _add_formatted_runs(
     """
     cleaned_text = re.sub(r"<br\s*/?>", "\n", text)
 
-    # Quick check for math-only line without links
-    if "$" in cleaned_text and "[" not in cleaned_text:
+    # Quick check for math-only line without links (only if math is enabled)
+    if enable_math and re.search(r"(\$\$.+?\$\$|\$[^\$\n]+?\$)", cleaned_text) and "[" not in cleaned_text:
         add_math_to_paragraph(p, cleaned_text, font_name=font_name or "Calibri")
         return
 
@@ -1691,7 +1765,7 @@ def _add_formatted_runs(
                     hl.append(r)
                     p._p.append(hl)
                 else:
-                    _render_text_runs(p, label, font_name=font_name)
+                    _render_text_runs(p, label, font_name=font_name, enable_math=enable_math)
             # 2. External URL link
             elif target.startswith(("http://", "https://", "mailto:")):
                 try:
@@ -1707,11 +1781,11 @@ def _add_formatted_runs(
                     hl.append(r)
                     p._p.append(hl)
                 except Exception:
-                    _render_text_runs(p, label, font_name=font_name)
+                    _render_text_runs(p, label, font_name=font_name, enable_math=enable_math)
             else:
-                _render_text_runs(p, label, font_name=font_name)
+                _render_text_runs(p, label, font_name=font_name, enable_math=enable_math)
         else:
-            _render_text_runs(p, part, font_name=font_name)
+            _render_text_runs(p, part, font_name=font_name, enable_math=enable_math)
 
 
 # ==============================================================================
@@ -1731,10 +1805,21 @@ def markdown_to_docx(
     md_path: str,
     docx_path: Optional[str] = None,
     style_yaml_path: Optional[str] = None,
-    progress_callback: Optional[Callable[[float, str], None]] = None
+    progress_callback: Optional[Callable[[float, str], None]] = None,
+    theme: Optional[str] = None,
+    cover_page: bool = False,
+    enable_math: bool = True,
 ) -> Tuple[bool, str]:
     """Wraps decoupled_to_docx: auto-discovers [name].style.yaml."""
-    return decoupled_to_docx(md_path, docx_path=docx_path, style_yaml_path=style_yaml_path, progress_callback=progress_callback)
+    return decoupled_to_docx(
+        md_path,
+        docx_path=docx_path,
+        style_yaml_path=style_yaml_path,
+        progress_callback=progress_callback,
+        theme=theme,
+        cover_page=cover_page,
+        enable_math=enable_math,
+    )
 
 
 def pdf_to_markdown(
@@ -2261,22 +2346,40 @@ def docx_to_pdf(
         try:
             if progress_callback:
                 progress_callback(50.0, "Đang xuất bản PDF qua Microsoft Word COM...")
-            import pythoncom
-            pythoncom.CoInitialize()
-            import win32com.client as win32
-            word = win32.Dispatch("Word.Application")
-            word.Visible = False
-            word.DisplayAlerts = 0
 
-            abs_docx = os.path.abspath(docx_path)
+            def _word_com_convert() -> str:
+                import pythoncom
+                pythoncom.CoInitialize()
+                import win32com.client as win32
+                word = win32.Dispatch("Word.Application")
+                word.Visible = False
+                word.DisplayAlerts = 0
+
+                abs_docx = os.path.abspath(docx_path)
+                abs_pdf = os.path.abspath(pdf_path)
+
+                try:
+                    doc = word.Documents.Open(abs_docx, ReadOnly=True)
+                    doc.SaveAs2(abs_pdf, FileFormat=17)
+                    doc.Close(SaveChanges=False)
+                finally:
+                    try:
+                        word.Quit()
+                    except Exception:
+                        pass
+                    try:
+                        pythoncom.CoUninitialize()
+                    except Exception:
+                        pass
+                return abs_pdf
+
+            try:
+                from core.converter.com_watchdog import ComProcessWatchdog
+                ComProcessWatchdog.run_with_timeout(_word_com_convert, timeout_sec=30.0, app_type="word")
+            except Exception:
+                _word_com_convert()
+
             abs_pdf = os.path.abspath(pdf_path)
-
-            doc = word.Documents.Open(abs_docx, ReadOnly=True)
-            doc.SaveAs2(abs_pdf, FileFormat=17)
-            doc.Close(SaveChanges=False)
-            word.Quit()
-            pythoncom.CoUninitialize()
-
             if os.path.isfile(abs_pdf) and os.path.getsize(abs_pdf) > 0:
                 if progress_callback:
                     progress_callback(100.0, f"Hoàn tất xuất PDF (Word COM): {os.path.basename(abs_pdf)}")
@@ -2288,6 +2391,13 @@ def docx_to_pdf(
     soffice_candidates = [
         r"C:\Program Files\LibreOffice\program\soffice.com",
         r"C:\Program Files\LibreOffice\program\soffice.exe",
+        r"C:\Program Files (x86)\LibreOffice\program\soffice.com",
+        r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+        "/usr/bin/soffice",
+        "/usr/bin/libreoffice",
+        "/usr/local/bin/soffice",
+        "/opt/libreoffice/program/soffice",
+        "/Applications/LibreOffice.app/Contents/MacOS/soffice",
         shutil.which("soffice"),
         shutil.which("libreoffice"),
     ]

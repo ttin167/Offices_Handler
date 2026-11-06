@@ -54,7 +54,16 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
 - **Quy tắc phụ thuộc**: Tuyệt đối không import từ `server/`, `ui/`, hoặc `cli/`. Chỉ nhận tham số thuần túy (Python dict, dataclass, file path) và trả về kết quả.
 - **Các phân hệ cốt lõi**:
   - `core/docx/`:
-    - `reader.py` / `writer.py`: Đọc và ghi tài liệu Word OpenXML, duy trì `<w:cantSplit/>`, `<w:tblHeader/>`, `<w:vAlign w:val="center"/>`; hỗ trợ vá hình ảnh động `{{IMAGE:key}}` và ngắt dòng OpenXML `<w:br/>` an toàn trong `patch_docx_template`.
+    - `design_system.py`: Centralized Enterprise Document Design System & Premium Styler:
+      - Đa Theme Palette (`modern_tech` [Slate/Indigo], `executive_classic` [Deep Navy/Burgundy], `nghidinh30` [Decree 30 Standard]).
+      - Executive Cover Page Builder với thanh dải Bauhaus accent và bảng thông số metadata card.
+      - Dynamic Table of Contents tự động (`<w:fldSimple w:instr="TOC ..."/>`, cập nhật qua F9).
+      - Header & Footer đồng bộ 2 bên (tiêu đề tài liệu bên phải, phân loại bảo mật bên trái, `Trang {PAGE} / {NUMPAGES}` bên phải).
+      - Callout Boxes viền màu pastel (`NOTE`, `TIP`, `WARNING`, `IMPORTANT`, `CAUTION`) bảo toàn invariants OpenXML.
+      - Fenced Code Block Cards bo góc có nhãn ngôn ngữ và font Consolas.
+      - Bảng biểu Modern Clean Studio (padding 6pt/8pt, viền mảnh `#E2E8F0`, tự động căn lề theo kiểu dữ liệu cột).
+      - Token Formatters động (`{{KEY:VND}}`, `{{KEY:USD}}`, `{{KEY:DATE}}`, `{{KEY:DATE_VN}}`, `{{KEY:INT}}`, `{{KEY:NUM}}`).
+    - `reader.py` / `writer.py`: Đọc và ghi tài liệu Word OpenXML, duy trì `<w:cantSplit/>`, `<w:tblHeader/>`, `<w:vAlign w:val="center"/>`; hỗ trợ vá hình ảnh động `{{IMAGE:key}}` và ngắt dòng OpenXML `<w:br/>` an toàn trong `patch_docx_template`. Bảo vệ xung đột tệp Windows bằng `safe_save_docx`.
     - `lists.py`: Động cơ đánh số tự động OpenXML (`numId` động, `startOverride=1`, bullet 3 cấp, checkbox `☐`/`☑`).
     - `math.py`: Kiến trúc toán học Dual-Mode (OpenXML Multi-Run & OMML `<m:oMath>`).
     - `diff_engine.py`: So sánh tài liệu pháp lý và AI Track Changes (`<w:ins>`, `<w:del>`, `<w:delText>`, `word/comments.xml`).

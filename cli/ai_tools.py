@@ -114,7 +114,13 @@ def cmd_docx_write(args: argparse.Namespace) -> int:
 
     t0 = time.time()
     try:
-        result = write_docx_from_json_file(json_path, output_path, template_path)
+        result = write_docx_from_json_file(
+            json_path,
+            output_path,
+            template_path,
+            theme=getattr(args, "theme", None),
+            cover_page=getattr(args, "cover_page", False),
+        )
     except Exception as exc:
         print(f"[ERROR] {exc}", file=sys.stderr)
         return 2
@@ -2092,6 +2098,10 @@ Examples:
     p_dw.add_argument("snapshot", help="Path to .json snapshot file")
     p_dw.add_argument("--template", default=None,
                       help="Path to original .docx to use as style anchor (recommended)")
+    p_dw.add_argument("--theme", choices=["modern_tech", "executive_classic", "nghidinh30"], default="modern_tech",
+                      help="Document theme palette: modern_tech, executive_classic, nghidinh30")
+    p_dw.add_argument("--cover-page", action="store_true",
+                      help="Inject executive cover page at document beginning")
     p_dw.add_argument("-o", "--output", default=None,
                       help="Output .docx path (default: <snapshot>_written.docx)")
     p_dw.set_defaults(func=cmd_docx_write)
