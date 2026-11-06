@@ -86,10 +86,10 @@ def render_diagram_code_to_png(
     lang: str,
     output_png: Optional[str] = None,
     base_dir: Optional[str] = None,
-    scale: int = 2,
+    scale: int = 3,
 ) -> Optional[Dict[str, Any]]:
     """
-    Renders diagram source code into a high-res PNG file.
+    Renders diagram source code into a high-res PNG file (300+ DPI default scale=3).
     Returns metadata dict on success, None on failure.
     """
     raw_dict = code if isinstance(code, dict) else None
@@ -109,8 +109,8 @@ def render_diagram_code_to_png(
         else:
             return None
 
-    # Compute content hash for disk caching
-    code_hash = hashlib.md5(clean_code.encode("utf-8")).hexdigest()[:12]
+    # Compute content hash (including scale) for disk caching so low-res renders are invalidated
+    code_hash = hashlib.md5(f"{clean_code}_s{scale}".encode("utf-8")).hexdigest()[:12]
 
     # Destination PNG path
     if not output_png:
@@ -281,7 +281,7 @@ def render_diagram_file_to_png(
     file_path: str,
     output_png: Optional[str] = None,
     base_dir: Optional[str] = None,
-    scale: int = 2,
+    scale: int = 3,
 ) -> Optional[Dict[str, Any]]:
     """
     Renders or resolves a diagram file (.json, .puml, .mmd, .drawio, .xml, .png)

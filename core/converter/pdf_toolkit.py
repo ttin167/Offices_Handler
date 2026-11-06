@@ -501,11 +501,12 @@ def normalize_and_number_pdf(
     position: str = "bottom-right",
     font_size: int = 9,
     font_path: Optional[str] = None,
+    number_pages: bool = True,
 ) -> Dict[str, Any]:
     """
     Normalizes all pages of a PDF to standard A4 (595.28 x 841.89 pt) using vector
-    embedding (zero raster blur) while preserving aspect ratio, and optionally stamps
-    Vietnamese Bates Numbers (e.g. 'HD-2026-001 | Trang 01/25').
+    embedding (zero raster blur) while preserving aspect ratio, and stamps
+    Vietnamese Bates / Page Numbers (e.g. 'HD-2026-001 | Trang 01/25' or 'Trang 01/18').
     """
     src = os.path.abspath(pdf_path)
     if not os.path.isfile(src):
@@ -555,41 +556,50 @@ def normalize_and_number_pdf(
         new_page = new_doc.new_page(width=tw, height=th)
         new_page.show_pdf_page(target_rect, src_doc, pno)
 
-        # Apply Bates Numbering if requested
-        if bates_prefix:
+        # Apply Bates / Page Numbering
+        if bates_prefix or number_pages:
             curr_p = pno + start_number
-            bates_text = bates_pattern.format(prefix=bates_prefix, page=curr_p, total=total_pages)
-
-            fontname = "helv"
-            if ttf_font:
-                try:
-                    new_page.insert_font(fontname="bates_font", fontfile=ttf_font)
-                    fontname = "bates_font"
-                except Exception:
-                    pass
-
-            text_w = len(bates_text) * (font_size * 0.48)
-
-            if position == "bottom-right":
-                pt = fitz.Point(tw - margin - text_w, th - (margin * 0.45))
-            elif position == "bottom-center":
-                pt = fitz.Point((tw - text_w) / 2.0, th - (margin * 0.45))
-            elif position == "top-right":
-                pt = fitz.Point(tw - margin - text_w, margin * 0.75)
-            elif position == "top-left":
-                pt = fitz.Point(margin, margin * 0.75)
+            clean_prefix = (bates_prefix or "").strip()
+            bottom_strip = src_page.get_text("text", clip=fitz.Rect(0, sh * 0.90, sw, sh)).strip()
+            already_has_page_num = bool(re.search(r"Trang\s+\d+\s*/\s*\d+", bottom_strip, re.IGNORECASE))
+            if clean_prefix:
+                bates_text = bates_pattern.format(prefix=clean_prefix, page=curr_p, total=total_pages)
+            elif not already_has_page_num:
+                bates_text = f"Trang {curr_p:02d}/{total_pages:02d}"
             else:
-                pt = fitz.Point(tw - margin - text_w, th - (margin * 0.45))
+                bates_text = ""
 
-            shape = new_page.new_shape()
-            shape.insert_text(
-                pt,
-                bates_text,
-                fontname=fontname,
-                fontsize=font_size,
-                color=(0.2, 0.25, 0.3),
-            )
-            shape.commit()
+            if bates_text:
+                fontname = "helv"
+                if ttf_font:
+                    try:
+                        new_page.insert_font(fontname="bates_font", fontfile=ttf_font)
+                        fontname = "bates_font"
+                    except Exception:
+                        pass
+
+                text_w = len(bates_text) * (font_size * 0.48)
+
+                if position == "bottom-right":
+                    pt = fitz.Point(tw - margin - text_w, th - (margin * 0.45))
+                elif position == "bottom-center":
+                    pt = fitz.Point((tw - text_w) / 2.0, th - (margin * 0.45))
+                elif position == "top-right":
+                    pt = fitz.Point(tw - margin - text_w, margin * 0.75)
+                elif position == "top-left":
+                    pt = fitz.Point(margin, margin * 0.75)
+                else:
+                    pt = fitz.Point(tw - margin - text_w, th - (margin * 0.45))
+
+                shape = new_page.new_shape()
+                shape.insert_text(
+                    pt,
+                    bates_text,
+                    fontname=fontname,
+                    fontsize=font_size,
+                    color=(0.2, 0.25, 0.3),
+                )
+                shape.commit()
 
     src_doc.close()
     new_doc.save(dest, garbage=3, deflate=True)
@@ -600,7 +610,7 @@ def normalize_and_number_pdf(
         "output_path": dest,
         "total_pages": total_pages,
         "target_size": target_size,
-        "bates_stamped": bool(bates_prefix),
+        "bates_stamped": bool(bates_prefix or number_pages),
     }
 
 

@@ -480,6 +480,15 @@ def docx_to_decoupled(
 
     md_lines: List[str] = []
     total_elements = len(doc.paragraphs) + len(doc.tables)
+    in_consolas_block = False
+    consolas_lines: List[str] = []
+
+    def flush_consolas_block() -> None:
+        nonlocal in_consolas_block, consolas_lines
+        if in_consolas_block and consolas_lines:
+            md_lines.append("\n```\n" + "\n".join(consolas_lines) + "\n```\n")
+            consolas_lines = []
+            in_consolas_block = False
 
     # Iterate elements preserving order
     # Extract document body elements in XML sequence
@@ -496,7 +505,21 @@ def docx_to_decoupled(
 
         if tag == "p":
             p = docx.text.paragraph.Paragraph(child, doc)
-            txt = p.text.strip()
+            raw_txt = p.text
+            txt = raw_txt.strip()
+
+            # Check if this paragraph is a pure Consolas code block line
+            non_empty_runs = [r for r in p.runs if r.text and r.text.strip()]
+            is_consolas_para = (
+                bool(non_empty_runs)
+                and all((r.font.name or "").lower() in ("consolas", "courier new", "monospace") for r in non_empty_runs)
+            )
+            if is_consolas_para:
+                in_consolas_block = True
+                consolas_lines.append(raw_txt.rstrip("\r\n"))
+                continue
+            else:
+                flush_consolas_block()
 
             # Check if this paragraph contains embedded images/drawings
             blip_nodes = child.xpath(".//a:blip") or child.findall(".//{http://schemas.openxmlformats.org/drawingml/2006/main}blip")
@@ -523,10 +546,30 @@ def docx_to_decoupled(
             if not txt:
                 continue
 
+            # Strip redundant generic diagram fallback captions
+            if txt in ("Sơ đồ Mermaid", "Sơ đồ PlantUML", "Sơ đồ Plantuml", "Sơ đồ Draw.io", "Sơ đồ Canvas"):
+                continue
+
             style_name = (p.style.name if p.style and p.style.name else "").lower()
             pPr = p._p.pPr
             has_num = pPr is not None and pPr.find(qn("w:numPr")) is not None
             has_tabs = pPr is not None and pPr.find(qn("w:tabs")) is not None
+
+            # Reconstruct inline backticks for mixed paragraphs containing Consolas runs
+            if non_empty_runs and any((r.font.name or "").lower() in ("consolas", "courier new") for r in non_empty_runs):
+                rebuilt_parts: List[str] = []
+                for r in p.runs:
+                    if not r.text:
+                        continue
+                    if (r.font.name or "").lower() in ("consolas", "courier new") and r.text.strip():
+                        rebuilt_parts.append(f"`{r.text}`")
+                    elif r.bold and r.text.strip():
+                        rebuilt_parts.append(f"**{r.text}**")
+                    else:
+                        rebuilt_parts.append(r.text)
+                txt_with_code = "".join(rebuilt_parts).strip()
+            else:
+                txt_with_code = txt
 
             # Check if TOC line with tab stop
             if has_tabs or "\t" in txt or TOC_LINE_REGEX.match(txt):
@@ -554,15 +597,16 @@ def docx_to_decoupled(
                 md_lines.append(f"\n#### {clean_h}\n")
             # Bullet list items
             elif has_num or "bullet" in style_name or txt.startswith("•") or txt.startswith("+") or txt.startswith("-"):
-                item_clean = re.sub(r"^[\uf06c\uf0b7•+\-*]\s*", "", txt).strip()
+                item_clean = re.sub(r"^[\uf06c\uf0b7•+\-*]\s*", "", txt_with_code).strip()
                 md_lines.append(f"- {item_clean}")
             # Captions
             elif txt.startswith("Table ") or txt.startswith("Figure "):
                 md_lines.append(f"*{txt}*\n")
             else:
-                md_lines.append(f"{txt}\n")
+                md_lines.append(f"{txt_with_code}\n")
 
         elif tag == "tbl":
+            flush_consolas_block()
             t = docx.table.Table(child, doc)
             if not t.rows:
                 continue
@@ -588,6 +632,8 @@ def docx_to_decoupled(
                 table_md.append("| " + " | ".join(padded) + " |")
 
             md_lines.append("\n" + "\n".join(table_md) + "\n")
+
+    flush_consolas_block()
 
     with open(md_path, "w", encoding="utf-8") as f_md:
         f_md.write("\n".join(md_lines))
@@ -615,14 +661,14 @@ def _render_and_embed_mermaid_diagram(
             from legacy_engines.mermaid_renderer import render_mermaid_to_png, calculate_aspect_dimensions
 
         import hashlib
-        code_hash = hashlib.md5(code.encode("utf-8")).hexdigest()[:10]
+        code_hash = hashlib.md5(f"{code}_s3".encode("utf-8")).hexdigest()[:10]
         out_png = os.path.join(assets_dir, f"diag_mermaid_{code_hash}.png")
 
         if not (os.path.isfile(out_png) and os.path.getsize(out_png) > 0):
             res = render_mermaid_to_png({
                 "mermaid_code": code,
                 "output_path": out_png,
-                "scale": 2,
+                "scale": 3,
             })
             if not res or not res.get("success"):
                 return False
@@ -636,22 +682,22 @@ def _render_and_embed_mermaid_diagram(
             p_img = doc.add_paragraph()
             p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
             p_img.paragraph_format.space_before = Pt(8)
-            p_img.paragraph_format.space_after = Pt(2)
+            p_img.paragraph_format.space_after = Pt(6)
             r_img = p_img.add_run()
             r_img.add_picture(out_png, width=Inches(w_cm / 2.54))
 
             # Extract title if present in code
-            t_match = re.search(r'title\s+["\']?([^"\']+)["\']?', code, re.IGNORECASE)
-            cap_text = f"Sơ đồ Mermaid: {t_match.group(1).strip()}" if t_match else "Sơ đồ Mermaid"
-
-            p_cap = doc.add_paragraph()
-            p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            r_cap = p_cap.add_run(cap_text)
-            r_cap.font.name = font_family
-            r_cap.font.size = Pt(9.5)
-            r_cap.italic = True
-            p_cap.paragraph_format.space_before = Pt(2)
-            p_cap.paragraph_format.space_after = Pt(8)
+            t_match = re.search(r'title\s+["\']?([^"\'\n]+)["\']?', code, re.IGNORECASE)
+            if t_match:
+                cap_text = f"Sơ đồ: {t_match.group(1).strip()}"
+                p_cap = doc.add_paragraph()
+                p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                r_cap = p_cap.add_run(cap_text)
+                r_cap.font.name = font_family
+                r_cap.font.size = Pt(9.5)
+                r_cap.italic = True
+                p_cap.paragraph_format.space_before = Pt(2)
+                p_cap.paragraph_format.space_after = Pt(8)
             return True
     except Exception as exc:
         print(f"[WARN] Failed to render Mermaid diagram: {exc}", file=sys.stderr)
@@ -703,16 +749,16 @@ def _render_and_embed_plantuml_diagram(
             r_img.add_picture(out_png, width=Inches(w_cm / 2.54))
 
             t_match = re.search(r'title\s+([^\n]+)', code, re.IGNORECASE)
-            cap_text = f"Sơ đồ PlantUML: {t_match.group(1).strip()}" if t_match else "Sơ đồ PlantUML"
-
-            p_cap = doc.add_paragraph()
-            p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            r_cap = p_cap.add_run(cap_text)
-            r_cap.font.name = font_family
-            r_cap.font.size = Pt(9.5)
-            r_cap.italic = True
-            p_cap.paragraph_format.space_before = Pt(2)
-            p_cap.paragraph_format.space_after = Pt(8)
+            if t_match:
+                cap_text = f"Sơ đồ: {t_match.group(1).strip()}"
+                p_cap = doc.add_paragraph()
+                p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                r_cap = p_cap.add_run(cap_text)
+                r_cap.font.name = font_family
+                r_cap.font.size = Pt(9.5)
+                r_cap.italic = True
+                p_cap.paragraph_format.space_before = Pt(2)
+                p_cap.paragraph_format.space_after = Pt(8)
             return True
     except Exception as exc:
         print(f"[WARN] Failed to render PlantUML diagram: {exc}", file=sys.stderr)
@@ -763,18 +809,9 @@ def _render_and_embed_mxgraph_diagram(
             p_img = doc.add_paragraph()
             p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
             p_img.paragraph_format.space_before = Pt(8)
-            p_img.paragraph_format.space_after = Pt(2)
+            p_img.paragraph_format.space_after = Pt(6)
             r_img = p_img.add_run()
             r_img.add_picture(out_png, width=Inches(w_cm / 2.54))
-
-            p_cap = doc.add_paragraph()
-            p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            r_cap = p_cap.add_run("Sơ đồ Draw.io")
-            r_cap.font.name = font_family
-            r_cap.font.size = Pt(9.5)
-            r_cap.italic = True
-            p_cap.paragraph_format.space_before = Pt(2)
-            p_cap.paragraph_format.space_after = Pt(8)
             return True
     except Exception as exc:
         print(f"[WARN] Failed to render Draw.io diagram: {exc}", file=sys.stderr)
@@ -811,7 +848,7 @@ def _flush_fenced_code_block(
         "mermaid", "mmd", "plantuml", "puml", "drawio", "mxgraph", "xml",
         "canvas", "spec", "diagram-spec", "diagram", "json"
     ):
-        diag_res = render_diagram_code_to_png(content, clean_lang, base_dir=assets_dir)
+        diag_res = render_diagram_code_to_png(content, clean_lang, base_dir=assets_dir, scale=3)
         if diag_res and diag_res.get("png_path") and os.path.isfile(diag_res["png_path"]):
             out_png = diag_res["png_path"]
             w_px, h_px = diag_res["dimensions_px"]
@@ -820,22 +857,21 @@ def _flush_fenced_code_block(
             p_img = doc.add_paragraph()
             p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
             p_img.paragraph_format.space_before = Pt(8)
-            p_img.paragraph_format.space_after = Pt(2)
+            p_img.paragraph_format.space_after = Pt(6)
             r_img = p_img.add_run()
             r_img.add_picture(out_png, width=Inches(w_cm / 2.54))
 
-            engine_label = diag_res.get("engine", clean_lang).capitalize()
             title = diag_res.get("title")
-            cap_text = f"Sơ đồ {engine_label}: {title}" if title else f"Sơ đồ {engine_label}"
-
-            p_cap = doc.add_paragraph()
-            p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            r_cap = p_cap.add_run(cap_text)
-            r_cap.font.name = font_family
-            r_cap.font.size = Pt(9.5)
-            r_cap.italic = True
-            p_cap.paragraph_format.space_before = Pt(2)
-            p_cap.paragraph_format.space_after = Pt(8)
+            if title:
+                cap_text = f"Sơ đồ: {title}"
+                p_cap = doc.add_paragraph()
+                p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                r_cap = p_cap.add_run(cap_text)
+                r_cap.font.name = font_family
+                r_cap.font.size = Pt(9.5)
+                r_cap.italic = True
+                p_cap.paragraph_format.space_before = Pt(2)
+                p_cap.paragraph_format.space_after = Pt(8)
             rendered = True
 
     # Fallback to legacy individual handlers if bridge didn't handle it
@@ -1201,8 +1237,17 @@ def decoupled_to_docx(
             continue
 
         # Handle Tables (only when not in code block and has meaningful cells)
-        if s_line.startswith("|") and s_line.endswith("|") and len(s_line) > 1 and "|" in s_line[1:-1]:
-            parts = [p.strip() for p in s_line.split("|")[1:-1]]
+        is_valid_table_row = (
+            s_line.startswith("|")
+            and len(s_line) > 1
+            and (
+                (s_line.endswith("|") and "|" in s_line[1:-1])
+                or (in_table and s_line.count("|") >= 2)
+            )
+        )
+        if is_valid_table_row:
+            norm_tline = s_line if s_line.endswith("|") else (s_line + " |")
+            parts = [p.strip() for p in norm_tline.split("|")[1:-1]]
             if not in_table:
                 in_table = True
                 table_buffer.append(parts)
@@ -1451,6 +1496,11 @@ def decoupled_to_docx(
         _flush_fenced_code_block(doc, code_block_lang, code_block_lines, assets_dir, font_family)
 
     doc.save(docx_path)
+    try:
+        from core.docx.post_processor import inject_page_number_footer
+        inject_page_number_footer(docx_path)
+    except Exception:
+        pass
     if progress_callback:
         progress_callback(100.0, f"Đã tạo file Word: {os.path.basename(docx_path)}")
 
@@ -1562,23 +1612,39 @@ def _render_text_runs(
     bold: bool = False,
     italic: bool = False,
 ) -> None:
-    """Render text runs with bold, italic, LaTeX math, and symbol fallbacks."""
+    """Render text runs with inline code (`...`), bold, italic, LaTeX math, and symbol fallbacks."""
     if not text:
         return
     if "$" in text and not ("[" in text and "]" in text):
         add_math_to_paragraph(p, text, font_name=font_name or "Calibri")
         return
 
-    tokens = re.split(r"(\*\*.*?\*\*|\*.*?\*)", text)
-    for token in tokens:
-        if not token:
+    code_splits = re.split(r"(`[^`]+`)", text)
+    for c_seg in code_splits:
+        if not c_seg:
             continue
-        if token.startswith("**") and token.endswith("**") and len(token) >= 4:
-            _add_symbol_fallback_runs(p, token[2:-2], base_font=font_name, bold=True, italic=italic, color_rgb=color_rgb)
-        elif token.startswith("*") and token.endswith("*") and len(token) >= 2:
-            _add_symbol_fallback_runs(p, token[1:-1], base_font=font_name, bold=bold, italic=True, color_rgb=color_rgb)
-        else:
-            _add_symbol_fallback_runs(p, token, base_font=font_name, bold=bold, italic=italic, color_rgb=color_rgb)
+        if c_seg.startswith("`") and c_seg.endswith("`") and len(c_seg) >= 2:
+            _add_symbol_fallback_runs(
+                p,
+                c_seg[1:-1],
+                base_font="Consolas",
+                bold=bold,
+                italic=False,
+                color_rgb=color_rgb,
+                size_pt=9.5,
+            )
+            continue
+        clean_seg = c_seg.replace("`", "")
+        tokens = re.split(r"(\*\*.*?\*\*|\*.*?\*)", clean_seg)
+        for token in tokens:
+            if not token:
+                continue
+            if token.startswith("**") and token.endswith("**") and len(token) >= 4:
+                _add_symbol_fallback_runs(p, token[2:-2], base_font=font_name, bold=True, italic=italic, color_rgb=color_rgb)
+            elif token.startswith("*") and token.endswith("*") and len(token) >= 2:
+                _add_symbol_fallback_runs(p, token[1:-1], base_font=font_name, bold=bold, italic=True, color_rgb=color_rgb)
+            else:
+                _add_symbol_fallback_runs(p, token, base_font=font_name, bold=bold, italic=italic, color_rgb=color_rgb)
 
 
 def _add_formatted_runs(
@@ -1593,8 +1659,6 @@ def _add_formatted_runs(
     into docx runs with font fallback and interactive hyperlinks (Clean Publication Style).
     """
     cleaned_text = re.sub(r"<br\s*/?>", "\n", text)
-    cleaned_text = re.sub(r"`(.*?)`", r"\1", cleaned_text)
-    cleaned_text = cleaned_text.replace("`", "")
 
     # Quick check for math-only line without links
     if "$" in cleaned_text and "[" not in cleaned_text:
@@ -1923,15 +1987,16 @@ def _md_to_html_printable(md_text: str, base_dir: str) -> str:
                             render_diagram_code_to_png = None
 
                     if render_diagram_code_to_png:
-                        diag_res = render_diagram_code_to_png(code_content, code_lang, base_dir=base_dir)
+                        diag_res = render_diagram_code_to_png(code_content, code_lang, base_dir=base_dir, scale=3)
 
                 if diag_res and diag_res.get("png_path") and os.path.isfile(diag_res["png_path"]):
                     diag_png = diag_res["png_path"]
                     img_uri = f"file:///{diag_png.replace(os.sep, '/')}"
-                    cap_text = diag_res.get("title") or f"Sơ đồ {code_lang.capitalize()}"
+                    cap_text = diag_res.get("title") or ""
                     html_lines.append('<div class="diagram-figure" style="text-align: center; margin: 16px auto;">')
                     html_lines.append(f'  <img src="{img_uri}" alt="{html_lib.escape(cap_text)}" style="max-width: 100%; height: auto; display: block; margin: 0 auto; border-radius: 4px;" />')
-                    html_lines.append(f'  <p style="font-size: 9.5pt; font-style: italic; color: #64748b; margin-top: 6px;">{html_lib.escape(cap_text)}</p>')
+                    if cap_text:
+                        html_lines.append(f'  <p style="font-size: 9.5pt; font-style: italic; color: #64748b; margin-top: 6px;">{html_lib.escape(cap_text)}</p>')
                     html_lines.append('</div>')
                 else:
                     html_lines.append("<pre><code>")
@@ -1955,19 +2020,31 @@ def _md_to_html_printable(md_text: str, base_dir: str) -> str:
             continue
 
         stripped = line.strip()
-        if stripped.startswith("|") and stripped.endswith("|"):
+        is_html_table_row = (
+            stripped.startswith("|")
+            and len(stripped) > 1
+            and (
+                (stripped.endswith("|") and "|" in stripped[1:-1])
+                or (in_table and stripped.count("|") >= 2)
+            )
+        )
+        if is_html_table_row:
+            norm_s = stripped if stripped.endswith("|") else (stripped + " |")
             html_lines.extend(close_lists())
             if not in_table:
                 in_table = True
                 html_lines.append("<table>")
-                cells = [c.strip() for c in stripped[1:-1].split("|")]
+                cells = [c.strip() for c in norm_s[1:-1].split("|")]
                 th_html = "".join(f"<th>{html_lib.escape(c)}</th>" for c in cells)
                 html_lines.append(f"<thead><tr>{th_html}</tr></thead><tbody>")
                 if i + 1 < len(lines) and "---" in lines[i+1]:
                     i += 1
             else:
-                cells = [c.strip() for c in stripped[1:-1].split("|")]
-                td_html = "".join(f"<td>{html_lib.escape(c)}</td>" for c in cells)
+                cells = [c.strip() for c in norm_s[1:-1].split("|")]
+                td_html = "".join(
+                    f"<td>{re.sub(r'`([^`]+)`', r'<code>\1</code>', re.sub(r'\*\*([^*]+)\*\*', r'<strong>\1</strong>', html_lib.escape(c)))}</td>"
+                    for c in cells
+                )
                 html_lines.append(f"<tr>{td_html}</tr>")
             i += 1
             continue
@@ -2038,12 +2115,15 @@ def _md_to_html_printable(md_text: str, base_dir: str) -> str:
                     except (ImportError, ValueError):
                         render_diagram_file_to_png = None
 
-                diag_file_res = render_diagram_file_to_png(img_url, base_dir=base_dir) if render_diagram_file_to_png else None
+                diag_file_res = render_diagram_file_to_png(img_url, base_dir=base_dir, scale=3) if render_diagram_file_to_png else None
                 if diag_file_res and diag_file_res.get("png_path") and os.path.isfile(diag_file_res["png_path"]):
                     resolved_img = diag_file_res["png_path"]
                     alt = alt or (diag_file_res.get("title") if diag_file_res.get("engine") != "image" else "")
                 else:
                     resolved_img = img_url if os.path.isabs(img_url) else os.path.normpath(os.path.join(base_dir, img_url))
+
+                if alt in ("Image", "Sơ đồ Mermaid", "Sơ đồ PlantUML", "Sơ đồ Draw.io"):
+                    alt = ""
 
                 img_uri = f"file:///{resolved_img.replace(os.sep, '/')}"
                 html_lines.append('<div class="diagram-figure" style="text-align: center; margin: 16px auto;">')
@@ -2129,6 +2209,36 @@ def _docx_to_pdf_via_edge(
 
         if not os.path.isfile(abs_pdf) or os.path.getsize(abs_pdf) == 0:
             return False, "Tệp PDF xuất ra bị rỗng hoặc không tồn tại."
+
+        # Stamp vector page numbering at bottom-right (Trang 01/18)
+        try:
+            import fitz
+            from core.converter.pdf_toolkit import _find_system_font
+            pdf_doc = fitz.open(abs_pdf)
+            total_p = len(pdf_doc)
+            ttf_font = _find_system_font()
+            for p_idx in range(total_p):
+                page = pdf_doc[p_idx]
+                pw, ph = page.rect.width, page.rect.height
+                label = f"Trang {p_idx + 1:02d}/{total_p:02d}"
+                fname = "helv"
+                if ttf_font:
+                    try:
+                        page.insert_font(fontname="footer_vn", fontfile=ttf_font)
+                        fname = "footer_vn"
+                    except Exception:
+                        pass
+                text_w = len(label) * (9.0 * 0.48)
+                pt = fitz.Point(pw - 36.0 - text_w, ph - 18.0)
+                shape = page.new_shape()
+                shape.insert_text(pt, label, fontname=fname, fontsize=9, color=(0.25, 0.3, 0.38))
+                shape.commit()
+            tmp_stamped = abs_pdf + ".stamped.pdf"
+            pdf_doc.save(tmp_stamped, garbage=3, deflate=True)
+            pdf_doc.close()
+            os.replace(tmp_stamped, abs_pdf)
+        except Exception:
+            pass
 
         if progress_callback:
             progress_callback(100.0, f"Hoàn tất xuất PDF: {os.path.basename(abs_pdf)}")

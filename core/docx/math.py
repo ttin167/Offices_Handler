@@ -117,6 +117,50 @@ def replace_latex_symbols(text: str) -> str:
     return text
 
 
+_VIETNAMESE_DIACRITICS_RE = re.compile(
+    r"[àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ"
+    r"ÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ]"
+)
+_DATE_OR_FRACTION_RE = re.compile(r"^\s*\d{1,2}\s*/\s*\d{1,2}(?:\s*/\s*\d{2,4})?\s*$")
+_SNAKE_CODE_RE = re.compile(r"\b[A-Za-z0-9]+_[A-Za-z0-9]+_[A-Za-z0-9_]+\b")
+_WORD_SLASH_WORD_RE = re.compile(r"[A-Za-zÀ-ỹ]{2,}\s*/\s*[A-Za-zÀ-ỹ]{2,}")
+_CURRENCY_WORDS_RE = re.compile(r"\b(?:triệu|đồng|VNĐ|VND|USD|tháng|năm|ngày|tuần|giờ)\b", re.IGNORECASE)
+
+
+def is_valid_math_expression(expr: str) -> bool:
+    """
+    Guard clause to prevent math tokenizer over-triggering on normal dates,
+    Vietnamese slash words (giờ/ngày, lễ/tết), currency ranges, or code identifiers.
+    """
+    cleaned = (expr or "").strip()
+    if not cleaned:
+        return False
+
+    # 1. Reject date strings like 31/03, 01/01, 30/04/2026
+    if _DATE_OR_FRACTION_RE.match(cleaned):
+        return False
+
+    # 2. Strip \text{...} before checking for Vietnamese prose or slash words
+    without_text_macro = re.sub(r"\\text\{[^}]*\}", "", cleaned)
+
+    # Reject Vietnamese diacritics or currency/time unit words outside \text{...}
+    if _VIETNAMESE_DIACRITICS_RE.search(without_text_macro):
+        return False
+    if _CURRENCY_WORDS_RE.search(without_text_macro):
+        return False
+    if _WORD_SLASH_WORD_RE.search(without_text_macro):
+        return False
+
+    # 3. Reject snake_case code identifiers (e.g. PROBATION_MAX_DAYS_EXEC, base_si_hi)
+    if _SNAKE_CODE_RE.search(without_text_macro):
+        return False
+    # Also reject assignment statements with multi-letter snake_case like ee_hi = base_si * 0.08
+    if re.search(r"\b[a-z]{2,}_[a-z]{2,}\b", without_text_macro):
+        return False
+
+    return True
+
+
 def parse_inline_math(expr: str) -> List[MathRunToken]:
     r"""
     Parses a LaTeX-style inline mathematical expression into structured tokens.
@@ -396,6 +440,17 @@ def add_math_to_paragraph(
         # Case 1: Block equation $$...$$
         if part.startswith("$$") and part.endswith("$$") and len(part) >= 4:
             math_expr = part[2:-2].strip()
+            if not is_valid_math_expression(math_expr):
+                _add_run_with_font_fallback(
+                    paragraph,
+                    math_expr,
+                    base_font=font_name,
+                    size_pt=base_font_size_pt,
+                    color_rgb=color_rgb,
+                    bold=bold,
+                    italic=False
+                )
+                continue
             # If complex fraction or user opted for block OMML, inject OMML element
             if r"\frac" in math_expr or len(math_expr) > 25:
                 omml_elem = create_omml_equation_element(math_expr)
@@ -416,6 +471,17 @@ def add_math_to_paragraph(
         # Case 2: Inline math $...$
         if part.startswith("$") and part.endswith("$") and len(part) >= 2:
             math_expr = part[1:-1].strip()
+            if not is_valid_math_expression(math_expr):
+                _add_run_with_font_fallback(
+                    paragraph,
+                    math_expr,
+                    base_font=font_name,
+                    size_pt=base_font_size_pt,
+                    color_rgb=color_rgb,
+                    bold=bold,
+                    italic=False
+                )
+                continue
             tokens = parse_inline_math(math_expr)
             for tok in tokens:
                 add_math_token_run(
@@ -428,39 +494,54 @@ def add_math_to_paragraph(
                 )
             continue
 
-        # Case 3: Regular text (clean inline code / backticks, then handle bold **text** and italic *text*)
-        clean_part = re.sub(r"`(.*?)`", r"\1", part).replace("`", "")
-        sub_tokens = re.split(r"(\*\*.*?\*\*|\*.*?\*)", clean_part)
-        for s_tok in sub_tokens:
-            if not s_tok:
+        # Case 3: Regular text (preserve inline code `...` as Consolas, then handle bold **text** and italic *text*)
+        code_splits = re.split(r"(`[^`]+`)", part)
+        for c_seg in code_splits:
+            if not c_seg:
                 continue
-            if s_tok.startswith("**") and s_tok.endswith("**") and len(s_tok) >= 4:
+            if c_seg.startswith("`") and c_seg.endswith("`") and len(c_seg) >= 2:
                 _add_run_with_font_fallback(
                     paragraph,
-                    s_tok[2:-2],
-                    base_font=font_name,
-                    size_pt=base_font_size_pt,
-                    color_rgb=color_rgb,
-                    bold=True,
-                    italic=False
-                )
-            elif s_tok.startswith("*") and s_tok.endswith("*") and len(s_tok) >= 2:
-                _add_run_with_font_fallback(
-                    paragraph,
-                    s_tok[1:-1],
-                    base_font=font_name,
-                    size_pt=base_font_size_pt,
-                    color_rgb=color_rgb,
-                    bold=bold,
-                    italic=True
-                )
-            else:
-                _add_run_with_font_fallback(
-                    paragraph,
-                    s_tok,
-                    base_font=font_name,
-                    size_pt=base_font_size_pt,
+                    c_seg[1:-1],
+                    base_font="Consolas",
+                    size_pt=max(8.5, base_font_size_pt - 1.0),
                     color_rgb=color_rgb,
                     bold=bold,
                     italic=False
                 )
+                continue
+            clean_part = c_seg.replace("`", "")
+            sub_tokens = re.split(r"(\*\*.*?\*\*|\*.*?\*)", clean_part)
+            for s_tok in sub_tokens:
+                if not s_tok:
+                    continue
+                if s_tok.startswith("**") and s_tok.endswith("**") and len(s_tok) >= 4:
+                    _add_run_with_font_fallback(
+                        paragraph,
+                        s_tok[2:-2],
+                        base_font=font_name,
+                        size_pt=base_font_size_pt,
+                        color_rgb=color_rgb,
+                        bold=True,
+                        italic=False
+                    )
+                elif s_tok.startswith("*") and s_tok.endswith("*") and len(s_tok) >= 2:
+                    _add_run_with_font_fallback(
+                        paragraph,
+                        s_tok[1:-1],
+                        base_font=font_name,
+                        size_pt=base_font_size_pt,
+                        color_rgb=color_rgb,
+                        bold=bold,
+                        italic=True
+                    )
+                else:
+                    _add_run_with_font_fallback(
+                        paragraph,
+                        s_tok,
+                        base_font=font_name,
+                        size_pt=base_font_size_pt,
+                        color_rgb=color_rgb,
+                        bold=bold,
+                        italic=False
+                    )
