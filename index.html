@@ -3676,15 +3676,15 @@
 
                   <div style="display: flex; flex-direction: column; gap: 10px;">
                     <div>
-                      <label style="font-size: 12px; font-weight: 700; color: #38bdf8;">1. As a (Vai trò người dùng / Persona):</label>
+                      <label class="kw-label kw-given">1. As a (Vai trò người dùng / Persona):</label>
                       <input type="text" id="story-role" class="ba-input" placeholder="Ví dụ: Khách hàng cá nhân đã định danh eKYC..." style="width: 100%;" />
                     </div>
                     <div>
-                      <label style="font-size: 12px; font-weight: 700; color: #fbbf24;">2. I want (Hành động / Nhu cầu chức năng):</label>
+                      <label class="kw-label kw-when">2. I want (Hành động / Nhu cầu chức năng):</label>
                       <input type="text" id="story-goal" class="ba-input" placeholder="Ví dụ: thực hiện chuyển tiền nhanh 24/7 sang ngân hàng khác bằng số tài khoản..." style="width: 100%;" />
                     </div>
                     <div>
-                      <label style="font-size: 12px; font-weight: 700; color: #4ade80;">3. So that (Lợi ích nghiệp vụ / Giá trị kinh doanh):</label>
+                      <label class="kw-label kw-then">3. So that (Lợi ích nghiệp vụ / Giá trị kinh doanh):</label>
                       <input type="text" id="story-benefit" class="ba-input" placeholder="Ví dụ: người thụ hưởng nhận được tiền ngay lập tức mà không cần đến quầy..." style="width: 100%;" />
                     </div>
                     <div>
@@ -3737,9 +3737,9 @@
                     </div>
                   </div>
 
-                  <div style="margin-top: 16px; padding: 14px; background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px;">
-                    <h4 style="font-size: 13px; font-weight: 700; color: #38bdf8; margin: 0 0 8px;"><i data-lucide="book-open"></i> Tiêu Chuẩn Vàng Cho Business Analyst:</h4>
-                    <ul style="font-size: 12px; color: #cbd5e1; margin: 0; padding-left: 18px; line-height: 1.6;">
+                  <div class="ba-guide-banner">
+                    <h4><i data-lucide="book-open"></i> Tiêu Chuẩn Vàng Cho Business Analyst:</h4>
+                    <ul>
                       <li><strong>INVEST:</strong> Independent, Negotiable, Valuable, Estimable, Small, Testable.</li>
                       <li><strong>Persona:</strong> Cụ thể vai trò (VD: <em>"Khách hàng đã eKYC"</em> thay vì <em>"Người dùng"</em>).</li>
                       <li><strong>Gherkin AC:</strong> Bắt buộc có đủ <strong>Happy Path</strong> (luồng chuẩn), <strong>Negative Path</strong> (xử lý lỗi/từ chối), và <strong>Boundary</strong> (ngưỡng giới hạn).</li>
@@ -4045,7 +4045,7 @@
             </div>
             <div class="ba-card-body">
               <!-- Toolbar Ingestion -->
-              <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 16px; padding: 12px; background: #0f172a; border-radius: 8px;">
+              <div class="ba-sub-box" style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 16px; padding: 12px;">
                 <div style="flex: 1; min-width: 200px;">
                   <label style="font-size: 12px; font-weight: 600;">Tên Bảng / Thực Thể:</label>
                   <input type="text" id="dict-table-name" class="ba-input" value="CUSTOMER_ACCOUNTS" style="width: 100%;" />
@@ -4060,7 +4060,7 @@
               </div>
 
               <!-- DDL Box -->
-              <details style="margin-bottom: 16px; background: #090d16; border: 1px solid #334155; border-radius: 8px; padding: 10px;">
+              <details class="ba-code-box" style="margin-bottom: 16px; padding: 10px;">
                 <summary style="font-size: 13px; font-weight: 600; cursor: pointer; color: #38bdf8;">
                   <i data-lucide="code"></i> Hoặc Dán Câu Lệnh SQL CREATE TABLE Để Tự Động Trích Xuất Schema
                 </summary>
@@ -4174,8 +4174,8 @@ Table orders {
 }"></textarea>
                 </div>
                 <div>
-                  <label style="font-size: 12px; font-weight: 600; color: #4ade80; display: block; margin-bottom: 6px;">Kết Quả Biên Dịch (SQL DDL / DBML / Mermaid ERD):</label>
-                  <textarea id="dbml-output-code" class="ba-input" rows="8" readonly style="width: 100%; font-family: 'JetBrains Mono', monospace; font-size: 12px; background: #090d16;" placeholder="Kết quả biên dịch sẽ hiển thị ở đây..."></textarea>
+                  <label style="font-size: 12px; font-weight: 600; color: var(--color-primary, #38bdf8); display: block; margin-bottom: 6px;">Kết Quả Biên Dịch (SQL DDL / DBML / Mermaid ERD):</label>
+                  <textarea id="dbml-output-code" class="ba-input ba-code-box" rows="8" readonly style="width: 100%; font-family: 'JetBrains Mono', monospace; font-size: 12px;" placeholder="Kết quả biên dịch sẽ hiển thị ở đây..."></textarea>
                 </div>
               </div>
               <div style="display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;">
@@ -4245,7 +4245,7 @@ legacy_crm.f_name -> digital_bank.full_name [Concatenate]"></textarea>
             <div class="ba-card-body">
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 16px;">
                 <!-- Source A -->
-                <div style="background: #0f172a; padding: 16px; border-radius: 8px; border: 1px solid #334155;">
+                <div class="ba-sub-box">
                   <h4 style="font-size: 13px; font-weight: 700; color: #38bdf8; margin: 0 0 10px;">Nguồn Dữ Liệu A (Hệ Thống Nội Bộ / POS / Core)</h4>
                   <div style="display: flex; flex-direction: column; gap: 10px;">
                     <div>
@@ -4260,7 +4260,7 @@ legacy_crm.f_name -> digital_bank.full_name [Concatenate]"></textarea>
                 </div>
 
                 <!-- Source B -->
-                <div style="background: #0f172a; padding: 16px; border-radius: 8px; border: 1px solid #334155;">
+                <div class="ba-sub-box">
                   <h4 style="font-size: 13px; font-weight: 700; color: #a855f7; margin: 0 0 10px;">Nguồn Dữ Liệu B (Sao Kê Đối Tác / Cổng Thanh Toán)</h4>
                   <div style="display: flex; flex-direction: column; gap: 10px;">
                     <div>
@@ -4371,7 +4371,7 @@ legacy_crm.f_name -> digital_bank.full_name [Concatenate]"></textarea>
               <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 14px; line-height: 1.5;">
                 Sinh tự động bộ 7 câu truy vấn SQL chuẩn cho BA nghiệm thu và đối soát dữ liệu (UAT Sign-off) trước khi phát hành tính năng lên Production. Hỗ trợ đa hệ cơ sở dữ liệu: PostgreSQL, Microsoft SQL Server, Oracle và MySQL.
               </p>
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 14px; background: #0f172a; padding: 14px; border-radius: 8px;">
+              <div class="ba-sub-box" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 14px; padding: 14px;">
                 <div>
                   <label style="font-size: 12px; font-weight: 600;">Bảng Đích (Target Table):</label>
                   <input type="text" id="sql-test-target" class="ba-input" value="orders" style="width: 100%;" />
@@ -4493,37 +4493,37 @@ legacy_crm.f_name -> digital_bank.full_name [Concatenate]"></textarea>
 
     <!-- Enterprise Print Modal -->
     <div class="modal-backdrop" id="modal-print" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center;">
-      <div class="modal-content" style="background: var(--bg-card, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 12px; width: 90%; max-width: 580px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 12px;">
-          <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
-            <i data-lucide="printer" style="color: #38bdf8;"></i> Trạm In Ấn Doanh Nghiệp (Enterprise Printing)
+      <div class="modal-content" style="background: var(--surface-card, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 12px; width: 90%; max-width: 580px; padding: 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border-color, #334155); padding-bottom: 12px;">
+          <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: var(--text-primary, #f8fafc); display: flex; align-items: center; gap: 8px;">
+            <i data-lucide="printer" style="color: var(--color-primary, #38bdf8);"></i> Trạm In Ấn Doanh Nghiệp (Enterprise Printing)
           </h3>
-          <button id="btn-close-print-modal" style="background: none; border: none; color: #94a3b8; cursor: pointer; padding: 4px;">
+          <button id="btn-close-print-modal" style="background: none; border: none; color: var(--text-muted, #94a3b8); cursor: pointer; padding: 4px;">
             <i data-lucide="x"></i>
           </button>
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 14px;">
           <div>
-            <label style="font-size: 12px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 6px;">Tệp Cần In (.pdf, .docx, .xlsx):</label>
-            <input type="file" id="print-input-file" class="input-text" accept=".pdf,.docx,.xlsx" style="width: 100%; padding: 8px;" />
+            <label style="font-size: 12px; font-weight: 600; color: var(--text-primary, #cbd5e1); display: block; margin-bottom: 6px;">Tệp Cần In (.pdf, .docx, .xlsx):</label>
+            <input type="file" id="print-input-file" class="input-text ba-input" accept=".pdf,.docx,.xlsx" style="width: 100%; padding: 8px;" />
           </div>
 
           <div>
-            <label style="font-size: 12px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 6px;">Chọn Máy In Hệ Thống:</label>
-            <select id="print-select-printer" class="input-text" style="width: 100%; padding: 8px;">
+            <label style="font-size: 12px; font-weight: 600; color: var(--text-primary, #cbd5e1); display: block; margin-bottom: 6px;">Chọn Máy In Hệ Thống:</label>
+            <select id="print-select-printer" class="input-text ba-select" style="width: 100%; padding: 8px;">
               <option value="">Đang tải danh sách máy in...</option>
             </select>
           </div>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
             <div>
-              <label style="font-size: 12px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 6px;">Số Lượng Bản In (Copies):</label>
-              <input type="number" id="print-copies" class="input-text" value="1" min="1" max="50" style="width: 100%; padding: 8px;" />
+              <label style="font-size: 12px; font-weight: 600; color: var(--text-primary, #cbd5e1); display: block; margin-bottom: 6px;">Số Lượng Bản In (Copies):</label>
+              <input type="number" id="print-copies" class="input-text ba-input" value="1" min="1" max="50" style="width: 100%; padding: 8px;" />
             </div>
             <div>
-              <label style="font-size: 12px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 6px;">Bố Cục Ghép Trang (N-Up):</label>
-              <select id="print-nup" class="input-text" style="width: 100%; padding: 8px;">
+              <label style="font-size: 12px; font-weight: 600; color: var(--text-primary, #cbd5e1); display: block; margin-bottom: 6px;">Bố Cục Ghép Trang (N-Up):</label>
+              <select id="print-nup" class="input-text ba-select" style="width: 100%; padding: 8px;">
                 <option value="1">1 Trang / Mặt (Chuẩn)</option>
                 <option value="2">2-Up (2 trang ghép 1 mặt ngang)</option>
                 <option value="4">4-Up (4 trang lưới 2x2)</option>
@@ -4531,21 +4531,21 @@ legacy_crm.f_name -> digital_bank.full_name [Concatenate]"></textarea>
             </div>
           </div>
 
-          <div style="background: rgba(30, 41, 59, 0.5); border: 1px solid #334155; border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
-            <label style="font-size: 12px; font-weight: 600; color: #38bdf8; margin: 0;">Tùy Chọn Tối Ưu Hóa (Print Optimizer):</label>
-            <label style="font-size: 12px; color: #cbd5e1; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <div style="background: var(--surface-input, rgba(30, 41, 59, 0.5)); border: 1px solid var(--border-color, #334155); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;">
+            <label style="font-size: 12px; font-weight: 600; color: var(--color-primary, #38bdf8); margin: 0;">Tùy Chọn Tối Ưu Hóa (Print Optimizer):</label>
+            <label style="font-size: 12px; color: var(--text-primary, #cbd5e1); display: flex; align-items: center; gap: 8px; cursor: pointer;">
               <input type="checkbox" id="print-opt-grayscale" />
               <span>Chuyển Thang Xám (Grayscale Ink Saver — Tiết kiệm mực in)</span>
             </label>
-            <label style="font-size: 12px; color: #cbd5e1; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <label style="font-size: 12px; color: var(--text-primary, #cbd5e1); display: flex; align-items: center; gap: 8px; cursor: pointer;">
               <input type="checkbox" id="print-opt-booklet" />
               <span>Đóng Sách 2 Mặt (Booklet Saddle-Stitch Imposition)</span>
             </label>
           </div>
 
           <div>
-            <label style="font-size: 12px; font-weight: 600; color: #cbd5e1; display: block; margin-bottom: 6px;">Dấu Thủy Ấn Bảo Mật (Watermark — Tùy chọn):</label>
-            <input type="text" id="print-opt-watermark" class="input-text" placeholder="Ví dụ: CONFIDENTIAL, BẢN LƯU NỘI BỘ" style="width: 100%; padding: 8px;" />
+            <label style="font-size: 12px; font-weight: 600; color: var(--text-primary, #cbd5e1); display: block; margin-bottom: 6px;">Dấu Thủy Ấn Bảo Mật (Watermark — Tùy chọn):</label>
+            <input type="text" id="print-opt-watermark" class="input-text ba-input" placeholder="Ví dụ: CONFIDENTIAL, BẢN LƯU NỘI BỘ" style="width: 100%; padding: 8px;" />
           </div>
 
           <div id="print-job-status-area" style="font-size: 12px;"></div>
