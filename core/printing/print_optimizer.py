@@ -32,10 +32,108 @@ except ImportError:
 class PrintOptimizer:
     """Pre-processes PDF documents before physical or virtual spooling."""
 
-    # Standard A4 dimensions in points (72 points = 1 inch, 25.4mm = 1 inch)
+    # Standard Paper Dimensions in points (72 points = 1 inch, 25.4mm = 1 inch)
     A4_WIDTH = 595.276   # 210mm
     A4_HEIGHT = 841.890  # 297mm
     MM_TO_POINTS = 72.0 / 25.4  # ~2.83465 pt/mm
+
+    PAGE_SIZES: Dict[str, Tuple[float, float]] = {
+        "a4": (595.276, 841.890),       # 210 x 297 mm
+        "letter": (612.000, 792.000),   # 8.5 x 11.0 in (215.9 x 279.4 mm)
+        "a3": (841.890, 1190.551),      # 297 x 420 mm
+    }
+
+    @staticmethod
+    def parse_page_ranges(range_str: Union[str, List[int]], max_pages: int) -> List[int]:
+        """
+        Parses page range expression (e.g. '1-5, 8, 11-20', 'all') into 0-indexed page list.
+        Validates boundaries and removes duplicates while preserving sequential order.
+        """
+        if isinstance(range_str, list):
+            valid = [p for p in range_str if 0 <= p < max_pages]
+            if not valid:
+                raise ValueError(f"Dải trang chỉ định không hợp lệ trong tài liệu {max_pages} trang.")
+            return sorted(list(dict.fromkeys(valid)))
+
+        if not range_str or range_str.strip().lower() in ("all", "tat_ca", "*", ""):
+            return list(range(max_pages))
+
+        pages: List[int] = []
+        parts = [p.strip() for p in range_str.split(",") if p.strip()]
+        for part in parts:
+            if "-" in part:
+                sub_parts = [s.strip() for s in part.split("-", 1)]
+                if not (sub_parts[0].isdigit() and sub_parts[1].isdigit()):
+                    raise ValueError(f"Định dạng dải trang không hợp lệ: '{part}'")
+                start = int(sub_parts[0])
+                end = int(sub_parts[1])
+                step = 1 if start <= end else -1
+                for p in range(start, end + step, step):
+                    if 1 <= p <= max_pages:
+                        pages.append(p - 1)
+            elif part.isdigit():
+                p = int(part)
+                if 1 <= p <= max_pages:
+                    pages.append(p - 1)
+            else:
+                raise ValueError(f"Ký tự dải trang không hợp lệ: '{part}'")
+
+        if not pages:
+            raise ValueError(f"Dải trang '{range_str}' không chứa trang nào hợp lệ trong tài liệu (1-{max_pages}).")
+
+        # Deduplicate preserving order
+        return list(dict.fromkeys(pages))
+
+    @classmethod
+    def _apply_page_scaling(
+        cls,
+        doc: fitz.Document,
+        page_size: Optional[str] = None,
+        scaling: str = "fit",
+        margin_guard_mm: float = 5.0,
+    ) -> fitz.Document:
+        """
+        Scales or re-centers pages onto target paper size (A4, Letter, A3).
+        'fit': Scales content while preserving aspect ratio inside printable area (ERR_PRINT_001).
+        'actual': Keeps 100% original dimensions, centering on target sheet.
+        """
+        target_size_key = (page_size or "a4").strip().lower()
+        target_dim = cls.PAGE_SIZES.get(target_size_key, (cls.A4_WIDTH, cls.A4_HEIGHT))
+        margin_pt = margin_guard_mm * cls.MM_TO_POINTS if scaling == "fit" else 0.0
+
+        out_doc = fitz.open()
+        for page in doc:
+            orig_rect = page.rect
+            orig_w, orig_h = orig_rect.width, orig_rect.height
+            is_landscape = orig_w > orig_h
+
+            if is_landscape:
+                sheet_w = max(target_dim)
+                sheet_h = min(target_dim)
+            else:
+                sheet_w = min(target_dim)
+                sheet_h = max(target_dim)
+
+            new_page = out_doc.new_page(width=sheet_w, height=sheet_h)
+
+            if scaling == "actual":
+                off_x = max(0.0, (sheet_w - orig_w) / 2.0)
+                off_y = max(0.0, (sheet_h - orig_h) / 2.0)
+                dest_rect = fitz.Rect(off_x, off_y, off_x + orig_w, off_y + orig_h)
+            else:
+                avail_w = max(10.0, sheet_w - (2 * margin_pt))
+                avail_h = max(10.0, sheet_h - (2 * margin_pt))
+                scale = min(avail_w / orig_w, avail_h / orig_h)
+                fit_w = orig_w * scale
+                fit_h = orig_h * scale
+                off_x = margin_pt + (avail_w - fit_w) / 2.0
+                off_y = margin_pt + (avail_h - fit_h) / 2.0
+                dest_rect = fitz.Rect(off_x, off_y, off_x + fit_w, off_y + fit_h)
+
+            new_page.show_pdf_page(dest_rect, doc, page.number)
+
+        doc.close()
+        return out_doc
 
     @classmethod
     def optimize_pdf(
@@ -51,6 +149,9 @@ class PrintOptimizer:
         dpi: int = 300,
         creep_compensation: bool = True,
         paper_thickness_pt: float = 0.28,
+        page_range: Optional[Union[str, List[int]]] = None,
+        page_size: Optional[str] = None,
+        scaling: Optional[str] = "fit",
     ) -> Dict[str, Any]:
         """
         Executes complete pre-print optimization chain on a PDF file.
@@ -67,8 +168,25 @@ class PrintOptimizer:
 
         current_doc = src_doc
 
-        # Step 1: Margin Guard (ERR_PRINT_001) - Shrink if content is too close to border
-        if margin_guard_mm > 0:
+        # Step 0: Page Range Extraction (1-based to 0-based)
+        extracted_pages = orig_page_count
+        if page_range and str(page_range).strip().lower() not in ("all", "tat_ca", "*"):
+            selected_indices = cls.parse_page_ranges(page_range, orig_page_count)
+            current_doc.select(selected_indices)
+            extracted_pages = len(current_doc)
+
+        # Step 1: Page Sizing & Scaling (Fit to Printable Area / Actual Size)
+        applied_scaling = scaling or "fit"
+        if page_size or applied_scaling in ("fit", "actual"):
+            if page_size or (applied_scaling == "fit" and margin_guard_mm > 0):
+                current_doc = cls._apply_page_scaling(
+                    current_doc,
+                    page_size=page_size,
+                    scaling=applied_scaling,
+                    margin_guard_mm=margin_guard_mm,
+                )
+        elif margin_guard_mm > 0:
+            # Fallback Margin Guard (ERR_PRINT_001)
             current_doc = cls._apply_margin_guard(current_doc, margin_guard_mm)
 
         # Step 2: Booklet or N-Up imposition
@@ -102,7 +220,11 @@ class PrintOptimizer:
         return {
             "success": True,
             "original_pages": orig_page_count,
+            "extracted_pages": extracted_pages,
             "optimized_pages": final_page_count,
+            "page_range": str(page_range) if page_range else "all",
+            "page_size": page_size or "A4",
+            "scaling": applied_scaling,
             "grayscale": grayscale,
             "vector_grayscale": vector_grayscale if grayscale else False,
             "n_up": n_up,
@@ -330,6 +452,9 @@ def optimize_pdf_for_printing(
     dpi: int = 300,
     creep_compensation: bool = True,
     paper_thickness_pt: float = 0.28,
+    page_range: Optional[Union[str, List[int]]] = None,
+    page_size: Optional[str] = None,
+    scaling: Optional[str] = "fit",
 ) -> Dict[str, Any]:
     return PrintOptimizer.optimize_pdf(
         input_pdf_path=input_pdf_path,
@@ -343,4 +468,7 @@ def optimize_pdf_for_printing(
         dpi=dpi,
         creep_compensation=creep_compensation,
         paper_thickness_pt=paper_thickness_pt,
+        page_range=page_range,
+        page_size=page_size,
+        scaling=scaling,
     )

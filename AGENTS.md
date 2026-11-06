@@ -98,7 +98,8 @@ When user requests you to perform document tasks or draw diagrams, run these com
 | **Auto-Scan & Stage New Decree/Circular** | `python ai_tools_cli.py law-watch-scan [--file <doc>] [--sample-2027] [--skip-email]` |
 | **1-Click Human-in-the-Loop Merge Draft** | `python ai_tools_cli.py law-merge-update --draft <draft_filename>` |
 | **List System Hardware Printers** | `python ai_tools_cli.py print-list` |
-| **Enterprise Silent Print Document** | `python ai_tools_cli.py print-doc <file.pdf | docx> [--printer <name>] [--n-up 2] [--grayscale] [--booklet] [--creep] [--tray <id>] [--duplex vertical]` |
+| **Inspect Printer Status & Spooler Queue** | `python ai_tools_cli.py print-status [--printer <name>] [--json]` |
+| **Enterprise Silent Print Document** | `python ai_tools_cli.py print-doc <file.pdf | docx> [--printer <name>] [--page-range "1-5, 8"] [--page-size a4] [--scaling fit] [--duplex vertical] [--n-up 2] [--grayscale]` |
 | **Offline AST Excel Formula Evaluator** | `python ai_tools_cli.py xlsx-eval <file.xlsx> [-o <out.xlsx>] [--json]` |
 | **Universal FTS5 RAG File Indexer** | `python ai_tools_cli.py rag-index <file> [--json]` |
 | **Universal FTS5 RAG Semantic Search** | `python ai_tools_cli.py rag-search <query> [-k <top_k>] [-t <type>] [--json]` |
@@ -157,6 +158,7 @@ When executing tasks programmatically via Python, MCP, or CLI, dispatch accordin
 | **1-Click Human-in-the-Loop Merge** | Draft Filename | `regulatory_approve_update(...)` | `ai_tools_cli.py law-merge-update` | `core.ba_hub.regulatory_watcher` |
 | **Test SMTP Gmail Alert Dispatch** | Recipient Address | (via CLI) | `ai_tools_cli.py law-notify-test` | `core.ba_hub.regulatory_notifier` |
 | **List Hardware System Printers** | Hardware Spooler | `doc_list_printers(...)` | `ai_tools_cli.py print-list` | `core.printing.printer_manager` |
+| **Inspect Printer Status & Spooler Queue** | Printer Name | `doc_printer_status(...)` | `ai_tools_cli.py print-status` | `core.printing.printer_manager` |
 | **Enterprise Silent Print Document** | PDF / DOCX + Print Spec | `doc_print_job(...)` | `ai_tools_cli.py print-doc` | `core.printing.printer_manager` |
 | **Offline AST Formula Evaluator** | XLSX Workbook | `xlsx_evaluate_formulas(...)` | `ai_tools_cli.py xlsx-eval` | `core.xlsx.formula_evaluator` |
 | **Universal FTS5 RAG Search** | Multi-Format File + Query | `universal_rag_search(...)` | `ai_tools_cli.py rag-search` | `core.ba_hub.universal_rag` |

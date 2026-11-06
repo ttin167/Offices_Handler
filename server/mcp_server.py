@@ -1206,12 +1206,41 @@ BA_TOOL_DEFINITIONS = [
                     "enum": ["simplex", "vertical", "horizontal"],
                     "description": "Optional hardware duplex mode"
                 },
+                "page_range": {
+                    "type": "string",
+                    "description": "Optional page range to print (e.g. '1-5, 8, 11-20' or 'all')"
+                },
+                "page_size": {
+                    "type": "string",
+                    "enum": ["a4", "letter", "a3"],
+                    "default": "a4",
+                    "description": "Optional target paper size"
+                },
+                "scaling": {
+                    "type": "string",
+                    "enum": ["fit", "actual"],
+                    "default": "fit",
+                    "description": "Page scaling: 'fit' to printable area (ERR_PRINT_001) or 'actual' (100%)"
+                },
                 "watermark": {
                     "type": "string",
                     "description": "Optional security watermark text"
                 }
             },
             "required": ["file_path"]
+        }
+    },
+    {
+        "name": "doc_printer_status",
+        "description": "Inspects hardware printer status, paper availability (JOB_STATUS_PAPEROUT), paper jam (PRINTER_STATUS_PAPER_JAM), and spooler active queue.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "printer_name": {
+                    "type": "string",
+                    "description": "Optional printer name (defaults to system default printer)"
+                }
+            }
         }
     },
     {
@@ -2504,6 +2533,12 @@ def execute_doc_list_printers(args: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def execute_doc_printer_status(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.printing import PrinterManager
+
+    return PrinterManager.get_printer_status(args.get("printer_name"))
+
+
 def execute_doc_print_job(args: Dict[str, Any]) -> Dict[str, Any]:
     from core.printing import PrinterManager
 
@@ -2515,6 +2550,9 @@ def execute_doc_print_job(args: Dict[str, Any]) -> Dict[str, Any]:
         "creep_compensation": bool(args.get("creep_compensation", False)),
         "paper_thickness_pt": float(args.get("paper_thickness_pt", 0.28)),
         "watermark": args.get("watermark"),
+        "page_range": args.get("page_range"),
+        "page_size": args.get("page_size", "a4"),
+        "scaling": args.get("scaling", "fit"),
     }
     return PrinterManager.print_file(
         file_path=args["file_path"],
@@ -2523,6 +2561,9 @@ def execute_doc_print_job(args: Dict[str, Any]) -> Dict[str, Any]:
         optimizer_options=opt_options,
         tray_id=args.get("tray_id"),
         duplex=args.get("duplex"),
+        page_range=args.get("page_range"),
+        page_size=args.get("page_size", "a4"),
+        scaling=args.get("scaling", "fit"),
     )
 
 
@@ -2688,6 +2729,7 @@ TOOL_DISPATCHER = {
     # Wireframe & Printing Tools
     "ba_wireframe_render": execute_ba_wireframe_render,
     "doc_list_printers": execute_doc_list_printers,
+    "doc_printer_status": execute_doc_printer_status,
     "doc_print_job": execute_doc_print_job,
     # Cloudflare Security Audit Tool
     "doc_security_audit": execute_doc_security_audit,

@@ -910,6 +910,19 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                 })
                 return
 
+            elif path == "/api/print/status":
+                from urllib.parse import parse_qs, urlparse
+                from core.printing import PrinterManager
+                parsed = urlparse(self.path)
+                qs = parse_qs(parsed.query)
+                p_name = qs.get("printer", [None])[0]
+                status_res = PrinterManager.get_printer_status(p_name)
+                self._send_json({
+                    "success": True,
+                    **status_res
+                })
+                return
+
             elif path == "/api/diagram/wireframe/templates":
                 from core.diagrams.salt_wireframe import SaltWireframeEngine
                 self._send_json({
@@ -2138,24 +2151,44 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
             # Enterprise Printing: Submit Print Job
             elif path == "/api/print/job":
                 payload = self._read_body_json()
-                file_param = payload.get("file") or payload.get("filepath")
+                file_param = payload.get("file") or payload.get("filepath") or payload.get("file_path")
                 resolved = resolve_file_path(file_param)
                 if not resolved or not os.path.exists(resolved):
                     self._send_json({"success": False, "error": "Tệp in không tồn tại"}, status=400)
                     return
 
                 from core.printing import PrinterManager
+                duplex = payload.get("duplex")
+                tray_id = payload.get("tray_id")
+                page_range = payload.get("page_range")
+                page_size = payload.get("page_size")
+                scaling = payload.get("scaling", "fit")
+
                 opt_options = {
                     "grayscale": payload.get("grayscale", False),
+                    "vector_grayscale": payload.get("vector_grayscale", True),
+                    "dpi": int(payload.get("dpi", 300)),
                     "n_up": int(payload.get("n_up", 1)),
                     "booklet": payload.get("booklet", False),
+                    "creep_compensation": payload.get("creep_compensation", True),
+                    "paper_thickness_pt": float(payload.get("paper_thickness_pt", 0.28)),
                     "watermark": payload.get("watermark"),
+                    "margin_guard_mm": float(payload.get("margin_guard_mm", 5.0)),
+                    "page_range": page_range,
+                    "page_size": page_size,
+                    "scaling": scaling,
                 }
                 job_res = PrinterManager.print_file(
                     file_path=resolved,
-                    printer_name=payload.get("printer"),
+                    printer_name=payload.get("printer") or payload.get("printer_name"),
                     copies=int(payload.get("copies", 1)),
+                    job_title=payload.get("job_title"),
                     optimizer_options=opt_options,
+                    tray_id=tray_id,
+                    duplex=duplex,
+                    page_range=page_range,
+                    page_size=page_size,
+                    scaling=scaling,
                 )
                 self._send_json(job_res)
                 return

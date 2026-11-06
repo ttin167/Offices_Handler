@@ -123,6 +123,34 @@ def cmd_print_list(args: argparse.Namespace) -> int:
         return 2
 
 
+def cmd_print_status(args: argparse.Namespace) -> int:
+    from core.printing import PrinterManager
+
+    try:
+        target = getattr(args, "printer", None)
+        status_info = PrinterManager.get_printer_status(target)
+        if getattr(args, "json", False):
+            print(json.dumps(status_info, ensure_ascii=False, indent=2))
+        else:
+            print("=" * 70)
+            print(f"  TRẠNG THÁI MÁY IN: {status_info['printer']}")
+            print("=" * 70)
+            print(f"  Trạng thái:     {status_info['status']} ({status_info['message']})")
+            print(f"  Hàng đợi:       {status_info['c_jobs']} lệnh in")
+            print(f"  Hỗ trợ Duplex:  {'Có' if status_info.get('supports_duplex') else 'Không'}")
+            if status_info.get("hardware_warning"):
+                print(f"  [CẢNH BÁO]:     {status_info['hardware_warning']}")
+            if status_info.get("jobs"):
+                print("  Danh sách tác vụ đang xếp hàng:")
+                for j in status_info["jobs"]:
+                    print(f"    - #{j.get('job_id')}: {j.get('document')} ({j.get('pages_printed')}/{j.get('total_pages')} trang)")
+            print("=" * 70)
+        return 0
+    except Exception as exc:
+        print(f"[ERROR] print-status failed: {exc}", file=sys.stderr)
+        return 2
+
+
 def cmd_print_doc(args: argparse.Namespace) -> int:
     from core.printing import PrinterManager
 
@@ -142,6 +170,9 @@ def cmd_print_doc(args: argparse.Namespace) -> int:
             "paper_thickness_pt": float(getattr(args, "paper_thickness", 0.28)),
             "watermark": getattr(args, "watermark", None),
             "margin_guard_mm": float(getattr(args, "margin_guard", 5.0)),
+            "page_range": getattr(args, "page_range", None),
+            "page_size": getattr(args, "page_size", "a4"),
+            "scaling": getattr(args, "scaling", "fit"),
         }
         res = PrinterManager.print_file(
             file_path=src,
@@ -150,8 +181,13 @@ def cmd_print_doc(args: argparse.Namespace) -> int:
             optimizer_options=opt_options,
             tray_id=getattr(args, "tray", None),
             duplex=getattr(args, "duplex", None),
+            page_range=getattr(args, "page_range", None),
+            page_size=getattr(args, "page_size", "a4"),
+            scaling=getattr(args, "scaling", "fit"),
         )
         print(f"[OK] Print Job Dispatched: {res['job_id']} -> Printer: {res['printer']} ({res['status']})")
+        if res.get("hardware_warning"):
+            print(f"[WARNING] Hardware Alert: {res['hardware_warning']}")
         return 0
     except Exception as exc:
         print(f"[ERROR] print-doc failed: {exc}", file=sys.stderr)
@@ -185,11 +221,20 @@ def register_print_subcommands(sub: argparse._SubParsersAction) -> None:
     p_plist.add_argument("--json", action="store_true", help="Output machine-readable JSON")
     p_plist.set_defaults(func=cmd_print_list)
 
-    # 3. print-doc
+    # 3. print-status
+    p_pstat = sub.add_parser("print-status", help="Inspect printer hardware status, paper out, jam, and spooler queue")
+    p_pstat.add_argument("--printer", default=None, help="Target printer name (default: system default printer)")
+    p_pstat.add_argument("--json", action="store_true", help="Output machine-readable JSON")
+    p_pstat.set_defaults(func=cmd_print_status)
+
+    # 4. print-doc
     p_pdoc = sub.add_parser("print-doc", help="Silent document printing with vector grayscale, booklet creep & DEVMODE tray")
     p_pdoc.add_argument("file", help="Path to document (.pdf, .docx, .xlsx)")
     p_pdoc.add_argument("--printer", default=None, help="Target printer name (default: system default printer)")
     p_pdoc.add_argument("--copies", type=int, default=1, help="Number of copies (default: 1)")
+    p_pdoc.add_argument("--page-range", default=None, help="Page range expression (e.g. '1-5, 8, 11-20' or 'all')")
+    p_pdoc.add_argument("--page-size", default="a4", choices=["a4", "letter", "a3"], help="Target paper size (default: a4)")
+    p_pdoc.add_argument("--scaling", default="fit", choices=["fit", "actual"], help="Page scaling mode (default: fit)")
     p_pdoc.add_argument("--grayscale", action="store_true", help="Convert pages to grayscale (toner saver)")
     p_pdoc.add_argument("--raster-grayscale", action="store_true", help="Use rasterized grayscale instead of native vector /DeviceGray")
     p_pdoc.add_argument("--dpi", type=int, default=300, choices=[150, 300, 600], help="Raster fallback DPI (default: 300)")

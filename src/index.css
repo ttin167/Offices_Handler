@@ -9405,3 +9405,86 @@ sup,
   padding: 10px 14px;
   border-radius: 8px;
 }
+
+/* ==========================================================================
+   Enterprise Printing Studio (Modal & Components)
+   ========================================================================== */
+.print-group-box {
+  background: var(--surface-input, rgba(30, 41, 59, 0.45));
+  border: 1px solid var(--border-color, #334155);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.print-group-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-primary, #38bdf8);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.print-radio-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.print-radio-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-primary, #cbd5e1);
+  cursor: pointer;
+  user-select: none;
+}
+
+.print-radio-label input[type="radio"] {
+  cursor: pointer;
+  accent-color: var(--color-primary, #38bdf8);
+}
+
+.printer-status-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid transparent;
+}
+
+.printer-status-pill.ready {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.printer-status-pill.paperout {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+  animation: pulse 1.5s infinite;
+}
+
+.printer-status-pill.warning {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.printer-status-pill.offline {
+  background: rgba(148, 163, 184, 0.2);
+  color: #94a3b8;
+  border-color: rgba(148, 163, 184, 0.3);
+}

@@ -199,11 +199,11 @@ class PrinterManager:
         valid_duplex = None
         if duplex and caps["supports_duplex"]:
             dup_lower = duplex.lower()
-            if dup_lower in ("vertical", "long", "long-edge"):
+            if dup_lower in ("vertical", "long", "long-edge", "2-sided-long", "duplex_long"):
                 valid_duplex = win32con.DMDUP_VERTICAL
-            elif dup_lower in ("horizontal", "short", "short-edge"):
+            elif dup_lower in ("horizontal", "short", "short-edge", "2-sided-short", "duplex_short"):
                 valid_duplex = win32con.DMDUP_HORIZONTAL
-            elif dup_lower in ("simplex", "none", "single"):
+            elif dup_lower in ("simplex", "none", "single", "1-sided", "1-page"):
                 valid_duplex = win32con.DMDUP_SIMPLEX
 
         if valid_tray is None and valid_duplex is None:
@@ -228,6 +228,112 @@ class PrinterManager:
         return False
 
     @classmethod
+    def get_printer_status(cls, printer_name: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Queries printer hardware status, paper availability, and spooler job queue.
+        Detects JOB_STATUS_PAPEROUT, PRINTER_STATUS_PAPER_JAM, OFFLINE, and DOOR_OPEN.
+        """
+        target = printer_name or cls.get_default_printer() or "Virtual Spooler (PDF Buffer)"
+        is_virtual = any(v in target.lower() for v in ["virtual", "buffer", "pdf", "xps", "onenote", "fax"])
+
+        if is_virtual or sys.platform != "win32" or win32print is None:
+            return {
+                "printer": target,
+                "status": "READY",
+                "message": "Máy in sẵn sàng tiếp nhận lệnh in",
+                "is_virtual": is_virtual,
+                "c_jobs": 0,
+                "jobs": [],
+                "hardware_warning": None,
+                "supports_duplex": False if is_virtual else True,
+            }
+
+        try:
+            h_printer = win32print.OpenPrinter(target)
+            try:
+                p_info = win32print.GetPrinter(h_printer, 2)
+                raw_status = p_info.get("Status", 0)
+                c_jobs = p_info.get("cJobs", 0)
+
+                jobs_list: List[Dict[str, Any]] = []
+                try:
+                    raw_jobs = win32print.EnumJobs(h_printer, 0, 10, 2)
+                    for j in raw_jobs:
+                        jobs_list.append({
+                            "job_id": j.get("JobId"),
+                            "document": j.get("pDocument", "Document"),
+                            "status": j.get("Status", 0),
+                            "total_pages": j.get("TotalPages", 0),
+                            "pages_printed": j.get("PagesPrinted", 0),
+                        })
+                except Exception:
+                    pass
+
+                caps = cls.get_device_capabilities(target)
+
+                warning_msg: Optional[str] = None
+                status_code = "READY"
+                status_desc = "Máy in sẵn sàng tiếp nhận lệnh in"
+
+                paper_out_val = getattr(win32print, "PRINTER_STATUS_PAPER_OUT", 0x00000010)
+                paper_jam_val = getattr(win32print, "PRINTER_STATUS_PAPER_JAM", 0x00000008)
+                offline_val = getattr(win32print, "PRINTER_STATUS_OFFLINE", 0x00000080)
+                door_open_val = getattr(win32print, "PRINTER_STATUS_DOOR_OPEN", 0x00400000)
+                error_val = getattr(win32print, "PRINTER_STATUS_ERROR", 0x00000002)
+                paused_val = getattr(win32print, "PRINTER_STATUS_PAUSED", 0x00000001)
+
+                if raw_status & paper_out_val:
+                    status_code = "PAPER_OUT"
+                    status_desc = "Máy in hết giấy (JOB_STATUS_PAPEROUT)"
+                    warning_msg = "Khay giấy của máy in đang rỗng. Vui lòng nạp thêm giấy vào khay."
+                elif raw_status & paper_jam_val:
+                    status_code = "PAPER_JAM"
+                    status_desc = "Máy in bị kẹt giấy (JOB_STATUS_PAPER_JAM)"
+                    warning_msg = "Phát hiện kẹt giấy trong cơ cấu cuốn giấy của máy in."
+                elif raw_status & offline_val:
+                    status_code = "OFFLINE"
+                    status_desc = "Máy in đang ngoại tuyến (Printer Offline)"
+                    warning_msg = "Máy in chưa kết nối hoặc chưa bật nguồn."
+                elif raw_status & door_open_val:
+                    status_code = "DOOR_OPEN"
+                    status_desc = "Nắp máy in đang mở (Door Open)"
+                    warning_msg = "Nắp khoang mực hoặc khay đảo mặt đang mở."
+                elif raw_status & error_val:
+                    status_code = "ERROR"
+                    status_desc = "Máy in đang báo lỗi phần cứng"
+                    warning_msg = "Máy in gặp sự cố kỹ thuật hoặc lỗi driver."
+                elif raw_status & paused_val:
+                    status_code = "PAUSED"
+                    status_desc = "Hàng đợi in đang tạm dừng (Spooler Paused)"
+                elif c_jobs > 0:
+                    status_desc = f"Máy in đang xử lý {c_jobs} lệnh in trong hàng đợi"
+
+                return {
+                    "printer": target,
+                    "status": status_code,
+                    "message": status_desc,
+                    "is_virtual": False,
+                    "c_jobs": c_jobs,
+                    "jobs": jobs_list,
+                    "hardware_warning": warning_msg,
+                    "supports_duplex": caps.get("supports_duplex", False),
+                    "supported_bins": caps.get("supported_bins", ()),
+                }
+            finally:
+                win32print.ClosePrinter(h_printer)
+        except Exception as e:
+            return {
+                "printer": target,
+                "status": "UNKNOWN",
+                "message": f"Không thể kết nối máy in: {e}",
+                "is_virtual": False,
+                "c_jobs": 0,
+                "jobs": [],
+                "hardware_warning": f"Lỗi đọc trạng thái spooler: {e}",
+                "supports_duplex": False,
+            }
+
+    @classmethod
     def print_file(
         cls,
         file_path: str,
@@ -238,6 +344,9 @@ class PrinterManager:
         optimizer_options: Optional[Dict[str, Any]] = None,
         tray_id: Optional[int] = None,
         duplex: Optional[str] = None,
+        page_range: Optional[Union[str, List[int]]] = None,
+        page_size: Optional[str] = None,
+        scaling: Optional[str] = "fit",
     ) -> Dict[str, Any]:
         """
         Submits a document to the specified printer or system default printer.
@@ -249,6 +358,10 @@ class PrinterManager:
         target_printer = printer_name or cls.get_default_printer() or "Virtual Spooler (PDF Buffer)"
         job_id = f"JOB-{int(time.time())}-{uuid.uuid4().hex[:6]}"
         job_name = job_title or os.path.basename(file_path)
+
+        # Pre-check printer status for hardware warnings
+        pre_status = cls.get_printer_status(target_printer)
+        hardware_warning = pre_status.get("hardware_warning")
 
         # Step 0: Apply DEVMODE settings if physical printer on Windows (Guard G2)
         devmode_applied = False
@@ -268,23 +381,51 @@ class PrinterManager:
             except Exception as ce:
                 raise RuntimeError(f"Không thể chuyển đổi {ext} sang PDF để in: {ce}")
 
-        # Step 2: Apply Print Optimizer (Vector Grayscale, N-Up, Booklet Creep, Watermark, Margin Guard)
-        if optimizer_options:
+        # Step 2: Apply Print Optimizer (Vector Grayscale, N-Up, Booklet Creep, Watermark, Margin Guard, Page Range, Page Size)
+        opt_dict = dict(optimizer_options or {})
+        if page_range:
+            opt_dict["page_range"] = page_range
+        if page_size:
+            opt_dict["page_size"] = page_size
+        if scaling:
+            opt_dict["scaling"] = scaling
+
+        opt_stats: Dict[str, Any] = {}
+        if opt_dict:
             optimized_pdf = os.path.join(tempfile.gettempdir(), f"{job_id}_optimized.pdf")
-            PrintOptimizer.optimize_pdf(
+            opt_stats = PrintOptimizer.optimize_pdf(
                 input_pdf_path=printable_pdf,
                 output_pdf_path=optimized_pdf,
-                grayscale=optimizer_options.get("grayscale", False),
-                vector_grayscale=optimizer_options.get("vector_grayscale", True),
-                dpi=optimizer_options.get("dpi", 300),
-                n_up=optimizer_options.get("n_up", 1),
-                booklet=optimizer_options.get("booklet", False),
-                creep_compensation=optimizer_options.get("creep_compensation", True),
-                paper_thickness_pt=optimizer_options.get("paper_thickness_pt", 0.28),
-                watermark_text=optimizer_options.get("watermark"),
-                margin_guard_mm=optimizer_options.get("margin_guard_mm", 5.0),
+                grayscale=opt_dict.get("grayscale", False),
+                vector_grayscale=opt_dict.get("vector_grayscale", True),
+                dpi=opt_dict.get("dpi", 300),
+                n_up=opt_dict.get("n_up", 1),
+                booklet=opt_dict.get("booklet", False),
+                creep_compensation=opt_dict.get("creep_compensation", True),
+                paper_thickness_pt=opt_dict.get("paper_thickness_pt", 0.28),
+                watermark_text=opt_dict.get("watermark"),
+                margin_guard_mm=opt_dict.get("margin_guard_mm", 5.0),
+                page_range=opt_dict.get("page_range"),
+                page_size=opt_dict.get("page_size"),
+                scaling=opt_dict.get("scaling", "fit"),
             )
             printable_pdf = optimized_pdf
+
+        # Base response payload
+        base_res: Dict[str, Any] = {
+            "success": True,
+            "job_id": job_id,
+            "printer": target_printer,
+            "copies": copies,
+            "hardware_warning": hardware_warning,
+            "printer_status": pre_status.get("status", "READY"),
+            "devmode_applied": devmode_applied,
+            "duplex": duplex or "simplex",
+            "page_range": opt_dict.get("page_range", "all"),
+            "page_size": opt_dict.get("page_size", "A4"),
+            "scaling": opt_dict.get("scaling", "fit"),
+            "optimization": opt_stats,
+        }
 
         # Step 3: Check if Virtual Spooler is requested or if printer is Virtual Spooler
         if "virtual" in target_printer.lower() or "buffer" in target_printer.lower():
@@ -293,10 +434,7 @@ class PrinterManager:
             spool_file = os.path.join(spool_dir, f"{job_id}_{os.path.basename(file_path)}.pdf")
             shutil.copy2(printable_pdf, spool_file)
             return {
-                "success": True,
-                "job_id": job_id,
-                "printer": target_printer,
-                "copies": copies,
+                **base_res,
                 "spooled_file": spool_file,
                 "mode": "VIRTUAL_SPOOL",
                 "status": "QUEUED"
@@ -317,10 +455,7 @@ class PrinterManager:
                 for _ in range(copies):
                     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=25)
                 return {
-                    "success": True,
-                    "job_id": job_id,
-                    "printer": target_printer,
-                    "copies": copies,
+                    **base_res,
                     "mode": "EDGE_HEADLESS_SPOOL",
                     "status": "SENT_TO_PRINTER"
                 }
@@ -329,10 +464,7 @@ class PrinterManager:
                 for _ in range(copies):
                     win32api.ShellExecute(0, "printto", printable_pdf, f'"{target_printer}"', ".", 0)
                 return {
-                    "success": True,
-                    "job_id": job_id,
-                    "printer": target_printer,
-                    "copies": copies,
+                    **base_res,
                     "mode": "SHELLEXECUTE_PRINTTO",
                     "status": "SENT_TO_PRINTER"
                 }
@@ -344,19 +476,13 @@ class PrinterManager:
             if res.returncode != 0:
                 raise RuntimeError(f"Lỗi gửi lệnh in CUPS (lp): {res.stderr}")
             return {
-                "success": True,
-                "job_id": job_id,
-                "printer": target_printer,
-                "copies": copies,
+                **base_res,
                 "mode": "CUPS_LP",
                 "status": "SENT_TO_PRINTER"
             }
 
         return {
-            "success": True,
-            "job_id": job_id,
-            "printer": target_printer,
-            "copies": copies,
+            **base_res,
             "mode": "COMPLETED",
             "status": "FINISHED"
         }
