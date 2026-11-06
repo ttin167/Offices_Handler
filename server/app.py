@@ -2065,6 +2065,27 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                     self._send_json({"success": False, "error": f"Lỗi xuất Word: {str(e)}"}, status=500)
                 return
 
+            # Labor Law: Export Complete Knowledge Book to Word (.docx)
+            elif path == "/api/law/export-full-book":
+                from core.ba_hub.labor_law_search import export_entire_vault_to_docx
+                ts = int(time.time() * 1000)
+                out_name = f"Cam_Nang_Phap_Ly_Lao_Dong_Tien_Luong_2026_{ts}.docx"
+                out_file = os.path.join(OUTPUT_DIR, out_name)
+                try:
+                    res = export_entire_vault_to_docx(out_file)
+                    qbname = urllib.parse.quote(out_name)
+                    self._send_json({
+                        "success": True,
+                        "filename": out_name,
+                        "download_url": f"/api/download/{qbname}",
+                        "title": res["title"],
+                        "total_articles": res["total_articles"],
+                        "elapsed_sec": res["elapsed_sec"],
+                    })
+                except Exception as e:
+                    self._send_json({"success": False, "error": f"Lỗi xuất tập cẩm nang Word: {str(e)}"}, status=500)
+                return
+
             # Labor Law: Export Entire Vault as Obsidian ZIP
             elif path == "/api/law/export-vault":
                 from core.ba_hub.labor_law_kb import LaborLawVaultManager

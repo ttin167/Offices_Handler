@@ -23,9 +23,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 try:
-    import fitz  # PyMuPDF
-except ImportError:
     import pymupdf as fitz
+except ImportError:
+    import fitz  # type: ignore
 
 
 class PrintOptimizer:

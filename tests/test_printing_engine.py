@@ -7,9 +7,9 @@ import tempfile
 import pytest
 
 try:
-    import fitz
-except ImportError:
     import pymupdf as fitz
+except ImportError:
+    import fitz  # type: ignore
 
 from core.printing.print_optimizer import PrintOptimizer
 from core.printing.printer_manager import PrinterManager

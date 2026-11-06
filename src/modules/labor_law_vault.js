@@ -615,6 +615,45 @@ export function initLaborLawVault({ showToast, refreshLucideIcons, loadHistory }
     });
   }
 
+  const btnExportFullBook = document.getElementById('btn-law-export-full-book');
+  if (btnExportFullBook) {
+    btnExportFullBook.addEventListener('click', async () => {
+      try {
+        btnExportFullBook.disabled = true;
+        btnExportFullBook.innerHTML = '<div class="spinner"></div> Đang biên dịch...';
+
+        const res = await fetch('/api/law/export-full-book', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Lỗi xuất cẩm nang Word');
+
+        showToast(`Đã xuất trọn bộ Cẩm Nang (${data.total_articles} tài liệu): ${data.filename}`, 'success');
+        if (loadHistory) loadHistory();
+
+        if (data.download_url) {
+          const a = document.createElement('a');
+          a.href = data.download_url;
+          a.download = data.filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+      } catch (err) {
+        console.error('[LaborLawVault] Export Full Book error:', err);
+        showToast(`Lỗi xuất Cẩm Nang Word: ${err.message}`, 'error');
+      } finally {
+        btnExportFullBook.disabled = false;
+        btnExportFullBook.innerHTML = '<i data-lucide="book"></i> Toàn Bộ (.docx)';
+        refreshLucideIcons();
+      }
+    });
+  }
+
   /**
    * 5. Search Input Handling (250ms debounce)
    */

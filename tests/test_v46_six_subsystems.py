@@ -20,7 +20,10 @@ import unittest
 import zipfile
 from pathlib import Path
 
-import fitz
+try:
+    import pymupdf as fitz
+except ImportError:
+    import fitz  # type: ignore
 import openpyxl
 from docx import Document
 

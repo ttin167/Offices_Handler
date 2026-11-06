@@ -3656,7 +3656,7 @@
               <div class="ba-card">
                 <div class="ba-card-header">
                   <div class="ba-card-title"><i data-lucide="file-text"></i> Đặc Tả User Story (Cấu Trúc 3 Thành Phần)</div>
-                  <div class="ba-badge-info" style="font-size: 12px; color: #94a3b8;">Format: As a / I want / So that</div>
+                  <div class="ba-badge-info" style="font-size: 12px; color: var(--text-secondary);">Format: As a / I want / So that</div>
                 </div>
                 <div class="ba-card-body">
                   <div style="display: grid; grid-template-columns: 140px 1fr 200px; gap: 12px; margin-bottom: 12px;">
@@ -3731,7 +3731,7 @@
                 </div>
                 <div class="ba-card-body">
                   <div id="story-linter-result" class="linter-result-box">
-                    <div style="color: #94a3b8; font-size: 13px; text-align: center; padding: 20px 0;">
+                    <div style="color: var(--text-secondary); font-size: 13px; text-align: center; padding: 20px 0;">
                       <i data-lucide="shield-check" style="font-size: 32px; display: block; margin: 0 auto 8px;"></i>
                       Nhấn "Thẩm Định Chuẩn BABOK" để kiểm tra tính hoàn thiện của đặc tả.
                     </div>
@@ -3774,9 +3774,14 @@
           <div class="law-col-groups">
             <div class="law-groups-header">
               <span class="law-groups-title"><i data-lucide="layers"></i> Nhóm Văn Bản</span>
-              <button type="button" id="btn-law-export-vault" class="btn btn-sm btn-secondary" title="Xuất toàn bộ cẩm nang thành Obsidian Vault ZIP">
-                <i data-lucide="archive"></i> Vault .zip
-              </button>
+              <div style="display: flex; gap: 6px;">
+                <button type="button" id="btn-law-export-full-book" class="btn btn-sm btn-primary" title="Xuất toàn bộ 19 văn bản thành 1 tệp Word (.docx) hoàn chỉnh phục vụ in ấn">
+                  <i data-lucide="book"></i> Toàn Bộ (.docx)
+                </button>
+                <button type="button" id="btn-law-export-vault" class="btn btn-sm btn-secondary" title="Xuất toàn bộ cẩm nang thành Obsidian Vault ZIP">
+                  <i data-lucide="archive"></i> Vault .zip
+                </button>
+              </div>
             </div>
             <div class="law-groups-list" id="law-groups-container">
               <!-- Dynamically populated from /api/law/categories -->
@@ -4113,7 +4118,7 @@
           <div class="ba-card" style="margin-top: 16px;">
             <div class="ba-card-header">
               <div class="ba-card-title"><i data-lucide="table"></i> Ma Trận Ánh Xạ Dữ Liệu Nguồn - Đích (Source-to-Target Mapping)</div>
-              <div class="ba-badge-info" style="font-size: 12px; color: #94a3b8;">Phục vụ tích hợp API, Database Migration &amp; ETL</div>
+              <div class="ba-badge-info" style="font-size: 12px; color: var(--text-secondary);">Phục vụ tích hợp API, Database Migration &amp; ETL</div>
             </div>
             <div class="ba-card-body">
               <div class="ba-table-container">
@@ -4150,10 +4155,10 @@
           <div class="ba-card" style="margin-top: 16px;">
             <div class="ba-card-header">
               <div class="ba-card-title"><i data-lucide="code-2"></i> Trình Chuyển Đổi Mô Hình Cơ Sở Dữ Liệu 2 Chiều (DBML Studio)</div>
-              <div class="ba-badge-info" style="font-size: 12px; color: #94a3b8;">DBML &harr; SQL DDL &harr; Mermaid ERD Diagram</div>
+              <div class="ba-badge-info" style="font-size: 12px; color: var(--text-secondary);">DBML &harr; SQL DDL &harr; Mermaid ERD Diagram</div>
             </div>
             <div class="ba-card-body">
-              <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 12px; line-height: 1.5;">
+              <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.5;">
                 Đặc tả cơ sở dữ liệu bằng ngôn ngữ DBML (Database Markup Language) tinh gọn như Markdown. Tự động sinh câu lệnh SQL DDL chuẩn hoặc chuyển đổi thành sơ đồ Mermaid ERD để nhúng vào tài liệu BRD.
               </p>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 12px;">
@@ -4196,10 +4201,10 @@ Table orders {
           <div class="ba-card" style="margin-top: 16px;">
             <div class="ba-card-header">
               <div class="ba-card-title"><i data-lucide="git-commit"></i> Satsuma-Style Data Mapping DSL &amp; Lineage Analyzer</div>
-              <div class="ba-badge-info" style="font-size: 12px; color: #94a3b8;">Cú pháp DSL gọn gàng &amp; Ngăn ngừa tràn chuỗi / Ép kiểu sai</div>
+              <div class="ba-badge-info" style="font-size: 12px; color: var(--text-secondary);">Cú pháp DSL gọn gàng &amp; Ngăn ngừa tràn chuỗi / Ép kiểu sai</div>
             </div>
             <div class="ba-card-body">
-              <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 12px; line-height: 1.5;">
+              <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.5;">
                 Định nghĩa quy tắc chuyển đổi dữ liệu nhanh bằng cú pháp: <code>Source.Column -&gt; Target.Column [Transformation Rule]</code>. Hệ thống tự động phân tích tính tương thích kiểu dữ liệu và vẽ biểu đồ dòng chảy dữ liệu (Data Lineage).
               </p>
               <div style="margin-bottom: 12px;">
@@ -4240,7 +4245,7 @@ legacy_crm.f_name -> digital_bank.full_name [Concatenate]"></textarea>
           <div class="ba-card">
             <div class="ba-card-header">
               <div class="ba-card-title"><i data-lucide="git-compare"></i> Động Cơ Đối Soát Dữ Liệu Hai Chiều (Two-Way Reconciliation)</div>
-              <div class="ba-badge-info" style="font-size: 12px; color: #94a3b8;">Khớp bản ghi chéo, tính dung sai sai số &amp; xuất báo cáo 4-Sheet</div>
+              <div class="ba-badge-info" style="font-size: 12px; color: var(--text-secondary);">Khớp bản ghi chéo, tính dung sai sai số &amp; xuất báo cáo 4-Sheet</div>
             </div>
             <div class="ba-card-body">
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 16px;">
@@ -4312,7 +4317,7 @@ legacy_crm.f_name -> digital_bank.full_name [Concatenate]"></textarea>
                 <div class="ba-card-title"><i data-lucide="file-check"></i> Sinh Ma Trận Kiểm Thử Nghiệm Thu (UAT Checklist)</div>
               </div>
               <div class="ba-card-body">
-                <p style="font-size: 13px; color: #cbd5e1; line-height: 1.5;">
+                <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
                   Tự động chuyển đổi các kịch bản User Story và Gherkin thành bảng kiểm thử nghiệm thu người dùng (UAT Checklist) với dropdown in-cell OpenXML (Pass / Fail / Blocked) và định dạng màu sắc tự động.
                 </p>
                 <div style="display: flex; flex-direction: column; gap: 10px; margin: 12px 0;">
@@ -4339,7 +4344,7 @@ legacy_crm.f_name -> digital_bank.full_name [Concatenate]"></textarea>
                 <div class="ba-card-title"><i data-lucide="git-compare"></i> Thẩm Định Thay Đổi Tài Liệu (Legal Redline Diff)</div>
               </div>
               <div class="ba-card-body">
-                <p style="font-size: 13px; color: #cbd5e1; line-height: 1.5;">
+                <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5;">
                   So sánh 2 phiên bản tài liệu yêu cầu (BRD / SRS v1 vs v2). Tự động tạo tài liệu Word chuẩn Track Changes (gạch ngang màu đỏ nội dung xóa, gạch chân màu xanh nội dung thêm mới).
                 </p>
                 <div style="display: flex; flex-direction: column; gap: 10px; margin: 12px 0;">
@@ -4365,10 +4370,10 @@ legacy_crm.f_name -> digital_bank.full_name [Concatenate]"></textarea>
           <div class="ba-card" style="margin-top: 16px;">
             <div class="ba-card-header">
               <div class="ba-card-title"><i data-lucide="terminal"></i> Bộ 7 Bài Test SQL Tự Động Kiểm Toán Dữ Liệu (prachitparikh/ba-toolkit)</div>
-              <div class="ba-badge-info" style="font-size: 12px; color: #94a3b8;">Orphan records, duplicates, nulls, range, status conflicts, timestamps, variance sum</div>
+              <div class="ba-badge-info" style="font-size: 12px; color: var(--text-secondary);">Orphan records, duplicates, nulls, range, status conflicts, timestamps, variance sum</div>
             </div>
             <div class="ba-card-body">
-              <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 14px; line-height: 1.5;">
+              <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.5;">
                 Sinh tự động bộ 7 câu truy vấn SQL chuẩn cho BA nghiệm thu và đối soát dữ liệu (UAT Sign-off) trước khi phát hành tính năng lên Production. Hỗ trợ đa hệ cơ sở dữ liệu: PostgreSQL, Microsoft SQL Server, Oracle và MySQL.
               </p>
               <div class="ba-sub-box" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 14px; padding: 14px;">
@@ -4427,10 +4432,10 @@ legacy_crm.f_name -> digital_bank.full_name [Concatenate]"></textarea>
           <div class="ba-card" style="margin-top: 16px;">
             <div class="ba-card-header">
               <div class="ba-card-title"><i data-lucide="alert-octagon"></i> Phân Tích Độ Phình Phạm Vi &amp; Tác Động Thay Đổi (Scope Creep Analysis)</div>
-              <div class="ba-badge-info" style="font-size: 12px; color: #94a3b8;">Semantic Delta &amp; Effort Estimator (Man-days)</div>
+              <div class="ba-badge-info" style="font-size: 12px; color: var(--text-secondary);">Semantic Delta &amp; Effort Estimator (Man-days)</div>
             </div>
             <div class="ba-card-body">
-              <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 14px; line-height: 1.5;">
+              <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.5;">
                 Tự động bóc tách các thay đổi ngữ nghĩa giữa 2 bản tài liệu yêu cầu (Yêu cầu mới, Thay đổi logic, Cắt giảm phạm vi) và ước tính sơ bộ khối lượng công việc (Man-days) phát sinh phục vụ đàm phán Change Request (CR).
               </p>
               <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 14px;">
@@ -4460,10 +4465,10 @@ legacy_crm.f_name -> digital_bank.full_name [Concatenate]"></textarea>
           <div class="ba-card" style="margin-top: 16px;">
             <div class="ba-card-header">
               <div class="ba-card-title"><i data-lucide="file-output"></i> Biên Dịch Obsidian Vault Sang Word BRD / SRS (ObsidianVaultCompiler)</div>
-              <div class="ba-badge-info" style="font-size: 12px; color: #94a3b8;">Local-First Markdown &rarr; OpenXML Word &amp; PDF</div>
+              <div class="ba-badge-info" style="font-size: 12px; color: var(--text-secondary);">Local-First Markdown &rarr; OpenXML Word &amp; PDF</div>
             </div>
             <div class="ba-card-body">
-              <p style="font-size: 13px; color: #cbd5e1; margin-bottom: 14px; line-height: 1.5;">
+              <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; line-height: 1.5;">
                 Tải lên tệp nén <strong>Obsidian Vault (.zip)</strong> của bạn. Hệ thống sẽ tự động quét toàn bộ cây tài liệu Markdown, giải mã các liên kết hai chiều <code>[[Wikilinks]]</code> thành <strong>Bookmark &amp; Hyperlink nội bộ</strong>, bảo toàn bảng OpenXML chống rách trang (<code>cantSplit</code>, <code>tblHeader</code>) và xuất bản tài liệu BRD hoàn chỉnh sẵn sàng trình ký.
               </p>
               <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 16px; margin-bottom: 14px;">
@@ -4570,7 +4575,7 @@ legacy_crm.f_name -> digital_bank.full_name [Concatenate]"></textarea>
             <i data-lucide="book-open" style="color: #38bdf8; width: 22px; height: 22px;"></i>
             <div>
               <h3>Cẩm Nang Hướng Dẫn Sử Dụng &amp; Tra Cứu Nhanh</h3>
-              <span style="font-size: 11px; color: #94a3b8;">Antigravity Office &amp; BA Enterprise Studio v4.6.0</span>
+              <span style="font-size: 11px; color: var(--text-secondary);">Antigravity Office &amp; BA Enterprise Studio v4.6.0</span>
             </div>
           </div>
           <div class="guide-search-wrapper">
