@@ -11,7 +11,10 @@ from typing import Any, Dict
 
 import fitz
 import openpyxl
+import pytest
 from docx import Document
+
+pytest.importorskip("core.ba_hub")
 
 from core.ba_hub.copilot_provider import (
     CopilotOrchestrator,

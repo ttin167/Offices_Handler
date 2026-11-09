@@ -77,7 +77,19 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy application codebase and install package in editable mode
+# Note: BA Enterprise Workstation & Academy (core/ba_hub, specs/ba_*, etc.) is 100% Local-First
+# and strictly excluded from Docker / Render Cloud builds via .dockerignore and explicit pruning below.
 COPY . /app/
+RUN rm -rf /app/core/ba_hub \
+           /app/cli/ba_commands.py \
+           /app/cli/ba_print_commands.py \
+           /app/specs/ba_*.json \
+           /app/labor_law_vault \
+           /app/ba_academy_vault \
+           /app/data/labor_law \
+           /app/tests/test_ba_*.py \
+           /app/tests/test_labor_law_*.py \
+           /app/tests/test_regulatory_*.py || true
 RUN pip install --no-cache-dir --no-deps -e .
 
 # Copy compiled static frontend from Stage 1 into /app/dist

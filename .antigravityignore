@@ -115,12 +115,13 @@ Desktop.ini
 *.swo
 
 # ------------------------------------------------------------------------------
-# 11. LOCAL LABOR LAW & BA ENTERPRISE WORKSTATION (CONFIDENTIAL IP, LOCAL-ONLY)
+# 11. LOCAL LABOR LAW & BA ENTERPRISE WORKSTATION & ACADEMY (CONFIDENTIAL IP, LOCAL-ONLY)
 # ------------------------------------------------------------------------------
 core/ba_hub/
 cli/ba_commands.py
 cli/ba_print_commands.py
 .agents/skills/ba-workspace/
+specs/ba_*.json
 tests/test_ba_*.py
 tests/test_labor_law_*.py
 tests/test_regulatory_*.py
@@ -128,6 +129,10 @@ labor_law_vault/
 *.labor_law_vault.zip
 .labor_law_fts.db
 .labor_law_fts.db*
+.universal_rag_fts.db
+.universal_rag_fts.db*
+ba_academy_vault/
+.ba_academy.db*
 data/labor_law/
 
 
