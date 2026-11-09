@@ -27,10 +27,26 @@ try:
     import win32api
     import win32con
     import win32print
+    import win32ui
 except ImportError:
     win32api = None
     win32con = None
     win32print = None
+    win32ui = None
+
+try:
+    from PIL import Image, ImageWin
+except ImportError:
+    Image = None
+    ImageWin = None
+
+try:
+    import pymupdf as fitz
+except ImportError:
+    try:
+        import fitz  # type: ignore
+    except ImportError:
+        fitz = None
 
 from .print_optimizer import PrintOptimizer
 
@@ -133,6 +149,79 @@ class PrinterManager:
         return None
 
     @classmethod
+    def _spool_via_gdi(
+        cls,
+        pdf_path: str,
+        printer_name: str,
+        job_name: str = "Antigravity Print Job",
+        copies: int = 1,
+        target_dpi: int = 300,
+    ) -> bool:
+        """
+        Natively spools PDF pages directly into Windows GDI printer DC.
+        100% silent, instantaneous, and immune to external browser timeouts or profile locks.
+        """
+        if sys.platform != "win32" or win32ui is None or win32con is None or Image is None or ImageWin is None or fitz is None:
+            return False
+
+        if not os.path.isfile(pdf_path):
+            return False
+
+        doc = fitz.open(pdf_path)
+        if len(doc) == 0:
+            doc.close()
+            return False
+
+        hdc = None
+        doc_started = False
+        try:
+            hdc = win32ui.CreateDC()
+            hdc.CreatePrinterDC(printer_name)
+
+            horz_res = hdc.GetDeviceCaps(win32con.HORZRES)
+            vert_res = hdc.GetDeviceCaps(win32con.VERTRES)
+            log_x = hdc.GetDeviceCaps(win32con.LOGPIXELSX) or 300
+            render_dpi = min(max(log_x, 150), target_dpi)
+
+            hdc.StartDoc(job_name)
+            doc_started = True
+
+            for _ in range(max(1, copies)):
+                for pno in range(len(doc)):
+                    page = doc[pno]
+                    pix = page.get_pixmap(dpi=render_dpi, alpha=False)
+                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                    dib = ImageWin.Dib(img)
+
+                    hdc.StartPage()
+                    scale = min(horz_res / pix.width, vert_res / pix.height)
+                    dest_w = int(pix.width * scale)
+                    dest_h = int(pix.height * scale)
+                    off_x = max(0, (horz_res - dest_w) // 2)
+                    off_y = max(0, (vert_res - dest_h) // 2)
+
+                    dib.draw(hdc.GetHandleOutput(), (off_x, off_y, off_x + dest_w, off_y + dest_h))
+                    hdc.EndPage()
+
+            hdc.EndDoc()
+            doc_started = False
+            return True
+        except Exception:
+            if doc_started and hdc is not None:
+                try:
+                    hdc.AbortDoc()
+                except Exception:
+                    pass
+            return False
+        finally:
+            doc.close()
+            if hdc is not None:
+                try:
+                    hdc.DeleteDC()
+                except Exception:
+                    pass
+
+    @classmethod
     def get_device_capabilities(cls, printer_name: Optional[str] = None) -> Dict[str, Any]:
         """
         Inspects printer hardware capabilities (DC_BINS, DC_DUPLEX, DC_PAPERS)
@@ -140,6 +229,15 @@ class PrinterManager:
         """
         target = printer_name or cls.get_default_printer()
         if not target or sys.platform != "win32" or win32print is None or win32con is None:
+            return {
+                "printer": target,
+                "supported_bins": (),
+                "supports_duplex": False,
+                "is_virtual": True,
+            }
+
+        is_virtual = any(v in target.lower() for v in ["virtual", "buffer", "pdf", "xps", "onenote", "fax"])
+        if is_virtual:
             return {
                 "printer": target,
                 "supported_bins": (),
@@ -159,12 +257,11 @@ class PrinterManager:
             except Exception:
                 supports_duplex = False
 
-            is_virtual = any(v in target.lower() for v in ["pdf", "xps", "onenote", "fax"])
             return {
                 "printer": target,
                 "supported_bins": bins,
                 "supports_duplex": supports_duplex,
-                "is_virtual": is_virtual,
+                "is_virtual": False,
             }
         except Exception:
             return {
@@ -442,32 +539,64 @@ class PrinterManager:
 
         # Step 4: Physical Spooling on Windows
         if sys.platform == "win32":
+            # Priority 1: Native Windows GDI Spooler (100% silent, instantaneous, immune to browser locks)
+            try:
+                gdi_ok = cls._spool_via_gdi(printable_pdf, target_printer, job_name=job_name, copies=copies)
+                if gdi_ok:
+                    return {
+                        **base_res,
+                        "mode": "WIN32_GDI_DIRECT",
+                        "status": "SENT_TO_PRINTER"
+                    }
+            except Exception:
+                pass
+
+            # Priority 2: ShellExecute printto
+            if win32api is not None:
+                try:
+                    for _ in range(copies):
+                        win32api.ShellExecute(0, "printto", printable_pdf, f'"{target_printer}"', ".", 0)
+                    return {
+                        **base_res,
+                        "mode": "SHELLEXECUTE_PRINTTO",
+                        "status": "SENT_TO_PRINTER"
+                    }
+                except Exception:
+                    pass
+
+            # Priority 3: Headless Edge (with safe timeout and exception catch)
             edge_bin = cls._find_edge_binary()
             if edge_bin and silent:
-                # Priority 1: Headless Edge (100% silent, standard on Windows 10/11)
-                cmd = [
-                    edge_bin,
-                    "--headless",
-                    "--disable-gpu",
-                    f"--print-to-printer={target_printer}",
-                    printable_pdf
-                ]
-                for _ in range(copies):
-                    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=25)
-                return {
-                    **base_res,
-                    "mode": "EDGE_HEADLESS_SPOOL",
-                    "status": "SENT_TO_PRINTER"
-                }
-            elif win32api is not None:
-                # Priority 2: ShellExecute printto
-                for _ in range(copies):
-                    win32api.ShellExecute(0, "printto", printable_pdf, f'"{target_printer}"', ".", 0)
-                return {
-                    **base_res,
-                    "mode": "SHELLEXECUTE_PRINTTO",
-                    "status": "SENT_TO_PRINTER"
-                }
+                try:
+                    cmd = [
+                        edge_bin,
+                        "--headless",
+                        "--disable-gpu",
+                        f"--print-to-printer={target_printer}",
+                        printable_pdf
+                    ]
+                    for _ in range(copies):
+                        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+                    return {
+                        **base_res,
+                        "mode": "EDGE_HEADLESS_SPOOL",
+                        "status": "SENT_TO_PRINTER"
+                    }
+                except Exception:
+                    pass
+
+            # Priority 4: Graceful Virtual Spool fallback if hardware driver blocks execution
+            spool_dir = os.path.abspath(os.path.join(os.getcwd(), "output", "spool"))
+            os.makedirs(spool_dir, exist_ok=True)
+            spool_file = os.path.join(spool_dir, f"{job_id}_{os.path.basename(file_path)}.pdf")
+            shutil.copy2(printable_pdf, spool_file)
+            return {
+                **base_res,
+                "spooled_file": spool_file,
+                "mode": "VIRTUAL_SPOOL_FALLBACK",
+                "status": "QUEUED",
+                "hardware_warning": f"Không thể gửi lệnh in trực tiếp đến driver '{target_printer}'. Tệp in đã được đệm an toàn tại output/spool/."
+            }
 
         # Step 5: Physical Spooling on Linux / CUPS
         else:

@@ -174,3 +174,16 @@ def test_printer_manager_print_file_enterprise():
         assert len(doc) == 3  # pages 1, 2, 5
         doc.close()
 
+
+def test_printer_manager_spool_via_gdi():
+    with tempfile.TemporaryDirectory() as tmp:
+        src = os.path.join(tmp, "doc_gdi.pdf")
+        create_multi_page_pdf(src, pages=2)
+
+        # Non-existent file returns False safely
+        assert PrinterManager._spool_via_gdi("non_existent.pdf", "Mock Printer") is False
+
+        # Non-existent printer returns False safely without crash
+        assert PrinterManager._spool_via_gdi(src, "NonExistentPrinter12345") is False
+
+
