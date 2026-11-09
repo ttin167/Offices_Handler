@@ -13,6 +13,11 @@ from . import print_routes
 from . import doc_routes
 from . import copilot_routes
 
+try:
+    from . import ba_academy_routes  # noqa: F401
+except ImportError:
+    pass
+
 __all__ = [
     "Router",
     "router",

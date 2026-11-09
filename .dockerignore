@@ -65,6 +65,8 @@ excel_assets/
 core/ba_hub/
 cli/ba_commands.py
 cli/ba_print_commands.py
+server/routes/ba_academy_routes.py
+src/modules/ba_academy_workstation.js
 .agents/skills/ba-workspace/
 specs/ba_*.json
 tests/test_ba_*.py
