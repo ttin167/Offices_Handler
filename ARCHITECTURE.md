@@ -2,7 +2,7 @@
 
 > **Phiên bản**: 5.0.0 (Enterprise Omni-Studio, AST Offline Formula Engine, Industrial Vector Print, In-Browser Viewers & Universal FTS5 RAG Copilot Architecture v5.0)  
 > **Tiêu chuẩn**: Zero-Regression, 100% Backward Compatibility, Strict Layer Isolation, Clean-Room MIT Compliance  
-> **Test Suite**: 442+ Automated Tests (100% Pass Rate) | **MCP Tools**: 47 Tools
+> **Test Suite**: 507+ Automated Tests (100% Pass Rate) | **MCP Tools**: 48 Tools
 
 ---
 
@@ -19,7 +19,7 @@ Hệ thống được tổ chức theo mô hình phân tầng chặt chẽ (Clea
                                             ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                              2. Interface & Protocol Layer                             │
-│   Web REST API (server/app.py :8000)      │ Model Context Protocol (46 Tools)          │
+│   Web REST API (server/app.py :8000)      │ Model Context Protocol (48 Tools)          │
 │   SSE Task Manager (server/job_manager)   │ AI Unified CLI (cli/ai_tools + v46_cmds)   │
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
                                             │
@@ -108,13 +108,14 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
     - `obsidian_vault.py`: Động cơ đóng gói & biên dịch 2 chiều Obsidian Vault (`.zip`), xuất đồ thị tri thức yêu cầu (Knowledge Graph) với liên kết `[[Wikilinks]]` và biên dịch ngược sang Word BRD (`<w:bookmarkStart>`, `<w:hyperlink>`).
     - `decision_table.py`: Động cơ sinh và kiểm toán bảng quyết định logic điều kiện - hành động (Decision Table & Matrix Generator) chuẩn BABOK v3, kiểm tra tính toàn vẹn (Completeness) và mâu thuẫn (Contradiction).
     - `meeting_parser.py`: Bộ bóc tách biên bản họp nghiệp vụ thô (Meeting Notes Parser) thành User Stories 3 thành phần, Quy tắc nghiệp vụ (Business Rules), Giả định (Assumptions) và Hành động (Action Items).
-    - `labor_law_kb.py`: Quản trị và sinh kho tri thức Luật Lao Động, Tiền Lương & Quản trị Nhân sự Việt Nam 2026+ cục bộ (20 atomic notes + native Obsidian Canvas v1.0 `Legal_Overview.canvas`), cách ly bảo mật 100% tại máy trạm (`labor_law_vault/`).
-    - `labor_law_search.py`: Động cơ tìm kiếm toàn văn cục bộ siêu tốc SQLite FTS5 (`unicode61 remove_diacritics 2`) tra cứu luật lao động, chính sách 2026+, và tham số tính lương với độ trễ $< 2\text{ms}$ (`.labor_law_fts.db`).
-    - `labor_law_compliance.py`: Cầu nối khai thác tri thức cho BA: Bộ kiểm toán tuân thủ luật lao động & sinh kịch bản Gherkin AC (OT đêm 200%/210%, trần BHXH/BHYT 50.6M vs BHTN 106.2M, giảm trừ gia cảnh 15.5M/6.2M, tuổi nghỉ hưu 2026), tích hợp đối soát bảng lương `DataReconciliationEngine`, và Bảng quyết định BABOK v3.
+    - `labor_law_kb.py`: Quản trị và sinh kho tri thức Luật Lao Động, Tiền Lương & Quản trị Nhân sự Việt Nam 2026+ cục bộ (22 atomic notes + native Obsidian Canvas v1.0 `Legal_Overview.canvas`), bao quát toàn diện Hợp đồng lao động (Điều 20-21 BLLĐ 2019, TT 10/2020/TT-BLĐTBXH), Phụ lục HĐLĐ (Điều 22, nguyên tắc cấm sửa đổi thời hạn, phạt tiền NĐ 12/2022/NĐ-CP, 3 ngoại lệ CĐCS/Người cao tuổi/NLĐ nước ngoài, quy trình đàm phán Điều 33) cùng bộ biểu mẫu HĐLĐ và Phụ lục đa năng, cách ly bảo mật 100% tại máy trạm (`labor_law_vault/`).
+    - `labor_law_search.py`: Động cơ tìm kiếm toàn văn cục bộ siêu tốc SQLite FTS5 (`unicode61 remove_diacritics 2`) tra cứu luật lao động, chính sách 2026+, và tham số tính lương với độ trễ $< 2\text{ms}$ (`.labor_law_fts.db`), hỗ trợ tìm kiếm linh hoạt phụ âm tiếng Việt `d`/`đ`.
+    - `labor_law_compliance.py`: Cầu nối khai thác tri thức cho BA: Bộ kiểm toán tuân thủ luật lao động & sinh kịch bản Gherkin AC (kiểm toán vi phạm Điều 20 & 22 BLLĐ 2019, OT đêm 200%/210%, trần BHXH/BHYT 50.6M vs BHTN 106.2M, giảm trừ gia cảnh 15.5M/6.2M, tuổi nghỉ hưu 2026), tích hợp đối soát bảng lương `DataReconciliationEngine`, và Bảng quyết định BABOK v3 vòng đời HĐLĐ.
     - `regulatory_watcher.py`: Đường ống tự động giám sát văn bản quy phạm pháp luật (Regulatory Watcher), bóc tách tham số chính sách mới, sinh bản thảo Staging và cơ chế phê duyệt 1-Click sáp nhập kho tri thức kèm Atomic Rollback Guard.
     - `regulatory_notifier.py`: Module gửi email cảnh báo chính sách mới qua giao thức SMTP Gmail bảo mật không phụ thuộc thư viện ngoài.
     - `copilot_provider.py`: Kết nối đa hình Hybrid LLM (`BaseCopilotProvider`, `LocalOllamaProvider` tại `localhost:11434`, `GoogleGeminiProvider` ngữ cảnh 1M+ tokens, và `CopilotOrchestrator`) kèm tổng hợp RAG ngoại tuyến và sinh Thẻ Hành Động (`CopilotActionCard`).
     - `universal_rag.py`: Động cơ lập chỉ mục và truy xuất ngữ nghĩa đa định dạng (`UniversalRAGEngine`) dùng SQLite FTS5 (`unicode61 remove_diacritics 2`, chế độ WAL) cho các tệp PDF, DOCX, XLSX, CSV, JSON, và Markdown.
+    - `hr_governance.py`: Động cơ Quản trị Nhân sự & Phân quyền Cấp Dữ liệu (Enterprise HR Governance Engine): Đặc tả và thực thi 6 Cấp độ Phạm vi Dữ liệu (6 Data Scopes: GLOBAL, LEGAL_ENTITY, BUSINESS_UNIT, DEPARTMENT_TREE, DIRECT_TEAM, SELF_ONLY) với bộ sinh SQL Predicate đệ quy cây OM, Động cơ kiểm toán xung đột kiểm soát chéo SoD (Maker-Checker, Admin-Business Isolation, Self-Modification Guard), Quy trình Thôi việc (OFB) 4 cổng độc lập (Manager -> IT -> Facility -> Finance -> HR Close), và Schema DBML/SQL DDL toàn diện cho OM & Core HR.
   - `core/printing/` (Enterprise Printing Engine):
     - `printer_manager.py`: Bộ điều phối máy in doanh nghiệp, giao tiếp trực tiếp Windows Spooler API qua `win32print`, hỗ trợ truy vấn trạng thái phần cứng và hàng đợi (`get_printer_status`) phát hiện sớm hết giấy (`JOB_STATUS_PAPEROUT`), kẹt giấy (`PRINTER_STATUS_PAPER_JAM`), ngoại tuyến (`OFFLINE`), cấu hình phần cứng `DEVMODE` (chọn khay giấy `tray_id`, in 2 mặt tiêu chuẩn `duplex`: `vertical` lật cạnh dài, `horizontal` lật cạnh ngắn, `simplex` 1 mặt) kèm chốt chặn **G2 (`DeviceCapabilities DC_BINS` / `DC_DUPLEX` pre-check)** chống lỗi trên máy in ảo, tự động phát hiện danh sách máy in mạng/nội bộ, hỗ trợ in ngầm (Silent Print) không cần hộp thoại UI, cơ chế fallback Edge Headless và Virtual Spool đệm PDF trên môi trường Linux/Cloud container.
     - `print_optimizer.py`: Bộ tiền xử lý tài liệu in ấn bằng PyMuPDF (`fitz`): Phân tích cú pháp dải trang thông minh (`parse_page_ranges`) hỗ trợ biểu thức `1-5, 8, 11-20` và trích xuất trang (`doc.select`), chuẩn hóa khổ giấy đích (`A4`, `Letter`, `A3`) và căn chỉnh lề an toàn (`fit` thu vừa vùng in máy in chống mất mép viền bảng biểu `ERR_PRINT_001` vs `actual` giữ 100% kích thước gốc), chuyển đổi thang xám Vector nguyên bản (`_apply_vector_grayscale` chuyển toán tử màu sang `/DeviceGray` bảo toàn 100% font chữ vector), bố cục ghép trang đa trang N-Up (2-Up / 4-Up), sắp xếp thứ tự trang in đóng sách kèm bù trượt lề gáy sách (`_apply_booklet_imposition` Shingling Creep Compensation $\Delta x = k \times \text{thickness\_pt}$), dấu thủy ấn bảo mật (Confidential Watermark), và chốt chặn an toàn lề in chống mất chữ `ERR_PRINT_001` (Margin Safety Guard $\ge 5\text{mm}$).
@@ -136,7 +137,7 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
 ### 2.2. `server/` — Tầng Giao Thức & Cung Cấp Dịch Vụ (Web API, MCP, SSE)
 
 - `app.py`: REST API Server nhẹ nhàng dựa trên `http.server`, phục vụ Web Studio cổng `8000`. Cung cấp endpoints cho conversion, history, mail merge, ocr, diff, math, static assets, trọn bộ PDF Pro Endpoints, Atomic Office Endpoints, Formula Playbook Endpoints, trọn bộ Enterprise Printing Endpoints (`/api/print/printers`, `/api/print/status`, `/api/print/job`), trọn bộ System Maintenance Endpoints (`/api/system/maintenance`, `/api/system/vitals`), trọn bộ UI Wireframe Studio Endpoints (`/api/diagram/wireframe/templates`, `/api/diagram/wireframe/render`, `/api/diagram/wireframe/inject-doc`), và trọn bộ BA Enterprise Endpoints (`/api/ba/templates`, `/api/ba/story/lint`, `/api/ba/story/export`, `/api/ba/usecase/lint`, `/api/ba/usecase/export`, `/api/ba/brd/generate`, `/api/ba/data-dict/scan-excel`, `/api/ba/data-dict/scan-ddl`, `/api/ba/data-dict/export`, `/api/ba/reconciliation/run`, `/api/ba/uat/generate`, `/api/ba/rtm/generate`, `/api/ba/dbml/convert`, `/api/ba/satsuma/lineage`, `/api/ba/sql/test-suite`, `/api/ba/scope-creep/audit`, `/api/ba/obsidian/export-vault`, `/api/ba/obsidian/compile-vault`, `/api/ba/openapi/scan`, `/api/ba/decision-table/generate`, `/api/ba/meeting/parse`).
-- `mcp_server.py`: Model Context Protocol Server (STDIO JSON-RPC 2.0) tương thích với Claude Desktop, Cursor, và Antigravity IDE. Đăng ký **47 tools** chuẩn:
+- `mcp_server.py`: Model Context Protocol Server (STDIO JSON-RPC 2.0) tương thích với Claude Desktop, Cursor, và Antigravity IDE. Đăng ký **48 tools** chuẩn:
   - Macro Tools (11): `env_doctor`, `doc_convert`, `doc_inspect`, `doc_insert_diagram`, `docx_patch`, `docx_apply_preset`, `docx_sanitize_vietnamese`, `pptx_synthesize`, `diagram_render`, `doc_mail_merge`, `doc_redline_diff`, `doc_ocr_scan`, `pdf_quick_tools`.
   - Atomic Office Tools (8): `xlsx_set_cell`, `xlsx_set_range`, `xlsx_insert_rows`, `xlsx_find_anchor`, `docx_inspect_placeholders`, `docx_replace_text`, `docx_insert_paragraph`, `docx_insert_table`.
   - Formula Playbook & Offline AST Evaluator Tools (2): `xlsx_formula_helper`, `xlsx_evaluate_formulas`.
@@ -146,6 +147,7 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
   - Enterprise Printing Tools (3): `doc_list_printers`, `doc_printer_status`, `doc_print_job`.
   - Vietnamese Labor Law & Regulatory Tools (4): `law_knowledge_search`, `law_compliance_lint`, `regulatory_watch_scan`, `regulatory_approve_update`.
   - Universal RAG & Hybrid AI Copilot Tools (2): `universal_rag_search`, `copilot_assist`.
+  - Enterprise HR Governance & Data Scopes Tool (1): `hr_governance_blueprint`.
   - System Maintenance Tool (1): `system_maintenance`.
 - `job_manager.py`: Server-Sent Events (SSE) background task manager và job queue, cho phép theo dõi tiến trình OCR, mail merge, render và in ấn theo thời gian thực.
 - `job_queue.py`: Hàng đợi tác vụ bền bỉ trên SQLite (`PersistentJobQueue`) tuân thủ chốt chặn **G1 (`PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;`)**, cơ chế Retry Exponential Backoff và bộ quét phục hồi sau sự cố (`recover_stale_jobs`).
@@ -185,6 +187,7 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
 - `law-init-vault`, `law-search`, `law-story-lint`, `law-reconcile-payroll`: Quản trị kho tri thức Luật Lao Động & Tiền Lương cục bộ, tìm kiếm FTS5 sub-2ms, linter kịch bản tuân thủ pháp lý và đối soát bảng lương.
 - `law-notify-test`, `law-watch-scan`, `law-merge-update`: Đường ống giám sát pháp lý tự động (Regulatory Watcher), gửi email thông báo HTML qua SMTP Gmail, và phê duyệt sáp nhập 1-Click với Atomic Rollback Guard.
 - `rag-index`, `rag-search`, `copilot-chat`: Lập chỉ mục và truy xuất ngữ nghĩa đa định dạng qua Universal SQLite FTS5 RAG và hỏi đáp với Hybrid AI Copilot kèm Thẻ Hành Động.
+- `hr-governance`: Động cơ Quản trị Nhân sự doanh nghiệp (Enterprise Core HR Governance): Đặc tả & đánh giá 6 Loại Phạm vi Dữ liệu (6 Data Scopes), kiểm toán xung đột kiểm soát chéo SoD (Maker-Checker, Admin-Business Isolation, Self-Modification Guard), kiểm định quy trình Thôi việc (OFB) 4 cổng độc lập, và xuất mã nguồn DBML / SQL DDL cho OM & Core HR.
 - `print-list`, `print-status`, `print-doc`: Liệt kê máy in hệ thống, tra cứu trạng thái phần cứng (hết giấy, kẹt giấy, offline, số lệnh chờ) và thực hiện in ngầm với bộ tối ưu hóa in ấn (Dải trang Page Range, Khổ giấy A4/Letter/A3, Căn lề Fit/Actual, Standard Duplex, Vector Grayscale `/DeviceGray`, N-Up, Booklet Creep Shingling, DEVMODE Tray/Duplex Guard G2, Margin Guard).
 - `system-maintenance`: Bộ công cụ bảo trì hệ thống 7 trụ cột (dọn lock files ~$*, kết liễu tiến trình mồ côi, vacuum SQLite, dọn cache, chẩn đoán Windows MPO).
 - `qa-audit`: Master QA diagnostic and repair pipeline 13 Cổng (`tools/unified_qa_diagnostic.py`).
@@ -267,6 +270,6 @@ Dự án được thiết kế theo chuẩn Clean-Room độc lập 100% với h
 1. **6 Entrypoints Chính Thức Tại Thư Mục Gốc**:
    Thư mục gốc chỉ giữ lại đúng 6 file entrypoint chính thức (`main.py`, `ai_tools_cli.py`, `web_api_server.py`, `mcp_server.py`, `spec_diagram_engine.py`, `diagram_editor.py`) cùng `__init__.py`. Toàn bộ các mô-đun nội bộ và bài kiểm thử trong `tests/` import trực tiếp từ cấu trúc phân tầng `core.*`, `server.*`, `cli.*`, `ui.*`.
 2. **100% Pass Rate Toàn Bộ Test Suite**:
-   Tất cả 323+ bài kiểm thử tự động trong `tests/` phải luôn luôn PASS 100% trước khi phát hành.
+   Tất cả 507+ bài kiểm thử tự động trong `tests/` phải luôn luôn PASS 100% trước khi phát hành.
 3. **Giữ Vững CLI Contract**:
    Tất cả cú pháp lệnh trong `AGENTS.md` và `pyproject.toml` tiếp tục hoạt động chính xác không thay đổi.

@@ -8,6 +8,68 @@ Welcome, AI Agent! This file is your operational manual for `antigravity-doc-han
 
 1. **High-Fidelity Document Processing**: Bidirectional conversion between PDF, DOCX, and Markdown with zero data loss, OpenXML table repair, and decoupled styling.
 2. **Precision Technical Diagram Engine**: Programmatic and declarative generation of publication-grade Hub & Spoke architecture and mobile screen flow diagrams (300+ DPI, vector SVG + headless Chromium PNG).
+3. **Enterprise Business Analysis & HR Governance Workstation**: BABOK v3/IEEE 830 BRD synthesis, User Story linter, 6 Canonical Data Scopes, Segregation of Duties (SoD) audit, 4-Gatekeeper OFB workflows, DBML 2-way schema, Universal FTS5 RAG & Hybrid AI Copilot.
+
+---
+
+## 🗺️ Schema-First Routing Table (AI Agent Direct Dispatch)
+
+> [!IMPORTANT]
+> **CRITICAL DIRECTIVE FOR AI AGENTS**:
+> Before performing any directory scan, recursive grep, or guessing file locations, **YOU MUST** consult the Routing Table below and navigate directly to the target file path. **DO NOT scan directories.**
+
+| User Task / Intent | Input Type | MCP Tool | CLI Subcommand | Target File Path (Core Implementation) |
+| --- | --- | --- | --- | --- |
+| **System Diagnostics** | Environment | `env_doctor()` | `ai_tools_cli.py doctor` | `core/env_doctor.py` (`run_doctor`) |
+| **Convert Doc (Lossless)** | PDF / DOCX / MD / HTML | `doc_convert(...)` | `ai_tools_cli.py convert` | `core/converter/engine.py` (`convert_universal`) |
+| **PDF Pro Suite & Security** | PDF / Images / Stamp | `pdf_quick_tools(...)` | `ai_tools_cli.py pdf-tools` | `core/converter/pdf_toolkit.py` (`PDFQuickToolkit`) |
+| **Inspect Document AST** | DOCX / PPTX / XLSX | `doc_inspect(...)` | `ai_tools_cli.py docx-read` / `pptx-inspect` | `core/docx/reader.py`, `core/pptx/reader.py` |
+| **Legal Redline Diff (Track Changes)** | DOCX v1 + DOCX v2 | `doc_redline_diff(...)` | `ai_tools_cli.py docx-diff` | `core/docx/diff_engine.py` (`compare_docx_documents`) |
+| **Batch Mail Merge & Templating** | DOCX + JSON / CSV | `doc_mail_merge(...)` | `ai_tools_cli.py docx-mail-merge` | `core/docx/writer.py`, `core/docx/mail_merge.py` |
+| **Unified Document QA Audit** | DOCX / XLSX | `doc_qa_audit(...)` | `ai_tools_cli.py qa-audit` | `core/qa/unified_audit.py` (`run_unified_qa`) |
+| **Vietnamese OCR & Scan Recovery** | Scanned PDF / Image | `doc_ocr_scan(...)` | `ai_tools_cli.py ocr-scan` | `core/converter/ocr_pipeline.py` (`VietnameseOcrPipeline`) |
+| **Inject Diagram Image** | DOCX / PPTX + PNG | `doc_insert_diagram(...)` | `ai_tools_cli.py docx-inject` / `pptx-insert-diagram` | `core/docx/writer.py` (`inject_diagram_into_docx`), `core/pptx/engine.py` |
+| **Render Technical Diagram** | Spec JSON / Raw Code | `diagram_render(...)` | `ai_tools_cli.py diagram-render` | `core/diagrams/bridge.py` (`render_diagram_file_to_png`) |
+| **Synthesize 16:9 Presentation** | DOCX / PDF / MD | `pptx_synthesize(...)` | `ai_tools_cli.py docx-to-pptx` / `pptx-from-md` | `core/pptx/docx_to_pptx.py` (`convert_docx_to_pptx`), `core/pptx/engine.py` |
+| **Excel Template Mutation** | XLSX + Patch JSON | (via REST API) | `ai_tools_cli.py xlsx-mutate` | `core/xlsx/writer.py` (`mutate_template_excel`) |
+| **Excel 12-Gate Audit** | XLSX Target + Ref | (via REST API) | `ai_tools_cli.py xlsx-validate` | `core/xlsx/validator.py` (`validate_excel_sheet`) |
+| **Atomic Excel Cell Edit** | XLSX + Cell + Value | `xlsx_set_cell(...)` / `xlsx_set_range(...)` | `ai_tools_cli.py xlsx-set` | `core/xlsx/writer.py` (`UniversalExcelEngine.set_cell`, `set_range`) |
+| **Atomic Excel Row Expansion** | XLSX + Row + Count | `xlsx_insert_rows(...)` | `ai_tools_cli.py xlsx-insert-rows` | `core/xlsx/writer.py` (`UniversalExcelEngine.insert_rows`) |
+| **Inspect Word Placeholders** | DOCX Template | `docx_inspect_placeholders(...)` | `ai_tools_cli.py docx-tokens` | `core/docx/mail_merge.py` (`inspect_template_tokens`) |
+| **Atomic Word Text Patching** | DOCX + Replacements | `docx_replace_text(...)` | `ai_tools_cli.py docx-replace` | `core/docx/writer.py` (`patch_docx_template`) |
+| **Atomic Word Paragraph/Table** | DOCX + Content | `docx_insert_paragraph(...)` / `docx_insert_table(...)` | (via MCP Tool) | `core/docx/writer.py` (`insert_paragraph_at_anchor`, `insert_table_at_anchor`) |
+| **Document Security Audit & Sanitizer** | Office Doc / CSV / Zip | `doc_security_audit(...)` | `ai_tools_cli.py doc-security` | `core/security/document_auditor.py`, `core/security/sanitizer.py` |
+| **PKCS#7 / PAdES Signing & PDF/A-2b** | PDF + Optional PFX | `pdf_crypto_sign_and_pdfa(...)` | `ai_tools_cli.py pdf-tools {crypto-sign,pdfa}` | `core/converter/pdf_toolkit.py` (`crypto_sign_pdf`, `convert_to_pdfa`) |
+| **Excel-to-Brief Report (Word/MD/PDF)** | XLSX Workbook | `xlsx_to_brief_report(...)` | `ai_tools_cli.py xlsx-to-brief` | `core/xlsx/reporting.py` (`excel_to_brief`) |
+| **Cross-Workbook Consolidation** | Multiple XLSX | `xlsx_consolidate_workbooks(...)` | `ai_tools_cli.py xlsx-consolidate` | `core/xlsx/reporting.py` (`consolidate_workbooks`) |
+| **Declarative Workflow Pipeline** | File/Dir + Spec | `doc_run_pipeline(...)` | `ai_tools_cli.py run-pipeline` | `core/pipeline/engine.py` (`WorkflowPipelineEngine`) |
+| **AST Code-to-Diagram & SVG Export** | Python / SQL / Prisma | `diagram_from_code(...)` | `ai_tools_cli.py code-to-diagram` | `core/diagrams/code_to_diagram.py` (`generate_diagram_from_code`) |
+| **Launch Native Web Studio App Mode** | Desktop App | (CLI / GUI Button) | `ai_tools_cli.py desktop-web` | `ui/webview_launcher.py` (`launch_native_web_studio`) |
+| **User Story BABOK Linter** | JSON / Text Spec | `ba_story_lint(...)` | `ai_tools_cli.py ba-story-lint` | `core/ba_hub/story_builder.py` (`UserStoryBuilder`) |
+| **Requirements Traceability Matrix** | Spec JSON | `ba_rtm_matrix(...)` | `ai_tools_cli.py ba-rtm-matrix` | `core/ba_hub/rtm_matrix.py` (`RTMMatrixEngine`) |
+| **DBML 2-Way Schema Conversion** | DBML / SQL DDL | `ba_dbml_convert(...)` | `ai_tools_cli.py ba-dbml-convert` | `core/ba_hub/dbml_converter.py` (`DBMLConverter`) |
+| **Satsuma Data Lineage Graph** | Satsuma Spec | (via CLI / API) | `ai_tools_cli.py ba-satsuma-lineage` | `core/ba_hub/satsuma_engine.py` (`SatsumaMappingEngine`) |
+| **7-Gate SQL Integrity Test Suite** | SQL DDL Schema | `ba_sql_integrity_suite(...)` | `ai_tools_cli.py ba-sql-suite` | `core/ba_hub/sql_integrity.py` (`SQLIntegritySuite`) |
+| **Scope Creep & Semantic Diff** | DOCX v1 + DOCX v2 | (via CLI / API) | `ai_tools_cli.py ba-scope-creep` | `core/ba_hub/scope_creep.py` (`ScopeCreepAuditor`) |
+| **Obsidian Vault Export (.zip)** | Project Spec | `ba_obsidian_export_vault(...)` | `ai_tools_cli.py ba-obsidian-export` | `core/ba_hub/obsidian_vault.py` (`ObsidianVaultExporter`) |
+| **Obsidian Vault Compile to Word** | Vault .zip Archive | `ba_obsidian_compile_vault(...)` | `ai_tools_cli.py ba-obsidian-compile` | `core/ba_hub/obsidian_vault.py` (`ObsidianVaultCompiler`) |
+| **OpenAPI / Swagger Data Dict Scan** | Swagger JSON / YAML | `ba_openapi_scan(...)` | `ai_tools_cli.py ba-openapi` | `core/ba_hub/data_dictionary.py` (`DataDictionaryScanner`) |
+| **BABOK Decision Table Matrix** | Condition/Action Spec | `ba_decision_table(...)` | `ai_tools_cli.py ba-decision-table` | `core/ba_hub/decision_table.py` (`DecisionTableMatrix`) |
+| **Meeting Notes to Stories Parser** | Markdown / Text Notes | `ba_meeting_parse(...)` | `ai_tools_cli.py ba-meeting-parser` | `core/ba_hub/meeting_parser.py` (`MeetingNotesParser`) |
+| **PlantUML Salt UI Wireframe** | Salt Text / Spec | `ba_wireframe_render(...)` | `ai_tools_cli.py wireframe-render` | `core/diagrams/salt_wireframe.py` (`SaltWireframeEngine`) |
+| **Labor Law Local FTS5 Search** | Query / Keywords | `law_knowledge_search(...)` | `ai_tools_cli.py law-search` | `core/ba_hub/labor_law_search.py` (`LaborLawSearchEngine`) |
+| **Legal 2026/2027 Story Linter** | User Story Spec | `law_compliance_lint(...)` | `ai_tools_cli.py law-story-lint` | `core/ba_hub/labor_law_compliance.py` (`LaborLawComplianceLinter`) |
+| **Auto-Scan & Stage Legal Decree** | Document / Text Spec | `regulatory_watch_scan(...)` | `ai_tools_cli.py law-watch-scan` | `core/ba_hub/regulatory_watcher.py` (`RegulatoryWatcher`) |
+| **1-Click Human-in-the-Loop Merge** | Draft Filename | `regulatory_approve_update(...)` | `ai_tools_cli.py law-merge-update` | `core/ba_hub/regulatory_watcher.py` (`approve_regulatory_update`) |
+| **Test SMTP Gmail Alert Dispatch** | Recipient Address | (via CLI) | `ai_tools_cli.py law-notify-test` | `core/ba_hub/regulatory_notifier.py` (`send_policy_alert_email`) |
+| **List Hardware System Printers** | Hardware Spooler | `doc_list_printers(...)` | `ai_tools_cli.py print-list` | `core/printing/printer_manager.py` (`list_printers`) |
+| **Inspect Printer Status & Spooler Queue** | Printer Name | `doc_printer_status(...)` | `ai_tools_cli.py print-status` | `core/printing/printer_manager.py` (`get_printer_status`) |
+| **Enterprise Silent Print Document** | PDF / DOCX + Print Spec | `doc_print_job(...)` | `ai_tools_cli.py print-doc` | `core/printing/printer_manager.py` (`print_document`) |
+| **Offline AST Formula Evaluator** | XLSX Workbook | `xlsx_evaluate_formulas(...)` | `ai_tools_cli.py xlsx-eval` | `core/xlsx/formula_evaluator.py` (`ASTFormulaEvaluator`) |
+| **Universal FTS5 RAG Search** | Multi-Format File + Query | `universal_rag_search(...)` | `ai_tools_cli.py rag-search` | `core/ba_hub/universal_rag.py` (`UniversalRAGVault`) |
+| **Hybrid AI Copilot Assistant** | Prompt + RAG Context | `copilot_assist(...)` | `ai_tools_cli.py copilot-chat` | `core/ba_hub/copilot_provider.py` (`CopilotHybridOrchestrator`) |
+| **Enterprise HR Governance & Scopes** | HR Spec / Permissions / Context | `hr_governance_blueprint(...)` | `ai_tools_cli.py hr-governance` | `core/ba_hub/hr_governance.py` (`HRDataScope`, `SoDConflictAuditor`) |
+| **Periodic System Maintenance (7-Pillars)** | System Workspace | `system_maintenance(...)` | `ai_tools_cli.py system-maintenance` | `core/system_maintenance.py` (`run_periodic_maintenance`) |
 
 ---
 
@@ -70,7 +132,7 @@ When user requests you to perform document tasks or draw diagrams, run these com
 | **Images to PDF** | `python ai_tools_cli.py pdf-tools images-to-pdf --inputs <img1> <img2> -o <out.pdf>` |
 | **PDF to 300 DPI Images ZIP** | `python ai_tools_cli.py pdf-tools export-images-zip -i <doc.pdf> -o <bundle.zip> --dpi 300` |
 | **Sign PDF with Stamp/Signature** | `python ai_tools_cli.py pdf-tools sign -i <doc.pdf> -o <signed.pdf> --stamp <sig.png> --page 1` |
-| **Flatten & Sanitize PDF** | `python ai_tools_cli.py pdf-tools flatten -i <doc.pdf> -o <flat.pdf> [--strict]` |
+| **Flatten & Sanitize PDF** | `python ai_tools_cli.py pdf-tools flatten -i <doc.pdf> [--strict]` |
 | **Reorganize Pages with Blank Insertion** | `python ai_tools_cli.py pdf-tools reorganize -i <doc.pdf> -o <reorg.pdf> --plan "1,blank,2"` |
 | **Set Excel Cell Value/Formula** | `python ai_tools_cli.py xlsx-set <file.xlsx> --sheet <sheet> --cell <cell> --value <val>` |
 | **Insert Excel Rows & Shift Formulas** | `python ai_tools_cli.py xlsx-insert-rows <file.xlsx> --sheet <sheet> --start-row <row> --count <n>` |
@@ -105,65 +167,8 @@ When user requests you to perform document tasks or draw diagrams, run these com
 | **Universal FTS5 RAG Semantic Search** | `python ai_tools_cli.py rag-search <query> [-k <top_k>] [-t <type>] [--json]` |
 | **Hybrid AI Copilot Terminal Chat** | `python ai_tools_cli.py copilot-chat <prompt> [-p {hybrid,local,cloud}] [--index-file <file>] [--json]` |
 | **Sync Core Docs Triad (MD->DOCX+PDF)** | `python tools/sync_core_docs.py [--build | --check]` |
+| **Core HR Governance & 6 Data Scopes** | `python ai_tools_cli.py hr-governance {data-scopes,sod-audit,ofb-workflow,export-schema}` |
 | **Launch Desktop GUI** | `python main.py` |
-
----
-
-## 🗺️ Schema-First Routing Table (AI Agent Dispatch)
-
-When executing tasks programmatically via Python, MCP, or CLI, dispatch according to this matrix:
-
-| User Task / Intent | Input Type | MCP Tool | CLI Subcommand | Core Module |
-| --- | --- | --- | --- | --- |
-| **System Diagnostics** | Environment | `env_doctor()` | `ai_tools_cli.py doctor` | `core.env_doctor.run_doctor` |
-| **Convert Doc (Lossless)** | PDF / DOCX / MD / HTML | `doc_convert(...)` | `ai_tools_cli.py convert` | `core.converter.engine.convert_universal` |
-| **PDF Pro Suite & Security** | PDF / Images / Stamp | `pdf_quick_tools(...)` | `ai_tools_cli.py pdf-tools` | `core.converter.pdf_toolkit` |
-| **Inspect Document AST** | DOCX / PPTX / XLSX | `doc_inspect(...)` | `ai_tools_cli.py docx-read` / `pptx-inspect` | `core.docx.reader`, `core.pptx.reader` |
-| **Legal Redline Diff (Track Changes)** | DOCX v1 + DOCX v2 | `doc_redline_diff(...)` | `ai_tools_cli.py docx-diff` | `core.docx.diff_engine.compare_docx_documents` |
-| **Batch Mail Merge & Templating** | DOCX + JSON / CSV | `doc_mail_merge(...)` | `ai_tools_cli.py docx-mail-merge` | `core.docx.writer` |
-| **Unified Document QA Audit** | DOCX / XLSX | `doc_qa_audit(...)` | `ai_tools_cli.py qa-audit` | `core.qa.unified_audit` |
-| **Vietnamese OCR & Scan Recovery** | Scanned PDF / Image | `doc_ocr_scan(...)` | `ai_tools_cli.py ocr-scan` | `core.converter.ocr_pipeline.VietnameseOcrPipeline` |
-| **Inject Diagram Image** | DOCX / PPTX + PNG | `doc_insert_diagram(...)` | `ai_tools_cli.py docx-inject` / `pptx-insert-diagram` | `core.docx.writer`, `core.pptx.engine` |
-| **Render Technical Diagram** | Spec JSON / Raw Code | `diagram_render(...)` | `ai_tools_cli.py diagram-render` | `core.diagrams.bridge` |
-| **Synthesize 16:9 Presentation** | DOCX / PDF / MD | `pptx_synthesize(...)` | `ai_tools_cli.py docx-to-pptx` / `pptx-from-md` | `core.pptx.docx_to_pptx`, `core.pptx.engine` |
-| **Excel Template Mutation** | XLSX + Patch JSON | (via REST API) | `ai_tools_cli.py xlsx-mutate` | `core.xlsx.writer.mutate_template_excel` |
-| **Excel 12-Gate Audit** | XLSX Target + Ref | (via REST API) | `ai_tools_cli.py xlsx-validate` | `core.xlsx.validator.validate_excel_sheet` |
-| **Atomic Excel Cell Edit** | XLSX + Cell + Value | `xlsx_set_cell(...)` / `xlsx_set_range(...)` | `ai_tools_cli.py xlsx-set` | `core.xlsx.writer.UniversalExcelEngine` |
-| **Atomic Excel Row Expansion** | XLSX + Row + Count | `xlsx_insert_rows(...)` | `ai_tools_cli.py xlsx-insert-rows` | `core.xlsx.writer.UniversalExcelEngine` |
-| **Inspect Word Placeholders** | DOCX Template | `docx_inspect_placeholders(...)` | `ai_tools_cli.py docx-tokens` | `core.docx.mail_merge.inspect_template_tokens` |
-| **Atomic Word Text Patching** | DOCX + Replacements | `docx_replace_text(...)` | `ai_tools_cli.py docx-replace` | `core.docx.writer.patch_docx_template` |
-| **Atomic Word Paragraph/Table** | DOCX + Content | `docx_insert_paragraph(...)` / `docx_insert_table(...)` | (via MCP Tool) | `core.docx.writer` |
-| **Document Security Audit & Sanitizer** | Office Doc / CSV / Zip | `doc_security_audit(...)` | `ai_tools_cli.py doc-security` | `core.security.document_auditor`, `core.security.sanitizer` |
-| **PKCS#7 / PAdES Signing & PDF/A-2b** | PDF + Optional PFX | `pdf_crypto_sign_and_pdfa(...)` | `ai_tools_cli.py pdf-tools {crypto-sign,pdfa}` | `core.converter.pdf_toolkit` |
-| **Excel-to-Brief Report (Word/MD/PDF)** | XLSX Workbook | `xlsx_to_brief_report(...)` | `ai_tools_cli.py xlsx-to-brief` | `core.xlsx.reporting.excel_to_brief` |
-| **Cross-Workbook Consolidation** | Multiple XLSX | `xlsx_consolidate_workbooks(...)` | `ai_tools_cli.py xlsx-consolidate` | `core.xlsx.reporting.consolidate_workbooks` |
-| **Declarative Workflow Pipeline** | File/Dir + Spec | `doc_run_pipeline(...)` | `ai_tools_cli.py run-pipeline` | `core.pipeline.engine` |
-| **AST Code-to-Diagram & SVG Export** | Python / SQL / Prisma | `diagram_from_code(...)` | `ai_tools_cli.py code-to-diagram` | `core.diagrams.code_to_diagram` |
-| **Launch Native Web Studio App Mode** | Desktop App | (CLI / GUI Button) | `ai_tools_cli.py desktop-web` | `ui.webview_launcher.launch_native_web_studio` |
-| **User Story BABOK Linter** | JSON / Text Spec | `ba_story_lint(...)` | `ai_tools_cli.py ba-story-lint` | `core.ba_hub.story_builder` |
-| **Requirements Traceability Matrix** | Spec JSON | `ba_rtm_matrix(...)` | `ai_tools_cli.py ba-rtm-matrix` | `core.ba_hub.rtm_matrix` |
-| **DBML 2-Way Schema Conversion** | DBML / SQL DDL | `ba_dbml_convert(...)` | `ai_tools_cli.py ba-dbml-convert` | `core.ba_hub.dbml_converter` |
-| **Satsuma Data Lineage Graph** | Satsuma Spec | (via CLI / API) | `ai_tools_cli.py ba-satsuma-lineage` | `core.ba_hub.satsuma_engine` |
-| **7-Gate SQL Integrity Test Suite** | SQL DDL Schema | `ba_sql_integrity_suite(...)` | `ai_tools_cli.py ba-sql-suite` | `core.ba_hub.sql_integrity` |
-| **Scope Creep & Semantic Diff** | DOCX v1 + DOCX v2 | (via CLI / API) | `ai_tools_cli.py ba-scope-creep` | `core.ba_hub.scope_creep` |
-| **Obsidian Vault Export (.zip)** | Project Spec | `ba_obsidian_export_vault(...)` | `ai_tools_cli.py ba-obsidian-export` | `core.ba_hub.obsidian_vault` |
-| **Obsidian Vault Compile to Word** | Vault .zip Archive | `ba_obsidian_compile_vault(...)` | `ai_tools_cli.py ba-obsidian-compile` | `core.ba_hub.obsidian_vault` |
-| **OpenAPI / Swagger Data Dict Scan** | Swagger JSON / YAML | `ba_openapi_scan(...)` | `ai_tools_cli.py ba-openapi` | `core.ba_hub.data_dictionary` |
-| **BABOK Decision Table Matrix** | Condition/Action Spec | `ba_decision_table(...)` | `ai_tools_cli.py ba-decision-table` | `core.ba_hub.decision_table` |
-| **Meeting Notes to Stories Parser** | Markdown / Text Notes | `ba_meeting_parse(...)` | `ai_tools_cli.py ba-meeting-parser` | `core.ba_hub.meeting_parser` |
-| **PlantUML Salt UI Wireframe** | Salt Text / Spec | `ba_wireframe_render(...)` | `ai_tools_cli.py wireframe-render` | `core.diagrams.salt_wireframe` |
-| **Labor Law Local FTS5 Search** | Query / Keywords | `law_knowledge_search(...)` | `ai_tools_cli.py law-search` | `core.ba_hub.labor_law_search` |
-| **Legal 2026/2027 Story Linter** | User Story Spec | `law_compliance_lint(...)` | `ai_tools_cli.py law-story-lint` | `core.ba_hub.labor_law_compliance` |
-| **Auto-Scan & Stage Legal Decree** | Document / Text Spec | `regulatory_watch_scan(...)` | `ai_tools_cli.py law-watch-scan` | `core.ba_hub.regulatory_watcher` |
-| **1-Click Human-in-the-Loop Merge** | Draft Filename | `regulatory_approve_update(...)` | `ai_tools_cli.py law-merge-update` | `core.ba_hub.regulatory_watcher` |
-| **Test SMTP Gmail Alert Dispatch** | Recipient Address | (via CLI) | `ai_tools_cli.py law-notify-test` | `core.ba_hub.regulatory_notifier` |
-| **List Hardware System Printers** | Hardware Spooler | `doc_list_printers(...)` | `ai_tools_cli.py print-list` | `core.printing.printer_manager` |
-| **Inspect Printer Status & Spooler Queue** | Printer Name | `doc_printer_status(...)` | `ai_tools_cli.py print-status` | `core.printing.printer_manager` |
-| **Enterprise Silent Print Document** | PDF / DOCX + Print Spec | `doc_print_job(...)` | `ai_tools_cli.py print-doc` | `core.printing.printer_manager` |
-| **Offline AST Formula Evaluator** | XLSX Workbook | `xlsx_evaluate_formulas(...)` | `ai_tools_cli.py xlsx-eval` | `core.xlsx.formula_evaluator` |
-| **Universal FTS5 RAG Search** | Multi-Format File + Query | `universal_rag_search(...)` | `ai_tools_cli.py rag-search` | `core.ba_hub.universal_rag` |
-| **Hybrid AI Copilot Assistant** | Prompt + RAG Context | `copilot_assist(...)` | `ai_tools_cli.py copilot-chat` | `core.ba_hub.copilot_provider` |
-| **Periodic System Maintenance (7-Pillars)** | System Workspace | `system_maintenance(...)` | `ai_tools_cli.py system-maintenance` | `core.system_maintenance` |
 
 ---
 
@@ -183,7 +188,7 @@ antigravity-doc-handler/
 │   ├── printing/               # Enterprise Printing Engine (Vector /DeviceGray, Booklet Creep, DEVMODE Guard G2)
 │   ├── env_doctor.py           # 12-Component Environment Health Doctor
 │   └── system_maintenance.py   # 7-Pillar Enterprise System Maintenance & MPO Guard
-├── server/                     # Layer 2: Web Studio REST API (:8000), Modular Routes, MCP Server (46 Tools), Persistent WAL Queue
+├── server/                     # Layer 2: Web Studio REST API (:8000), Modular Routes, MCP Server (48 Tools), Persistent WAL Queue
 ├── cli/                        # Layer 2: Unified AI CLI Dispatcher & Subcommands
 ├── ui/                         # Layer 1: Desktop GUI (Tkinter) & Native WebView App Launcher
 ├── src/                        # Layer 1: Vite ES6 Web Studio Frontend & Modular Controllers
@@ -193,7 +198,7 @@ antigravity-doc-handler/
 │   ├── sync_core_docs.py       # Core Docs Triad Compiler & Semantic Auditor (ERR_DOC_SYNC_001)
 │   └── plantuml.jar            # Local PlantUML JAR (v1.2026+, bundled C4 standard library)
 ├── specs/                      # Declarative Diagram Specs (flow_*.json, master_erd_*.json)
-├── tests/                      # 431 Automated Test Suites (tests/test_*.py)
+├── tests/                      # 507 Automated Test Suites (tests/test_*.py)
 ├── main.py                     # Official Entrypoint: Desktop GUI & Native Web App Mode
 ├── ai_tools_cli.py             # Official Entrypoint: Unified CLI Dispatcher for AI Agents
 ├── web_api_server.py           # Official Entrypoint: Web Studio REST API Server

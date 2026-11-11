@@ -1,0 +1,48 @@
+# .cursorrules — Direct File Dispatch Rules for Cursor AI
+
+# CRITICAL INSTRUCTION:
+# DO NOT scan directories recursively or run blind greps across the repository.
+# Consult the table below and jump directly to the target source file.
+
+## Intent-to-File Fast Dispatch Matrix
+
+- System Doctor & Health: `core/env_doctor.py` (`run_doctor`)
+- Universal Converter (PDF/Word/MD): `core/converter/engine.py` (`convert_universal`)
+- PDF Toolkit & Cryptographic Sign: `core/converter/pdf_toolkit.py` (`PDFQuickToolkit`)
+- Word/PPTX AST Reader: `core/docx/reader.py`, `core/pptx/reader.py`
+- Legal Redline Diff (Track Changes): `core/docx/diff_engine.py` (`compare_docx_documents`)
+- Mail Merge & Template Engine: `core/docx/mail_merge.py`, `core/docx/writer.py`
+- 13-Gate Unified QA Diagnostic: `core/qa/unified_audit.py` (`run_unified_qa`)
+- Vietnamese OCR Pipeline: `core/converter/ocr_pipeline.py` (`VietnameseOcrPipeline`)
+- Diagram Rendering Bridge: `core/diagrams/bridge.py` (`render_diagram_file_to_png`)
+- PowerPoint 16:9 Deck Builder: `core/pptx/docx_to_pptx.py`, `core/pptx/engine.py`
+- Excel In-Place Engine: `core/xlsx/writer.py` (`UniversalExcelEngine`)
+- Excel AST Offline Formula Evaluator: `core/xlsx/formula_evaluator.py` (`ASTFormulaEvaluator`)
+- Cloudflare Security Audit & Sanitizer: `core/security/document_auditor.py`, `core/security/sanitizer.py`
+- Declarative Workflow Pipelines: `core/pipeline/engine.py` (`WorkflowPipelineEngine`)
+- Code AST to Architecture Diagram: `core/diagrams/code_to_diagram.py`
+- BABOK User Story & Gherkin Linter: `core/ba_hub/story_builder.py` (`UserStoryBuilder`)
+- Requirements Traceability Matrix: `core/ba_hub/rtm_matrix.py` (`RTMMatrixEngine`)
+- DBML 2-Way Schema Converter: `core/ba_hub/dbml_converter.py` (`DBMLConverter`)
+- Satsuma Data Lineage Graph: `core/ba_hub/satsuma_engine.py` (`SatsumaMappingEngine`)
+- 7-Gate SQL Data Integrity Suite: `core/ba_hub/sql_integrity.py` (`SQLIntegritySuite`)
+- Obsidian Vault Exporter & Compiler: `core/ba_hub/obsidian_vault.py`
+- OpenAPI Data Dictionary Scanner: `core/ba_hub/data_dictionary.py`
+- BABOK Decision Table Matrix: `core/ba_hub/decision_table.py`
+- Meeting Notes to Stories Parser: `core/ba_hub/meeting_parser.py`
+- PlantUML Salt UI Wireframes: `core/diagrams/salt_wireframe.py`
+- Labor Law FTS5 Search & Vault: `core/ba_hub/labor_law_search.py`
+- Labor Compliance Story Linter: `core/ba_hub/labor_law_compliance.py`
+- Regulatory Decree Auto-Watcher: `core/ba_hub/regulatory_watcher.py`
+- Enterprise Vector Print Spooler: `core/printing/printer_manager.py`
+- Universal FTS5 RAG Vault: `core/ba_hub/universal_rag.py`
+- Hybrid AI Copilot Orchestrator: `core/ba_hub/copilot_provider.py`
+- Enterprise HR Governance & SoD: `core/ba_hub/hr_governance.py` (`HRDataScope`, `SoDConflictAuditor`)
+- 7-Pillars Periodic Maintenance: `core/system_maintenance.py` (`run_periodic_maintenance`)
+- CLI Dispatcher: `ai_tools_cli.py`, `cli/`
+- Model Context Protocol (48 Tools): `server/mcp_server.py`
+- Web Studio REST API (:8000): `server/app.py`, `server/routes/`
+
+## Key Invariants
+- Tests: 507 Automated Test Suites (100% pass rate). Run via `pytest -q`.
+- Version: Sync across 10 anchors via `python tools/bump_version.py --check`.

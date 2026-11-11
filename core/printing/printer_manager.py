@@ -289,12 +289,15 @@ class PrinterManager:
         # Guard G2: Check tray capability before applying
         valid_tray = None
         if tray_id is not None:
-            if tray_id in caps["supported_bins"]:
-                valid_tray = tray_id
+            if tray_id not in caps.get("supported_bins", []):
+                return False
+            valid_tray = tray_id
 
         # Guard G2: Check duplex capability
         valid_duplex = None
-        if duplex and caps["supports_duplex"]:
+        if duplex:
+            if not caps.get("supports_duplex", False):
+                return False
             dup_lower = duplex.lower()
             if dup_lower in ("vertical", "long", "long-edge", "2-sided-long", "duplex_long"):
                 valid_duplex = win32con.DMDUP_VERTICAL
@@ -302,6 +305,8 @@ class PrinterManager:
                 valid_duplex = win32con.DMDUP_HORIZONTAL
             elif dup_lower in ("simplex", "none", "single", "1-sided", "1-page"):
                 valid_duplex = win32con.DMDUP_SIMPLEX
+            else:
+                return False
 
         if valid_tray is None and valid_duplex is None:
             return False

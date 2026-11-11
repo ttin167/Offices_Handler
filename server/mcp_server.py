@@ -1399,6 +1399,49 @@ BA_TOOL_DEFINITIONS = [
         }
     },
     {
+        "name": "hr_governance_blueprint",
+        "description": "Enterprise Core HR Governance: 6 Data Scopes (Global, Legal Entity, Business Unit, Department Tree, Direct Team, Self-Only), Segregation of Duties (SoD) Conflict Auditor, Offboarding (OFB) 4-Gatekeeper Handover Protocol, and Core HR DBML/SQL Schemas.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "description": "Action: 'data_scopes', 'sod_audit', 'ofb_workflow', 'export_schema'",
+                    "enum": ["data_scopes", "sod_audit", "ofb_workflow", "export_schema"],
+                    "default": "data_scopes"
+                },
+                "scope": {
+                    "type": "string",
+                    "description": "Data Scope code (GLOBAL, LEGAL_ENTITY, BUSINESS_UNIT, DEPARTMENT_TREE, DIRECT_TEAM, SELF_ONLY)"
+                },
+                "context": {
+                    "type": "object",
+                    "description": "User context for SQL predicate generation (e.g. {'department_path': '/1/4/'})"
+                },
+                "permissions": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of permission actions to audit SoD conflicts"
+                },
+                "strict": {
+                    "type": "boolean",
+                    "description": "Hard block mode on CRITICAL SoD conflicts",
+                    "default": False
+                },
+                "checklist": {
+                    "type": "object",
+                    "description": "OFB 4-Gatekeeper status map (gate_manager_work, gate_it_assets, gate_facility_admin, gate_finance_debt)"
+                },
+                "format": {
+                    "type": "string",
+                    "description": "Output format: 'markdown', 'json', 'dbml', 'sql'",
+                    "default": "markdown"
+                }
+            },
+            "required": ["action"]
+        }
+    },
+    {
         "name": "system_maintenance",
         "description": "Execute periodic workspace maintenance, purge zombie lock files (~$*), reap orphaned headless processes, vacuum SQLite databases, clean bytecode cache, and diagnose Windows MPO stuttering.",
         "inputSchema": {
@@ -2673,6 +2716,50 @@ def execute_regulatory_approve_update(args: Dict[str, Any]) -> Dict[str, Any]:
     return HumanInTheLoopMergeManager.merge_draft(draft_filename)
 
 
+def execute_hr_governance_blueprint(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.ba_hub.hr_governance import (
+        HRDataScope,
+        DataScopeEvaluator,
+        SoDConflictAuditor,
+        HRCoreDBSchema,
+    )
+    action = str(args.get("action", "data_scopes")).lower().replace("-", "_")
+
+    if action == "data_scopes":
+        scope_arg = args.get("scope")
+        if scope_arg:
+            meta = DataScopeEvaluator.get_scope_metadata(scope_arg)
+            context = args.get("context", {})
+            clause, params = DataScopeEvaluator.build_scope_sql_filter(scope_arg, context)
+            return {
+                "scope": scope_arg,
+                "metadata": meta,
+                "sql_filter": clause,
+                "sql_params": params
+            }
+        format_arg = args.get("format", "markdown")
+        if format_arg == "json":
+            return {"scopes": DataScopeEvaluator.generate_scope_matrix_table()}
+        return {"markdown_table": DataScopeEvaluator.format_scope_matrix_markdown()}
+
+    elif action == "sod_audit":
+        perms = args.get("permissions", [])
+        strict = bool(args.get("strict", False))
+        return SoDConflictAuditor.audit_permission_set(perms, strict=strict)
+
+    elif action == "ofb_workflow":
+        checklist = args.get("checklist", {})
+        return SoDConflictAuditor.audit_offboarding_readiness(checklist)
+
+    elif action == "export_schema":
+        fmt = str(args.get("format", "dbml")).lower()
+        if fmt == "sql":
+            return {"format": "sql", "schema": HRCoreDBSchema.get_sql_ddl()}
+        return {"format": "dbml", "schema": HRCoreDBSchema.get_dbml_schema()}
+
+    return {"error": f"Unknown action '{action}'"}
+
+
 def execute_system_maintenance(args: Dict[str, Any]) -> Dict[str, Any]:
     from core.system_maintenance import SystemMaintenanceEngine
     engine = SystemMaintenanceEngine()
@@ -2762,6 +2849,7 @@ BA_TOOL_DISPATCHER = {
     "law_compliance_lint": execute_law_compliance_lint,
     "regulatory_watch_scan": execute_regulatory_watch_scan,
     "regulatory_approve_update": execute_regulatory_approve_update,
+    "hr_governance_blueprint": execute_hr_governance_blueprint,
 }
 
 if HAS_BA_HUB:

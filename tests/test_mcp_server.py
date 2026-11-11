@@ -99,6 +99,7 @@ class TestMCPServer(unittest.TestCase):
             "ba_wireframe_render",
             "doc_list_printers",
             "doc_print_job",
+            "doc_printer_status",
             "doc_security_audit",
             "pdf_crypto_sign_and_pdfa",
             "xlsx_to_brief_report",
@@ -116,6 +117,7 @@ class TestMCPServer(unittest.TestCase):
                 "law_compliance_lint",
                 "regulatory_watch_scan",
                 "regulatory_approve_update",
+                "hr_governance_blueprint",
             ])
             self.assertEqual(len(tools), len(expected_tools))
         else:
