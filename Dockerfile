@@ -83,15 +83,19 @@ COPY . /app/
 RUN rm -rf /app/core/ba_hub \
            /app/cli/ba_commands.py \
            /app/cli/ba_print_commands.py \
-           /app/server/routes/ba_academy_routes.py \
-           /app/src/modules/ba_academy_workstation.js \
+           /app/server/routes/ba_*.py \
+           /app/src/modules/ba_*.js \
+           /app/src/modules/labor_law_vault.js \
+           /app/src/modules/app_store.js \
+           /app/src/templates/ba \
            /app/specs/ba_*.json \
            /app/labor_law_vault \
            /app/ba_academy_vault \
            /app/data/labor_law \
            /app/tests/test_ba_*.py \
            /app/tests/test_labor_law_*.py \
-           /app/tests/test_regulatory_*.py || true
+           /app/tests/test_regulatory_*.py \
+           /app/tests/test_hr_governance.py || true
 RUN pip install --no-cache-dir --no-deps -e .
 
 # Copy compiled static frontend from Stage 1 into /app/dist

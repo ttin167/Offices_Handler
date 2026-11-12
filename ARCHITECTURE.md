@@ -2,7 +2,7 @@
 
 > **Phiên bản**: 5.0.0 (Enterprise Omni-Studio, AST Offline Formula Engine, Industrial Vector Print, In-Browser Viewers & Universal FTS5 RAG Copilot Architecture v5.0)  
 > **Tiêu chuẩn**: Zero-Regression, 100% Backward Compatibility, Strict Layer Isolation, Clean-Room MIT Compliance  
-> **Test Suite**: 507+ Automated Tests (100% Pass Rate) | **MCP Tools**: 48 Tools
+> **Test Suite**: 513+ Automated Tests (100% Pass Rate) | **MCP Tools**: 50 Tools
 
 ---
 
@@ -19,7 +19,7 @@ Hệ thống được tổ chức theo mô hình phân tầng chặt chẽ (Clea
                                             ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                              2. Interface & Protocol Layer                             │
-│   Web REST API (server/app.py :8000)      │ Model Context Protocol (48 Tools)          │
+│   Web REST API (server/app.py :8000)      │ Model Context Protocol (50 Tools)          │
 │   SSE Task Manager (server/job_manager)   │ AI Unified CLI (cli/ai_tools + v46_cmds)   │
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
                                             │
@@ -137,7 +137,7 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
 ### 2.2. `server/` — Tầng Giao Thức & Cung Cấp Dịch Vụ (Web API, MCP, SSE)
 
 - `app.py`: REST API Server nhẹ nhàng dựa trên `http.server`, phục vụ Web Studio cổng `8000`. Cung cấp endpoints cho conversion, history, mail merge, ocr, diff, math, static assets, trọn bộ PDF Pro Endpoints, Atomic Office Endpoints, Formula Playbook Endpoints, trọn bộ Enterprise Printing Endpoints (`/api/print/printers`, `/api/print/status`, `/api/print/job`), trọn bộ System Maintenance Endpoints (`/api/system/maintenance`, `/api/system/vitals`), trọn bộ UI Wireframe Studio Endpoints (`/api/diagram/wireframe/templates`, `/api/diagram/wireframe/render`, `/api/diagram/wireframe/inject-doc`), và trọn bộ BA Enterprise Endpoints (`/api/ba/templates`, `/api/ba/story/lint`, `/api/ba/story/export`, `/api/ba/usecase/lint`, `/api/ba/usecase/export`, `/api/ba/brd/generate`, `/api/ba/data-dict/scan-excel`, `/api/ba/data-dict/scan-ddl`, `/api/ba/data-dict/export`, `/api/ba/reconciliation/run`, `/api/ba/uat/generate`, `/api/ba/rtm/generate`, `/api/ba/dbml/convert`, `/api/ba/satsuma/lineage`, `/api/ba/sql/test-suite`, `/api/ba/scope-creep/audit`, `/api/ba/obsidian/export-vault`, `/api/ba/obsidian/compile-vault`, `/api/ba/openapi/scan`, `/api/ba/decision-table/generate`, `/api/ba/meeting/parse`).
-- `mcp_server.py`: Model Context Protocol Server (STDIO JSON-RPC 2.0) tương thích với Claude Desktop, Cursor, và Antigravity IDE. Đăng ký **48 tools** chuẩn:
+- `mcp_server.py`: Model Context Protocol Server (STDIO JSON-RPC 2.0) tương thích với Claude Desktop, Cursor, và Antigravity IDE. Đăng ký **50 tools** chuẩn:
   - Macro Tools (11): `env_doctor`, `doc_convert`, `doc_inspect`, `doc_insert_diagram`, `docx_patch`, `docx_apply_preset`, `docx_sanitize_vietnamese`, `pptx_synthesize`, `diagram_render`, `doc_mail_merge`, `doc_redline_diff`, `doc_ocr_scan`, `pdf_quick_tools`.
   - Atomic Office Tools (8): `xlsx_set_cell`, `xlsx_set_range`, `xlsx_insert_rows`, `xlsx_find_anchor`, `docx_inspect_placeholders`, `docx_replace_text`, `docx_insert_paragraph`, `docx_insert_table`.
   - Formula Playbook & Offline AST Evaluator Tools (2): `xlsx_formula_helper`, `xlsx_evaluate_formulas`.
@@ -196,8 +196,10 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
 
 - `ui/`: Desktop GUI Tkinter độc lập (`main.py`) và Native WebView App Mode (`ui/webview_launcher.py`) hỗ trợ chạy offline không cần trình duyệt.
 - `src/`: Web Studio trên nền Vite ES6 modules và Vanilla CSS Glassmorphism:
-  - `src/main.js` (~295 dòng): Orchestrator nhẹ quản lý theme, toast notifications, health polling, tab routing và khởi tạo các studio modules.
-  - `src/modules/`: 16 modules phân hệ chuyên biệt: `presentation_studio.js`, `spreadsheet_studio.js`, `document_hub.js`, `diagram_studio.js`, `formula_playbook.js`, `history_drawer.js`, `ba_requirements.js`, `wireframe_studio.js`, `ba_data_process.js`, `ba_audit_recon.js`, `print_studio.js`, `guide_modal.js`, `document_viewer_modal.js`, `visual_field_mapper.js`, `ai_copilot_sidebar.js`, `constants.js`.
+  - `src/main.js`: Single-Source-of-Truth Orchestrator quản lý theme, toast notifications, health polling, điều phối 10 tab chính tập trung và khởi tạo các studio modules.
+  - `src/modules/app_store.js`: Bộ quản lý trạng thái phản ứng tập trung siêu nhẹ (Zero-Bloat Reactive `AppStore` & EventBus) đồng bộ ngầm User Stories, Data Dictionary và kết quả đối soát liên phân hệ.
+  - `src/templates/modals/`: Thư mục chứa các template HTML độc lập (`user_guide_modal.html`, `print_modal.html`, `document_viewer_modal.html`) nạp qua cơ chế chuỗi thô Vite `?raw` giúp giảm tải kích thước `index.html`.
+  - `src/modules/`: 18 modules phân hệ chuyên biệt: `app_store.js`, `ba_academy_workstation.js`, `presentation_studio.js`, `spreadsheet_studio.js`, `document_hub.js`, `diagram_studio.js`, `formula_playbook.js`, `history_drawer.js`, `ba_requirements.js`, `wireframe_studio.js`, `ba_data_process.js`, `ba_audit_recon.js`, `print_studio.js`, `guide_modal.js`, `document_viewer_modal.js`, `visual_field_mapper.js`, `ai_copilot_sidebar.js`, `constants.js`.
 
 ### 2.5. `tools/` — Tầng Tiện Ích QA & Giao Nộp (Diagnostics & Deliverables)
 
@@ -270,6 +272,6 @@ Dự án được thiết kế theo chuẩn Clean-Room độc lập 100% với h
 1. **6 Entrypoints Chính Thức Tại Thư Mục Gốc**:
    Thư mục gốc chỉ giữ lại đúng 6 file entrypoint chính thức (`main.py`, `ai_tools_cli.py`, `web_api_server.py`, `mcp_server.py`, `spec_diagram_engine.py`, `diagram_editor.py`) cùng `__init__.py`. Toàn bộ các mô-đun nội bộ và bài kiểm thử trong `tests/` import trực tiếp từ cấu trúc phân tầng `core.*`, `server.*`, `cli.*`, `ui.*`.
 2. **100% Pass Rate Toàn Bộ Test Suite**:
-   Tất cả 507+ bài kiểm thử tự động trong `tests/` phải luôn luôn PASS 100% trước khi phát hành.
+   Tất cả 513+ bài kiểm thử tự động trong `tests/` phải luôn luôn PASS 100% trước khi phát hành.
 3. **Giữ Vững CLI Contract**:
    Tất cả cú pháp lệnh trong `AGENTS.md` và `pyproject.toml` tiếp tục hoạt động chính xác không thay đổi.

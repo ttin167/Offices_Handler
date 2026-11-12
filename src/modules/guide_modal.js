@@ -7,11 +7,21 @@
  * MCP & CLI Tooling, and System Performance Tips.
  */
 
+import guideModalHtml from '../templates/modals/user_guide_modal.html?raw';
+
 export function initGuideModal(ctx) {
   const { showToast, refreshLucideIcons } = ctx;
 
+  let modal = document.getElementById('modal-user-guide');
+  if (!modal) {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = guideModalHtml.trim();
+    modal = wrapper.querySelector('#modal-user-guide') || wrapper.firstElementChild;
+    const host = document.getElementById('app') || document.body;
+    if (modal && host) host.appendChild(modal);
+  }
+
   const btnOpen = document.getElementById('btn-open-guide-modal');
-  const modal = document.getElementById('modal-user-guide');
   const btnClose = document.getElementById('btn-close-guide-modal');
   const searchInput = document.getElementById('guide-search-input');
   const categoryBtns = document.querySelectorAll('.guide-nav-item');

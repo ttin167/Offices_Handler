@@ -145,11 +145,7 @@ import {
 
 
 import { initHistoryDrawer } from './modules/history_drawer.js';
-import { initRequirementsHub } from './modules/ba_requirements.js';
 import { initWireframeStudio } from './modules/wireframe_studio.js';
-import { initLaborLawVault } from './modules/labor_law_vault.js';
-import { initDataProcessStudio } from './modules/ba_data_process.js';
-import { initAuditReconStudio } from './modules/ba_audit_recon.js';
 import { initPresentationStudio } from './modules/presentation_studio.js';
 import { initSpreadsheetStudio } from './modules/spreadsheet_studio.js';
 import { initDocumentHub } from './modules/document_hub.js';
@@ -160,6 +156,8 @@ import { initGuideModal } from './modules/guide_modal.js';
 import { initDocumentViewerModal } from './modules/document_viewer_modal.js';
 import { initVisualFieldMapper } from './modules/visual_field_mapper.js';
 import { initAiCopilotSidebar } from './modules/ai_copilot_sidebar.js';
+
+const optionalBaModules = import.meta.glob('./modules/ba_bootstrap.js', { eager: true });
 
 
 
@@ -334,7 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     theme: localStorage.getItem('antigravity_theme') || 'dark',
 
-    activeTab: 'requirements',
+    activeTab: 'documents',
 
     apiConnected: false,
 
@@ -544,37 +542,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // =========================================================================
 
-  // 4. NAVIGATION TABS
+  // 4. NAVIGATION TABS (Single Source of Truth Router)
 
   // =========================================================================
 
-  const navTabs = document.querySelectorAll('.nav-tab');
+  window.__ag_main_router_active = true;
+
+  const mainNav = document.getElementById('main-nav');
 
   const panels = {
-    requirements: document.getElementById('panel-requirements'),
-    'law-vault': document.getElementById('panel-law-vault'),
     wireframe: document.getElementById('panel-wireframe'),
-    'data-process': document.getElementById('panel-data-process'),
-    'audit-recon': document.getElementById('panel-audit-recon'),
     documents: document.getElementById('panel-documents'),
     spreadsheet: document.getElementById('panel-spreadsheet'),
     diagrams: document.getElementById('panel-diagrams'),
     presentation: document.getElementById('panel-presentation'),
   };
 
-
-
-  navTabs.forEach((tab) => {
-    tab.addEventListener('click', () => {
+  if (mainNav) {
+    mainNav.addEventListener('click', (e) => {
+      const tab = e.target.closest('.nav-tab');
+      if (!tab) return;
       const targetTab = tab.getAttribute('data-tab');
-      const targetPanel = panels[targetTab];
+      const targetPanel = document.getElementById(`panel-${targetTab}`) || panels[targetTab];
       if (!targetPanel || tab.classList.contains('active')) return;
 
-      navTabs.forEach((t) => t.classList.remove('active'));
+      document.querySelectorAll('.nav-tab').forEach((t) => t.classList.remove('active'));
       tab.classList.add('active');
 
-      Object.values(panels).forEach((p) => {
-        if (p && p !== targetPanel && p.classList.contains('active')) {
+      document.querySelectorAll('.tab-panel').forEach((p) => {
+        if (p !== targetPanel && p.classList.contains('active')) {
           p.classList.remove('active');
         }
       });
@@ -582,12 +578,15 @@ document.addEventListener('DOMContentLoaded', () => {
       requestAnimationFrame(() => {
         targetPanel.classList.add('active');
         state.activeTab = targetTab;
+        if (window.appStore && typeof window.appStore.set === 'function') {
+          window.appStore.set('activeTab', targetTab);
+        }
         if (typeof refreshLucideIcons === 'function') {
           refreshLucideIcons();
         }
       });
     });
-  });
+  }
 
 
 
@@ -694,11 +693,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 
-  initRequirementsHub(sharedCtx);
-  initLaborLawVault(sharedCtx);
+  const baBootstrapMod = Object.values(optionalBaModules)[0];
+  if (baBootstrapMod && typeof baBootstrapMod.initBABootstrap === 'function') {
+    baBootstrapMod.initBABootstrap({ state, sharedCtx });
+  }
   initWireframeStudio(sharedCtx);
-  initDataProcessStudio(sharedCtx);
-  initAuditReconStudio(sharedCtx);
   initPresentationStudio(sharedCtx);
   initSpreadsheetStudio(sharedCtx);
   initFormulaPlaybook({ showToast, refreshLucideIcons });

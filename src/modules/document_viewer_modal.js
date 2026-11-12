@@ -4,8 +4,17 @@
  * Enforces: Chốt chặn G3 (Shimmer Skeleton UX during dynamic lazy-load and conversion).
  */
 
+import docViewerModalHtml from '../templates/modals/document_viewer_modal.html?raw';
+
 export function initDocumentViewerModal({ state, showToast, refreshLucideIcons }) {
-  const modal = document.getElementById('modal-document-viewer');
+  let modal = document.getElementById('modal-document-viewer');
+  if (!modal) {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = docViewerModalHtml.trim();
+    modal = wrapper.querySelector('#modal-document-viewer') || wrapper.firstElementChild;
+    const host = document.getElementById('app') || document.body;
+    if (modal && host) host.appendChild(modal);
+  }
   if (!modal) return {};
 
   const viewerTitle = document.getElementById('doc-viewer-filename');

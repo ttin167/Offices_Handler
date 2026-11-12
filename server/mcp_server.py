@@ -18,6 +18,8 @@ from __future__ import annotations
 import json
 import os
 import sys
+import tempfile
+import time
 import traceback
 from typing import Any, Dict, List, Optional
 
@@ -664,122 +666,6 @@ TOOL_DEFINITIONS = [
                 }
             }
         }
-    }
-]
-
-# ---------------------------------------------------------------------------
-# BA Enterprise Hub & Labor Law Tools (Local-Only, Activated if core.ba_hub exists)
-# ---------------------------------------------------------------------------
-
-BA_TOOL_DEFINITIONS = [
-    {
-        "name": "ba_story_lint",
-        "description": "Audit Business Analyst User Story & Gherkin Acceptance Criteria against BABOK v3 and INVEST standards with automated scoring.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "story": {
-                    "type": "object",
-                    "description": "User Story object with fields: id, title, role, goal, benefit, business_rules, scenarios"
-                }
-            },
-            "required": ["story"]
-        }
-    },
-    {
-        "name": "ba_rtm_matrix",
-        "description": "Build Requirements Traceability Matrix (RTM) linking Business Requirements -> User Stories -> Use Cases -> Test Cases, auditing coverage gap.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "stories": {
-                    "type": "array",
-                    "description": "List of User Stories"
-                },
-                "usecases": {
-                    "type": "array",
-                    "description": "Optional list of Use Cases"
-                },
-                "project_name": {
-                    "type": "string",
-                    "description": "Project title",
-                    "default": "Enterprise System"
-                },
-                "output_path": {
-                    "type": "string",
-                    "description": "Output path for the styled Excel RTM (.xlsx)"
-                }
-            },
-            "required": ["stories", "output_path"]
-        }
-    },
-    {
-        "name": "ba_dbml_convert",
-        "description": "Bidirectional conversion between DBML (Database Markup Language), SQL DDL, and Mermaid ERD with type audit.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "code": {
-                    "type": "string",
-                    "description": "Source DBML or SQL DDL text"
-                },
-                "mode": {
-                    "type": "string",
-                    "description": "Conversion mode: 'dbml_to_sql', 'sql_to_dbml', 'dbml_to_mermaid'",
-                    "default": "dbml_to_sql"
-                },
-                "dialect": {
-                    "type": "string",
-                    "description": "SQL dialect (postgres, mssql, oracle, mysql)",
-                    "default": "postgres"
-                }
-            },
-            "required": ["code"]
-        }
-    },
-    {
-        "name": "ba_sql_integrity_suite",
-        "description": "Generate the 7 Core Automated SQL Data Integrity Tests (Orphan records, duplicates, nulls, boundary violations, status conflict, variance sum).",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "target_table": {"type": "string", "description": "Target table name"},
-                "parent_table": {"type": "string", "description": "Optional parent table for orphan FK check"},
-                "primary_key": {"type": "string", "description": "Primary key column name"},
-                "foreign_key": {"type": "string", "description": "Foreign key column name"},
-                "child_table": {"type": "string", "description": "Optional child table for item variance sum"},
-                "dialect": {"type": "string", "description": "SQL Dialect: postgres, mssql, oracle, mysql", "default": "postgres"}
-            },
-            "required": ["target_table", "primary_key"]
-        }
-    },
-    {
-        "name": "ba_obsidian_export_vault",
-        "description": "Export BA Requirements, Stories, Use Cases, Data Dictionaries and Diagrams into an import-ready Obsidian Vault (.zip) with YAML frontmatter, Wikilinks [[...]], and Obsidian Canvas (.canvas).",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "stories": {"type": "array", "description": "List of User Stories to export"},
-                "usecases": {"type": "array", "description": "List of Use Case specs to export"},
-                "data_dictionaries": {"type": "object", "description": "Dictionary of table schemas"},
-                "project_name": {"type": "string", "description": "Project title for the vault", "default": "Enterprise_BA_Project"},
-                "output_zip": {"type": "string", "description": "Output path for the .zip file"}
-            },
-            "required": ["stories"]
-        }
-    },
-    {
-        "name": "ba_obsidian_compile_vault",
-        "description": "Compile an Obsidian Vault (.zip or directory) into an Enterprise Word BRD/SRS document (.docx) with resolved Wikilinks and OpenXML table compliance.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "vault_input": {"type": "string", "description": "Path to Obsidian Vault .zip file or folder"},
-                "output_docx": {"type": "string", "description": "Output path for the compiled Word .docx file"},
-                "project_name": {"type": "string", "description": "Optional title for the document"}
-            },
-            "required": ["vault_input"]
-        }
     },
     {
         "name": "doc_security_audit",
@@ -1022,82 +908,8 @@ BA_TOOL_DEFINITIONS = [
         }
     },
     {
-        "name": "ba_openapi_scan",
-        "description": "Scans OpenAPI 3.x / Swagger 2.0 specifications to generate structured Data Dictionaries and Endpoint Catalogs in Excel (.xlsx) or Word (.docx).",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "spec_path_or_text": {
-                    "type": "string",
-                    "description": "Path to openapi.json/yaml file or raw JSON/YAML string"
-                },
-                "output_format": {
-                    "type": "string",
-                    "enum": ["excel", "docx", "json"],
-                    "default": "excel"
-                },
-                "output_path": {
-                    "type": "string",
-                    "description": "Optional destination file path (.xlsx, .docx, or .json)"
-                }
-            },
-            "required": ["spec_path_or_text"]
-        }
-    },
-    {
-        "name": "ba_decision_table",
-        "description": "BABOK v3 Decision Table Generator: audits condition/action logic for completeness, contradictions, and redundancies, and exports to styled Word (.docx) or Excel (.xlsx).",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "spec_path_or_dict": {
-                    "type": "string",
-                    "description": "Path to decision table JSON spec or raw JSON string"
-                },
-                "run_audit": {
-                    "type": "boolean",
-                    "default": True,
-                    "description": "Whether to run completeness and contradiction audit"
-                },
-                "output_format": {
-                    "type": "string",
-                    "enum": ["docx", "excel", "json"],
-                    "default": "docx"
-                },
-                "output_path": {
-                    "type": "string",
-                    "description": "Optional destination file path"
-                }
-            },
-            "required": ["spec_path_or_dict"]
-        }
-    },
-    {
-        "name": "ba_meeting_parse",
-        "description": "Stakeholder Meeting Notes to Requirements Parser: extracts User Stories, Business Rules, Decisions, and Action Items into Word (.docx), Markdown (.md), or JSON.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "notes_path_or_text": {
-                    "type": "string",
-                    "description": "Path to meeting notes file or raw markdown/text"
-                },
-                "output_format": {
-                    "type": "string",
-                    "enum": ["docx", "md", "json"],
-                    "default": "docx"
-                },
-                "output_path": {
-                    "type": "string",
-                    "description": "Optional destination file path"
-                }
-            },
-            "required": ["notes_path_or_text"]
-        }
-    },
-    {
         "name": "ba_wireframe_render",
-        "description": "Renders PlantUML Salt UI Wireframe mockups into pure vector SVG or 300+ DPI PNG images from JSON specs, 6 built-in BA templates, or raw Salt code, with optional 1-Click Word (.docx) injection.",
+        "description": "Renders PlantUML Salt UI Wireframe mockups into pure vector SVG or 300+ DPI PNG images from JSON specs, 6 built-in templates, or raw Salt code, with optional 1-Click Word (.docx) injection.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -1108,7 +920,7 @@ BA_TOOL_DEFINITIONS = [
                 "template": {
                     "type": "string",
                     "enum": ["login_auth", "crud_table", "wizard_form", "modal_confirm", "mobile_screen", "dashboard_kpi"],
-                    "description": "Optional built-in BA wireframe template ID"
+                    "description": "Optional built-in wireframe template ID"
                 },
                 "output_png_path": {
                     "type": "string",
@@ -1319,129 +1131,6 @@ BA_TOOL_DEFINITIONS = [
         }
     },
     {
-        "name": "law_knowledge_search",
-        "description": "Ultra-fast (<10ms) local full-text search on Vietnam Labor Law, Social Insurance 2024/2026, PIT regulations, and enterprise HR knowledge base. Supports unaccented Vietnamese.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "Search query or keywords (e.g. 'muc tham chieu', 'thai san nam', 'IS_OT_NIGHT_COMPOUNDED')"
-                },
-                "category": {
-                    "type": "string",
-                    "description": "Optional category filter ('Luat_Lao_Dong', 'Bao_Hiem', 'Thue_TNCN', 'Quy_Chuan_Nhan_Su', 'Bieu_Mau_Doanh_Nghiep')"
-                },
-                "limit": {
-                    "type": "integer",
-                    "default": 5,
-                    "description": "Maximum number of matched articles to return"
-                }
-            },
-            "required": ["query"]
-        }
-    },
-    {
-        "name": "law_compliance_lint",
-        "description": "Audits a Business Analyst User Story & Gherkin scenarios against Vietnamese Labor Law (BLLĐ 2019) and 2026+ Legal Policy changes (Mức tham chiếu NĐ 161/2026, PIT 15.5M/6.2M, Tuổi nghỉ hưu NĐ 135/2020).",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "story": {
-                    "type": "object",
-                    "description": "User Story dictionary containing title, goal, business_rules, and scenarios"
-                }
-            },
-            "required": ["story"]
-        }
-    },
-    {
-        "name": "regulatory_watch_scan",
-        "description": "Scans legal decree, circular, or text for HR regulations, extracts structured parameters (4 regional minimum wages, reference levels, PIT deductions), generates Staging Draft, and dispatches email alert.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "file_path": {
-                    "type": "string",
-                    "description": "Optional path to policy document (.pdf, .docx, .txt, .md)"
-                },
-                "raw_text": {
-                    "type": "string",
-                    "description": "Optional raw text of the decree or circular"
-                },
-                "use_sample_2027": {
-                    "type": "boolean",
-                    "description": "Use built-in Sample Decree for 2027 parameters"
-                },
-                "use_sample_pit": {
-                    "type": "boolean",
-                    "description": "Use built-in Sample Circular for 2027 PIT deductions"
-                },
-                "skip_email": {
-                    "type": "boolean",
-                    "description": "Skip sending email notification (dry run)"
-                }
-            }
-        }
-    },
-    {
-        "name": "regulatory_approve_update",
-        "description": "Human-in-the-Loop 1-Click approval to merge a staged policy draft into the active labor law knowledge vault with Atomic Rollback Guard and instant FTS5 re-indexing.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "draft_filename": {
-                    "type": "string",
-                    "description": "Draft filename (e.g. 'KB-LAW-2027-DRAFT.md') or full path"
-                }
-            },
-            "required": ["draft_filename"]
-        }
-    },
-    {
-        "name": "hr_governance_blueprint",
-        "description": "Enterprise Core HR Governance: 6 Data Scopes (Global, Legal Entity, Business Unit, Department Tree, Direct Team, Self-Only), Segregation of Duties (SoD) Conflict Auditor, Offboarding (OFB) 4-Gatekeeper Handover Protocol, and Core HR DBML/SQL Schemas.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string",
-                    "description": "Action: 'data_scopes', 'sod_audit', 'ofb_workflow', 'export_schema'",
-                    "enum": ["data_scopes", "sod_audit", "ofb_workflow", "export_schema"],
-                    "default": "data_scopes"
-                },
-                "scope": {
-                    "type": "string",
-                    "description": "Data Scope code (GLOBAL, LEGAL_ENTITY, BUSINESS_UNIT, DEPARTMENT_TREE, DIRECT_TEAM, SELF_ONLY)"
-                },
-                "context": {
-                    "type": "object",
-                    "description": "User context for SQL predicate generation (e.g. {'department_path': '/1/4/'})"
-                },
-                "permissions": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of permission actions to audit SoD conflicts"
-                },
-                "strict": {
-                    "type": "boolean",
-                    "description": "Hard block mode on CRITICAL SoD conflicts",
-                    "default": False
-                },
-                "checklist": {
-                    "type": "object",
-                    "description": "OFB 4-Gatekeeper status map (gate_manager_work, gate_it_assets, gate_facility_admin, gate_finance_debt)"
-                },
-                "format": {
-                    "type": "string",
-                    "description": "Output format: 'markdown', 'json', 'dbml', 'sql'",
-                    "default": "markdown"
-                }
-            },
-            "required": ["action"]
-        }
-    },
-    {
         "name": "system_maintenance",
         "description": "Execute periodic workspace maintenance, purge zombie lock files (~$*), reap orphaned headless processes, vacuum SQLite databases, clean bytecode cache, and diagnose Windows MPO stuttering.",
         "inputSchema": {
@@ -1502,15 +1191,16 @@ BA_TOOL_DEFINITIONS = [
     }
 ]
 
-# Check if BA Enterprise Hub & Labor Law modules are available locally
+# Optional local-only BA Enterprise Hub & Labor Law MCP tools (excluded from GitHub & Docker)
 try:
-    import core.ba_hub  # type: ignore
+    from core.ba_hub.mcp_tools import BA_TOOL_DEFINITIONS, BA_TOOL_DISPATCHER
+
     HAS_BA_HUB = True
+    TOOL_DEFINITIONS.extend(BA_TOOL_DEFINITIONS)
 except (ImportError, ModuleNotFoundError):
     HAS_BA_HUB = False
-
-if HAS_BA_HUB:
-    TOOL_DEFINITIONS.extend(BA_TOOL_DEFINITIONS)
+    BA_TOOL_DEFINITIONS = []  # type: ignore
+    BA_TOOL_DISPATCHER = {}  # type: ignore
 
 
 def log_debug(message: str) -> None:
@@ -2156,127 +1846,6 @@ def execute_xlsx_formula_helper(args: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def execute_ba_story_lint(args: Dict[str, Any]) -> Dict[str, Any]:
-    from core.ba_hub.story_builder import StoryQualityLinter
-    story_data = args.get("story", {})
-    audit = StoryQualityLinter.audit_story(story_data)
-    return {
-        "success": True,
-        "audit": audit,
-    }
-
-
-def execute_ba_rtm_matrix(args: Dict[str, Any]) -> Dict[str, Any]:
-    from core.ba_hub.rtm_matrix import RTMEngine
-    stories = args.get("stories", [])
-    usecases = args.get("usecases")
-    testcases = args.get("testcases")
-    proj_name = args.get("project_name", "Enterprise System")
-    out_path = args.get("output_path")
-    if not out_path:
-        raise ValueError("output_path is required")
-
-    rtm_items = RTMEngine.build_rtm(stories, usecases, testcases)
-    coverage = RTMEngine.calculate_coverage(rtm_items)
-    RTMEngine.export_rtm_to_excel(rtm_items, out_path, project_name=proj_name)
-    return {
-        "success": True,
-        "output_path": out_path,
-        "coverage": coverage.to_dict(),
-        "total_items": len(rtm_items),
-    }
-
-
-def execute_ba_dbml_convert(args: Dict[str, Any]) -> Dict[str, Any]:
-    from core.ba_hub.dbml_satsuma import DBMLEngine
-    code = args.get("code", "")
-    mode = args.get("mode", "dbml_to_sql").lower()
-    dialect = args.get("dialect", "postgres")
-
-    if mode == "sql_to_dbml":
-        res_dbml = DBMLEngine.sql_to_dbml(code)
-        mermaid_erd = DBMLEngine.dbml_to_mermaid_erd(res_dbml)
-        return {"success": True, "dbml": res_dbml, "mermaid_erd": mermaid_erd}
-    elif mode == "dbml_to_mermaid":
-        mermaid_erd = DBMLEngine.dbml_to_mermaid_erd(code)
-        return {"success": True, "mermaid_erd": mermaid_erd}
-    else:
-        sql_out = DBMLEngine.dbml_to_sql(code, dialect=dialect)
-        mermaid_erd = DBMLEngine.dbml_to_mermaid_erd(code)
-        return {"success": True, "sql": sql_out, "mermaid_erd": mermaid_erd}
-
-
-def execute_ba_sql_integrity_suite(args: Dict[str, Any]) -> Dict[str, Any]:
-    from core.ba_hub.sql_toolkit import SQLIntegrityTestSuite
-    target_tbl = args.get("target_table", "orders")
-    parent_tbl = args.get("parent_table")
-    pk = args.get("primary_key", "order_id")
-    fk = args.get("foreign_key")
-    child_tbl = args.get("child_table")
-    dialect = args.get("dialect", "postgres")
-
-    tests = SQLIntegrityTestSuite.generate_suite(
-        target_table=target_tbl,
-        parent_table=parent_tbl,
-        primary_key=pk,
-        foreign_key=fk,
-        child_table=child_tbl,
-        dialect=dialect,
-    )
-    return {
-        "success": True,
-        "total_tests": len(tests),
-        "tests": [t.to_dict() for t in tests],
-    }
-
-
-def execute_ba_obsidian_export_vault(args: Dict[str, Any]) -> Dict[str, Any]:
-    from core.ba_hub.obsidian_vault import ObsidianVaultExporter
-    stories = args.get("stories", [])
-    usecases = args.get("usecases", [])
-    data_dicts = args.get("data_dictionaries", {})
-    proj_name = args.get("project_name", "Enterprise_BA_Project")
-    out_zip = args.get("output_zip")
-
-    zip_path = ObsidianVaultExporter.export_vault_zip(
-        stories=stories,
-        usecases=usecases,
-        data_dictionaries=data_dicts,
-        project_name=proj_name,
-        output_zip_path=out_zip,
-    )
-    return {
-        "success": True,
-        "vault_zip": zip_path,
-        "message": f"Successfully exported Obsidian Vault to {zip_path}",
-    }
-
-
-def execute_ba_obsidian_compile_vault(args: Dict[str, Any]) -> Dict[str, Any]:
-    from core.ba_hub.obsidian_vault import ObsidianVaultCompiler
-    import os, time, tempfile, re
-    vault_input = args.get("vault_input") or args.get("vault_file")
-    out_docx = args.get("output_docx") or args.get("output_path")
-    proj_name = args.get("project_name")
-    if not vault_input:
-        raise ValueError("vault_input (or vault_file) is required")
-    if not out_docx:
-        ts = int(time.time() * 1000)
-        safe_name = re.sub(r"[^\w\-]", "_", proj_name or "Compiled_BRD")
-        out_docx = os.path.join(tempfile.gettempdir(), f"{safe_name}_{ts}.docx")
-
-    docx_path = ObsidianVaultCompiler.compile_vault_to_docx(
-        vault_input=vault_input,
-        output_docx_path=out_docx,
-        project_name=proj_name,
-    )
-    return {
-        "success": True,
-        "docx_path": docx_path,
-        "message": f"Successfully compiled Obsidian Vault to {docx_path}",
-    }
-
-
 def execute_doc_security_audit(args: Dict[str, Any]) -> Dict[str, Any]:
     file_path = args.get("file_path")
     if not file_path:
@@ -2422,97 +1991,6 @@ def execute_diagram_from_code(args: Dict[str, Any]) -> Dict[str, Any]:
         inject_into=args.get("inject_into"),
         title=args.get("title"),
     )
-
-
-def execute_ba_openapi_scan(args: Dict[str, Any]) -> Dict[str, Any]:
-    from core.ba_hub.data_dictionary import scan_openapi_spec, FieldMappingEngine
-
-    spec = args["spec_path_or_text"]
-    data = scan_openapi_spec(spec)
-    fmt = args.get("output_format", "excel").lower()
-    out_path = args.get("output_path")
-
-    if fmt == "docx" or (out_path and out_path.endswith(".docx")):
-        final_out = out_path or "output/openapi_data_dict.docx"
-        FieldMappingEngine.export_openapi_to_docx(data, final_out)
-        return {"success": True, "output_path": final_out, "format": "docx", "schemas": data["schemas_count"], "endpoints": data["endpoints_count"]}
-    elif fmt == "json" or (out_path and out_path.endswith(".json")):
-        if out_path:
-            with open(out_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-            return {"success": True, "output_path": out_path, "format": "json", "data": data}
-        return {"success": True, "format": "json", "data": data}
-    else:
-        final_out = out_path or "output/openapi_data_dict.xlsx"
-        FieldMappingEngine.export_openapi_to_excel(data, final_out)
-        return {"success": True, "output_path": final_out, "format": "excel", "schemas": data["schemas_count"], "endpoints": data["endpoints_count"]}
-
-
-def execute_ba_decision_table(args: Dict[str, Any]) -> Dict[str, Any]:
-    from core.ba_hub.decision_table import DecisionTable
-
-    spec_raw = args["spec_path_or_dict"]
-    if isinstance(spec_raw, str):
-        if os.path.isfile(spec_raw):
-            with open(spec_raw, "r", encoding="utf-8") as f:
-                spec_dict = json.load(f)
-        else:
-            spec_dict = json.loads(spec_raw)
-    else:
-        spec_dict = spec_raw
-
-    dt = DecisionTable.from_dict(spec_dict)
-    audit_res = None
-    if args.get("run_audit", True):
-        audit_res = dt.audit_completeness_and_contradictions().to_dict()
-
-    fmt = args.get("output_format", "docx").lower()
-    out_path = args.get("output_path")
-    exported_file = None
-
-    if fmt == "excel" or (out_path and out_path.endswith(".xlsx")):
-        exported_file = out_path or f"output/{dt.table_id}_matrix.xlsx"
-        dt.export_to_excel(exported_file)
-    elif fmt == "docx" or (out_path and out_path.endswith(".docx")):
-        exported_file = out_path or f"output/{dt.table_id}_matrix.docx"
-        dt.export_to_docx(exported_file)
-
-    return {
-        "success": True,
-        "table_id": dt.table_id,
-        "title": dt.title,
-        "audit": audit_res,
-        "exported_file": exported_file,
-    }
-
-
-def execute_ba_meeting_parse(args: Dict[str, Any]) -> Dict[str, Any]:
-    from core.ba_hub.meeting_parser import MeetingNotesParser
-
-    raw = args["notes_path_or_text"]
-    if os.path.isfile(raw):
-        with open(raw, "r", encoding="utf-8") as f:
-            text = f.read()
-    else:
-        text = raw
-
-    parsed = MeetingNotesParser.parse_text(text)
-    fmt = args.get("output_format", "docx").lower()
-    out_path = args.get("output_path")
-    exported_file = None
-
-    if fmt == "docx" or (out_path and out_path.endswith(".docx")):
-        exported_file = out_path or "output/meeting_requirements.docx"
-        MeetingNotesParser.export_to_docx(parsed, exported_file)
-    elif fmt == "md" or (out_path and out_path.endswith(".md")):
-        exported_file = out_path or "output/meeting_requirements.md"
-        MeetingNotesParser.export_to_markdown(parsed, exported_file)
-
-    return {
-        "success": True,
-        "parsed": parsed.to_dict(),
-        "exported_file": exported_file,
-    }
 
 
 def execute_ba_wireframe_render(args: Dict[str, Any]) -> Dict[str, Any]:
@@ -2681,85 +2159,6 @@ def execute_copilot_assist(args: Dict[str, Any]) -> Dict[str, Any]:
     return resp.to_dict()
 
 
-def execute_law_knowledge_search(args: Dict[str, Any]) -> Dict[str, Any]:
-    from core.ba_hub.labor_law_search import search_labor_law_knowledge
-    query = args["query"]
-    cat = args.get("category")
-    limit = int(args.get("limit", 5))
-    return search_labor_law_knowledge(query=query, category=cat, limit=limit)
-
-
-def execute_law_compliance_lint(args: Dict[str, Any]) -> Dict[str, Any]:
-    from core.ba_hub.labor_law_compliance import LaborLawComplianceLinter
-    story = args["story"]
-    period = args.get("period")
-    return LaborLawComplianceLinter.audit_legal_compliance(story, period=period)
-
-
-def execute_regulatory_watch_scan(args: Dict[str, Any]) -> Dict[str, Any]:
-    from core.ba_hub.regulatory_watcher import RegulatoryWatcherPipeline
-    source = args.get("file_path") or args.get("raw_text")
-    use_2027 = bool(args.get("use_sample_2027", False))
-    use_pit = bool(args.get("use_sample_pit", False))
-    skip_email = bool(args.get("skip_email", False))
-    return RegulatoryWatcherPipeline.run_scan(
-        source=source,
-        use_sample_2027=use_2027,
-        use_sample_pit=use_pit,
-        skip_email=skip_email,
-    )
-
-
-def execute_regulatory_approve_update(args: Dict[str, Any]) -> Dict[str, Any]:
-    from core.ba_hub.regulatory_watcher import HumanInTheLoopMergeManager
-    draft_filename = args["draft_filename"]
-    return HumanInTheLoopMergeManager.merge_draft(draft_filename)
-
-
-def execute_hr_governance_blueprint(args: Dict[str, Any]) -> Dict[str, Any]:
-    from core.ba_hub.hr_governance import (
-        HRDataScope,
-        DataScopeEvaluator,
-        SoDConflictAuditor,
-        HRCoreDBSchema,
-    )
-    action = str(args.get("action", "data_scopes")).lower().replace("-", "_")
-
-    if action == "data_scopes":
-        scope_arg = args.get("scope")
-        if scope_arg:
-            meta = DataScopeEvaluator.get_scope_metadata(scope_arg)
-            context = args.get("context", {})
-            clause, params = DataScopeEvaluator.build_scope_sql_filter(scope_arg, context)
-            return {
-                "scope": scope_arg,
-                "metadata": meta,
-                "sql_filter": clause,
-                "sql_params": params
-            }
-        format_arg = args.get("format", "markdown")
-        if format_arg == "json":
-            return {"scopes": DataScopeEvaluator.generate_scope_matrix_table()}
-        return {"markdown_table": DataScopeEvaluator.format_scope_matrix_markdown()}
-
-    elif action == "sod_audit":
-        perms = args.get("permissions", [])
-        strict = bool(args.get("strict", False))
-        return SoDConflictAuditor.audit_permission_set(perms, strict=strict)
-
-    elif action == "ofb_workflow":
-        checklist = args.get("checklist", {})
-        return SoDConflictAuditor.audit_offboarding_readiness(checklist)
-
-    elif action == "export_schema":
-        fmt = str(args.get("format", "dbml")).lower()
-        if fmt == "sql":
-            return {"format": "sql", "schema": HRCoreDBSchema.get_sql_ddl()}
-        return {"format": "dbml", "schema": HRCoreDBSchema.get_dbml_schema()}
-
-    return {"error": f"Unknown action '{action}'"}
-
-
 def execute_system_maintenance(args: Dict[str, Any]) -> Dict[str, Any]:
     from core.system_maintenance import SystemMaintenanceEngine
     engine = SystemMaintenanceEngine()
@@ -2831,25 +2230,6 @@ TOOL_DISPATCHER = {
     "xlsx_evaluate_formulas": execute_xlsx_evaluate_formulas,
     "universal_rag_search": execute_universal_rag_search,
     "copilot_assist": execute_copilot_assist,
-}
-
-BA_TOOL_DISPATCHER = {
-    # BA Enterprise Workstation Tools
-    "ba_story_lint": execute_ba_story_lint,
-    "ba_rtm_matrix": execute_ba_rtm_matrix,
-    "ba_dbml_convert": execute_ba_dbml_convert,
-    "ba_sql_integrity_suite": execute_ba_sql_integrity_suite,
-    "ba_obsidian_export_vault": execute_ba_obsidian_export_vault,
-    "ba_obsidian_compile_vault": execute_ba_obsidian_compile_vault,
-    "ba_openapi_scan": execute_ba_openapi_scan,
-    "ba_decision_table": execute_ba_decision_table,
-    "ba_meeting_parse": execute_ba_meeting_parse,
-    # Vietnam Labor Law & Regulatory Tools
-    "law_knowledge_search": execute_law_knowledge_search,
-    "law_compliance_lint": execute_law_compliance_lint,
-    "regulatory_watch_scan": execute_regulatory_watch_scan,
-    "regulatory_approve_update": execute_regulatory_approve_update,
-    "hr_governance_blueprint": execute_hr_governance_blueprint,
 }
 
 if HAS_BA_HUB:

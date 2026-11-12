@@ -7,11 +7,21 @@
  * - POST /api/print/job (silent printing & pre-print optimization)
  */
 
+import printModalHtml from '../templates/modals/print_modal.html?raw';
+
 export function initPrintStudio(ctx) {
   const { showToast, refreshLucideIcons, uploadFileToServer } = ctx;
 
+  let modal = document.getElementById('modal-print');
+  if (!modal) {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = printModalHtml.trim();
+    modal = wrapper.querySelector('#modal-print') || wrapper.firstElementChild;
+    const host = document.getElementById('app') || document.body;
+    if (modal && host) host.appendChild(modal);
+  }
+
   const btnOpen = document.getElementById('btn-open-print-modal');
-  const modal = document.getElementById('modal-print');
   const btnClose = document.getElementById('btn-close-print-modal');
   const btnCancel = document.getElementById('btn-cancel-print');
   const btnExecute = document.getElementById('btn-execute-print');

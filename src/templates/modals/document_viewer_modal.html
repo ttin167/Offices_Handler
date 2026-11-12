@@ -1,0 +1,31 @@
+<!-- In-Browser Universal Document Viewer Modal (Phase 3 Enterprise Omni-Studio) -->
+<div class="doc-viewer-modal-backdrop" id="modal-document-viewer" style="display: none;">
+  <div class="doc-viewer-modal-container">
+    <!-- Viewer Header Bar -->
+    <div class="doc-viewer-header">
+      <div class="doc-viewer-title-group">
+        <span class="viewer-type-badge badge-docx" id="doc-viewer-badge">DOCX</span>
+        <h3 class="doc-viewer-filename" id="doc-viewer-filename">Tài liệu xem trước</h3>
+      </div>
+      <div class="doc-viewer-toolbar">
+        <div class="viewer-zoom-controls">
+          <button type="button" class="viewer-tool-btn" id="btn-viewer-zoom-out" title="Thu nhỏ (-)"><i data-lucide="zoom-out"></i></button>
+          <span class="viewer-zoom-level" id="viewer-zoom-display">100%</span>
+          <button type="button" class="viewer-tool-btn" id="btn-viewer-zoom-in" title="Phóng to (+)"><i data-lucide="zoom-in"></i></button>
+          <button type="button" class="viewer-tool-btn" id="btn-viewer-zoom-reset" title="Tỷ lệ 100%"><i data-lucide="maximize-2"></i></button>
+        </div>
+        <div class="viewer-divider"></div>
+        <button type="button" class="viewer-tool-btn" id="btn-viewer-print" title="In tài liệu này"><i data-lucide="printer"></i> In</button>
+        <button type="button" class="viewer-tool-btn" id="btn-viewer-download" title="Tải xuống tệp"><i data-lucide="download"></i> Tải Về</button>
+        <button type="button" class="viewer-tool-btn" id="btn-viewer-fullscreen" title="Toàn màn hình"><i data-lucide="maximize"></i></button>
+        <button type="button" class="viewer-tool-btn btn-close-viewer" id="btn-close-doc-viewer" title="Đóng cửa sổ (Esc)"><i data-lucide="x"></i></button>
+      </div>
+    </div>
+
+    <!-- Viewer Body -->
+    <div class="doc-viewer-body" id="doc-viewer-content">
+      <!-- Dynamically populated: Shimmer Skeleton, PDF iframe, XLSX grid, or DOCX paper page -->
+    </div>
+  </div>
+</div>
+

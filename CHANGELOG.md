@@ -26,7 +26,7 @@ Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân h�
 | **Sơ đồ Kỹ thuật (Diagram Suite)** | Chỉ có sơ đồ cơ bản qua Chromium headless | **Hệ sinh thái Đa Engine**: Hỗ trợ 4 loại công nghệ: Draw.io Native mxGraph (`mxgraph_engine.py`), PlantUML cục bộ (`plantuml.jar` với chuẩn C4 nội bộ), Mermaid pastel phẳng, và Canvas Screen Flow tương tác | Xuất vector SVG và PNG siêu nét 300+ DPI, hỗ trợ kéo thả chỉnh sửa 2 chiều qua `diagram_editor.py` |
 | **Quản lý Định dạng (Decoupled Styling)** | Code và Style bị trộn lẫn, khó thay đổi giao diện | Tách rời hoàn toàn Nội dung (`.md`) và Kiểu dáng (`.style.yaml`); tự động trích xuất metadata phong cách từ DOCX mẫu | Thay đổi toàn bộ phông chữ, màu sắc, lề trang chỉ bằng việc chỉnh sửa file YAML mà không cần sửa code |
 | **Giao diện & CLI Dispatcher** | Các script chạy phân mảnh | `ai_tools_cli.py` hợp nhất toàn bộ lệnh: `doc-security`, `yearbook-layout`, `yearbook-build`, `docx-tools`, `pptx-build`, `diagram-render`, `convert`, `inspect-doc` + Desktop GUI Tkinter (`main.py`) | Thân thiện cho cả người dùng cuối (chạy app desktop) và AI Coding Agent (gọi CLI dạng declarative JSON) |
-| **Kiểm định Chất Lượng (Quality Assurance)** | 16 bài test sơ khai (bị lỗi hardcode đường dẫn trên máy khác) | **507 Automated Test Suites (100% Pass Rate)**: Toàn diện từ OpenXML, DrawingML, SQLite, Web REST/SSE, Server Security Guards, 46 MCP Tools, PDF Pro Studio, Formula Playbook, Document Security Suite, 6 Phân hệ v4.6, đến 4 Giai đoạn Enterprise Omni-Studio v5.0 | Bảo đảm tính ổn định tuyệt đối trong môi trường CI/CD và máy tính cá nhân |
+| **Kiểm định Chất Lượng (Quality Assurance)** | 16 bài test sơ khai (bị lỗi hardcode đường dẫn trên máy khác) | **513 Automated Test Suites (100% Pass Rate)**: Toàn diện từ OpenXML, DrawingML, SQLite, Web REST/SSE, Server Security Guards, 50 MCP Tools, PDF Pro Studio, Formula Playbook, Document Security Suite, 6 Phân hệ v4.6, đến 4 Giai đoạn Enterprise Omni-Studio v5.0 | Bảo đảm tính ổn định tuyệt đối trong môi trường CI/CD và máy tính cá nhân |
 
 ---
 
@@ -43,8 +43,14 @@ Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân h�
     - **Segregation of Duties Conflict Auditor (`SoDConflictAuditor`, `SOD_CORE_RULES`)**: Kiểm toán 5 bộ quy tắc SoD ngăn ngừa vi phạm Maker-Checker (`SOD-01`), cách ly Admin hệ thống khỏi nghiệp vụ nhân sự (`SOD-02`), kiểm soát toàn vẹn cơ cấu OM (`SOD-04`), và khóa tự điều chỉnh hồ sơ bản thân (`SOD-05`), hỗ trợ cả chế độ Strict Mode (Hard Block) và Warning Mode.
     - **Quy Trình Thôi Việc 4 Cổng Độc Lập (`ofb_termination_workflow`)**: Cơ chế 4-Gatekeeper (Line Manager -> IT Assets -> Facility Admin -> Finance Debt -> HR Final Settlement).
     - **Core HR & OM Entity Relational Schemas (`HRCoreDBSchema`)**: Bộ Schema DBML và ANSI SQL DDL chuẩn hóa 10 bảng nghiệp vụ OM & Core HR.
-    - **CLI & MCP Tooling**: CLI subcommand `ai_tools_cli.py hr-governance` và MCP Tool thứ 48 `hr_governance_blueprint` nâng tổng test suite lên **467 tests** (100% pass rate).
-  - **Mở Rộng Terminal CLI & MCP 46-Tool Catalog**: Bổ sung 4 lệnh CLI mới (`xlsx-eval`, `rag-index`, `rag-search`, `copilot-chat`), nâng cấp `print-doc` (`--creep`, `--paper-thickness`, `--tray`, `--duplex`), và đăng ký 3 MCP Tools mới (`xlsx_evaluate_formulas`, `universal_rag_search`, `copilot_assist`) nâng tổng số công cụ MCP lên **46 Tools**.
+    - **CLI & MCP Tooling**: CLI subcommand `ai_tools_cli.py hr-governance` và MCP Tool thứ 48 `hr_governance_blueprint`.
+  - **Phase 6 — Động Cơ Đặc Tả URD & FSD, Router Chuyên Biệt & Hệ Sinh Thái 50 MCP Tools (`core/ba_hub/urd_generator.py`, `core/ba_hub/fsd_generator.py`, `server/routes/ba_spec_routes.py`)**:
+    - **BABOK v3 User Requirements Document (URD)**: Động cơ sinh tài liệu URD OpenXML `.docx` và `.md` theo 9 phần chuẩn mực, tích hợp `URDLinter` kiểm toán 5 chỉ số chất lượng và tự động tính ma trận ưu tiên User Needs.
+    - **Functional Specification Document (FSD)**: Động cơ sinh tài liệu FSD OpenXML `.docx` với bảng phân rã tính năng, tích hợp PlantUML Salt Low-Fi wireframes, trích xuất sổ tính Excel Field Inventory (`.xlsx`) kèm `FSDLinter`.
+    - **Modular REST API Routes**: 6 endpoints chuyên biệt tại `server/routes/ba_spec_routes.py` (`POST /api/ba/urd/generate`, `POST /api/ba/urd/lint`, `GET /api/ba/urd/sample`, `POST /api/ba/fsd/generate`, `POST /api/ba/fsd/lint`, `GET /api/ba/fsd/sample`).
+    - **MCP Tools #49 & #50**: Đăng ký 2 công cụ MCP `ba_urd_synthesize` và `ba_fsd_synthesize` hỗ trợ Dual-Input (`spec_path` hoặc `spec_data` JSON dict), tự động linting và xuất báo cáo Word/Markdown/Excel.
+    - **Nâng Tầm Hệ Thống**: Nâng quy mô lên **50 MCP Tools** và **512 bài kiểm thử tự động** (100% Pass Rate).
+  - **Mở Rộng Terminal CLI & MCP 46-Tool Catalog**: Bổ sung 4 lệnh CLI mới (`xlsx-eval`, `rag-index`, `rag-search`, `copilot-chat`), nâng cấp `print-doc` (`--creep`, `--paper-thickness`, `--tray`, `--duplex`), và đăng ký 50 MCP Tools mới (`xlsx_evaluate_formulas`, `universal_rag_search`, `copilot_assist`) nâng tổng số công cụ MCP lên **46 Tools**.
   - **Nâng Cấp Chuyên Sâu Toàn Diện Universal Document Hub (Gói 1 & Gói 2 — v5.0.0)**:
     1. **Điền Form Tự Động PDF AcroForms (`core/converter/pdf_toolkit.py`)**: Hàm `inspect_pdf_form_fields` quét trích xuất toàn bộ trường biểu mẫu; `fill_pdf_form_fields` điền dữ liệu tự động với cờ Flatten an toàn; CLI `pdf-tools {inspect-form, fill-form}`; REST API `/api/pdf/inspect-form`, `/api/pdf/fill-form`; Web Studio UI AcroForms Pane.
     2. **Lặp Dòng Bảng Danh Sách Động Mail Merge (`core/docx/mail_merge.py`)**: Động cơ `_process_nested_table_blocks` hỗ trợ `{{#TABLE:Items}}...{{/TABLE}}` và `{{#ROWS:...}}`, nhân bản hàng bảng OpenXML theo mảng dữ liệu con (hóa đơn, phiếu thu) bảo toàn định dạng 100%.
@@ -91,13 +97,13 @@ Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân h�
         - Đồ thị tri thức trực quan **Obsidian Canvas v1.0** (`Legal_Overview.canvas`) bổ sung node `node_contract_law` kết nối 2 chiều giữa Khung pháp lý Hợp đồng & Phụ lục HĐLĐ với Vòng đời nhân sự và Bộ biểu mẫu doanh nghiệp.
         - Bộ máy tìm kiếm toàn văn siêu tốc **SQLite FTS5** (`unicode61 remove_diacritics 2`), thời gian phản hồi $< 2\text{ms}$, hỗ trợ tìm tiếng Việt không dấu (`muc tham chieu` khớp `mức tham chiếu`) và mở rộng linh hoạt phụ âm tiếng Việt `d` / `đ`.
         - Bộ kiểm toán tuân thủ luật lao động & sinh kịch bản Gherkin AC (`LaborLawComplianceLinter`): Thêm 2 quy tắc kiểm toán vi phạm Điều 20 & Điều 22 BLLĐ 2019, phương thức sinh User Story chuẩn `generate_contract_lifecycle_story()`, và Bảng quyết định BABOK v3 `get_contract_lifecycle_decision_table()` (`DT-LAW-CONTRACT-01`).
-        - Cách ly bảo mật 100% tại máy trạm thông qua `.gitignore`, `.dockerignore`, `.antigravityignore`. Bổ sung 4 CLI subcommands (`law-init-vault`, `law-search`, `law-story-lint`, `law-reconcile-payroll`) và 2 MCP Tools (`law_knowledge_search`, `law_compliance_lint`). Bộ kiểm thử tự động tăng lên **34 bài test** (`tests/test_labor_law_knowledge.py` và `tests/test_regulatory_watcher.py`) đạt tỷ lệ đậu 100%.
+        - Cách ly bảo mật 100% tại máy trạm thông qua `.gitignore`, `.dockerignore`, `.antigravityignore`. Bổ sung 4 CLI subcommands (`law-init-vault`, `law-search`, `law-story-lint`, `law-reconcile-payroll`) và 50 MCP Tools (`law_knowledge_search`, `law_compliance_lint`). Bộ kiểm thử tự động tăng lên **34 bài test** (`tests/test_labor_law_knowledge.py` và `tests/test_regulatory_watcher.py`) đạt tỷ lệ đậu 100%.
     14. `regulatory_watcher.py`, `regulatory_notifier.py`: **Đường Ống Giám Sát & Đề Xuất Cập Nhật Tự Động Kèm Cảnh Báo Email SMTP (Regulatory Watcher & Auto-Ingestion Pipeline)**:
         - Tự động quét và bóc tách văn bản quy phạm pháp luật lao động, tiền lương, bảo hiểm mới (hỗ trợ đọc tài liệu ngoại tuyến PDF, DOCX, text).
         - Trích xuất tự động và tính toán các tham số phái sinh: 4 vùng lương tối thiểu (Vùng I–IV), 4 trần BHTN ($20\times$), Mức tham chiếu & trần BHXH/BHYT ($20\times$), trợ cấp thai sản & dưỡng sức, mức giảm trừ gia cảnh thuế TNCN mới (bản thân & người phụ thuộc).
         - **Bất biến bảo tồn lịch sử (Historical Preservation Invariant)**: Không bao giờ ghi đè hay xóa tệp năm cũ; lưu trữ song song chính sách từng năm phục vụ thanh tra lao động và quyết toán lương quá khứ. Cung cấp cờ `period` cho `LaborLawComplianceLinter` kiểm toán theo từng niên đại.
         - **Chốt chặn Human-in-the-Loop Gate & Cơ chế Phê Duyệt 1-Click**: Tự động sinh tệp dự thảo `KB-LAW-[YEAR]-DRAFT.md` tại thư mục `./labor_law_vault/staging/`, gửi email cảnh báo HTML chuyên nghiệp qua SMTP Gmail (`core/ba_hub/regulatory_notifier.py`) hoàn toàn bằng thư viện chuẩn Python; lệnh 1-Click `law-merge-update` sáp nhập an toàn kèm **Atomic Rollback Guard** bảo vệ dữ liệu và tái lập chỉ mục SQLite FTS5 trong 50ms.
-        - Bổ sung 3 CLI subcommands (`law-notify-test`, `law-watch-scan`, `law-merge-update`) và 2 MCP Tools (`regulatory_watch_scan`, `regulatory_approve_update`).
+        - Bổ sung 3 CLI subcommands (`law-notify-test`, `law-watch-scan`, `law-merge-update`) và 50 MCP Tools (`regulatory_watch_scan`, `regulatory_approve_update`).
         - Bộ kiểm thử tự động đạt 27/27 bài test đậu 100% (`tests/test_labor_law_knowledge.py` và `tests/test_regulatory_watcher.py`).
     15. `core/system_maintenance.py`, `cli/maintenance_commands.py`: **Bộ Công Cụ Bảo Trì Hệ Thống Định Kỳ (System Maintenance Suite — 7 Trụ Cột)**:
         - Hiện thực hóa lớp `SystemMaintenanceEngine` và dataclass `MaintenanceReport` (100% Python Standard Library, Zero External Dependencies).
@@ -126,14 +132,14 @@ Tài liệu này tổng hợp toàn bộ lộ trình nâng cấp, các phân h�
     - **Segregation of Duties Conflict Auditor (`SoDConflictAuditor`, `SOD_CORE_RULES`)**: Kiểm toán 5 bộ quy tắc SoD ngăn ngừa vi phạm Maker-Checker (`SOD-01`), cách ly Admin hệ thống khỏi nghiệp vụ nhân sự (`SOD-02`), kiểm soát toàn vẹn cơ cấu OM (`SOD-04`), và khóa tự điều chỉnh hồ sơ bản thân (`SOD-05`), hỗ trợ cả chế độ Strict Mode (Hard Block) và Warning Mode.
     - **Quy Trình Thôi Việc 4 Cổng Độc Lập (`ofb_termination_workflow`)**: Cơ chế 4-Gatekeeper (Line Manager -> IT Assets -> Facility Admin -> Finance Debt -> HR Final Settlement).
     - **Core HR & OM Entity Relational Schemas (`HRCoreDBSchema`)**: Bộ Schema DBML và ANSI SQL DDL chuẩn hóa 10 bảng nghiệp vụ OM & Core HR.
-    - **CLI & MCP Tooling**: CLI subcommand `ai_tools_cli.py hr-governance` và MCP Tool thứ 48 `hr_governance_blueprint` nâng tổng test suite lên **507 tests** (100% pass rate). Toàn bộ 507 bài kiểm thử tự động vượt qua 100%.
+    - **CLI & MCP Tooling**: CLI subcommand `ai_tools_cli.py hr-governance` và MCP Tool thứ 48 `hr_governance_blueprint` nâng tổng test suite lên **513 tests** (100% pass rate). Toàn bộ 513 bài kiểm thử tự động vượt qua 100%.
   - Cập nhật Web Studio thành **5 Không Gian Làm Việc Chính (BA Workspaces)**:
     - Workspace 1: **Requirements Engineering Hub** (User Story, Gherkin AC, Linter, Use Case, BRD Synthesizer, RTM Matrix, Xuất Obsidian Vault .zip).
     - Workspace 2: **Data & Process Studio** (Data Dictionary, Source-to-Target Mapping, DBML 2-Way Studio, Satsuma DSL Lineage).
     - Workspace 3: **Audit, Reconciliation & Change Control Hub** (Two-Way Reconciliation, Variance Report, UAT Matrix, Legal Redline Diff, 7 SQL Integrity Tests, Scope Creep & Impact Analysis, Biên Dịch Obsidian Vault Sang Word BRD).
     - Workspace 4: **Document Hub** (Word, PDF, Lossless Convert, Track Changes).
     - Workspace 5: **Spreadsheet Studio** (Excel Automation, 12-Gate QA, Formula Playbook).
-  - Bổ sung trọn bộ 17 REST API endpoints mới tại `/api/ba/*` và 6 MCP Tools chuyên dụng cho AI Agent (`ba_story_lint`, `ba_rtm_matrix`, `ba_dbml_convert`, `ba_sql_integrity_suite`, `ba_obsidian_export_vault`, `ba_obsidian_compile_vault`), nâng tổng quy mô lên 32 MCP Tools.
+  - Bổ sung trọn bộ 17 REST API endpoints mới tại `/api/ba/*` và 50 MCP Tools chuyên dụng cho AI Agent (`ba_story_lint`, `ba_rtm_matrix`, `ba_dbml_convert`, `ba_sql_integrity_suite`, `ba_obsidian_export_vault`, `ba_obsidian_compile_vault`), nâng tổng quy mô lên 50 MCP Tools.
   - Mở rộng bộ kiểm thử tự động toàn diện `tests/test_ba_hub.py` và `tests/test_ba_extended_suite.py` (20 test suites, 100% Pass).
 - **Phân Hệ 1 — Chữ Ký Số Mật Mã PKCS#7 / PAdES & Lưu Trữ Dài Hạn PDF/A-2b (`core/converter/pdf_toolkit.py`)**:
   - `crypto_sign_pdf` & `verify_pdf_crypto_signature`: Nhúng từ điển chữ ký mật mã chuẩn ISO `/Type /Sig` (`/Filter /Adobe.PPKLite`, `/SubFilter /ETSI.CAdES.detached` hoặc `/adbe.pkcs7.detached`), băm toàn vẹn SHA-256 của tệp PDF, hỗ trợ chứng thư số `.pfx`/`.p12` qua `cryptography` hoặc con dấu xác thực nội bộ kèm khung chữ ký số trực quan trên trang đích.
@@ -626,8 +632,8 @@ Dự án áp dụng nghiêm ngặt các bộ quy chuẩn bất biến sau trong 
 
 ## 4. Báo Cáo Kiểm Định Chất Lượng (Quality Verification)
 
-- **Tổng số ca kiểm thử**: 507 bài test tự động.
-- **Trạng thái thực thi**: 507/507 bài test tự động (**100% Pass Rate**).
+- **Tổng số ca kiểm thử**: 513 bài test tự động.
+- **Trạng thái thực thi**: 513/513 bài test tự động (**100% Pass Rate**).
 - **Môi trường xác nhận**:
   - Python 3.10, 3.11, 3.12, 3.14 (Windows 64-bit).
   - Microsoft Word COM Automation (Kiểm tra mở tài liệu không lỗi, 0 repair warnings).

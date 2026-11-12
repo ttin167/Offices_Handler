@@ -1,0 +1,138 @@
+<!-- Enterprise Print Modal -->
+<div class="modal-backdrop" id="modal-print" style="display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(4px); z-index: 1000; align-items: center; justify-content: center;">
+  <div class="modal-content" style="background: var(--surface-card, #1e293b); border: 1px solid var(--border-color, #334155); border-radius: 12px; width: 92%; max-width: 620px; max-height: 90vh; overflow-y: auto; padding: 22px 24px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border-color, #334155); padding-bottom: 12px;">
+      <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: var(--text-primary, #f8fafc); display: flex; align-items: center; gap: 8px;">
+        <i data-lucide="printer" style="color: var(--color-primary, #38bdf8);"></i> Trạm In Ấn Doanh Nghiệp (Enterprise Printing)
+      </h3>
+      <button id="btn-close-print-modal" style="background: none; border: none; color: var(--text-muted, #94a3b8); cursor: pointer; padding: 4px;">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <!-- Tệp Cần In -->
+      <div>
+        <label style="font-size: 12px; font-weight: 600; color: var(--text-primary, #cbd5e1); display: block; margin-bottom: 5px;">Tệp Cần In (.pdf, .docx, .xlsx):</label>
+        <input type="file" id="print-input-file" class="input-text ba-input" accept=".pdf,.docx,.xlsx" style="width: 100%; padding: 7px 10px;" />
+        <input type="hidden" id="print-file-path" value="" />
+      </div>
+
+      <!-- Chọn Máy In & Badge Trạng Thái Phần Cứng -->
+      <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+          <label style="font-size: 12px; font-weight: 600; color: var(--text-primary, #cbd5e1); margin: 0;">Chọn Máy In Hệ Thống:</label>
+          <span id="printer-status-pill" class="printer-status-pill ready">● Đang kết nối...</span>
+        </div>
+        <select id="print-select-printer" class="input-text ba-select" style="width: 100%; padding: 7px 10px;">
+          <option value="">Đang tải danh sách máy in...</option>
+        </select>
+      </div>
+
+      <!-- [ KHỐI 1: THIẾT LẬP CƠ BẢN ] -->
+      <div class="print-group-box">
+        <div class="print-group-title">
+          <i data-lucide="sliders" style="width: 14px; height: 14px;"></i> Thiết Lập Cơ Bản (Core Print Settings)
+        </div>
+
+        <!-- Dải Trang In (Page Range) -->
+        <div>
+          <label style="font-size: 11.5px; font-weight: 600; color: var(--text-secondary, #94a3b8); display: block; margin-bottom: 4px;">Trang In (Page Range):</label>
+          <div class="print-radio-row">
+            <label class="print-radio-label">
+              <input type="radio" name="print-page-scope" id="print-range-all" value="all" checked />
+              <span>Tất cả các trang</span>
+            </label>
+            <label class="print-radio-label">
+              <input type="radio" name="print-page-scope" id="print-range-custom" value="custom" />
+              <span>Dải trang:</span>
+            </label>
+            <input type="text" id="print-range-input" class="input-text ba-input" placeholder="Ví dụ: 1-5, 8, 11-20" disabled style="flex: 1; min-width: 140px; padding: 4px 8px; font-size: 12px;" />
+          </div>
+        </div>
+
+        <!-- Bản In & Khổ Giấy -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div>
+            <label style="font-size: 11.5px; font-weight: 600; color: var(--text-secondary, #94a3b8); display: block; margin-bottom: 4px;">Số Lượng Bản In (Copies):</label>
+            <input type="number" id="print-copies" class="input-text ba-input" value="1" min="1" max="100" style="width: 100%; padding: 6px 10px;" />
+          </div>
+          <div>
+            <label style="font-size: 11.5px; font-weight: 600; color: var(--text-secondary, #94a3b8); display: block; margin-bottom: 4px;">Khổ Giấy (Page Size):</label>
+            <select id="print-select-page-size" class="input-text ba-select" style="width: 100%; padding: 6px 10px;">
+              <option value="a4" selected>A4 (210 x 297 mm - Tiêu chuẩn)</option>
+              <option value="letter">Letter (8.5 x 11.0 in)</option>
+              <option value="a3">A3 (297 x 420 mm - Khổ lớn)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- In 2 Mặt & Căn Chỉnh Tỷ Lệ -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div>
+            <label style="font-size: 11.5px; font-weight: 600; color: var(--text-secondary, #94a3b8); display: block; margin-bottom: 4px;">In 2 Mặt (Duplex Mode):</label>
+            <select id="print-select-duplex" class="input-text ba-select" style="width: 100%; padding: 6px 10px;">
+              <option value="vertical" selected>Lật cạnh dài (Duplex Long Edge — A4 Dọc)</option>
+              <option value="simplex">In 1 mặt (Simplex)</option>
+              <option value="horizontal">Lật cạnh ngắn (Duplex Short Edge — A4 Ngang)</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size: 11.5px; font-weight: 600; color: var(--text-secondary, #94a3b8); display: block; margin-bottom: 4px;">Căn Chỉnh Tỷ Lệ (Scaling):</label>
+            <select id="print-select-scaling" class="input-text ba-select" style="width: 100%; padding: 6px 10px;">
+              <option value="fit" selected>Fit to Printable Area (Thu vừa vùng in)</option>
+              <option value="actual">Actual Size (100% Giữ nguyên gốc)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- [ KHỐI 2: TÙY CHỌN TỐI ƯU & NÂNG CAO ] -->
+      <div class="print-group-box">
+        <div class="print-group-title">
+          <i data-lucide="sparkles" style="width: 14px; height: 14px;"></i> Tùy Chọn Tối Ưu & Nâng Cao (Print Optimizer)
+        </div>
+
+        <!-- Bố Cục Ghép Trang (N-Up) -->
+        <div>
+          <label style="font-size: 11.5px; font-weight: 600; color: var(--text-secondary, #94a3b8); display: block; margin-bottom: 4px;">Bố Cục Ghép Trang (N-Up):</label>
+          <select id="print-nup" class="input-text ba-select" style="width: 100%; padding: 6px 10px;">
+            <option value="1">1 Trang / Mặt (Chuẩn 1-Up)</option>
+            <option value="2">2-Up (Ghép 2 trang trên 1 mặt ngang)</option>
+            <option value="4">4-Up (Ghép 4 trang lưới 2x2)</option>
+          </select>
+        </div>
+
+        <!-- Checkboxes Tối Ưu Mực & Đóng Sách -->
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <label style="font-size: 12px; color: var(--text-primary, #cbd5e1); display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="print-opt-grayscale" />
+            <span>Tiết kiệm mực (Grayscale Vector — Giữ độ sắc nét vĩnh cửu)</span>
+          </label>
+          <label style="font-size: 12px; color: var(--text-primary, #cbd5e1); display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="print-opt-booklet" />
+            <span>Đóng sách gấp gáy bấm kim (Booklet Saddle-Stitch Imposition)</span>
+          </label>
+        </div>
+
+        <!-- Dấu Thủy Ấn Bảo Mật -->
+        <div>
+          <label style="font-size: 11.5px; font-weight: 600; color: var(--text-secondary, #94a3b8); display: block; margin-bottom: 4px;">Dấu Thủy Ấn Bảo Mật (Watermark — Tùy chọn):</label>
+          <input type="text" id="print-opt-watermark" class="input-text ba-input" placeholder="Ví dụ: CONFIDENTIAL, BẢN LƯU NỘI BỘ" style="width: 100%; padding: 6px 10px;" />
+        </div>
+      </div>
+
+      <!-- Spooler Job Tracker & Status Area -->
+      <div id="print-job-status-area" style="font-size: 12px;"></div>
+
+      <!-- Modal Actions -->
+      <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px;">
+        <button id="btn-cancel-print" class="btn btn-secondary">Đóng</button>
+        <button id="btn-execute-print" class="btn btn-primary">
+          <i data-lucide="printer"></i> Bắt Đầu In Ngầm
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+

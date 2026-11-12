@@ -194,7 +194,7 @@ def get_live_test_count() -> int:
         suite = loader.discover(os.path.join(BASE_DIR, "tests"), pattern="test_*.py", top_level_dir=BASE_DIR)
         return suite.countTestCases()
     except Exception:
-        return 507
+        return 512
 
 
 def get_live_mcp_count() -> int:
@@ -203,7 +203,7 @@ def get_live_mcp_count() -> int:
         from server.mcp_server import TOOL_DEFINITIONS
         return len(TOOL_DEFINITIONS)
     except Exception:
-        return 48
+        return 50
 
 
 def sync_all_documentation_metrics(t_count: Optional[int] = None, m_count: Optional[int] = None) -> List[str]:
@@ -241,7 +241,7 @@ def sync_all_documentation_metrics(t_count: Optional[int] = None, m_count: Optio
         with open(cl_path, "r", encoding="utf-8") as f:
             cl = f.read()
         cl = re.sub(r'(\*\*)[0-9]+(\s+Automated Test Suites \(100% Pass Rate\)\*\*)', rf'\g<1>{t_count}\g<2>', cl)
-        cl = re.sub(r'(\*\*)[0-9]+(\s+MCP Tools\*\*)', rf'\g<1>{m_count}\g<2>', cl)
+        cl = re.sub(r'(\b)[0-9]+(\s+MCP Tools\b)', rf'\g<1>{m_count}\g<2>', cl)
         cl = re.sub(r'(nâng tổng test suite lên \*\*)[0-9]+(\s+tests\*\* \(100% pass rate\)\.\s*Toàn bộ\s*)[0-9]+(\s+bài kiểm thử tự động vượt qua 100%)', rf'\g<1>{t_count}\g<2>{t_count}\g<3>', cl)
         cl = re.sub(r'(\*\*Tổng số ca kiểm thử\*\*:\s*)[0-9]+(\s+bài test tự động)', rf'\g<1>{t_count}\g<2>', cl)
         cl = re.sub(r'(\*\*Trạng thái thực thi\*\*:\s*)[0-9]+/[0-9]+(\s+bài test tự động \(\*\*100% Pass Rate\*\*\))', rf'\g<1>{t_count}/{t_count}\g<2>', cl)
@@ -267,6 +267,7 @@ def sync_all_documentation_metrics(t_count: Optional[int] = None, m_count: Optio
             doc = f.read()
         doc = re.sub(r'(\*\*Độ Tin Cậy Kiểm Thử\*\*:\s*)[0-9]+\+\s*(Automated Tests)', rf'\g<1>{t_count}+ \g<2>', doc)
         doc = re.sub(r'(MCP\s*)[0-9]+(-Tool Catalog)', rf'\g<1>{m_count}\g<2>', doc)
+        doc = re.sub(r'(\b)[0-9]+(\s+MCP Tools\b)', rf'\g<1>{m_count}\g<2>', doc)
         doc = re.sub(r'(\*\*)[0-9]+\+(\s*Automated Test Suites \(100% Pass Rate\)\*\*)', rf'\g<1>{t_count}+\g<2>', doc)
         with open(doc_path, "w", encoding="utf-8") as f:
             f.write(doc)

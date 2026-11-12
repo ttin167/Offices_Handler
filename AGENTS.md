@@ -69,6 +69,8 @@ Welcome, AI Agent! This file is your operational manual for `antigravity-doc-han
 | **Universal FTS5 RAG Search** | Multi-Format File + Query | `universal_rag_search(...)` | `ai_tools_cli.py rag-search` | `core/ba_hub/universal_rag.py` (`UniversalRAGVault`) |
 | **Hybrid AI Copilot Assistant** | Prompt + RAG Context | `copilot_assist(...)` | `ai_tools_cli.py copilot-chat` | `core/ba_hub/copilot_provider.py` (`CopilotHybridOrchestrator`) |
 | **Enterprise HR Governance & Scopes** | HR Spec / Permissions / Context | `hr_governance_blueprint(...)` | `ai_tools_cli.py hr-governance` | `core/ba_hub/hr_governance.py` (`HRDataScope`, `SoDConflictAuditor`) |
+| **BABOK v3 URD Synthesizer** | Spec JSON / File | `ba_urd_synthesize(...)` | `ai_tools_cli.py ba-urd-generate` | `core/ba_hub/urd_generator.py` (`URDGenerator`, `URDLinter`) |
+| **Functional Spec Doc (FSD)** | Spec JSON / File | `ba_fsd_synthesize(...)` | `ai_tools_cli.py ba-fsd-generate` | `core/ba_hub/fsd_generator.py` (`FSDGenerator`, `FSDLinter`) |
 | **Periodic System Maintenance (7-Pillars)** | System Workspace | `system_maintenance(...)` | `ai_tools_cli.py system-maintenance` | `core/system_maintenance.py` (`run_periodic_maintenance`) |
 
 ---
@@ -168,6 +170,8 @@ When user requests you to perform document tasks or draw diagrams, run these com
 | **Hybrid AI Copilot Terminal Chat** | `python ai_tools_cli.py copilot-chat <prompt> [-p {hybrid,local,cloud}] [--index-file <file>] [--json]` |
 | **Sync Core Docs Triad (MD->DOCX+PDF)** | `python tools/sync_core_docs.py [--build | --check]` |
 | **Core HR Governance & 6 Data Scopes** | `python ai_tools_cli.py hr-governance {data-scopes,sod-audit,ofb-workflow,export-schema}` |
+| **BABOK v3 URD Document Generation** | `python ai_tools_cli.py ba-urd-generate <spec.json> [-o <out.docx>] [--format {docx,md}]` |
+| **Functional Spec Doc (FSD)** | `python ai_tools_cli.py ba-fsd-generate <spec.json> [-o <out.docx>] [--excel <inventory.xlsx>]` |
 | **Launch Desktop GUI** | `python main.py` |
 
 ---
@@ -188,7 +192,7 @@ antigravity-doc-handler/
 │   ├── printing/               # Enterprise Printing Engine (Vector /DeviceGray, Booklet Creep, DEVMODE Guard G2)
 │   ├── env_doctor.py           # 12-Component Environment Health Doctor
 │   └── system_maintenance.py   # 7-Pillar Enterprise System Maintenance & MPO Guard
-├── server/                     # Layer 2: Web Studio REST API (:8000), Modular Routes, MCP Server (48 Tools), Persistent WAL Queue
+├── server/                     # Layer 2: Web Studio REST API (:8000), Modular Routes, MCP Server (50 Tools), Persistent WAL Queue
 ├── cli/                        # Layer 2: Unified AI CLI Dispatcher & Subcommands
 ├── ui/                         # Layer 1: Desktop GUI (Tkinter) & Native WebView App Launcher
 ├── src/                        # Layer 1: Vite ES6 Web Studio Frontend & Modular Controllers
@@ -198,7 +202,7 @@ antigravity-doc-handler/
 │   ├── sync_core_docs.py       # Core Docs Triad Compiler & Semantic Auditor (ERR_DOC_SYNC_001)
 │   └── plantuml.jar            # Local PlantUML JAR (v1.2026+, bundled C4 standard library)
 ├── specs/                      # Declarative Diagram Specs (flow_*.json, master_erd_*.json)
-├── tests/                      # 507 Automated Test Suites (tests/test_*.py)
+├── tests/                      # 513 Automated Test Suites (tests/test_*.py)
 ├── main.py                     # Official Entrypoint: Desktop GUI & Native Web App Mode
 ├── ai_tools_cli.py             # Official Entrypoint: Unified CLI Dispatcher for AI Agents
 ├── web_api_server.py           # Official Entrypoint: Web Studio REST API Server

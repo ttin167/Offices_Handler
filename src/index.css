@@ -6268,7 +6268,7 @@ sup,
   font-size: 14px;
 }
 
-/* Data Dictionary & Mapping Tables (Sticky Opaque Header + Zebra + Tabular Nums) */
+/* Data Dictionary & Mapping Tables (Sticky Opaque Header + Zebra + Tabular Nums + 13-14" Laptop Min-Width Guard) */
 .ba-table-container {
   overflow-x: auto;
   max-height: 540px;
@@ -6277,13 +6277,35 @@ sup,
   border: 1px solid var(--border-subtle);
   background: var(--surface-card);
   scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ba-table-container::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.ba-table-container::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 999px;
 }
 
 .ba-editable-table {
   width: 100%;
+  min-width: 960px; /* Defensive min-width for 13-14 inch laptops (1366x768) & split-screen */
   border-collapse: collapse;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
+}
+
+.ba-table-data-dict,
+#dict-fields-table {
+  min-width: 1150px; /* Preserves ergonomic spacing across all 9 Data Dictionary columns */
+}
+
+.ba-table-mapping,
+#mapping-table {
+  min-width: 980px; /* Preserves ergonomic spacing across all 7 Source-to-Target Mapping columns */
 }
 
 .ba-editable-table th {
@@ -6316,9 +6338,10 @@ sup,
   background-color: var(--accent-subtle);
 }
 
-.ba-editable-table input,
+.ba-editable-table input:not([type="checkbox"]):not([type="radio"]),
 .ba-editable-table select {
   width: 100%;
+  min-width: 85px;
   box-sizing: border-box;
   padding: 6px 10px;
   background: var(--surface-input);
@@ -6328,6 +6351,13 @@ sup,
   font-size: 12.5px;
   font-variant-numeric: tabular-nums;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ba-editable-table input[type="checkbox"],
+.ba-editable-table input[type="radio"] {
+  width: auto;
+  min-width: auto;
+  cursor: pointer;
 }
 
 .ba-editable-table input:focus,

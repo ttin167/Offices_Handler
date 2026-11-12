@@ -38,9 +38,11 @@
 | **Universal FTS5 RAG** | `core/ba_hub/universal_rag.py` | `UniversalRAGVault` |
 | **Hybrid AI Copilot** | `core/ba_hub/copilot_provider.py` | `CopilotHybridOrchestrator` |
 | **HR Governance & Scopes** | `core/ba_hub/hr_governance.py` | `HRDataScope`, `SoDConflictAuditor` |
+| **BABOK URD Synthesizer** | `core/ba_hub/urd_generator.py` | `URDGenerator`, `URDLinter` |
+| **Functional Spec Doc (FSD)** | `core/ba_hub/fsd_generator.py` | `FSDGenerator`, `FSDLinter` |
 | **Periodic Maintenance** | `core/system_maintenance.py` | `run_periodic_maintenance()` |
 | **CLI Dispatcher** | `ai_tools_cli.py`, `cli/` | Entrypoint & Subcommands |
-| **MCP Server (48 Tools)** | `server/mcp_server.py` | `TOOL_DEFINITIONS`, `handle_rpc_request()` |
+| **MCP Server (50 Tools)** | `server/mcp_server.py` | `TOOL_DEFINITIONS`, `handle_rpc_request()` |
 | **Web REST API (:8000)** | `server/app.py`, `server/routes/` | Modular Flask/FastAPI Endpoints |
 
 ## ⚡ Fast CLI Cheat Sheet
@@ -48,5 +50,7 @@
 - Diagnostic Doctor: `python ai_tools_cli.py doctor`
 - Quality QA Gate: `python ai_tools_cli.py qa-audit <file>`
 - HR Governance: `python ai_tools_cli.py hr-governance data-scopes`
-- Run All Tests: `pytest -q` (507 tests, 100% pass rate)
+- URD Generation: `python ai_tools_cli.py ba-urd-generate <spec.json>`
+- FSD Generation: `python ai_tools_cli.py ba-fsd-generate <spec.json>`
+- Run All Tests: `pytest -q` (512 tests, 100% pass rate)
 - Version Audit: `python tools/bump_version.py --check`

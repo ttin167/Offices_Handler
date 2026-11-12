@@ -118,11 +118,18 @@ class TestMCPServer(unittest.TestCase):
                 "regulatory_watch_scan",
                 "regulatory_approve_update",
                 "hr_governance_blueprint",
+                "ba_urd_synthesize",
+                "ba_fsd_synthesize",
             ])
             self.assertEqual(len(tools), len(expected_tools))
         else:
             office_expected = [
-                t for t in expected_tools if not t.startswith("ba_") and not t.startswith("law_") and not t.startswith("regulatory_")
+                t
+                for t in expected_tools
+                if (not t.startswith("ba_") or t == "ba_wireframe_render")
+                and not t.startswith("law_")
+                and not t.startswith("regulatory_")
+                and t != "hr_governance_blueprint"
             ]
             self.assertEqual(len(tools), len(office_expected))
             expected_tools = office_expected

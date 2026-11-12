@@ -55,8 +55,10 @@ Khi nhận tín hiệu `{{ CHECKPOINT N }}` hoặc bắt đầu một phiên là
 | **Universal FTS5 RAG Vault** | `core/ba_hub/universal_rag.py` | `UniversalRAGVault` |
 | **Hybrid AI Copilot Assistant** | `core/ba_hub/copilot_provider.py` | `CopilotHybridOrchestrator` |
 | **Enterprise HR Governance & SoD** | `core/ba_hub/hr_governance.py` | `HRDataScope`, `SoDConflictAuditor` |
+| **BABOK v3 URD Synthesizer** | `core/ba_hub/urd_generator.py` | `URDGenerator`, `URDLinter` |
+| **Functional Spec Doc (FSD)** | `core/ba_hub/fsd_generator.py` | `FSDGenerator`, `FSDLinter` |
 | **7-Pillars Periodic Maintenance** | `core/system_maintenance.py` | `run_periodic_maintenance()` |
-| **Model Context Protocol (48 Tools)** | `server/mcp_server.py` | `TOOL_DEFINITIONS`, `handle_rpc_request()` |
+| **Model Context Protocol (50 Tools)** | `server/mcp_server.py` | `TOOL_DEFINITIONS`, `handle_rpc_request()` |
 | **Unified Terminal CLI Dispatcher** | `ai_tools_cli.py`, `cli/` | Entrypoint CLI & Subcommands |
 
 ---

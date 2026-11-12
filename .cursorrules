@@ -38,11 +38,13 @@
 - Universal FTS5 RAG Vault: `core/ba_hub/universal_rag.py`
 - Hybrid AI Copilot Orchestrator: `core/ba_hub/copilot_provider.py`
 - Enterprise HR Governance & SoD: `core/ba_hub/hr_governance.py` (`HRDataScope`, `SoDConflictAuditor`)
+- BABOK v3 URD Synthesizer: `core/ba_hub/urd_generator.py` (`URDGenerator`, `URDLinter`)
+- Functional Spec Doc (FSD): `core/ba_hub/fsd_generator.py` (`FSDGenerator`, `FSDLinter`)
 - 7-Pillars Periodic Maintenance: `core/system_maintenance.py` (`run_periodic_maintenance`)
 - CLI Dispatcher: `ai_tools_cli.py`, `cli/`
-- Model Context Protocol (48 Tools): `server/mcp_server.py`
+- Model Context Protocol (50 Tools): `server/mcp_server.py`
 - Web Studio REST API (:8000): `server/app.py`, `server/routes/`
 
 ## Key Invariants
-- Tests: 507 Automated Test Suites (100% pass rate). Run via `pytest -q`.
+- Tests: 512 Automated Test Suites (100% pass rate). Run via `pytest -q`.
 - Version: Sync across 10 anchors via `python tools/bump_version.py --check`.
