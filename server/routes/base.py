@@ -145,6 +145,17 @@ def get_output_dir() -> str:
     return d
 
 
+DEFAULT_FILE_INPUT_KEYS: Tuple[str, ...] = (
+    "file_path",
+    "filepath",
+    "source_path",
+    "input_path",
+    "path",
+    "filename",
+    "file",
+)
+
+
 def resolve_workspace_file(path_str: Optional[str]) -> Optional[str]:
     """Safely resolve a submitted file path within allowed sandbox directories."""
     if not path_str or not isinstance(path_str, str):
@@ -153,20 +164,30 @@ def resolve_workspace_file(path_str: Optional[str]) -> Optional[str]:
     if not cleaned:
         return None
 
+    # Guard against path traversal segments (`..`) before resolving any candidate paths.
+    if ".." in [part for part in re.split(r"[\\/]+", cleaned) if part]:
+        return None
+
     base_dir = get_base_dir()
     upload_dir = get_upload_dir()
     output_dir = get_output_dir()
-    allowed_roots = [
+    legacy_uploads_dir = os.path.join(base_dir, "uploads")
+    legacy_output_dir = os.path.join(base_dir, "output")
+    previews_dir = os.path.join(output_dir, "pdf_previews")
+
+    allowed_abs_roots = [
         os.path.abspath(base_dir),
         os.path.abspath(upload_dir),
         os.path.abspath(output_dir),
-        os.path.abspath(os.path.join(base_dir, "uploads")),
+        os.path.abspath(legacy_uploads_dir),
+        os.path.abspath(legacy_output_dir),
         os.path.abspath(tempfile.gettempdir()),
     ]
+    allowed_real_roots = [os.path.realpath(root) for root in allowed_abs_roots]
 
-    def _is_safe(candidate_abs: str) -> bool:
-        norm_cand = os.path.normpath(candidate_abs)
-        for root in allowed_roots:
+    def _within_roots(candidate_path: str, roots: List[str]) -> bool:
+        norm_cand = os.path.normpath(candidate_path)
+        for root in roots:
             norm_root = os.path.normpath(root)
             try:
                 if os.path.commonpath([norm_root, norm_cand]) == norm_root:
@@ -175,19 +196,64 @@ def resolve_workspace_file(path_str: Optional[str]) -> Optional[str]:
                 continue
         return False
 
-    candidates = [
-        cleaned,
-        os.path.join(upload_dir, os.path.basename(cleaned)),
-        os.path.join(output_dir, os.path.basename(cleaned)),
-        os.path.join(base_dir, "uploads", os.path.basename(cleaned)),
-        os.path.join(base_dir, cleaned),
-    ]
-    for cand in candidates:
-        if os.path.isfile(cand):
-            abs_p = os.path.abspath(cand)
-            if _is_safe(abs_p):
-                return abs_p
+    def _is_safe(candidate_path: str) -> bool:
+        abs_p = os.path.abspath(candidate_path)
+        real_p = os.path.realpath(candidate_path)
+        return _within_roots(abs_p, allowed_abs_roots) and _within_roots(real_p, allowed_real_roots)
+
+    direct_candidates = [cleaned]
+    if not os.path.isabs(cleaned):
+        direct_candidates.extend([
+            os.path.join(base_dir, cleaned),
+            os.path.join(legacy_uploads_dir, cleaned),
+        ])
+
+    for cand in direct_candidates:
+        if os.path.isfile(cand) and _is_safe(cand):
+            return os.path.abspath(cand)
+
+    # Reject mapping explicit outside-root absolute paths onto managed files by basename.
+    if os.path.isabs(cleaned):
+        return None
+
+    safe_name = os.path.basename(cleaned)
+    if not safe_name or safe_name in (".", ".."):
+        return None
+
+    managed_dirs = (
+        upload_dir,
+        output_dir,
+        previews_dir,
+        legacy_uploads_dir,
+        legacy_output_dir,
+    )
+    for directory in managed_dirs:
+        cand = os.path.join(directory, safe_name)
+        if os.path.isfile(cand) and _is_safe(cand):
+            return os.path.abspath(cand)
+
     return None
+
+
+def resolve_body_file(
+    body: Dict[str, Any],
+    keys: Tuple[str, ...] = DEFAULT_FILE_INPUT_KEYS,
+) -> Tuple[Optional[str], Optional[str]]:
+    """Extract and sandbox-resolve the first matching file reference from a JSON request body."""
+    first_raw: Optional[str] = None
+    for key in keys:
+        val = body.get(key)
+        if val is None:
+            continue
+        text = str(val).strip()
+        if not text:
+            continue
+        if first_raw is None:
+            first_raw = text
+        resolved = resolve_workspace_file(text)
+        if resolved:
+            return text, resolved
+    return first_raw, None
 
 
 def build_output_filepath(src_path: str, suffix: str, ext: Optional[str] = None) -> Tuple[str, str]:

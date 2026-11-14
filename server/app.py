@@ -831,6 +831,23 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
         return json.loads(raw_body) if raw_body else {}
 
+    def _dispatch_modular_route(self, method: str, path: str) -> bool:
+        """Dispatch request to modular Router; log and surface route exceptions instead of silent pass."""
+        try:
+            from server.routes import Router
+        except ImportError:
+            import traceback
+            traceback.print_exc()
+            return False
+
+        try:
+            return Router.get_instance().dispatch(self, method, path)
+        except Exception:
+            import traceback
+            print(f"[server.app] Modular route error on {method} {path}:", file=sys.stderr)
+            traceback.print_exc()
+            raise
+
 
 
     def do_GET(self) -> None:
@@ -851,13 +868,8 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
                 return
 
-            # Modular route dispatch (v5.0 Enterprise)
-            try:
-                from server.routes import Router
-                if Router.get_instance().dispatch(self, "GET", path):
-                    return
-            except Exception:
-                pass
+            if self._dispatch_modular_route("GET", path):
+                return
 
 
 
@@ -1229,13 +1241,8 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
                 return
 
-            # Modular route dispatch (v5.0 Enterprise)
-            try:
-                from server.routes import Router
-                if Router.get_instance().dispatch(self, "GET", path):
-                    return
-            except Exception:
-                pass
+            if self._dispatch_modular_route("DELETE", path):
+                return
 
 
 
@@ -1291,21 +1298,14 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
             return
 
-        # Modular route dispatch (v5.0 Enterprise)
-        try:
-            from server.routes import Router
-            if Router.get_instance().dispatch(self, "POST", path):
-                return
-        except Exception:
-            pass
-
-
-
         content_type = self.headers.get("Content-Type", "")
 
 
 
         try:
+
+            if self._dispatch_modular_route("POST", path):
+                return
 
             # Endpoint 0: Asynchronous Job Submission (SSE Streaming Queue)
 

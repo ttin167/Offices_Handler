@@ -6,45 +6,9 @@ server.routes.copilot_routes — REST API Endpoints for Universal RAG & Hybrid A
 from __future__ import annotations
 
 import os
-import tempfile
-from typing import Any, Optional
+from typing import Any
 
-from .base import router, send_json, send_error, read_json_body
-
-
-def _resolve_safe_path(path_str: Optional[str]) -> Optional[str]:
-    if not path_str or not isinstance(path_str, str):
-        return None
-    cleaned = path_str.strip()
-    if not cleaned:
-        return None
-
-    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    allowed_roots = [
-        base_dir,
-        os.path.join(base_dir, "uploads"),
-        os.path.join(base_dir, "output"),
-        tempfile.gettempdir(),
-    ]
-    candidates = [
-        cleaned,
-        os.path.join(base_dir, cleaned),
-        os.path.join(base_dir, "uploads", cleaned),
-        os.path.join(base_dir, "uploads", os.path.basename(cleaned)),
-        os.path.join(base_dir, "output", os.path.basename(cleaned)),
-    ]
-    for cand in candidates:
-        abs_c = os.path.abspath(cand)
-        if os.path.isfile(abs_c):
-            norm_cand = os.path.normpath(abs_c)
-            for r in allowed_roots:
-                norm_r = os.path.normpath(r)
-                try:
-                    if os.path.commonpath([norm_r, norm_cand]) == norm_r:
-                        return abs_c
-                except (ValueError, OSError):
-                    pass
-    return None
+from .base import router, send_json, send_error, read_json_body, resolve_body_file
 
 
 def _is_cloud_ai_allowed() -> bool:
@@ -86,11 +50,8 @@ def handle_copilot_status(handler: Any) -> None:
 def handle_copilot_index(handler: Any) -> None:
     """Indexes a document or raw text into the Universal FTS5 RAG Knowledge Base."""
     body = read_json_body(handler)
-    raw_path = (
-        body.get("file_path")
-        or body.get("filepath")
-        or body.get("path")
-        or body.get("filename")
+    raw_path, resolved = resolve_body_file(
+        body, ("file_path", "filepath", "path", "filename")
     )
     raw_text = body.get("content") or body.get("text")
 
@@ -99,7 +60,6 @@ def handle_copilot_index(handler: Any) -> None:
 
         rag = UniversalRAGEngine()
         if raw_path:
-            resolved = _resolve_safe_path(raw_path)
             if not resolved:
                 send_error(handler, f"Không tìm thấy tệp để lập chỉ mục RAG: {raw_path}", status=404)
                 return
@@ -161,20 +121,18 @@ def handle_copilot_chat(handler: Any) -> None:
     requested_mode = str(body.get("provider") or body.get("mode") or "local").lower()
     mode = requested_mode if _is_cloud_ai_allowed() else "local"
     top_k = int(body.get("top_k") or 5)
-    active_file = body.get("active_file") or body.get("filepath")
+    _, active_resolved = resolve_body_file(body, ("active_file", "filepath", "file_path", "filename"))
 
     try:
         from core.copilot.copilot_provider import CopilotOrchestrator
         from core.copilot.universal_rag import UniversalRAGEngine
 
         rag = UniversalRAGEngine()
-        if active_file:
-            resolved = _resolve_safe_path(active_file)
-            if resolved:
-                try:
-                    rag.index_file(resolved)
-                except Exception:
-                    pass
+        if active_resolved:
+            try:
+                rag.index_file(active_resolved)
+            except Exception:
+                pass
 
         chunks = rag.search(query=prompt, top_k=top_k)
         orch = CopilotOrchestrator()

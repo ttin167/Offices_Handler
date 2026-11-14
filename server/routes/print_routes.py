@@ -5,11 +5,14 @@ server.routes.print_routes — Enterprise Hardware & Virtual Printing API Endpoi
 
 from __future__ import annotations
 
-import os
-import sys
 from typing import Any
 
-from .base import router, send_json, send_error, read_json_body
+from .base import router, send_json, send_error, read_json_body, resolve_body_file
+
+
+def _parse_num(body: dict[str, Any], key: str, default: int | float, cast: type) -> Any:
+    raw = body.get(key)
+    return cast(default if raw is None or raw == "" else raw)
 
 
 @router.get("/api/print/printers")
@@ -52,45 +55,43 @@ def handle_printer_status(handler: Any) -> None:
 def handle_print_job(handler: Any) -> None:
     """Submits silent print job with print optimization chain."""
     body = read_json_body(handler)
-    file_path = body.get("file_path") or body.get("input_path") or body.get("file") or body.get("filepath")
-    if not file_path:
+    raw_path, file_path = resolve_body_file(
+        body, ("file_path", "input_path", "file", "filepath", "filename")
+    )
+    if not raw_path:
         send_error(handler, "Thiếu tham số bắt buộc: file_path", status=400)
         return
+    if not file_path:
+        send_error(handler, f"Tệp không tồn tại hoặc nằm ngoài phạm vi an toàn: {raw_path}", status=404)
+        return
 
-    # Check file exists in uploads or workspace
-    if not os.path.isfile(file_path):
-        # Check in uploads dir
-        uploads_dir = os.path.abspath(os.path.join(os.getcwd(), "uploads"))
-        candidate = os.path.join(uploads_dir, os.path.basename(file_path))
-        if os.path.isfile(candidate):
-            file_path = candidate
-        else:
-            send_error(handler, f"Tệp không tồn tại: {file_path}", status=404)
-            return
+    try:
+        printer_name = body.get("printer_name") or body.get("printer")
+        copies = _parse_num(body, "copies", 1, int)
+        job_title = body.get("job_title")
+        tray_id = body.get("tray_id")
+        duplex = body.get("duplex")
+        page_range = body.get("page_range")
+        page_size = body.get("page_size")
+        scaling = body.get("scaling", "fit")
 
-    printer_name = body.get("printer_name") or body.get("printer")
-    copies = int(body.get("copies", 1))
-    job_title = body.get("job_title")
-    tray_id = body.get("tray_id")
-    duplex = body.get("duplex")
-    page_range = body.get("page_range")
-    page_size = body.get("page_size")
-    scaling = body.get("scaling", "fit")
-
-    optimizer_options = {
-        "grayscale": body.get("grayscale", False),
-        "vector_grayscale": body.get("vector_grayscale", True),
-        "dpi": int(body.get("dpi", 300)),
-        "n_up": int(body.get("n_up", 1)),
-        "booklet": body.get("booklet", False),
-        "creep_compensation": body.get("creep_compensation", True),
-        "paper_thickness_pt": float(body.get("paper_thickness_pt", 0.28)),
-        "watermark": body.get("watermark"),
-        "margin_guard_mm": float(body.get("margin_guard_mm", 5.0)),
-        "page_range": page_range,
-        "page_size": page_size,
-        "scaling": scaling,
-    }
+        optimizer_options = {
+            "grayscale": body.get("grayscale", False),
+            "vector_grayscale": body.get("vector_grayscale", True),
+            "dpi": _parse_num(body, "dpi", 300, int),
+            "n_up": _parse_num(body, "n_up", 1, int),
+            "booklet": body.get("booklet", False),
+            "creep_compensation": body.get("creep_compensation", True),
+            "paper_thickness_pt": _parse_num(body, "paper_thickness_pt", 0.28, float),
+            "watermark": body.get("watermark"),
+            "margin_guard_mm": _parse_num(body, "margin_guard_mm", 5.0, float),
+            "page_range": page_range,
+            "page_size": page_size,
+            "scaling": scaling,
+        }
+    except (TypeError, ValueError) as exc:
+        send_error(handler, f"Tham số in không hợp lệ: {exc}", status=400)
+        return
 
     try:
         from core.printing.printer_manager import PrinterManager
