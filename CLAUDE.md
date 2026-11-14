@@ -21,36 +21,25 @@
 | **Security Audit & Sanitizer**| `core/security/document_auditor.py` | `SecurityAuditor`, `OfficeSanitizer` |
 | **Workflow Pipeline** | `core/pipeline/engine.py` | `WorkflowPipelineEngine` |
 | **Code to Diagram** | `core/diagrams/code_to_diagram.py` | `generate_diagram_from_code()` |
-| **BA Story / Gherkin Linter**| `core/ba_hub/story_builder.py` | `UserStoryBuilder`, `lint_story()` |
-| **RTM Traceability Matrix** | `core/ba_hub/rtm_matrix.py` | `RTMMatrixEngine` |
-| **DBML / SQL Schema 2-Way** | `core/ba_hub/dbml_converter.py` | `DBMLConverter` |
-| **Satsuma Lineage Graph** | `core/ba_hub/satsuma_engine.py` | `SatsumaMappingEngine` |
-| **7 SQL Integrity Tests** | `core/ba_hub/sql_integrity.py` | `SQLIntegritySuite` |
-| **Obsidian Vault Compiler** | `core/ba_hub/obsidian_vault.py` | `ObsidianVaultExporter`, `ObsidianVaultCompiler` |
-| **OpenAPI Data Dictionary** | `core/ba_hub/data_dictionary.py` | `DataDictionaryScanner` |
-| **Decision Table Matrix** | `core/ba_hub/decision_table.py` | `DecisionTableMatrix` |
-| **Meeting Notes to Stories** | `core/ba_hub/meeting_parser.py` | `MeetingNotesParser` |
-| **PlantUML Salt Wireframe** | `core/diagrams/salt_wireframe.py` | `SaltWireframeEngine` |
-| **Labor Law Search & FTS5** | `core/ba_hub/labor_law_search.py` | `LaborLawSearchEngine` |
-| **Labor Compliance Linter** | `core/ba_hub/labor_law_compliance.py`| `LaborLawComplianceLinter` |
-| **Regulatory Law Watcher** | `core/ba_hub/regulatory_watcher.py` | `RegulatoryWatcher` |
+| **Excel Power Suite** | `core/xlsx/power_tools.py` | `clean_and_standardize_workbook()`, `xlookup_join_workbooks()`, `build_pivot_summary_and_chart()` |
+| **Office Work Tracker** | `core/xlsx/tracker.py` | `OfficeWorkTracker` |
+| **Excel 57-Formula Playbook** | `core/xlsx/formula_playbook.py` | `FORMULA_CATALOG`, `generate_formula_playbook_xlsx()` |
+| **Word Mastery Toolkit (NĐ30)** | `core/docx/toolkit.py` | `polish_docx_document()`, `merge_docx_files()`, `split_docx_by_heading()`, `apply_docx_watermark_and_hf()` |
+| **VN Amount in Words** | `core/docx/design_system.py` | `number_to_vietnamese_words()`, `format_token_value()` |
 | **Enterprise Silent Print** | `core/printing/printer_manager.py` | `PrinterManager.print_document()` |
-| **Universal FTS5 RAG** | `core/ba_hub/universal_rag.py` | `UniversalRAGVault` |
-| **Hybrid AI Copilot** | `core/ba_hub/copilot_provider.py` | `CopilotHybridOrchestrator` |
-| **HR Governance & Scopes** | `core/ba_hub/hr_governance.py` | `HRDataScope`, `SoDConflictAuditor` |
-| **BABOK URD Synthesizer** | `core/ba_hub/urd_generator.py` | `URDGenerator`, `URDLinter` |
-| **Functional Spec Doc (FSD)** | `core/ba_hub/fsd_generator.py` | `FSDGenerator`, `FSDLinter` |
+| **Universal FTS5 RAG** | `core/copilot/universal_rag.py` | `UniversalRAGEngine` |
+| **Hybrid AI Copilot** | `core/copilot/copilot_provider.py` | `CopilotOrchestrator` |
 | **Periodic Maintenance** | `core/system_maintenance.py` | `run_periodic_maintenance()` |
-| **CLI Dispatcher** | `ai_tools_cli.py`, `cli/` | Entrypoint & Subcommands |
-| **MCP Server (50 Tools)** | `server/mcp_server.py` | `TOOL_DEFINITIONS`, `handle_rpc_request()` |
-| **Web REST API (:8000)** | `server/app.py`, `server/routes/` | Modular Flask/FastAPI Endpoints |
+| **CLI Dispatcher** | `ai_tools_cli.py`, `cli/` | `office_power_commands.py`, `v46_commands.py` |
+| **MCP Server (43 Tools)** | `server/mcp_server.py` | `TOOL_DEFINITIONS`, `handle_rpc_request()` |
+| **Web REST API (:8000)** | `server/app.py`, `server/routes/` | `xlsx_routes.py`, `docx_routes.py`, `doc_routes.py` |
 
 ## ⚡ Fast CLI Cheat Sheet
 
 - Diagnostic Doctor: `python ai_tools_cli.py doctor`
 - Quality QA Gate: `python ai_tools_cli.py qa-audit <file>`
-- HR Governance: `python ai_tools_cli.py hr-governance data-scopes`
-- URD Generation: `python ai_tools_cli.py ba-urd-generate <spec.json>`
-- FSD Generation: `python ai_tools_cli.py ba-fsd-generate <spec.json>`
-- Run All Tests: `pytest -q` (512 tests, 100% pass rate)
+- Excel Power Clean: `python ai_tools_cli.py xlsx-power-clean <file.xlsx> --dedup MaNV`
+- Word NĐ 30/2020 Polish: `python ai_tools_cli.py docx-polish <doc.docx> --preset nd30`
+- PDF Pro Suite (17 Tools): `python ai_tools_cli.py pdf-tools {merge,split,compress,watermark,giap-lai,crypto-sign,pdfa}`
+- Run All Tests: `pytest -q`
 - Version Audit: `python tools/bump_version.py --check`

@@ -37,29 +37,18 @@ Khi nhận tín hiệu `{{ CHECKPOINT N }}` hoặc bắt đầu một phiên là
 | **Cloudflare Security & Deep CDR** | `core/security/document_auditor.py` | `SecurityAuditor`, `OfficeSanitizer` |
 | **Declarative Workflow Pipelines** | `core/pipeline/engine.py` | `WorkflowPipelineEngine` |
 | **AST Code-to-Diagram Engine** | `core/diagrams/code_to_diagram.py` | `generate_diagram_from_code()` |
-| **BABOK Story & Gherkin Linter** | `core/ba_hub/story_builder.py` | `UserStoryBuilder`, `lint_story()` |
-| **Requirements Traceability Matrix** | `core/ba_hub/rtm_matrix.py` | `RTMMatrixEngine` |
-| **DBML / SQL Schema 2-Way** | `core/ba_hub/dbml_converter.py` | `DBMLConverter` |
-| **Satsuma Data Lineage Graph** | `core/ba_hub/satsuma_engine.py` | `SatsumaMappingEngine` |
-| **7-Gate SQL Data Integrity Suite** | `core/ba_hub/sql_integrity.py` | `SQLIntegritySuite` |
-| **Scope Creep & Semantic Diff** | `core/ba_hub/scope_creep.py` | `ScopeCreepAuditor` |
-| **Obsidian Vault 2-Way Compiler** | `core/ba_hub/obsidian_vault.py` | `ObsidianVaultExporter`, `ObsidianVaultCompiler` |
-| **OpenAPI Data Dictionary Scanner** | `core/ba_hub/data_dictionary.py` | `DataDictionaryScanner` |
-| **BABOK Decision Table Matrix** | `core/ba_hub/decision_table.py` | `DecisionTableMatrix` |
-| **Meeting Notes to Stories Parser** | `core/ba_hub/meeting_parser.py` | `MeetingNotesParser` |
-| **PlantUML Salt UI Wireframes** | `core/diagrams/salt_wireframe.py` | `SaltWireframeEngine` |
-| **Labor Law FTS5 Search & Vault** | `core/ba_hub/labor_law_search.py` | `LaborLawSearchEngine` |
-| **Labor Compliance Story Linter** | `core/ba_hub/labor_law_compliance.py`| `LaborLawComplianceLinter` |
-| **Regulatory Law Auto-Watcher** | `core/ba_hub/regulatory_watcher.py` | `RegulatoryWatcher` |
+| **Excel Power Suite (Clean/Pivot/XLOOKUP)** | `core/xlsx/power_tools.py` | `clean_and_standardize_workbook()`, `build_pivot_summary_and_chart()`, `xlookup_join_workbooks()` |
+| **Office Work & Daily Task Tracker** | `core/xlsx/tracker.py` | `OfficeWorkTracker` |
+| **Excel 57-Formula Playbook** | `core/xlsx/formula_playbook.py` | `FORMULA_CATALOG`, `generate_formula_playbook_xlsx()` |
+| **Word Mastery Toolkit (NĐ30/Merge/Split)** | `core/docx/toolkit.py` | `polish_docx_document()`, `merge_docx_files()`, `split_docx_by_heading()`, `apply_docx_watermark_and_hf()` |
+| **Vietnamese Amount in Words (`vn_words`)** | `core/docx/design_system.py` | `number_to_vietnamese_words()`, `format_token_value()` |
 | **Enterprise Silent Print Spooler** | `core/printing/printer_manager.py` | `PrinterManager.print_document()` |
-| **Universal FTS5 RAG Vault** | `core/ba_hub/universal_rag.py` | `UniversalRAGVault` |
-| **Hybrid AI Copilot Assistant** | `core/ba_hub/copilot_provider.py` | `CopilotHybridOrchestrator` |
-| **Enterprise HR Governance & SoD** | `core/ba_hub/hr_governance.py` | `HRDataScope`, `SoDConflictAuditor` |
-| **BABOK v3 URD Synthesizer** | `core/ba_hub/urd_generator.py` | `URDGenerator`, `URDLinter` |
-| **Functional Spec Doc (FSD)** | `core/ba_hub/fsd_generator.py` | `FSDGenerator`, `FSDLinter` |
+| **Universal FTS5 RAG Vault** | `core/copilot/universal_rag.py` | `UniversalRAGEngine` |
+| **Hybrid AI Copilot Assistant** | `core/copilot/copilot_provider.py` | `CopilotOrchestrator` |
 | **7-Pillars Periodic Maintenance** | `core/system_maintenance.py` | `run_periodic_maintenance()` |
-| **Model Context Protocol (50 Tools)** | `server/mcp_server.py` | `TOOL_DEFINITIONS`, `handle_rpc_request()` |
-| **Unified Terminal CLI Dispatcher** | `ai_tools_cli.py`, `cli/` | Entrypoint CLI & Subcommands |
+| **Model Context Protocol (43 Tools)** | `server/mcp_server.py` | `TOOL_DEFINITIONS`, `handle_rpc_request()` |
+| **Modular REST API Routes** | `server/routes/` | `xlsx_routes.py`, `docx_routes.py`, `doc_routes.py`, `print_routes.py`, `copilot_routes.py` |
+| **Unified Terminal CLI Dispatcher** | `ai_tools_cli.py`, `cli/` | `office_power_commands.py`, `v46_commands.py`, `print_commands.py` |
 
 ---
 

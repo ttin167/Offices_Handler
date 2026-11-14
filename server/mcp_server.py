@@ -908,51 +908,6 @@ TOOL_DEFINITIONS = [
         }
     },
     {
-        "name": "ba_wireframe_render",
-        "description": "Renders PlantUML Salt UI Wireframe mockups into pure vector SVG or 300+ DPI PNG images from JSON specs, 6 built-in templates, or raw Salt code, with optional 1-Click Word (.docx) injection.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "spec_path_or_text": {
-                    "type": "string",
-                    "description": "Path to wireframe JSON spec, raw Salt code, or template ID"
-                },
-                "template": {
-                    "type": "string",
-                    "enum": ["login_auth", "crud_table", "wizard_form", "modal_confirm", "mobile_screen", "dashboard_kpi"],
-                    "description": "Optional built-in wireframe template ID"
-                },
-                "output_png_path": {
-                    "type": "string",
-                    "description": "Destination output path (.png or .svg)"
-                },
-                "format": {
-                    "type": "string",
-                    "enum": ["png", "svg", "both"],
-                    "default": "png",
-                    "description": "Output format: 'png' (300 DPI), 'svg' (pure vector), or 'both'"
-                },
-                "inject_docx_path": {
-                    "type": "string",
-                    "description": "Optional Word (.docx) file path to inject the rendered wireframe into (ERR_DOCX_005)"
-                },
-                "heading": {
-                    "type": "string",
-                    "description": "Optional target heading in Word document"
-                },
-                "caption": {
-                    "type": "string",
-                    "description": "Optional figure caption below wireframe in Word document"
-                },
-                "scale": {
-                    "type": "number",
-                    "default": 2.0,
-                    "description": "Resolution scale factor"
-                }
-            }
-        }
-    },
-    {
         "name": "doc_list_printers",
         "description": "Discovers and lists all physical, network, and virtual system printers available on the host machine.",
         "inputSchema": {
@@ -1188,19 +1143,153 @@ TOOL_DEFINITIONS = [
                 }
             }
         }
+    },
+    {
+        "name": "xlsx_power_clean",
+        "description": "Clean Excel sheets: standardize spaces, Vietnamese dates (dd/mm/yyyy), protect phone/CCCD '@' text format, and remove duplicates.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "input_path": {"type": "string", "description": "Path to source .xlsx file"},
+                "output_path": {"type": "string", "description": "Optional destination .xlsx path"},
+                "sheet_name": {"type": "string", "description": "Optional worksheet name"},
+                "dedup_columns": {"type": "array", "items": {"type": "string"}, "description": "Columns for deduplication or ['*']"},
+                "case_mode": {"type": "string", "enum": ["preserve", "vn_name", "upper", "lower"], "default": "preserve"}
+            },
+            "required": ["input_path"]
+        }
+    },
+    {
+        "name": "xlsx_transform_columns",
+        "description": "Split Vietnamese full names ([Họ, Tên đệm, Tên]), split a column by delimiter, or merge multiple columns into one.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "input_path": {"type": "string"},
+                "mode": {"type": "string", "enum": ["split_vn_fullname", "split_delimiter", "merge_columns"]},
+                "source_columns": {"type": "array", "items": {"type": "string"}},
+                "delimiter": {"type": "string", "default": " "},
+                "new_column_name": {"type": "string"},
+                "output_path": {"type": "string"}
+            },
+            "required": ["input_path", "mode", "source_columns"]
+        }
+    },
+    {
+        "name": "xlsx_pivot_chart",
+        "description": "Build a live Pivot_Summary sheet using SUMIFS/COUNTIFS/AVERAGEIFS formulas plus an embedded native Bar/Line/Pie chart.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "input_path": {"type": "string"},
+                "group_by_col": {"type": "string"},
+                "value_cols": {"type": "array", "items": {"type": "string"}},
+                "agg_func": {"type": "string", "enum": ["SUM", "COUNT", "AVERAGE"], "default": "SUM"},
+                "chart_type": {"type": "string", "enum": ["bar", "line", "pie"], "default": "bar"},
+                "output_path": {"type": "string"}
+            },
+            "required": ["input_path", "group_by_col"]
+        }
+    },
+    {
+        "name": "xlsx_xlookup_join",
+        "description": "No-code XLOOKUP join bringing lookup columns from another sheet or workbook onto the left table.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "left_path": {"type": "string"},
+                "right_path": {"type": "string"},
+                "left_key": {"type": "string"},
+                "right_key": {"type": "string"},
+                "return_cols": {"type": "array", "items": {"type": "string"}},
+                "output_path": {"type": "string"}
+            },
+            "required": ["left_path", "left_key", "return_cols"]
+        }
+    },
+    {
+        "name": "xlsx_split_by_column",
+        "description": "Split a master Excel workbook by unique column values into separate .xlsx files bundled as a .zip archive.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "input_path": {"type": "string"},
+                "split_col": {"type": "string"},
+                "output_path": {"type": "string"},
+                "as_zip": {"type": "boolean", "default": True}
+            },
+            "required": ["input_path", "split_col"]
+        }
+    },
+    {
+        "name": "xlsx_diff_visual",
+        "description": "Compare two Excel workbooks visually cell-by-cell with Amber/Emerald/Rose fills, Comments, and clickable _Diff_Summary sheet.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "v1_path": {"type": "string"},
+                "v2_path": {"type": "string"},
+                "output_path": {"type": "string"}
+            },
+            "required": ["v1_path", "v2_path"]
+        }
+    },
+    {
+        "name": "docx_polish",
+        "description": "Polish Word .docx with Vietnamese Decree 30/2020/ND-CP or Executive presets, OpenXML table guards, typography cleanup, and Page X/Y footer.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "input_path": {"type": "string"},
+                "output_path": {"type": "string"},
+                "preset": {"type": "string", "default": "nd30"},
+                "add_page_numbers": {"type": "boolean", "default": True}
+            },
+            "required": ["input_path"]
+        }
+    },
+    {
+        "name": "docx_merge",
+        "description": "Merge multiple Word .docx files sequentially while remapping image/hyperlink relationships.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "input_paths": {"type": "array", "items": {"type": "string"}},
+                "output_path": {"type": "string"},
+                "add_page_breaks": {"type": "boolean", "default": True}
+            },
+            "required": ["input_paths", "output_path"]
+        }
+    },
+    {
+        "name": "docx_split",
+        "description": "Split a large Word .docx document by Heading level into separate chapter .docx files bundled into ZIP.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "input_path": {"type": "string"},
+                "output_path": {"type": "string"},
+                "heading_level": {"type": "integer", "default": 1}
+            },
+            "required": ["input_path"]
+        }
+    },
+    {
+        "name": "docx_watermark_hf",
+        "description": "Apply native diagonal VML watermark, Header/Footer text, and Page X/Y numbering to a Word .docx document.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "input_path": {"type": "string"},
+                "output_path": {"type": "string"},
+                "watermark_text": {"type": "string"},
+                "header_text": {"type": "string"},
+                "footer_text": {"type": "string"}
+            },
+            "required": ["input_path"]
+        }
     }
 ]
-
-# Optional local-only BA Enterprise Hub & Labor Law MCP tools (excluded from GitHub & Docker)
-try:
-    from core.ba_hub.mcp_tools import BA_TOOL_DEFINITIONS, BA_TOOL_DISPATCHER
-
-    HAS_BA_HUB = True
-    TOOL_DEFINITIONS.extend(BA_TOOL_DEFINITIONS)
-except (ImportError, ModuleNotFoundError):
-    HAS_BA_HUB = False
-    BA_TOOL_DEFINITIONS = []  # type: ignore
-    BA_TOOL_DISPATCHER = {}  # type: ignore
 
 
 def log_debug(message: str) -> None:
@@ -1993,54 +2082,6 @@ def execute_diagram_from_code(args: Dict[str, Any]) -> Dict[str, Any]:
     )
 
 
-def execute_ba_wireframe_render(args: Dict[str, Any]) -> Dict[str, Any]:
-    from core.diagrams.salt_wireframe import SaltWireframeEngine
-
-    spec_raw = args.get("spec_path_or_text") or args.get("template") or "login_auth"
-    if isinstance(spec_raw, str) and os.path.isfile(spec_raw):
-        with open(spec_raw, "r", encoding="utf-8") as f:
-            content = f.read()
-        try:
-            spec_data: Any = json.loads(content)
-        except Exception:
-            spec_data = content
-    else:
-        spec_data = spec_raw
-
-    inject_docx = args.get("inject_docx_path")
-    if inject_docx:
-        return SaltWireframeEngine.inject_wireframe_into_docx(
-            docx_path=inject_docx,
-            spec_or_code=spec_data,
-            heading=args.get("heading"),
-            caption=args.get("caption") or "Hình: Phác thảo giao diện màn hình (UI Wireframe Mockup)",
-        )
-
-    fmt = str(args.get("format", "png")).lower()
-    out_path = args.get("output_png_path") or args.get("output_path")
-    scale = float(args.get("scale", 2.0))
-
-    if fmt == "svg" or (out_path and out_path.lower().endswith(".svg")):
-        return SaltWireframeEngine.render_salt_to_svg(spec_data, output_path=out_path)
-    if fmt == "both":
-        base_out = out_path or "output/wireframe.png"
-        svg_out = os.path.splitext(base_out)[0] + ".svg"
-        png_out = os.path.splitext(base_out)[0] + ".png"
-        res_svg = SaltWireframeEngine.render_salt_to_svg(spec_data, output_path=svg_out)
-        res_png = SaltWireframeEngine.render_salt_to_png(spec_data, output_path=png_out, scale=scale)
-        return {
-            "success": True,
-            "svg_path": res_svg["svg_path"],
-            "png_path": res_png["png_path"],
-            "svg": res_svg["svg"],
-            "dimensions_px": res_png["dimensions_px"],
-            "salt_code": res_svg["salt_code"],
-        }
-
-    target_png = out_path or "output/wireframe.png"
-    return SaltWireframeEngine.render_salt_to_png(spec_data, target_png, scale=scale)
-
-
 def execute_doc_list_printers(args: Dict[str, Any]) -> Dict[str, Any]:
     from core.printing import PrinterManager
 
@@ -2116,7 +2157,7 @@ def execute_xlsx_evaluate_formulas(args: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def execute_universal_rag_search(args: Dict[str, Any]) -> Dict[str, Any]:
-    from core.ba_hub.universal_rag import UniversalRAGEngine
+    from core.copilot.universal_rag import UniversalRAGEngine
 
     rag = UniversalRAGEngine()
     indexed_info = None
@@ -2126,20 +2167,20 @@ def execute_universal_rag_search(args: Dict[str, Any]) -> Dict[str, Any]:
     hits = rag.search(
         query=args["query"],
         top_k=int(args.get("top_k", 5)),
-        doc_type=args.get("doc_type"),
+        file_type=args.get("doc_type") or args.get("file_type"),
     )
     return {
         "success": True,
         "query": args["query"],
         "indexed": indexed_info,
         "count": len(hits),
-        "results": [h.to_dict() for h in hits],
+        "results": hits,
     }
 
 
 def execute_copilot_assist(args: Dict[str, Any]) -> Dict[str, Any]:
-    from core.ba_hub.copilot_provider import CopilotOrchestrator
-    from core.ba_hub.universal_rag import UniversalRAGEngine
+    from core.copilot.copilot_provider import CopilotOrchestrator
+    from core.copilot.universal_rag import UniversalRAGEngine
 
     rag = UniversalRAGEngine()
     if args.get("index_file_path"):
@@ -2147,14 +2188,13 @@ def execute_copilot_assist(args: Dict[str, Any]) -> Dict[str, Any]:
 
     top_k = int(args.get("top_k", 5))
     rag_hits = rag.search(args["prompt"], top_k=top_k)
-    rag_dicts = [h.to_dict() for h in rag_hits]
 
     mode = str(args.get("provider_mode", "hybrid")).lower()
-    orchestrator = CopilotOrchestrator(mode=mode)
+    orchestrator = CopilotOrchestrator(default_mode=mode)
     resp = orchestrator.chat(
         prompt=args["prompt"],
-        rag_chunks=rag_dicts,
-        prefer_cloud=(mode == "cloud"),
+        context_chunks=rag_hits,
+        mode=mode,
     )
     return resp.to_dict()
 
@@ -2190,6 +2230,112 @@ def execute_system_maintenance(args: Dict[str, Any]) -> Dict[str, Any]:
     return report.to_dict()
 
 
+def execute_xlsx_power_clean(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.xlsx.power_tools import clean_and_standardize_workbook
+    return clean_and_standardize_workbook(
+        input_path=args["input_path"],
+        output_path=args.get("output_path"),
+        sheet_name=args.get("sheet_name"),
+        dedup_columns=args.get("dedup_columns"),
+        case_mode=args.get("case_mode", "preserve"),
+    )
+
+
+def execute_xlsx_transform_columns(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.xlsx.power_tools import transform_workbook_columns
+    return transform_workbook_columns(
+        input_path=args["input_path"],
+        mode=args["mode"],
+        source_columns=args["source_columns"],
+        output_path=args.get("output_path"),
+        delimiter=args.get("delimiter", " "),
+        joiner=args.get("delimiter", " "),
+        new_column_name=args.get("new_column_name"),
+    )
+
+
+def execute_xlsx_pivot_chart(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.xlsx.power_tools import build_pivot_summary_and_chart
+    return build_pivot_summary_and_chart(
+        input_path=args["input_path"],
+        group_by_col=args["group_by_col"],
+        value_cols=args.get("value_cols"),
+        agg_func=args.get("agg_func", "SUM"),
+        chart_type=args.get("chart_type", "bar"),
+        output_path=args.get("output_path"),
+    )
+
+
+def execute_xlsx_xlookup_join(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.xlsx.power_tools import xlookup_join_workbooks
+    return xlookup_join_workbooks(
+        left_path=args["left_path"],
+        right_path=args.get("right_path"),
+        left_key=args["left_key"],
+        right_key=args.get("right_key") or args["left_key"],
+        return_cols=args["return_cols"],
+        output_path=args.get("output_path"),
+    )
+
+
+def execute_xlsx_split_by_column(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.xlsx.power_tools import split_workbook_by_column
+    return split_workbook_by_column(
+        input_path=args["input_path"],
+        split_col=args["split_col"],
+        output_path=args.get("output_path"),
+        as_zip=bool(args.get("as_zip", True)),
+    )
+
+
+def execute_xlsx_diff_visual(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.xlsx.power_tools import diff_workbooks_visual
+    return diff_workbooks_visual(
+        v1_path=args["v1_path"],
+        v2_path=args["v2_path"],
+        output_path=args.get("output_path"),
+    )
+
+
+def execute_docx_polish(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.docx.toolkit import polish_docx_document
+    return polish_docx_document(
+        input_path=args["input_path"],
+        output_path=args.get("output_path"),
+        preset=args.get("preset", "nd30"),
+        add_page_numbers=bool(args.get("add_page_numbers", True)),
+    )
+
+
+def execute_docx_merge(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.docx.toolkit import merge_docx_files
+    return merge_docx_files(
+        input_paths=args["input_paths"],
+        output_path=args["output_path"],
+        add_page_breaks=bool(args.get("add_page_breaks", True)),
+    )
+
+
+def execute_docx_split(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.docx.toolkit import split_docx_by_heading
+    return split_docx_by_heading(
+        input_path=args["input_path"],
+        output_path=args.get("output_path"),
+        heading_level=int(args.get("heading_level", 1)),
+    )
+
+
+def execute_docx_watermark_hf(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.docx.toolkit import apply_docx_watermark_and_hf
+    return apply_docx_watermark_and_hf(
+        input_path=args["input_path"],
+        output_path=args.get("output_path"),
+        watermark_text=args.get("watermark_text"),
+        header_text=args.get("header_text"),
+        footer_text=args.get("footer_text"),
+    )
+
+
 TOOL_DISPATCHER = {
     "doc_convert": execute_doc_convert,
     "doc_inspect": execute_doc_inspect,
@@ -2212,8 +2358,7 @@ TOOL_DISPATCHER = {
     "docx_insert_paragraph": execute_docx_insert_paragraph,
     "docx_insert_table": execute_docx_insert_table,
     "xlsx_formula_helper": execute_xlsx_formula_helper,
-    # Wireframe & Printing Tools
-    "ba_wireframe_render": execute_ba_wireframe_render,
+    # Printing Tools
     "doc_list_printers": execute_doc_list_printers,
     "doc_printer_status": execute_doc_printer_status,
     "doc_print_job": execute_doc_print_job,
@@ -2230,10 +2375,18 @@ TOOL_DISPATCHER = {
     "xlsx_evaluate_formulas": execute_xlsx_evaluate_formulas,
     "universal_rag_search": execute_universal_rag_search,
     "copilot_assist": execute_copilot_assist,
+    # Pure Office Excel & Word Power Suite
+    "xlsx_power_clean": execute_xlsx_power_clean,
+    "xlsx_transform_columns": execute_xlsx_transform_columns,
+    "xlsx_pivot_chart": execute_xlsx_pivot_chart,
+    "xlsx_xlookup_join": execute_xlsx_xlookup_join,
+    "xlsx_split_by_column": execute_xlsx_split_by_column,
+    "xlsx_diff_visual": execute_xlsx_diff_visual,
+    "docx_polish": execute_docx_polish,
+    "docx_merge": execute_docx_merge,
+    "docx_split": execute_docx_split,
+    "docx_watermark_hf": execute_docx_watermark_hf,
 }
-
-if HAS_BA_HUB:
-    TOOL_DISPATCHER.update(BA_TOOL_DISPATCHER)
 
 
 

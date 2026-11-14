@@ -21,30 +21,19 @@
 - Cloudflare Security Audit & Sanitizer: `core/security/document_auditor.py`, `core/security/sanitizer.py`
 - Declarative Workflow Pipelines: `core/pipeline/engine.py` (`WorkflowPipelineEngine`)
 - Code AST to Architecture Diagram: `core/diagrams/code_to_diagram.py`
-- BABOK User Story & Gherkin Linter: `core/ba_hub/story_builder.py` (`UserStoryBuilder`)
-- Requirements Traceability Matrix: `core/ba_hub/rtm_matrix.py` (`RTMMatrixEngine`)
-- DBML 2-Way Schema Converter: `core/ba_hub/dbml_converter.py` (`DBMLConverter`)
-- Satsuma Data Lineage Graph: `core/ba_hub/satsuma_engine.py` (`SatsumaMappingEngine`)
-- 7-Gate SQL Data Integrity Suite: `core/ba_hub/sql_integrity.py` (`SQLIntegritySuite`)
-- Obsidian Vault Exporter & Compiler: `core/ba_hub/obsidian_vault.py`
-- OpenAPI Data Dictionary Scanner: `core/ba_hub/data_dictionary.py`
-- BABOK Decision Table Matrix: `core/ba_hub/decision_table.py`
-- Meeting Notes to Stories Parser: `core/ba_hub/meeting_parser.py`
-- PlantUML Salt UI Wireframes: `core/diagrams/salt_wireframe.py`
-- Labor Law FTS5 Search & Vault: `core/ba_hub/labor_law_search.py`
-- Labor Compliance Story Linter: `core/ba_hub/labor_law_compliance.py`
-- Regulatory Decree Auto-Watcher: `core/ba_hub/regulatory_watcher.py`
+- Excel Power Suite (Clean/Split/Pivot/XLOOKUP/Diff): `core/xlsx/power_tools.py`
+- Office Work & Daily Task Tracker: `core/xlsx/tracker.py` (`OfficeWorkTracker`)
+- Excel 57-Formula Playbook & Demo: `core/xlsx/formula_playbook.py`
+- Word NĐ30 Polish, Merge, Split, Watermark: `core/docx/toolkit.py` (`polish_docx_document`, `merge_docx_files`)
+- Vietnamese Amount in Words (`vn_words`): `core/docx/design_system.py` (`number_to_vietnamese_words`)
 - Enterprise Vector Print Spooler: `core/printing/printer_manager.py`
-- Universal FTS5 RAG Vault: `core/ba_hub/universal_rag.py`
-- Hybrid AI Copilot Orchestrator: `core/ba_hub/copilot_provider.py`
-- Enterprise HR Governance & SoD: `core/ba_hub/hr_governance.py` (`HRDataScope`, `SoDConflictAuditor`)
-- BABOK v3 URD Synthesizer: `core/ba_hub/urd_generator.py` (`URDGenerator`, `URDLinter`)
-- Functional Spec Doc (FSD): `core/ba_hub/fsd_generator.py` (`FSDGenerator`, `FSDLinter`)
+- Universal FTS5 RAG Vault: `core/copilot/universal_rag.py` (`UniversalRAGEngine`)
+- Hybrid AI Copilot Orchestrator: `core/copilot/copilot_provider.py` (`CopilotOrchestrator`)
 - 7-Pillars Periodic Maintenance: `core/system_maintenance.py` (`run_periodic_maintenance`)
-- CLI Dispatcher: `ai_tools_cli.py`, `cli/`
-- Model Context Protocol (50 Tools): `server/mcp_server.py`
-- Web Studio REST API (:8000): `server/app.py`, `server/routes/`
+- CLI Dispatcher: `ai_tools_cli.py`, `cli/` (`office_power_commands.py`)
+- Model Context Protocol (43 Tools): `server/mcp_server.py`
+- Web Studio REST API (:8000): `server/app.py`, `server/routes/` (`xlsx_routes.py`, `docx_routes.py`, `doc_routes.py`)
 
 ## Key Invariants
-- Tests: 512 Automated Test Suites (100% pass rate). Run via `pytest -q`.
+- Tests: Pure Office Automated Test Suites (100% pass rate). Run via `pytest -q`.
 - Version: Sync across 10 anchors via `python tools/bump_version.py --check`.

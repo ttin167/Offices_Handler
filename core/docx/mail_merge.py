@@ -27,8 +27,10 @@ from docx import Document
 
 try:
     from .writer import patch_docx_template, _replace_text_in_paragraph
+    from .design_system import format_token_value
 except (ImportError, ValueError):
     from core.docx.writer import patch_docx_template, _replace_text_in_paragraph  # type: ignore
+    from core.docx.design_system import format_token_value  # type: ignore
 
 try:
     import openpyxl
@@ -38,7 +40,7 @@ except ImportError:
 
 
 # Regex patterns for token discovery and conditional blocks
-TOKEN_REGEX = re.compile(r"\{\{([A-Za-z0-9_\.\-]+)\}\}")
+TOKEN_REGEX = re.compile(r"\{\{([A-Za-z0-9_\.\-\s]+(?::[A-Za-z0-9_\.\-#/,]+)?)\}\}")
 CONDITIONAL_FULL_REGEX = re.compile(r"\{\{IF:\s*([^\}]+?)\}\}(.*?)(?:\{\{ELSE\}\}(.*?))?\{\{ENDIF\}\}", re.DOTALL)
 BLOCK_REGEX = re.compile(r"\{\{BLOCK:([A-Za-z0-9_\.\-]+)\}\}")
 
@@ -92,12 +94,25 @@ def inspect_template_tokens(template_path: str) -> Dict[str, Any]:
 
     combined_text = "\n".join(all_text_fragments)
 
-    # Discover variables
+    # Discover variables (stripping optional :format_spec suffix for field mapping)
     raw_tokens = TOKEN_REGEX.findall(combined_text)
     clean_vars: Set[str] = set()
+    formatted_tokens: List[Dict[str, str]] = []
+    seen_raw: Set[str] = set()
     for tok in raw_tokens:
         tok_upper = tok.upper()
-        if not tok_upper.startswith("IF:") and not tok_upper.startswith("BLOCK:") and tok_upper != "ELSE" and tok_upper != "ENDIF":
+        if tok_upper.startswith("IF:") or tok_upper.startswith("BLOCK:") or tok_upper in {"ELSE", "ENDIF"}:
+            continue
+        if ":" in tok:
+            field_part, spec_part = tok.split(":", 1)
+            field_name = field_part.strip()
+            spec_name = spec_part.strip()
+            if field_name:
+                clean_vars.add(field_name)
+                if tok not in seen_raw:
+                    seen_raw.add(tok)
+                    formatted_tokens.append({"token": tok, "field": field_name, "spec": spec_name})
+        else:
             clean_vars.add(tok)
 
     # Discover conditionals
@@ -109,6 +124,7 @@ def inspect_template_tokens(template_path: str) -> Dict[str, Any]:
     return {
         "template_file": os.path.basename(template_path),
         "variables": sorted(list(clean_vars)),
+        "formatted_tokens": formatted_tokens,
         "conditionals": list(dict.fromkeys(conditionals)),
         "blocks": sorted(list(set(blocks))),
         "total_unique_tokens": len(clean_vars),
@@ -504,6 +520,9 @@ def execute_mail_merge(
             "message": "Data source is empty; 0 documents generated."
         }
 
+    token_inspection = inspect_template_tokens(t_path)
+    formatted_specs = token_inspection.get("formatted_tokens", [])
+
     generated_files: List[str] = []
 
     for idx, record in enumerate(records, start=1):
@@ -522,8 +541,16 @@ def execute_mail_merge(
         fname = _sanitize_filename(fname)
         doc_out_path = os.path.join(out_d, fname)
 
-        # 2. Build replacements dictionary
+        # 2. Build replacements dictionary (preserving {{Field:spec}} filters)
         text_replacements: Dict[str, str] = {}
+        for spec_entry in formatted_specs:
+            raw_tok = spec_entry["token"]
+            f_name = spec_entry["field"]
+            spec_str = spec_entry["spec"]
+            if f_name in record:
+                rendered_val = format_token_value(record[f_name], spec_str)
+                text_replacements[f"{{{{{raw_tok}}}}}"] = rendered_val
+                text_replacements[f"{{{raw_tok}}}"] = rendered_val
         for k, v in record.items():
             text_replacements[f"{{{{{k}}}}}"] = str(v)
             text_replacements[f"{{{k}}}"] = str(v)
@@ -569,8 +596,18 @@ def execute_mail_merge(
         for s in doc.sections:
             for p in s.header.paragraphs:
                 _replace_text_in_paragraph(p, text_replacements)
+            for t in s.header.tables:
+                for row in t.rows:
+                    for cell in row.cells:
+                        for p in cell.paragraphs:
+                            _replace_text_in_paragraph(p, text_replacements)
             for p in s.footer.paragraphs:
                 _replace_text_in_paragraph(p, text_replacements)
+            for t in s.footer.tables:
+                for row in t.rows:
+                    for cell in row.cells:
+                        for p in cell.paragraphs:
+                            _replace_text_in_paragraph(p, text_replacements)
 
         # 6. Resolve Dynamic Blocks ({{BLOCK:id}})
         if block_providers:

@@ -14,15 +14,15 @@ import openpyxl
 import pytest
 from docx import Document
 
-pytest.importorskip("core.ba_hub")
+pytest.importorskip("core.copilot")
 
-from core.ba_hub.copilot_provider import (
+from core.copilot.copilot_provider import (
     CopilotOrchestrator,
     GoogleGeminiProvider,
     LocalOllamaProvider,
     infer_action_cards,
 )
-from core.ba_hub.universal_rag import UniversalRAGEngine
+from core.copilot.universal_rag import UniversalRAGEngine
 from server.routes.base import Router
 
 
@@ -92,22 +92,26 @@ def test_copilot_hybrid_orchestrator_and_action_cards() -> None:
     chunks = [
         {
             "doc_id": "DOC-001",
-            "filename": "Thong_Tu_BHXH.md",
-            "section_title": "Điều 5: Mức đóng BHXH",
-            "content": "Tỷ lệ đóng BHXH bắt buộc của người lao động là 8% vào quỹ hưu trí và tử tuất.",
+            "filename": "Huong_Dan_Excel_Pivot.md",
+            "section_title": "Mục 5: Tổng hợp Pivot & Chuẩn hóa bảng lương",
+            "content": "Sử dụng Excel Power Suite để chuẩn hóa họ tên, SĐT/CCCD và xuất Pivot Chart tự động.",
         }
     ]
 
     resp = orch.chat(
-        prompt="Tra cứu quy định luật BHXH và tính lương",
+        prompt="Hướng dẫn làm sạch dữ liệu bảng lương Excel, tạo Pivot và trộn thư Word",
         context_chunks=chunks,
         mode="local",
     )
     assert resp.success is True
     assert resp.fallback_used is True
-    assert "Thong_Tu_BHXH.md" in resp.answer
+    assert "Huong_Dan_Excel_Pivot.md" in resp.answer
     assert len(resp.action_cards) >= 1
     assert any(c.command_type == "switch_tab" for c in resp.action_cards)
+    card_tabs = {c.payload.get("tab") for c in resp.action_cards}
+    assert "ba" not in card_tabs
+    assert "wireframe" not in card_tabs
+    assert "law" not in card_tabs
 
     # Test cloud provider routing in hybrid mode with large context
     cloud_prov = GoogleGeminiProvider(api_key="dummy-key-test", timeout=0.2)

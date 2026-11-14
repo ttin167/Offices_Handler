@@ -107,29 +107,8 @@ src/modules/office_3d/
 server/office_events.py
 tests/test_office_event_bus.py
 
-# Local Labor Law & BA Enterprise Workstation & Academy (Confidential IP, 100% Local-Only, Excluded from GitHub & Render Cloud)
-core/ba_hub/
-cli/ba_commands.py
-cli/ba_print_commands.py
-server/routes/ba_*.py
-src/modules/ba_*.js
-src/modules/labor_law_vault.js
-src/modules/app_store.js
-src/templates/ba/
-.agents/skills/ba-workspace/
-specs/ba_*.json
-tests/test_ba_*.py
-tests/test_labor_law_*.py
-tests/test_regulatory_*.py
-tests/test_hr_governance.py
-labor_law_vault/
-*.labor_law_vault.zip
-.labor_law_fts.db
-.labor_law_fts.db*
+# Universal FTS5 RAG runtime database
 .universal_rag_fts.db
 .universal_rag_fts.db*
-ba_academy_vault/
-.ba_academy.db*
-data/labor_law/
 
 Biện Trung Tín_Bảng điểm quá trình có mộc xác nhận.pdf.bak

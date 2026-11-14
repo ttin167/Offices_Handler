@@ -823,11 +823,97 @@ def format_table_modern_clean(
 # 8. Template Token Formatters (Date, Currency, Number)
 # ---------------------------------------------------------------------------
 
+def _read_vn_three_digits(num: int, read_zero_hundreds: bool) -> str:
+    """Read a 0..999 block into standard Vietnamese words."""
+    digits = ("không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín")
+    hundreds = num // 100
+    tens = (num % 100) // 10
+    units = num % 10
+    parts: List[str] = []
+
+    if hundreds > 0 or read_zero_hundreds:
+        parts.append(f"{digits[hundreds]} trăm")
+        if tens == 0 and units > 0:
+            parts.append("lẻ")
+
+    if tens == 1:
+        parts.append("mười")
+    elif tens > 1:
+        parts.append(f"{digits[tens]} mươi")
+
+    if units > 0:
+        if units == 1 and tens >= 2:
+            parts.append("mốt")
+        elif units == 5 and tens >= 1:
+            parts.append("lăm")
+        else:
+            parts.append(digits[units])
+
+    return " ".join(parts)
+
+
+def number_to_vietnamese_words(
+    val: Any,
+    currency_unit: str = "đồng",
+    capitalize: bool = True,
+) -> str:
+    """Convert numeric or formatted money value into standard Vietnamese words."""
+    if val is None or str(val).strip() == "":
+        return ""
+    if isinstance(val, (int, float)):
+        raw_num = round(float(val))
+    else:
+        cleaned = re.sub(r"[^\d\-,.]", "", str(val).strip())
+        # Handle VN thousands dots (e.g., 15.000.000) vs standard comma thousands (15,000,000)
+        if re.fullmatch(r"-?\d{1,3}(?:\.\d{3})+", cleaned):
+            cleaned = cleaned.replace(".", "")
+        elif re.fullmatch(r"-?\d{1,3}(?:,\d{3})+", cleaned):
+            cleaned = cleaned.replace(",", "")
+        else:
+            cleaned = cleaned.replace(",", "")
+        try:
+            raw_num = round(float(cleaned))
+        except ValueError:
+            return str(val)
+
+    is_negative = raw_num < 0
+    n = abs(raw_num)
+    if n == 0:
+        text = "không"
+    else:
+        scales = ("", "nghìn", "triệu", "tỷ", "nghìn tỷ", "triệu tỷ")
+        groups: List[int] = []
+        while n > 0:
+            groups.append(n % 1000)
+            n //= 1000
+        groups.reverse()
+        total_groups = len(groups)
+        word_parts: List[str] = []
+        for idx, blk in enumerate(groups):
+            if blk == 0:
+                continue
+            scale_idx = total_groups - 1 - idx
+            scale = scales[scale_idx] if scale_idx < len(scales) else ""
+            blk_text = _read_vn_three_digits(blk, read_zero_hundreds=(idx > 0))
+            word_parts.append(f"{blk_text} {scale}".strip())
+        text = " ".join(word_parts).strip()
+
+    if is_negative:
+        text = f"âm {text}"
+    if currency_unit:
+        text = f"{text} {currency_unit}".strip()
+    if capitalize and text:
+        text = text[0].upper() + text[1:]
+    return text
+
+
 def format_token_value(val: Any, spec: str = "") -> str:
     """
     Formats token value dynamically based on spec:
-    - {{DATE:dd/MM/yyyy}}
+    - {{DATE:dd/MM/yyyy}} or {{DATE:date_vn}}
     - {{NUM:#,##0}} or {{CURRENCY:VND}}
+    - {{AMOUNT:vn_words}} / {{AMOUNT:bang_chu}} / {{NUM:words_plain}}
+    - {{NAME:upper}} / {{NAME:lower}} / {{NAME:title}}
     """
     if val is None:
         return ""
@@ -837,13 +923,30 @@ def format_token_value(val: Any, spec: str = "") -> str:
 
     clean_spec = spec.strip().lower()
 
-    # Date formatting
+    if clean_spec in {"upper", "uppercase"}:
+        return str(val).upper()
+    if clean_spec in {"lower", "lowercase"}:
+        return str(val).lower()
+    if clean_spec in {"title", "titlecase"}:
+        return str(val).title()
+
+    if clean_spec in {"vn_words", "bang_chu", "chu_vnd", "vnd_words"}:
+        return number_to_vietnamese_words(val, currency_unit="đồng", capitalize=True)
+    if clean_spec in {"words_plain", "num_words", "chu_so"}:
+        return number_to_vietnamese_words(val, currency_unit="", capitalize=True)
+
+    # Date formatting (supports ISO and dd/mm/yyyy)
     if clean_spec.startswith("date"):
         try:
             if isinstance(val, (datetime.date, datetime.datetime)):
                 d_obj = val
             else:
-                d_obj = datetime.datetime.fromisoformat(str(val))
+                s_val = str(val).strip()
+                m_vn = re.fullmatch(r"(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})", s_val)
+                if m_vn:
+                    d_obj = datetime.date(int(m_vn.group(3)), int(m_vn.group(2)), int(m_vn.group(1)))
+                else:
+                    d_obj = datetime.datetime.fromisoformat(s_val)
             if "vn" in clean_spec:
                 return f"{d_obj.strftime('%d')} tháng {d_obj.strftime('%m')} năm {d_obj.strftime('%Y')}"
             return d_obj.strftime("%d/%m/%Y")

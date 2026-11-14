@@ -1,13 +1,14 @@
 {
-  "name": "antigravity-ba-workstation",
+  "name": "antigravity-office-suite",
   "version": "5.0.0",
   "private": true,
   "type": "module",
-  "description": "BA Enterprise Workstation \u2014 Precision Requirements Engineering, Data Reconciliation & Business Process Studio",
+  "description": "Antigravity Office Suite — Pure Office IT Automation (Word NĐ30, Excel Power Suite, 17-Tool PDF Pro, PowerPoint 16:9 & Enterprise Printing)",
   "scripts": {
     "dev": "node dev_launcher.js",
     "dev:vite": "vite",
     "dev:server": "python web_api_server.py",
+    "typecheck": "tsc --noEmit",
     "build": "vite build",
     "preview": "vite preview",
     "bump": "python tools/bump_version.py",
@@ -15,10 +16,19 @@
     "bump:minor": "python tools/bump_version.py minor",
     "bump:check": "python tools/bump_version.py --check"
   },
-  "devDependencies": {
-    "vite": "^6.2.0"
-  },
   "dependencies": {
-    "lucide": "^1.53.0"
+    "lucide-react": "^0.475.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.5.2",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3",
+    "vite": "^6.2.0"
   }
 }

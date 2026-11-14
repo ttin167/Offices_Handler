@@ -241,17 +241,11 @@ except (ImportError, ValueError):
 
 
 
-# BA Enterprise Workstation Core Engines (Optional Local-Only; routes live in server/routes/ba_hub_routes.py)
-try:
-    import core.ba_hub  # noqa: F401
-    HAS_BA_HUB = True
-except (ImportError, ValueError) as err:
-    HAS_BA_HUB = False
-    print(f"[WARN] BA Hub not loaded: {err}")
+HOST = os.environ.get("HOST", "127.0.0.1")
 
-HOST = os.environ.get("HOST", "0.0.0.0")
+PORT = int(os.environ.get("PORT", 8000))
 
-PORT = int(os.environ.get("PORT", 10000))
+LOCAL_ONLY_MODE = os.environ.get("ANTIGRAVITY_LOCAL_ONLY", "1").strip().lower() not in ("0", "false", "no")
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -289,7 +283,7 @@ def cleanup_old_temp_files(max_age_seconds: int = 7200) -> int:
 
     Purges temporary files in UPLOAD_DIR and OUTPUT_DIR older than max_age_seconds (default 2h).
 
-    Protects Ephemeral Container Disk on memory-constrained cloud environments (Render Free 512MB).
+    Maintains local disk hygiene and prevents accumulation of sensitive workspace artifacts.
 
     """
 
@@ -637,57 +631,65 @@ def resolve_file_path(path_str: Optional[str]) -> Optional[str]:
 
 
 
+def _is_loopback_origin(origin: str) -> bool:
+    """Returns True only for strict localhost, 127.0.0.1, ::1, or app:// desktop origins."""
+    if not origin:
+        return False
+    if origin.startswith("app://"):
+        return bool(re.fullmatch(r"app://[a-zA-Z0-9._-]+", origin))
+    try:
+        parsed = urllib.parse.urlparse(origin)
+        if parsed.scheme not in ("http", "https"):
+            return False
+        if parsed.username or parsed.password or parsed.query or parsed.fragment or parsed.path not in ("", "/"):
+            return False
+        _ = parsed.port  # Force integer port validation (rejects :80.evil.com)
+        host = (parsed.hostname or "").lower()
+        return host in ("localhost", "127.0.0.1", "::1")
+    except ValueError:
+        return False
+    except Exception:
+        return False
+
+
 class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
-    server_version = "AntigravityOfficeStudio/4.0"
-
-
+    server_version = "AntigravityOfficeStudio/5.0"
 
     def _send_cors_headers(self) -> None:
-
-        client_origin = self.headers.get("Origin", "")
-
+        client_origin = (self.headers.get("Origin", "") or "").strip()
         if not ALLOWED_ORIGINS:
-
-            # Default: allow localhost, 127.0.0.1, app://, or * for universal developer tools
-
-            allowed_origin = client_origin if client_origin else "*"
-
-            self.send_header("Access-Control-Allow-Origin", allowed_origin)
-
+            if _is_loopback_origin(client_origin):
+                self.send_header("Access-Control-Allow-Origin", client_origin)
         else:
-
-            if "*" in ALLOWED_ORIGINS:
-
+            if "*" in ALLOWED_ORIGINS and not LOCAL_ONLY_MODE:
                 self.send_header("Access-Control-Allow-Origin", "*")
-
-            elif client_origin in ALLOWED_ORIGINS:
-
+            elif client_origin in ALLOWED_ORIGINS or _is_loopback_origin(client_origin):
                 self.send_header("Access-Control-Allow-Origin", client_origin)
-
-            elif client_origin and (
-
-                client_origin.startswith("http://localhost:")
-
-                or client_origin.startswith("http://127.0.0.1:")
-
-                or client_origin.startswith("app://")
-
-            ):
-
-                self.send_header("Access-Control-Allow-Origin", client_origin)
-
-            else:
-
+            elif ALLOWED_ORIGINS and ALLOWED_ORIGINS[0] != "*":
                 self.send_header("Access-Control-Allow-Origin", ALLOWED_ORIGINS[0])
 
-
-
         self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-API-Key")
-
         self.send_header("Vary", "Origin")
+
+    def _check_local_origin_guard(self, path: str) -> bool:
+        """Blocks cross-origin API calls from external websites in Pure Local mode."""
+        if not LOCAL_ONLY_MODE or not path.startswith("/api/"):
+            return True
+        client_origin = (self.headers.get("Origin", "") or "").strip()
+        if not client_origin:
+            return True
+        if _is_loopback_origin(client_origin) or client_origin in ALLOWED_ORIGINS:
+            return True
+        self._send_json(
+            {
+                "success": False,
+                "error": "Forbidden: External cross-origin request blocked in Pure Local mode (127.0.0.1 only).",
+            },
+            status=403,
+        )
+        return False
 
 
 
@@ -845,6 +847,10 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
                 return
 
+            if not self._check_local_origin_guard(path):
+
+                return
+
             # Modular route dispatch (v5.0 Enterprise)
             try:
                 from server.routes import Router
@@ -869,13 +875,7 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
                     "timestamp": time.time(),
 
-                    "ba_hub_enabled": HAS_BA_HUB,
-
                 })
-                return
-
-            elif (path.startswith("/api/ba/") or path.startswith("/api/law/")) and not HAS_BA_HUB:
-                self._send_json({"success": False, "error": "BA Enterprise Hub is disabled in Office-Only Cloud mode."}, status=503)
                 return
 
             elif path == "/api/print/printers":
@@ -899,14 +899,6 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                 self._send_json({
                     "success": True,
                     **status_res
-                })
-                return
-
-            elif path == "/api/diagram/wireframe/templates":
-                from core.diagrams.salt_wireframe import SaltWireframeEngine
-                self._send_json({
-                    "success": True,
-                    "templates": SaltWireframeEngine.get_templates()
                 })
                 return
 
@@ -1233,6 +1225,10 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
                 return
 
+            if not self._check_local_origin_guard(path):
+
+                return
+
             # Modular route dispatch (v5.0 Enterprise)
             try:
                 from server.routes import Router
@@ -1288,6 +1284,10 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
 
         if not self._check_auth(path):
+
+            return
+
+        if not self._check_local_origin_guard(path):
 
             return
 
@@ -1367,129 +1367,6 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
                 return
 
 
-
-            # =========================================================================
-            # BA ENTERPRISE WORKSTATION REST APIS (Local-Only Guard)
-            # =========================================================================
-
-            elif (path.startswith("/api/ba/") or path.startswith("/api/law/")) and not HAS_BA_HUB:
-                self._send_json({"success": False, "error": "BA Enterprise Hub is disabled in Office-Only Cloud mode."}, status=503)
-                return
-
-            # Diagram: PlantUML Salt UI Wireframe
-            elif path == "/api/diagram/wireframe/render":
-                payload = self._read_body_json()
-                spec_or_code = payload.get("spec") or payload.get("code") or payload.get("template")
-                scale = float(payload.get("scale", 2.0))
-                fmt = str(payload.get("format", "png")).lower()
-                if not spec_or_code:
-                    self._send_json({"success": False, "error": "Thiếu mã đặc tả giao diện Wireframe"}, status=400)
-                    return
-
-                from core.diagrams.salt_wireframe import SaltWireframeEngine
-                ts = int(time.time() * 1000)
-
-                if fmt == "svg":
-                    out_svg_name = f"wireframe_{ts}.svg"
-                    out_svg_file = os.path.join(OUTPUT_DIR, out_svg_name)
-                    res_svg = SaltWireframeEngine.render_salt_to_svg(spec_or_code, out_svg_file)
-                    qsvg = urllib.parse.quote(out_svg_name)
-                    self._send_json({
-                        "success": True,
-                        "svg": res_svg["svg"],
-                        "svg_url": f"/api/download/{qsvg}",
-                        "filename": out_svg_name,
-                        "download_url": f"/api/download/{qsvg}",
-                        "dimensions": res_svg["dimensions_px"],
-                        "salt_code": res_svg["salt_code"],
-                    })
-                elif fmt == "both":
-                    out_svg_name = f"wireframe_{ts}.svg"
-                    out_svg_file = os.path.join(OUTPUT_DIR, out_svg_name)
-                    res_svg = SaltWireframeEngine.render_salt_to_svg(spec_or_code, out_svg_file)
-
-                    out_png_name = f"wireframe_{ts}.png"
-                    out_png_file = os.path.join(OUTPUT_DIR, out_png_name)
-                    res_png = SaltWireframeEngine.render_salt_to_png(spec_or_code, out_png_file, scale=scale)
-
-                    qsvg = urllib.parse.quote(out_svg_name)
-                    qpng = urllib.parse.quote(out_png_name)
-                    self._send_json({
-                        "success": True,
-                        "svg": res_svg["svg"],
-                        "svg_url": f"/api/download/{qsvg}",
-                        "png_url": f"/api/download/{qpng}",
-                        "filename": out_png_name,
-                        "download_url": f"/api/download/{qpng}",
-                        "dimensions": res_png["dimensions_px"],
-                        "salt_code": res_svg["salt_code"],
-                    })
-                else:
-                    out_name = f"wireframe_{ts}.png"
-                    out_file = os.path.join(OUTPUT_DIR, out_name)
-                    res = SaltWireframeEngine.render_salt_to_png(spec_or_code, out_file, scale=scale)
-                    qbname = urllib.parse.quote(out_name)
-                    self._send_json({
-                        "success": True,
-                        "filename": out_name,
-                        "download_url": f"/api/download/{qbname}",
-                        "png_url": f"/api/download/{qbname}",
-                        "dimensions": res["dimensions_px"],
-                        "salt_code": res["salt_code"],
-                    })
-                return
-
-            # Diagram: 1-Click Wireframe Injection into Word (.docx)
-            elif path == "/api/diagram/wireframe/inject-doc":
-                payload = self._read_body_json()
-                spec_or_code = payload.get("spec") or payload.get("code") or payload.get("template")
-                if not spec_or_code:
-                    self._send_json({"success": False, "error": "Thiếu mã đặc tả giao diện Wireframe"}, status=400)
-                    return
-
-                docx_param = payload.get("docx_path") or payload.get("file")
-                heading = payload.get("heading")
-                caption = payload.get("caption") or "Hình: Phác thảo giao diện màn hình (UI Wireframe Mockup)"
-                max_width_cm = float(payload.get("max_width_cm", 14.0))
-
-                from core.diagrams.salt_wireframe import SaltWireframeEngine
-                ts = int(time.time() * 1000)
-
-                resolved_docx = resolve_file_path(docx_param) if docx_param else None
-                if resolved_docx and os.path.isfile(resolved_docx):
-                    base_stem = os.path.splitext(os.path.basename(resolved_docx))[0]
-                    out_name = f"{base_stem}_wireframe_{ts}.docx"
-                    out_file = os.path.join(OUTPUT_DIR, out_name)
-                    res = SaltWireframeEngine.inject_wireframe_into_docx(
-                        docx_path=resolved_docx,
-                        spec_or_code=spec_or_code,
-                        output_path=out_file,
-                        heading=heading,
-                        caption=caption,
-                        max_width_cm=max_width_cm,
-                    )
-                else:
-                    out_name = f"BRD_Wireframe_Spec_{ts}.docx"
-                    out_file = os.path.join(OUTPUT_DIR, out_name)
-                    res = SaltWireframeEngine.inject_wireframe_into_docx(
-                        docx_path=out_file,
-                        spec_or_code=spec_or_code,
-                        output_path=out_file,
-                        heading=heading or "Phác Thảo Giao Diện Màn Hình (UI Wireframe)",
-                        caption=caption,
-                        max_width_cm=max_width_cm,
-                    )
-
-                qbname = urllib.parse.quote(out_name)
-                self._send_json({
-                    "success": True,
-                    "filename": out_name,
-                    "download_url": f"/api/download/{qbname}",
-                    "width_cm": res["width_cm"],
-                    "height_cm": res["height_cm"],
-                    "dimensions": res["dimensions_px"],
-                })
-                return
 
             # Enterprise Printing: Submit Print Job
             elif path == "/api/print/job":
@@ -3013,11 +2890,25 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
                 if action == "split":
 
+                    import zipfile
+
                     out_dir = os.path.join(OUTPUT_DIR, f"{base_name}_split")
 
                     ranges = payload.get("ranges")
 
                     files = split_pdf(src, out_dir, page_ranges=ranges)
+
+                    zip_name = f"{base_name}_split_{int(time.time())}.zip"
+
+                    zip_path = os.path.join(OUTPUT_DIR, zip_name)
+
+                    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+
+                        for f in files:
+
+                            if os.path.isfile(f):
+
+                                zf.write(f, arcname=os.path.basename(f))
 
                     self._send_json({
 
@@ -3025,9 +2916,15 @@ class OfficeApiHandler(http.server.BaseHTTPRequestHandler):
 
                         "action": "split",
 
+                        "filename": zip_name,
+
+                        "download_url": f"/api/download/{urllib.parse.quote(zip_name)}",
+
                         "generated_files": [os.path.basename(f) for f in files],
 
-                        "count": len(files)
+                        "count": len(files),
+
+                        "detail": f"Đã tách thành {len(files)} tệp PDF và đóng gói thành {zip_name}."
 
                     })
 

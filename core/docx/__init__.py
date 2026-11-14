@@ -56,9 +56,16 @@ from .design_system import (
     format_table_modern_clean,
     detect_column_alignment,
     format_token_value,
+    number_to_vietnamese_words,
     THEME_MODERN_TECH,
     THEME_EXECUTIVE_CLASSIC,
     THEME_NGHIDINH30,
+)
+from .toolkit import (
+    polish_docx_document,
+    merge_docx_files,
+    split_docx_by_heading,
+    apply_docx_watermark_and_hf,
 )
 
 __all__ = [
@@ -97,4 +104,9 @@ __all__ = [
     "tokenize_text",
     "diff_token_sequences",
     "compare_docx_documents",
+    "number_to_vietnamese_words",
+    "polish_docx_document",
+    "merge_docx_files",
+    "split_docx_by_heading",
+    "apply_docx_watermark_and_hf",
 ]

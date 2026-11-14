@@ -1,8 +1,8 @@
 # Architecture Guide — Antigravity Universal Office Studio
 
-> **Phiên bản**: 5.0.0 (Enterprise Omni-Studio, AST Offline Formula Engine, Industrial Vector Print, In-Browser Viewers & Universal FTS5 RAG Copilot Architecture v5.0)  
+> **Phiên bản**: 5.0.0 (Pure Office IT Studio — Excel Power Suite, Word NĐ30 & `vn_words`, PDF Pro 17 Tools, AST Offline Formula Engine, Vector Print & Universal FTS5 RAG Copilot)  
 > **Tiêu chuẩn**: Zero-Regression, 100% Backward Compatibility, Strict Layer Isolation, Clean-Room MIT Compliance  
-> **Test Suite**: 513+ Automated Tests (100% Pass Rate) | **MCP Tools**: 50 Tools
+> **Test Suite**: Automated Tests (100% Pass Rate) | **MCP Tools**: 43 Tools
 
 ---
 
@@ -13,21 +13,21 @@ Hệ thống được tổ chức theo mô hình phân tầng chặt chẽ (Clea
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                              1. Presentation & Client Layer                            │
-│   Web Studio (src/ - Vite ES6 + Glassmorphic) │ Desktop GUI & App Mode (ui/)           │
+│   Web Studio (src/ - React 18 + TS + Tailwind v3) │ Desktop GUI & App Mode (ui/)       │
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
                                             │
                                             ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                              2. Interface & Protocol Layer                             │
-│   Web REST API (server/app.py :8000)      │ Model Context Protocol (50 Tools)          │
-│   SSE Task Manager (server/job_manager)   │ AI Unified CLI (cli/ai_tools + v46_cmds)   │
+│   Web REST API (server/app.py :8000)      │ Model Context Protocol (43 Tools)          │
+│   SSE Task Manager (server/job_manager)   │ AI Unified CLI (cli/ai_tools + office+v46) │
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
                                             │
                                             ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                            3. Core Document & Automation Engine                        │
 │  core/docx/     │ core/pptx/     │ core/xlsx/     │ core/converter/ │ core/pipeline/   │
-│  core/diagrams/ │ core/security/ │ core/ba_hub/   │ core/env_doctor │ core/maintenance │
+│  core/diagrams/ │ core/security/ │ core/copilot/  │ core/env_doctor │ core/maintenance │
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
                                             │
                                             ▼
@@ -62,8 +62,9 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
       - Callout Boxes viền màu pastel (`NOTE`, `TIP`, `WARNING`, `IMPORTANT`, `CAUTION`) bảo toàn invariants OpenXML.
       - Fenced Code Block Cards bo góc có nhãn ngôn ngữ và font Consolas.
       - Bảng biểu Modern Clean Studio (padding 6pt/8pt, viền mảnh `#E2E8F0`, tự động căn lề theo kiểu dữ liệu cột).
-      - Token Formatters động (`{{KEY:VND}}`, `{{KEY:USD}}`, `{{KEY:DATE}}`, `{{KEY:DATE_VN}}`, `{{KEY:INT}}`, `{{KEY:NUM}}`).
+      - Token Formatters động (`{{KEY:VND}}`, `{{KEY:USD}}`, `{{KEY:VN_WORDS}}`, `{{KEY:WORDS_PLAIN}}`, `{{KEY:DATE}}`, `{{KEY:DATE_VN}}`, `{{KEY:UPPER}}`, `{{KEY:LOWER}}`, `{{KEY:TITLE}}`, `{{KEY:INT}}`, `{{KEY:NUM}}`) và bộ chuyển đổi đọc số tiền thành chữ tiếng Việt `number_to_vietnamese_words`.
     - `reader.py` / `writer.py`: Đọc và ghi tài liệu Word OpenXML, duy trì `<w:cantSplit/>`, `<w:tblHeader/>`, `<w:vAlign w:val="center"/>`; hỗ trợ vá hình ảnh động `{{IMAGE:key}}` và ngắt dòng OpenXML `<w:br/>` an toàn trong `patch_docx_template`. Bảo vệ xung đột tệp Windows bằng `safe_save_docx`.
+    - `toolkit.py`: Bộ tiện ích Word Mastery chuẩn hóa văn bản theo Nghị định 30/2020/NĐ-CP & Executive (`polish_docx_document` kèm đánh số trang `Page X/Y` & giới hạn ảnh lề in `ERR_DOCX_005`), ghép nối nhiều tệp Word bảo toàn ảnh/bảng (`merge_docx_files`), tách chương theo Heading ra gói ZIP (`split_docx_by_heading`), và đóng dấu chéo VML Watermark + Header/Footer (`apply_docx_watermark_and_hf`).
     - `lists.py`: Động cơ đánh số tự động OpenXML (`numId` động, `startOverride=1`, bullet 3 cấp, checkbox `☐`/`☑`).
     - `math.py`: Kiến trúc toán học Dual-Mode (OpenXML Multi-Run & OMML `<m:oMath>`).
     - `diff_engine.py`: So sánh tài liệu pháp lý và AI Track Changes (`<w:ins>`, `<w:del>`, `<w:delText>`, `word/comments.xml`).
@@ -79,10 +80,12 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
     - Business Layouts: Hỗ trợ 4 mẫu slide doanh nghiệp (KPI Summary Cards, Timeline Horizontal Roadmap, SWOT 2x2 Matrix, Process Chevron Steps).
   - `core/xlsx/`:
     - `reader.py` / `writer.py`: Đọc, mutate bảng tính Excel in-place, clone style prototype row (`ERR_XLSX_001`), dịch chuyển công thức động (`ERR_XLSX_002`), thiết lập trang in Print-Ready (`ERR_XLSX_008`), `safe_set_cell` tự động bảo vệ ô hợp nhất (`ERR_XLSX_004`), bảo toàn số 0 ở đầu (`ERR_XLSX_007`), kiểm soát 15 chữ số & parse ngày tiếng Việt / số âm kế toán (`ERR_XLSX_009`), khử ký tự rác XML & cắt tỉa 32k ký tự (`ERR_XLSX_010`), tiền tố `_xlfn.` cho hàm hiện đại (`ERR_XLSX_011`), hiển thị đường lưới `showGridLines`, `auto_filter.ref` và mở khóa chiều cao dòng dữ liệu (`ERR_XLSX_012`), bảo vệ chọn lọc công thức và cấu trúc (`ERR_XLSX_013`), định dạng có điều kiện tự động, ràng buộc nhập liệu Data Validation, biểu đồ sống In-Sheet Charts (`ERR_DIAG_003`), và bảng điều hướng Index Dashboard.
-    - `streaming.py`: Động cơ xử lý dữ liệu lớn tiết kiệm bộ nhớ (`ERR_XLSX_014`) với `stream_read_xlsx` (`read_only=True`) và `stream_write_xlsx` (`write_only=True`), giữ mức tiêu thụ RAM luôn $\le 50\text{MB}$ khi xử lý tệp $> 10\text{MB}$ hoặc $> 30.000$ dòng trên Render 512MB.
+    - `streaming.py`: Động cơ xử lý dữ liệu lớn tiết kiệm bộ nhớ (`ERR_XLSX_014`) với `stream_read_xlsx` (`read_only=True`) và `stream_write_xlsx` (`write_only=True`), giữ mức tiêu thụ RAM luôn $\le 50\text{MB}$ khi xử lý tệp $> 10\text{MB}$ hoặc $> 30.000$ dòng.
     - `validator.py`: Kiểm định chất lượng 12 Cổng (Invariant E6).
     - `format_diff.py`: Bóc tách và so sánh định dạng giữa các sheet.
-    - `formula_playbook.py`: Hệ thống Cẩm Nang 32+ Công Thức Excel Tinh Hoa & Live Demo (4 chiều: Tên hàm, Công thức mẫu, Dùng trong trường hợp nào, Tại sao lại chọn hàm đó của Excel). Tự động sinh sổ tính 2 sheets chuẩn Enterprise Navy: Sheet 1 tra cứu Playbook và Sheet 2 công thức động đang tính toán thực tế (`=SUMIFS`, `=COUNTIFS`, `=AVERAGEIFS`, `=XLOOKUP`, `=IFS`, `=TEXTJOIN`).
+    - `formula_playbook.py`: Hệ thống Cẩm Nang 57+ Công Thức Excel Tinh Hoa & Live Demo (4 chiều: Tên hàm, Công thức mẫu, Dùng trong trường hợp nào, Tại sao lại chọn hàm đó của Excel). Tự động sinh sổ tính 2 sheets chuẩn Enterprise Navy: Sheet 1 tra cứu Playbook và Sheet 2 công thức động đang tính toán thực tế (`=SUMIFS`, `=COUNTIFS`, `=AVERAGEIFS`, `=XLOOKUP`, `=IFS`, `=TEXTJOIN`).
+    - `power_tools.py`: Bộ 6 công cụ Excel Power Suite thuần OpenPyXL: Làm sạch & chuẩn hóa dữ liệu VN (trim, chuẩn ngày dd/mm/yyyy, giữ số 0 đầu `@` SĐT/CCCD, khử trùng lặp `clean_and_standardize_workbook`), Tách/Gộp cột & tách họ tên tiếng Việt (`transform_workbook_columns`), Tổng hợp Pivot & Biểu đồ thực live `SUMIFS`/`COUNTIFS` (`build_pivot_summary_and_chart`), Nối bảng XLOOKUP không cần code (`xlookup_join_workbooks`), Tách bảng theo giá trị cột ra ZIP (`split_workbook_by_column`), và So sánh Excel Diff tô màu Amber/Emerald/Rose + `_Diff_Summary` (`diff_workbooks_visual`).
+    - `tracker.py`: Động cơ Sổ Theo Dõi Công Việc & Báo Cáo Ngày (`OfficeWorkTracker`), tương thích hoàn toàn cấu trúc sheet/cột của `project_tracking.xlsx` và `task_tracking.xlsx` (`FSD_Mockup_Log` & Daily sheets).
     - `formula_evaluator.py`: Động cơ tính toán công thức ngoại tuyến dựa trên cây cú pháp trừu tượng (`ASTFormulaEvaluator`, `SafeFormulaASTTransformer`), hỗ trợ 30+ hàm cốt lõi (`SUM`, `AVERAGE`, `COUNT`, `COUNTA`, `COUNTIF`, `COUNTIFS`, `SUMIF`, `SUMIFS`, `AVERAGEIF`, `AVERAGEIFS`, `IF`, `IFS`, `IFERROR`, `XLOOKUP`, `VLOOKUP`, `INDEX`, `MATCH`, `TEXTJOIN`, ...) và nạp trực tiếp giá trị tính toán vào thẻ `<v>...</v>` OpenXML (`populate_cached_values`).
   - `core/converter/`:
     - `com_watchdog.py`: Bộ giám sát và cô lập tiến trình Win32 COM (`ComProcessWatchdog`) với cơ chế timeout 20s, tự động giải phóng `CoUninitialize` và thu hồi các tiến trình `WINWORD.EXE` / `POWERPNT.EXE` bị treo.
@@ -92,43 +95,21 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
     - `ocr_pipeline.py`: Pipeline bóc tách PDF/ảnh scan tiếng Việt (`vie+eng`), bộ lọc mộc đỏ HSV (`ERR_CONV_005`), nắn thẳng ảnh scan tự động (`deskew`).
     - `pdf_renderer.py`: Bộ chuyển đổi PDF phổ quát (`UniversalPdfRenderer`) với chuỗi ưu tiên: Win32 COM ➔ LibreOffice Headless ➔ PyMuPDF.
     - `pdf_toolkit.py`: Phân hệ PDF Pro Studio & iLovePDF Killer Features (True Redaction `ERR_PDF_001`, AES-256 Encryption, Dấu giáp lai đa trang overlap 8% `ERR_PDF_002`, Chuẩn hóa A4 vector `ERR_PDF_003`, Bóc bảng sang Excel `ERR_XLSX_007`, Tổ chức trang trực quan kèm chèn trang trắng A4, Chuyển đổi 2 chiều Ảnh ↔ PDF, Ký tên điện tử & đóng dấu bù góc xoay `page.derotation_matrix`, Làm phẳng 2 chế độ Vector Bake & Strict Raster kèm dọn sạch metadata ẩn `doc.scrub`, Quét và điền biểu mẫu tương tác AcroForms `inspect_pdf_form_fields` & `fill_pdf_form_fields`).
-  - `core/ba_hub/` (BA Enterprise Workstation Engine):
-    - `templates.py`: Khung mẫu thực chiến chuẩn ngành Ngân hàng số (NAPAS 247, eKYC), Thương mại điện tử (Checkout, Voucher) và Kho vận (WMS Inbound).
-    - `story_builder.py`: Khung soạn thảo User Story & Gherkin AC tương tác, bộ thẩm định chất lượng tự động `StoryQualityLinter` (chấm điểm 0-100%, kiểm tra Role specificity, Business value, Given-When-Then, Happy/Negative paths) và xuất bản OpenXML Word / Markdown.
-    - `usecase_builder.py`: Bộ đặc tả Use Case Specifications, bộ kiểm định chất lượng `UseCaseQualityLinter` và xuất bảng OpenXML (`<w:cantSplit/>`, `<w:tblHeader/>`).
-    - `data_dictionary.py`: Động cơ quét từ điển dữ liệu từ Excel (.xlsx), SQL DDL `CREATE TABLE` và OpenAPI / Swagger Contracts (`scan_openapi_spec`), bộ xuất bảng ma trận ánh xạ dữ liệu nguồn - đích (`FieldMappingEngine`).
-    - `reconciliation.py`: Động cơ đối soát dữ liệu 2 chiều tự động (`DataReconciliationEngine`), khớp theo khóa phức hợp (Composite Key), tính toán dung sai số học (Numeric Tolerance), tổng hợp độ lệch và xuất báo cáo 4-sheet Excel OpenXML.
-    - `testcase_generator.py`: Bộ sinh ma trận kiểm thử nghiệm thu người dùng (`UATTestcaseGenerator`) kèm Data Validation dropdown in-cell (`Pass`/`Fail`/`Blocked`) và định dạng đổi màu tự động.
-    - `brd_generator.py`: Bộ tổng hợp và xuất bản tài liệu BRD / SRS chuẩn doanh nghiệp (`BRDDocumentGenerator`) gồm 9 phần cốt lõi theo chuẩn BABOK v3 và IEEE 830.
-    - `rtm_matrix.py`: Bộ sinh ma trận truy xuất nguồn gốc yêu cầu (Traceability Matrix RTM: Requirement ➔ Test Case ➔ Defect ➔ Component) xuất bản đa định dạng Excel / Word.
-    - `dbml_converter.py`: Trình biên dịch 2 chiều DBML ↔ SQL DDL ↔ Excel Data Dictionary, hỗ trợ sinh cú pháp DBML từ bảng tính và kết xuất sơ đồ quan hệ.
-    - `satsuma_engine.py`: Động cơ ngôn ngữ ánh xạ luồng dữ liệu Source ➔ Target (`SatsumaLang`), kiểm tra lỗi kiểu dữ liệu và tự động vẽ đồ thị Data Lineage.
-    - `sql_integrity.py`: Bộ 7 bài test SQL tự động kiểm định tính toàn vẹn dữ liệu trước nghiệm thu UAT (Orphan records, duplicates, null constraints, numeric bounds, format check).
-    - `scope_creep.py`: Bộ phân tích và cảnh báo phình to phạm vi (Scope Creep Auditor & Semantic Diff) so sánh các phiên bản BRD/SRS theo thời gian.
-    - `obsidian_vault.py`: Động cơ đóng gói & biên dịch 2 chiều Obsidian Vault (`.zip`), xuất đồ thị tri thức yêu cầu (Knowledge Graph) với liên kết `[[Wikilinks]]` và biên dịch ngược sang Word BRD (`<w:bookmarkStart>`, `<w:hyperlink>`).
-    - `decision_table.py`: Động cơ sinh và kiểm toán bảng quyết định logic điều kiện - hành động (Decision Table & Matrix Generator) chuẩn BABOK v3, kiểm tra tính toàn vẹn (Completeness) và mâu thuẫn (Contradiction).
-    - `meeting_parser.py`: Bộ bóc tách biên bản họp nghiệp vụ thô (Meeting Notes Parser) thành User Stories 3 thành phần, Quy tắc nghiệp vụ (Business Rules), Giả định (Assumptions) và Hành động (Action Items).
-    - `labor_law_kb.py`: Quản trị và sinh kho tri thức Luật Lao Động, Tiền Lương & Quản trị Nhân sự Việt Nam 2026+ cục bộ (22 atomic notes + native Obsidian Canvas v1.0 `Legal_Overview.canvas`), bao quát toàn diện Hợp đồng lao động (Điều 20-21 BLLĐ 2019, TT 10/2020/TT-BLĐTBXH), Phụ lục HĐLĐ (Điều 22, nguyên tắc cấm sửa đổi thời hạn, phạt tiền NĐ 12/2022/NĐ-CP, 3 ngoại lệ CĐCS/Người cao tuổi/NLĐ nước ngoài, quy trình đàm phán Điều 33) cùng bộ biểu mẫu HĐLĐ và Phụ lục đa năng, cách ly bảo mật 100% tại máy trạm (`labor_law_vault/`).
-    - `labor_law_search.py`: Động cơ tìm kiếm toàn văn cục bộ siêu tốc SQLite FTS5 (`unicode61 remove_diacritics 2`) tra cứu luật lao động, chính sách 2026+, và tham số tính lương với độ trễ $< 2\text{ms}$ (`.labor_law_fts.db`), hỗ trợ tìm kiếm linh hoạt phụ âm tiếng Việt `d`/`đ`.
-    - `labor_law_compliance.py`: Cầu nối khai thác tri thức cho BA: Bộ kiểm toán tuân thủ luật lao động & sinh kịch bản Gherkin AC (kiểm toán vi phạm Điều 20 & 22 BLLĐ 2019, OT đêm 200%/210%, trần BHXH/BHYT 50.6M vs BHTN 106.2M, giảm trừ gia cảnh 15.5M/6.2M, tuổi nghỉ hưu 2026), tích hợp đối soát bảng lương `DataReconciliationEngine`, và Bảng quyết định BABOK v3 vòng đời HĐLĐ.
-    - `regulatory_watcher.py`: Đường ống tự động giám sát văn bản quy phạm pháp luật (Regulatory Watcher), bóc tách tham số chính sách mới, sinh bản thảo Staging và cơ chế phê duyệt 1-Click sáp nhập kho tri thức kèm Atomic Rollback Guard.
-    - `regulatory_notifier.py`: Module gửi email cảnh báo chính sách mới qua giao thức SMTP Gmail bảo mật không phụ thuộc thư viện ngoài.
-    - `copilot_provider.py`: Kết nối đa hình Hybrid LLM (`BaseCopilotProvider`, `LocalOllamaProvider` tại `localhost:11434`, `GoogleGeminiProvider` ngữ cảnh 1M+ tokens, và `CopilotOrchestrator`) kèm tổng hợp RAG ngoại tuyến và sinh Thẻ Hành Động (`CopilotActionCard`).
+  - `core/copilot/` (Universal FTS5 RAG & Hybrid AI Copilot Engine):
+    - `copilot_provider.py`: Kết nối đa hình Hybrid LLM (`BaseCopilotProvider`, `LocalOllamaProvider` tại `localhost:11434`, `GoogleGeminiProvider` ngữ cảnh 1M+ tokens, và `CopilotOrchestrator`) kèm tổng hợp RAG ngoại tuyến và sinh Thẻ Hành Động Tin học Văn phòng (`CopilotActionCard`).
     - `universal_rag.py`: Động cơ lập chỉ mục và truy xuất ngữ nghĩa đa định dạng (`UniversalRAGEngine`) dùng SQLite FTS5 (`unicode61 remove_diacritics 2`, chế độ WAL) cho các tệp PDF, DOCX, XLSX, CSV, JSON, và Markdown.
-    - `hr_governance.py`: Động cơ Quản trị Nhân sự & Phân quyền Cấp Dữ liệu (Enterprise HR Governance Engine): Đặc tả và thực thi 6 Cấp độ Phạm vi Dữ liệu (6 Data Scopes: GLOBAL, LEGAL_ENTITY, BUSINESS_UNIT, DEPARTMENT_TREE, DIRECT_TEAM, SELF_ONLY) với bộ sinh SQL Predicate đệ quy cây OM, Động cơ kiểm toán xung đột kiểm soát chéo SoD (Maker-Checker, Admin-Business Isolation, Self-Modification Guard), Quy trình Thôi việc (OFB) 4 cổng độc lập (Manager -> IT -> Facility -> Finance -> HR Close), và Schema DBML/SQL DDL toàn diện cho OM & Core HR.
   - `core/printing/` (Enterprise Printing Engine):
-    - `printer_manager.py`: Bộ điều phối máy in doanh nghiệp, giao tiếp trực tiếp Windows Spooler API qua `win32print`, hỗ trợ truy vấn trạng thái phần cứng và hàng đợi (`get_printer_status`) phát hiện sớm hết giấy (`JOB_STATUS_PAPEROUT`), kẹt giấy (`PRINTER_STATUS_PAPER_JAM`), ngoại tuyến (`OFFLINE`), cấu hình phần cứng `DEVMODE` (chọn khay giấy `tray_id`, in 2 mặt tiêu chuẩn `duplex`: `vertical` lật cạnh dài, `horizontal` lật cạnh ngắn, `simplex` 1 mặt) kèm chốt chặn **G2 (`DeviceCapabilities DC_BINS` / `DC_DUPLEX` pre-check)** chống lỗi trên máy in ảo, tự động phát hiện danh sách máy in mạng/nội bộ, hỗ trợ in ngầm (Silent Print) không cần hộp thoại UI, cơ chế fallback Edge Headless và Virtual Spool đệm PDF trên môi trường Linux/Cloud container.
+    - `printer_manager.py`: Bộ điều phối máy in doanh nghiệp, giao tiếp trực tiếp Windows Spooler API qua `win32print`, hỗ trợ truy vấn trạng thái phần cứng và hàng đợi (`get_printer_status`) phát hiện sớm hết giấy (`JOB_STATUS_PAPEROUT`), kẹt giấy (`PRINTER_STATUS_PAPER_JAM`), ngoại tuyến (`OFFLINE`), cấu hình phần cứng `DEVMODE` (chọn khay giấy `tray_id`, in 2 mặt tiêu chuẩn `duplex`: `vertical` lật cạnh dài, `horizontal` lật cạnh ngắn, `simplex` 1 mặt) kèm chốt chặn **G2 (`DeviceCapabilities DC_BINS` / `DC_DUPLEX` pre-check)** chống lỗi trên máy in ảo, tự động phát hiện danh sách máy in mạng/nội bộ, hỗ trợ in ngầm (Silent Print) không cần hộp thoại UI, cơ chế fallback Edge Headless và Virtual Spool đệm PDF trên môi trường Linux/nội bộ cục bộ.
     - `print_optimizer.py`: Bộ tiền xử lý tài liệu in ấn bằng PyMuPDF (`fitz`): Phân tích cú pháp dải trang thông minh (`parse_page_ranges`) hỗ trợ biểu thức `1-5, 8, 11-20` và trích xuất trang (`doc.select`), chuẩn hóa khổ giấy đích (`A4`, `Letter`, `A3`) và căn chỉnh lề an toàn (`fit` thu vừa vùng in máy in chống mất mép viền bảng biểu `ERR_PRINT_001` vs `actual` giữ 100% kích thước gốc), chuyển đổi thang xám Vector nguyên bản (`_apply_vector_grayscale` chuyển toán tử màu sang `/DeviceGray` bảo toàn 100% font chữ vector), bố cục ghép trang đa trang N-Up (2-Up / 4-Up), sắp xếp thứ tự trang in đóng sách kèm bù trượt lề gáy sách (`_apply_booklet_imposition` Shingling Creep Compensation $\Delta x = k \times \text{thickness\_pt}$), dấu thủy ấn bảo mật (Confidential Watermark), và chốt chặn an toàn lề in chống mất chữ `ERR_PRINT_001` (Margin Safety Guard $\ge 5\text{mm}$).
   - `core/security/`:
     - `document_auditor.py`: Kiểm định an ninh tài liệu tĩnh dựa trên bộ kiểm tra phòng thủ Cloudflare Security Audit Harness, phân định 3 trạng thái phản biện đối nghịch (`confirmed`, `needs_validation`, `rejected`) cho 5 bất biến: `ERR_SEC_001` (Macro streams & PDF `/Launch`), `ERR_SEC_002` (Formula / DDE Injection), `ERR_SEC_003` (OLE MZ headers & PE binaries), `ERR_SEC_004` (PII author metadata & `veryHidden` sheets), `ERR_SEC_005` (Zip Slip `../` traversal & XXE DTD entities).
     - `sanitizer.py`: Tẩy rửa và vô hiệu hóa mối đe dọa không phá hủy (Non-destructive Defuser & Deep CDR `ERR_SEC_006` + Smart Vietnamese PII Redactor `ERR_SEC_007`): Thêm tiền tố nháy đơn `'` cho công thức nguy hiểm, bóc gỡ `vbaProject.bin` & OLE PE (`MZ`), tự động chuyển đổi `macroEnabled.main+xml` sang chuẩn OpenXML, dọn sạch `.rels`, và che mờ thông minh CCCD/SĐT/STK/MST/Email không phạm vào số liệu tài chính BCTC.
   - `core/pipeline/`:
-    - `engine.py`: Động cơ đường ống công việc khai báo đa bước (`WorkflowPipeline`, `run_pipeline`, `run_bulk_directory_pipeline`) tuân thủ `ERR_PIPE_001` (giới hạn `MAX_JOB_WORKERS=2` bảo vệ container 512MB RAM và dọn sạch 100% tệp trung gian `step_*_temp.*` trong khối `try...finally`).
+    - `engine.py`: Động cơ đường ống công việc khai báo đa bước (`WorkflowPipeline`, `run_pipeline`, `run_bulk_directory_pipeline`) tuân thủ `ERR_PIPE_001` (giới hạn `MAX_JOB_WORKERS=2` kiểm soát RAM máy trạm và dọn sạch 100% tệp trung gian `step_*_temp.*` trong khối `try...finally`).
   - `core/env_doctor/`:
     - `run_doctor.py`: Tự động quét kiểm tra 12 thành phần môi trường (Python, LibreOffice, Tesseract, Chromium, PlantUML, font chữ) và xuất báo cáo JSON / Terminal kèm mã lệnh khắc phục 1-click.
   - `core/diagrams/`:
     - `bridge.py`: Điều phối sơ đồ thống nhất đa engine (Canvas, PlantUML, Mermaid, Draw.io mxGraph).
-    - `salt_wireframe.py`: Động cơ phác thảo giao diện người dùng (Rapid Low-Fi PlantUML Salt UI Wireframe Studio) hỗ trợ Dual-Mode (JSON Spec One-Way Generator & Direct Salt Code), thư viện 6 mẫu giao diện nghiệp vụ chuẩn BA (`WIREFRAME_TEMPLATES`), kết xuất kép vector SVG (`-tsvg` nền trong suốt monochrome) và ảnh PNG 300+ DPI (`-charset UTF-8`), cùng cơ chế nhúng 1-Click vào tài liệu Word (`.docx`) bảo toàn lề in an toàn $\le 14.0\text{cm}$ (`ERR_DOCX_005`) và dọn tệp tạm trong khối `try...finally` (`ERR_PIPE_001`).
     - `mxgraph.py`: Bộ sinh sơ đồ cấu trúc Draw.io XML native (`MX_INV_01`..`20`) và tự động nhúng vào `.docx` / `.pptx`.
     - `code_to_diagram.py`: Bộ quét mã nguồn tĩnh Python AST & SQL/Prisma DDL sinh sơ đồ Class/ERD tự động kèm bộ xuất Vector SVG thuần Python (`export_mxgraph_to_svg`).
     - `editor.py`: Trình biên tập Canvas tương tác 2 chiều.
@@ -136,22 +117,21 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
 
 ### 2.2. `server/` — Tầng Giao Thức & Cung Cấp Dịch Vụ (Web API, MCP, SSE)
 
-- `app.py`: REST API Server nhẹ nhàng dựa trên `http.server`, phục vụ Web Studio cổng `8000`. Cung cấp endpoints cho conversion, history, mail merge, ocr, diff, math, static assets, trọn bộ PDF Pro Endpoints, Atomic Office Endpoints, Formula Playbook Endpoints, trọn bộ Enterprise Printing Endpoints (`/api/print/printers`, `/api/print/status`, `/api/print/job`), trọn bộ System Maintenance Endpoints (`/api/system/maintenance`, `/api/system/vitals`), trọn bộ UI Wireframe Studio Endpoints (`/api/diagram/wireframe/templates`, `/api/diagram/wireframe/render`, `/api/diagram/wireframe/inject-doc`), và trọn bộ BA Enterprise Endpoints (`/api/ba/templates`, `/api/ba/story/lint`, `/api/ba/story/export`, `/api/ba/usecase/lint`, `/api/ba/usecase/export`, `/api/ba/brd/generate`, `/api/ba/data-dict/scan-excel`, `/api/ba/data-dict/scan-ddl`, `/api/ba/data-dict/export`, `/api/ba/reconciliation/run`, `/api/ba/uat/generate`, `/api/ba/rtm/generate`, `/api/ba/dbml/convert`, `/api/ba/satsuma/lineage`, `/api/ba/sql/test-suite`, `/api/ba/scope-creep/audit`, `/api/ba/obsidian/export-vault`, `/api/ba/obsidian/compile-vault`, `/api/ba/openapi/scan`, `/api/ba/decision-table/generate`, `/api/ba/meeting/parse`).
-- `mcp_server.py`: Model Context Protocol Server (STDIO JSON-RPC 2.0) tương thích với Claude Desktop, Cursor, và Antigravity IDE. Đăng ký **50 tools** chuẩn:
-  - Macro Tools (11): `env_doctor`, `doc_convert`, `doc_inspect`, `doc_insert_diagram`, `docx_patch`, `docx_apply_preset`, `docx_sanitize_vietnamese`, `pptx_synthesize`, `diagram_render`, `doc_mail_merge`, `doc_redline_diff`, `doc_ocr_scan`, `pdf_quick_tools`.
+- `app.py`: REST API Server nhẹ nhàng dựa trên `http.server`, phục vụ Web Studio cổng `8000`. Cung cấp endpoints cho conversion, history, mail merge, ocr, diff, math, static assets, trọn bộ 17 công cụ PDF Pro Endpoints, Atomic Office Endpoints, Formula Playbook Endpoints, trọn bộ Enterprise Printing Endpoints (`/api/print/printers`, `/api/print/status`, `/api/print/job`), và System Maintenance Endpoints (`/api/system/maintenance`, `/api/system/vitals`).
+- `mcp_server.py`: Model Context Protocol Server (STDIO JSON-RPC 2.0) tương thích với Claude Desktop, Cursor, và Antigravity IDE. Đăng ký **43 tools** chuẩn:
+  - Macro Tools (11): `env_doctor`, `doc_convert`, `doc_inspect`, `doc_insert_diagram`, `diagram_render`, `pptx_synthesize`, `docx_apply_preset`, `doc_mail_merge`, `doc_redline_diff`, `doc_ocr_scan`, `pdf_quick_tools`.
   - Atomic Office Tools (8): `xlsx_set_cell`, `xlsx_set_range`, `xlsx_insert_rows`, `xlsx_find_anchor`, `docx_inspect_placeholders`, `docx_replace_text`, `docx_insert_paragraph`, `docx_insert_table`.
+  - Excel Power Suite & Diff Tools (6): `xlsx_power_clean`, `xlsx_transform_columns`, `xlsx_pivot_chart`, `xlsx_xlookup_join`, `xlsx_split_by_column`, `xlsx_diff_visual`.
+  - Word Mastery Toolkit Tools (4): `docx_polish`, `docx_merge`, `docx_split`, `docx_watermark_hf`.
   - Formula Playbook & Offline AST Evaluator Tools (2): `xlsx_formula_helper`, `xlsx_evaluate_formulas`.
   - Document Security Tool (1): `doc_security_audit`.
   - Enterprise Omni-Pipeline & Reporting Tools (5): `pdf_crypto_sign_and_pdfa`, `xlsx_to_brief_report`, `xlsx_consolidate_workbooks`, `doc_run_pipeline`, `diagram_from_code`.
-  - Enterprise BA Hub Tools (10): `ba_story_lint`, `ba_rtm_matrix`, `ba_dbml_convert`, `ba_sql_integrity_suite`, `ba_obsidian_export_vault`, `ba_obsidian_compile_vault`, `ba_openapi_scan`, `ba_decision_table`, `ba_meeting_parse`, `ba_wireframe_render`.
   - Enterprise Printing Tools (3): `doc_list_printers`, `doc_printer_status`, `doc_print_job`.
-  - Vietnamese Labor Law & Regulatory Tools (4): `law_knowledge_search`, `law_compliance_lint`, `regulatory_watch_scan`, `regulatory_approve_update`.
   - Universal RAG & Hybrid AI Copilot Tools (2): `universal_rag_search`, `copilot_assist`.
-  - Enterprise HR Governance & Data Scopes Tool (1): `hr_governance_blueprint`.
   - System Maintenance Tool (1): `system_maintenance`.
 - `job_manager.py`: Server-Sent Events (SSE) background task manager và job queue, cho phép theo dõi tiến trình OCR, mail merge, render và in ấn theo thời gian thực.
 - `job_queue.py`: Hàng đợi tác vụ bền bỉ trên SQLite (`PersistentJobQueue`) tuân thủ chốt chặn **G1 (`PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;`)**, cơ chế Retry Exponential Backoff và bộ quét phục hồi sau sự cố (`recover_stale_jobs`).
-- `routes/`: Hệ thống định tuyến phân tầng (`Router` Singleton) gồm `system_routes.py`, `print_routes.py`, `doc_routes.py`, và `copilot_routes.py`.
+- `routes/`: Hệ thống định tuyến phân tầng (`Router` Singleton) gồm `system_routes.py`, `print_routes.py`, `doc_routes.py`, `xlsx_routes.py`, `docx_routes.py`, và `copilot_routes.py`.
 - `db.py`: Zero-config SQLite database (`history.db`) lưu trữ lịch sử chuyển đổi và tải tệp.
 
 ### 2.3. `cli/` — Tầng Giao Diện Dòng Lệnh (CLI Layer)
@@ -163,31 +143,18 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
 - `md-toc`: Tạo, xem trước và tự động đồng bộ hóa mục lục tương tác trực tiếp trong tệp Markdown.
 - `docx-read`, `docx-write`, `docx-inject`, `docx-patch`, `docx-diff`: Quản lý tài liệu Word.
 - `docx-tokens`, `docx-replace`: Atomic Word CLI tools (quét biến & thay thế text bảo tồn OpenXML run).
+- `docx-polish`, `docx-merge`, `docx-split`, `docx-watermark`: Word Mastery CLI tools (chuẩn NĐ 30/2020, ghép/tách theo heading ZIP, đóng dấu Watermark + Header/Footer).
 - `xlsx-set`, `xlsx-insert-rows`, `xlsx-eval`: Atomic Excel CLI tools (sửa ô hợp nhất, mở rộng dòng kèm dịch công thức, và giải công thức AST ngoại tuyến nạp thẻ `<v>`).
-- `xlsx-formulas`: Cẩm nang tra cứu và xuất Excel Formula Playbook 2 sheets.
+- `xlsx-power-clean`, `xlsx-transform-cols`, `xlsx-pivot-chart`, `xlsx-xlookup-join`, `xlsx-split-col`, `xlsx-diff`, `xlsx-track`: Excel Power Suite & Work Tracker CLI tools (`cli/office_power_commands.py`).
+- `xlsx-formulas`: Cẩm nang tra cứu và xuất Excel Formula Playbook 57+ công thức.
 - `doc-security`: Kiểm tra và tẩy rửa an ninh tài liệu, formula injection, OLE PE binary, và PII (Cloudflare Harness).
-- `docx-mail-merge`: Trộn thư hàng loạt Word + Excel/JSON.
+- `docx-mail-merge`: Trộn thư hàng loạt Word + Excel/JSON (hỗ trợ filter `:vn_words`, `:date_vn`, `:vnd`).
 - `docx-apply-preset`, `docx-sanitize-vietnamese`: Chuẩn hóa thể thức hành chính & chính tả.
 - `pptx-build`, `pptx-inspect`, `pptx-preview`, `pptx-insert-diagram`, `docx-to-pptx`, `pdf-to-pptx`: Quản lý thuyết trình PowerPoint.
-- `pdf-tools`: Bộ 16 công cụ PDF Pro Studio (`merge`, `split`, `rotate`, `clean`, `watermark`, `compress`, `redact`, `protect`, `normalize-a4`, `giap-lai`, `extract-tables`, `images-to-pdf`, `export-images-zip`, `sign`, `flatten`, `reorganize`).
+- `pdf-tools`: Bộ 17 công cụ PDF Pro Studio (`merge`, `split`, `rotate`, `clean`, `watermark`, `compress`, `redact`, `protect`, `normalize-a4`, `giap-lai`, `extract-tables`, `images-to-pdf`, `export-images-zip`, `sign`, `flatten`, `reorganize`, `crypto-sign`, `pdfa`).
 - `ocr-scan`: Bóc tách tài liệu scan và loại bỏ dấu mộc đỏ.
 - `diagram-render`, `plantuml-render`, `mermaid-render`, `spec-render`, `diagram-editor`: Sơ đồ kỹ thuật.
-- `wireframe-render`: Render phác thảo UI wireframe PlantUML Salt sang ảnh vector SVG / PNG 300+ DPI, liệt kê 6 mẫu nghiệp vụ chuẩn BA (`--template`, `--list-templates`) và nhúng 1-click vào Word (`--inject-doc`).
-- `ba-story-lint`, `ba-story-export`: Thẩm định chất lượng User Story và xuất bản Word/Markdown.
-- `ba-usecase-lint`, `ba-usecase-export`: Đặc tả Use Cases Cockburn và xuất bản bảng OpenXML.
-- `ba-rtm-matrix`: Lập ma trận truy xuất nguồn gốc yêu cầu RTM (Excel/Word).
-- `ba-dbml-convert`: Chuyển đổi 2 chiều DBML ↔ SQL DDL ↔ Excel Data Dictionary.
-- `ba-satsuma-lineage`: Ngôn ngữ ánh xạ luồng dữ liệu Source ➔ Target và đồ thị Data Lineage.
-- `ba-sql-suite`: 7 bài test SQL tự động kiểm định tính toàn vẹn dữ liệu UAT.
-- `ba-scope-creep`: Phân tích phình to phạm vi và biến động ngữ nghĩa (Semantic Deltas).
-- `ba-obsidian-export`, `ba-obsidian-compile`: Đóng gói và biên dịch 2 chiều Obsidian Vault (.zip).
-- `ba-openapi`: Quét tài liệu API OpenAPI / Swagger Contract sang từ điển dữ liệu Data Dictionary.
-- `ba-decision-table`: Sinh và kiểm toán tính toàn vẹn / mâu thuẫn của bảng quyết định BABOK v3.
-- `ba-meeting-parser`: Bóc tách biên bản họp thô thành Stories, Business Rules, và Action items.
-- `law-init-vault`, `law-search`, `law-story-lint`, `law-reconcile-payroll`: Quản trị kho tri thức Luật Lao Động & Tiền Lương cục bộ, tìm kiếm FTS5 sub-2ms, linter kịch bản tuân thủ pháp lý và đối soát bảng lương.
-- `law-notify-test`, `law-watch-scan`, `law-merge-update`: Đường ống giám sát pháp lý tự động (Regulatory Watcher), gửi email thông báo HTML qua SMTP Gmail, và phê duyệt sáp nhập 1-Click với Atomic Rollback Guard.
 - `rag-index`, `rag-search`, `copilot-chat`: Lập chỉ mục và truy xuất ngữ nghĩa đa định dạng qua Universal SQLite FTS5 RAG và hỏi đáp với Hybrid AI Copilot kèm Thẻ Hành Động.
-- `hr-governance`: Động cơ Quản trị Nhân sự doanh nghiệp (Enterprise Core HR Governance): Đặc tả & đánh giá 6 Loại Phạm vi Dữ liệu (6 Data Scopes), kiểm toán xung đột kiểm soát chéo SoD (Maker-Checker, Admin-Business Isolation, Self-Modification Guard), kiểm định quy trình Thôi việc (OFB) 4 cổng độc lập, và xuất mã nguồn DBML / SQL DDL cho OM & Core HR.
 - `print-list`, `print-status`, `print-doc`: Liệt kê máy in hệ thống, tra cứu trạng thái phần cứng (hết giấy, kẹt giấy, offline, số lệnh chờ) và thực hiện in ngầm với bộ tối ưu hóa in ấn (Dải trang Page Range, Khổ giấy A4/Letter/A3, Căn lề Fit/Actual, Standard Duplex, Vector Grayscale `/DeviceGray`, N-Up, Booklet Creep Shingling, DEVMODE Tray/Duplex Guard G2, Margin Guard).
 - `system-maintenance`: Bộ công cụ bảo trì hệ thống 7 trụ cột (dọn lock files ~$*, kết liễu tiến trình mồ côi, vacuum SQLite, dọn cache, chẩn đoán Windows MPO).
 - `qa-audit`: Master QA diagnostic and repair pipeline 13 Cổng (`tools/unified_qa_diagnostic.py`).
@@ -195,11 +162,11 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
 ### 2.4. `ui/` & `src/` — Tầng Giao Diện Người Dùng (Desktop GUI & Web Studio)
 
 - `ui/`: Desktop GUI Tkinter độc lập (`main.py`) và Native WebView App Mode (`ui/webview_launcher.py`) hỗ trợ chạy offline không cần trình duyệt.
-- `src/`: Web Studio trên nền Vite ES6 modules và Vanilla CSS Glassmorphism:
-  - `src/main.js`: Single-Source-of-Truth Orchestrator quản lý theme, toast notifications, health polling, điều phối 10 tab chính tập trung và khởi tạo các studio modules.
-  - `src/modules/app_store.js`: Bộ quản lý trạng thái phản ứng tập trung siêu nhẹ (Zero-Bloat Reactive `AppStore` & EventBus) đồng bộ ngầm User Stories, Data Dictionary và kết quả đối soát liên phân hệ.
-  - `src/templates/modals/`: Thư mục chứa các template HTML độc lập (`user_guide_modal.html`, `print_modal.html`, `document_viewer_modal.html`) nạp qua cơ chế chuỗi thô Vite `?raw` giúp giảm tải kích thước `index.html`.
-  - `src/modules/`: 18 modules phân hệ chuyên biệt: `app_store.js`, `ba_academy_workstation.js`, `presentation_studio.js`, `spreadsheet_studio.js`, `document_hub.js`, `diagram_studio.js`, `formula_playbook.js`, `history_drawer.js`, `ba_requirements.js`, `wireframe_studio.js`, `ba_data_process.js`, `ba_audit_recon.js`, `print_studio.js`, `guide_modal.js`, `document_viewer_modal.js`, `visual_field_mapper.js`, `ai_copilot_sidebar.js`, `constants.js`.
+- `src/`: Web Studio trên nền **React 18 + TypeScript + Tailwind CSS v3 + `lucide-react` + Vite 6** (Light-First Enterprise Office + Dark Mode, thuần Local `127.0.0.1:8000`):
+  - `src/App.tsx`, `src/main.tsx`, `src/styles/index.css`: Root Shell (Collapsible Left Sidebar, HeaderBar kèm `Ctrl+K` Command Palette, Session File Tray, Inline Document Preview, AI Copilot Dock khóa Local RAG mặc định, và 1-Click Xóa vết phiên `/api/session/purge`).
+  - `src/context/`, `src/services/api.ts`, `src/types/`, `src/config/`: `ThemeContext`, `ToastContext`, `SessionFilesContext`, `WorkspaceContext`, typed API client & navigation/diagram registries.
+  - `src/components/`: UI primitives (`ui/`), layout (`SplitWorkspace`, `HeaderBar`, `LeftSidebar`, `SessionFileTray`, `CommandPalette`), `InlinePreviewPane` (PDF/DOCX/XLSX/Ảnh), và global modals (`CopilotSidebar`, `PrintStudioModal`, `HistoryDrawer`, `SystemDiagnosticsModal`, `QuickGuideModal`).
+  - `src/features/`: Các phân hệ Pure Office: `home/`, `word/` (5 công cụ), `pdf/` (PDF Pro 18 nghiệp vụ + Ký vẽ tay + Sắp xếp trang 120 DPI), `excel/` (Power Suite, Reporting, Tracker, 57 Công thức, Template & Print), `convert/` (Chuyển đổi đa chiều, OCR Tiếng Việt, QA 13 cổng & Deep CDR), và `visual/` (Slide 16:9 & Diagram Studio).
 
 ### 2.5. `tools/` — Tầng Tiện Ích QA & Giao Nộp (Diagnostics & Deliverables)
 
@@ -211,15 +178,15 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
 
 ---
 
-## 3. Tiêu Chuẩn Clean-Room MIT & Tương Thích Linux/Docker (Zero-COM)
+## 3. Tiêu Chuẩn Clean-Room MIT & Chế Độ Thuần Local Bảo Mật (`127.0.0.1`)
 
-Dự án được thiết kế theo chuẩn Clean-Room độc lập 100% với hệ điều hành:
+Dự án được thiết kế theo chuẩn Clean-Room và vận hành **thuần máy trạm cục bộ (Pure Local-Only)** để bảo mật dữ liệu văn phòng tối đa:
 
-1. **Chuỗi Fallback Zero-COM**:
+1. **Chuỗi Fallback Zero-COM & Thực Thi Cục Bộ**:
    - Trên Windows: Ưu tiên Win32 COM nếu có MS Office và không bị khóa tiến trình.
-   - Trên Linux / macOS / Docker: Tự động chuyển tiếp sang LibreOffice Headless (`soffice --headless --convert-to pdf`) hoặc thư viện Python thuần (`PyMuPDF`, `openpyxl`, `python-docx`, `python-pptx`).
-2. **Docker Container Sẵn Sàng**:
-   - `Dockerfile` & `docker-compose.yml` trên nền Debian Bookworm đã cài sẵn đầy đủ font chữ Unicode (Liberation, DejaVu), OpenJDK JRE, LibreOffice, Tesseract OCR (`vie+eng`), và Chromium.
+   - Dự phòng đa nền tảng: Tự động chuyển tiếp sang LibreOffice Headless (`soffice --headless --convert-to pdf`) hoặc thư viện Python thuần (`PyMuPDF`, `openpyxl`, `python-docx`, `python-pptx`).
+2. **Bảo Mật Thuần Local (`127.0.0.1:8000`)**:
+   - Server REST API khóa mặc định vào loopback `127.0.0.1:8000`, tường lửa Origin chặn mọi yêu cầu cross-origin ngoài `localhost`/`127.0.0.1`, AI Copilot khóa mặc định Local/Offline RAG và hỗ trợ dọn sạch dấu vết phiên qua `/api/session/purge`.
 
 ---
 
@@ -272,6 +239,6 @@ Dự án được thiết kế theo chuẩn Clean-Room độc lập 100% với h
 1. **6 Entrypoints Chính Thức Tại Thư Mục Gốc**:
    Thư mục gốc chỉ giữ lại đúng 6 file entrypoint chính thức (`main.py`, `ai_tools_cli.py`, `web_api_server.py`, `mcp_server.py`, `spec_diagram_engine.py`, `diagram_editor.py`) cùng `__init__.py`. Toàn bộ các mô-đun nội bộ và bài kiểm thử trong `tests/` import trực tiếp từ cấu trúc phân tầng `core.*`, `server.*`, `cli.*`, `ui.*`.
 2. **100% Pass Rate Toàn Bộ Test Suite**:
-   Tất cả 513+ bài kiểm thử tự động trong `tests/` phải luôn luôn PASS 100% trước khi phát hành.
+   Tất cả bài kiểm thử tự động trong `tests/` phải luôn luôn PASS 100% trước khi phát hành.
 3. **Giữ Vững CLI Contract**:
    Tất cả cú pháp lệnh trong `AGENTS.md` và `pyproject.toml` tiếp tục hoạt động chính xác không thay đổi.

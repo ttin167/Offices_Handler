@@ -255,7 +255,7 @@ def run_tests():
         assert response.status == 200
         content = response.read().decode('utf-8')
         assert "Antigravity" in content
-        assert "panel-spreadsheet" in content
+        assert 'id="root"' in content and "Office Studio v" in content
         print("  -> OK. Static index.html served correctly!")
 
     # Test 12: GET /api/download/ with Vietnamese filename

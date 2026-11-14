@@ -47,20 +47,34 @@ def _resolve_safe_path(path_str: Optional[str]) -> Optional[str]:
     return None
 
 
+def _is_cloud_ai_allowed() -> bool:
+    """In Pure Local security mode, Cloud AI calls remain locked off unless explicitly opted in."""
+    return os.environ.get("ANTIGRAVITY_ALLOW_CLOUD_AI", "0").strip().lower() in ("1", "true", "yes")
+
+
 @router.get("/api/copilot/status")
 def handle_copilot_status(handler: Any) -> None:
     """Returns Hybrid LLM connector status and Universal RAG index statistics."""
     try:
-        from core.ba_hub.copilot_provider import CopilotOrchestrator
-        from core.ba_hub.universal_rag import UniversalRAGEngine
+        from core.copilot.copilot_provider import CopilotOrchestrator
+        from core.copilot.universal_rag import UniversalRAGEngine
 
+        cloud_allowed = _is_cloud_ai_allowed()
         orch = CopilotOrchestrator()
         rag = UniversalRAGEngine()
+        status_payload = orch.status()
+        status_payload["local_only_enforced"] = not cloud_allowed
+        if not cloud_allowed:
+            status_payload["default_mode"] = "local"
+            if isinstance(status_payload.get("cloud"), dict):
+                status_payload["cloud"]["online"] = False
+                status_payload["cloud"]["blocked_by_local_policy"] = True
+
         send_json(
             handler,
             {
                 "success": True,
-                "copilot": orch.status(),
+                "copilot": status_payload,
                 "rag": rag.get_stats(),
             },
         )
@@ -81,7 +95,7 @@ def handle_copilot_index(handler: Any) -> None:
     raw_text = body.get("content") or body.get("text")
 
     try:
-        from core.ba_hub.universal_rag import UniversalRAGEngine
+        from core.copilot.universal_rag import UniversalRAGEngine
 
         rag = UniversalRAGEngine()
         if raw_path:
@@ -118,7 +132,7 @@ def handle_copilot_search(handler: Any) -> None:
     file_type = body.get("file_type")
 
     try:
-        from core.ba_hub.universal_rag import UniversalRAGEngine
+        from core.copilot.universal_rag import UniversalRAGEngine
 
         rag = UniversalRAGEngine()
         chunks = rag.search(query=query, top_k=top_k, file_type=file_type)
@@ -137,20 +151,21 @@ def handle_copilot_search(handler: Any) -> None:
 
 @router.post("/api/copilot/chat")
 def handle_copilot_chat(handler: Any) -> None:
-    """Executes RAG-augmented chat across Local Ollama or Cloud Gemini providers."""
+    """Executes RAG-augmented chat (enforces Local Ollama / Offline FTS5 RAG by default)."""
     body = read_json_body(handler)
     prompt = str(body.get("prompt") or body.get("message") or body.get("query") or "").strip()
     if not prompt:
         send_error(handler, "Tham số 'prompt' không được để trống.", status=400)
         return
 
-    mode = str(body.get("provider") or body.get("mode") or "local").lower()
+    requested_mode = str(body.get("provider") or body.get("mode") or "local").lower()
+    mode = requested_mode if _is_cloud_ai_allowed() else "local"
     top_k = int(body.get("top_k") or 5)
     active_file = body.get("active_file") or body.get("filepath")
 
     try:
-        from core.ba_hub.copilot_provider import CopilotOrchestrator
-        from core.ba_hub.universal_rag import UniversalRAGEngine
+        from core.copilot.copilot_provider import CopilotOrchestrator
+        from core.copilot.universal_rag import UniversalRAGEngine
 
         rag = UniversalRAGEngine()
         if active_file:

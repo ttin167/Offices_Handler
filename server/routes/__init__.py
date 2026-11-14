@@ -12,21 +12,8 @@ from . import system_routes
 from . import print_routes
 from . import doc_routes
 from . import copilot_routes
-
-try:
-    from . import ba_hub_routes  # noqa: F401
-except ImportError:
-    pass
-
-try:
-    from . import ba_spec_routes  # noqa: F401
-except ImportError:
-    pass
-
-try:
-    from . import ba_academy_routes  # noqa: F401
-except ImportError:
-    pass
+from . import xlsx_routes
+from . import docx_routes
 
 __all__ = [
     "Router",

@@ -432,10 +432,10 @@ def sync_version(new_version: str, rebuild_fe: bool = True) -> bool:
     if os.path.isfile(index_path):
         with open(index_path, "r", encoding="utf-8") as f:
             txt = f.read()
-        txt = re.sub(r'<span class="brand-subtitle">Office Studio v[^<]+</span>', f'<span class="brand-subtitle">Office Studio v{new_version}</span>', txt)
+        txt = re.sub(r'Office Studio v[0-9]+\.[0-9]+\.[0-9]+', f'Office Studio v{new_version}', txt)
         with open(index_path, "w", encoding="utf-8") as f:
             f.write(txt)
-        changes.append(f"Updated index.html brand subtitle -> Office Studio v{new_version}")
+        changes.append(f"Updated index.html -> Office Studio v{new_version}")
 
     # 9. README.md (Badges, Links, Skills Suite, and Highlights Header)
     readme_changes = sync_readme(new_version)

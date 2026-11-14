@@ -197,7 +197,7 @@ def cmd_xlsx_eval(args: argparse.Namespace) -> int:
 
 
 def cmd_rag_index(args: argparse.Namespace) -> int:
-    from core.ba_hub.universal_rag import UniversalRAGEngine
+    from core.copilot.universal_rag import UniversalRAGEngine
 
     src = os.path.abspath(args.file)
     if not os.path.isfile(src):
@@ -210,8 +210,9 @@ def cmd_rag_index(args: argparse.Namespace) -> int:
         if getattr(args, "json", False):
             print(json.dumps(res, ensure_ascii=False, indent=2))
         else:
+            ext_label = os.path.splitext(res.get("filename", src))[1].lstrip(".").upper() or "DOC"
             print(
-                f"[OK] Universal FTS5 RAG Indexed: {res['file_name']} ({res['doc_type'].upper()}, {res['chunks_indexed']} chunks) -> doc_id={res['doc_id']}"
+                f"[OK] Universal FTS5 RAG Indexed: {res['filename']} ({ext_label}, {res['chunks_indexed']} chunks) -> doc_id={res['doc_id']}"
             )
         return 0
     except Exception as exc:
@@ -220,7 +221,7 @@ def cmd_rag_index(args: argparse.Namespace) -> int:
 
 
 def cmd_rag_search(args: argparse.Namespace) -> int:
-    from core.ba_hub.universal_rag import UniversalRAGEngine
+    from core.copilot.universal_rag import UniversalRAGEngine
 
     try:
         rag = UniversalRAGEngine(db_path=getattr(args, "db", None))
@@ -229,20 +230,24 @@ def cmd_rag_search(args: argparse.Namespace) -> int:
         hits = rag.search(
             query=args.query,
             top_k=int(getattr(args, "top_k", 5)),
-            doc_type=getattr(args, "type", None),
+            file_type=getattr(args, "type", None),
         )
         res = {
             "success": True,
             "query": args.query,
             "count": len(hits),
-            "results": [h.to_dict() for h in hits],
+            "results": hits,
         }
         if getattr(args, "json", False):
             print(json.dumps(res, ensure_ascii=False, indent=2))
         else:
             print(f"[OK] Universal RAG FTS5 Search ('{args.query}') -> {len(hits)} hit(s):")
             for idx, h in enumerate(hits, start=1):
-                print(f"  {idx}. [{h.doc_type.upper()}] {h.file_name} ({h.section_ref}) — {h.content[:140]}...")
+                ftype = str(h.get("file_type", "doc")).upper()
+                fname = h.get("filename", "")
+                sec = h.get("section_title", "")
+                content_preview = str(h.get("content", ""))[:140]
+                print(f"  {idx}. [{ftype}] {fname} ({sec}) — {content_preview}...")
         return 0
     except Exception as exc:
         print(f"[ERROR] rag-search failed: {exc}", file=sys.stderr)
@@ -250,32 +255,32 @@ def cmd_rag_search(args: argparse.Namespace) -> int:
 
 
 def cmd_copilot_chat(args: argparse.Namespace) -> int:
-    from core.ba_hub.copilot_provider import CopilotOrchestrator
-    from core.ba_hub.universal_rag import UniversalRAGEngine
+    from core.copilot.copilot_provider import CopilotOrchestrator
+    from core.copilot.universal_rag import UniversalRAGEngine
 
     try:
         rag = UniversalRAGEngine(db_path=getattr(args, "db", None))
         if getattr(args, "index_file", None):
             rag.index_file(os.path.abspath(args.index_file))
         rag_hits = rag.search(args.prompt, top_k=int(getattr(args, "top_k", 5)))
-        rag_dicts = [h.to_dict() for h in rag_hits]
 
-        orchestrator = CopilotOrchestrator(mode=getattr(args, "provider", "hybrid"))
+        mode = getattr(args, "provider", "hybrid")
+        orchestrator = CopilotOrchestrator(default_mode=mode)
         resp = orchestrator.chat(
             prompt=args.prompt,
-            rag_chunks=rag_dicts,
-            prefer_cloud=getattr(args, "provider", "hybrid") == "cloud",
+            context_chunks=rag_hits,
+            mode=mode,
         )
         out = resp.to_dict()
         if getattr(args, "json", False):
             print(json.dumps(out, ensure_ascii=False, indent=2))
         else:
-            print(f"[COPILOT ({resp.provider} / {resp.model} — {resp.latency_ms}ms)]")
+            print(f"[COPILOT ({resp.provider} / {resp.model} — {resp.latency_ms:.1f}ms)]")
             print(resp.answer)
             if resp.action_cards:
                 print("\n[ACTION CARDS]")
                 for c in resp.action_cards:
-                    print(f"  * [{c.action_type}] {c.title}: {c.description}")
+                    print(f"  * [{c.command_type}] {c.title}: {c.description}")
         return 0
     except Exception as exc:
         print(f"[ERROR] copilot-chat failed: {exc}", file=sys.stderr)

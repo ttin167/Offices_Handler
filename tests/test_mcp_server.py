@@ -22,7 +22,6 @@ from server.mcp_server import (
     TOOL_DEFINITIONS,
     SERVER_NAME,
     SERVER_VERSION,
-    HAS_BA_HUB,
 )
 import mcp_server
 
@@ -87,52 +86,34 @@ class TestMCPServer(unittest.TestCase):
             "docx_insert_paragraph",
             "docx_insert_table",
             "xlsx_formula_helper",
-            "ba_story_lint",
-            "ba_rtm_matrix",
-            "ba_dbml_convert",
-            "ba_sql_integrity_suite",
-            "ba_obsidian_export_vault",
-            "ba_obsidian_compile_vault",
-            "ba_openapi_scan",
-            "ba_decision_table",
-            "ba_meeting_parse",
-            "ba_wireframe_render",
-            "doc_list_printers",
-            "doc_print_job",
-            "doc_printer_status",
             "doc_security_audit",
             "pdf_crypto_sign_and_pdfa",
             "xlsx_to_brief_report",
             "xlsx_consolidate_workbooks",
             "doc_run_pipeline",
             "diagram_from_code",
-            "system_maintenance",
+            "doc_list_printers",
+            "doc_print_job",
+            "doc_printer_status",
             "xlsx_evaluate_formulas",
             "universal_rag_search",
             "copilot_assist",
+            "system_maintenance",
+            "xlsx_power_clean",
+            "xlsx_transform_columns",
+            "xlsx_pivot_chart",
+            "xlsx_xlookup_join",
+            "xlsx_split_by_column",
+            "xlsx_diff_visual",
+            "docx_polish",
+            "docx_merge",
+            "docx_split",
+            "docx_watermark_hf",
         ]
-        if HAS_BA_HUB:
-            expected_tools.extend([
-                "law_knowledge_search",
-                "law_compliance_lint",
-                "regulatory_watch_scan",
-                "regulatory_approve_update",
-                "hr_governance_blueprint",
-                "ba_urd_synthesize",
-                "ba_fsd_synthesize",
-            ])
-            self.assertEqual(len(tools), len(expected_tools))
-        else:
-            office_expected = [
-                t
-                for t in expected_tools
-                if (not t.startswith("ba_") or t == "ba_wireframe_render")
-                and not t.startswith("law_")
-                and not t.startswith("regulatory_")
-                and t != "hr_governance_blueprint"
-            ]
-            self.assertEqual(len(tools), len(office_expected))
-            expected_tools = office_expected
+        self.assertEqual(len(tools), len(expected_tools))
+        for forbidden_prefix in ("ba_", "law_", "regulatory_"):
+            self.assertFalse(any(t.startswith(forbidden_prefix) for t in tool_names))
+        self.assertNotIn("hr_governance_blueprint", tool_names)
 
         for expected in expected_tools:
             self.assertIn(expected, tool_names)

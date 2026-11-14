@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
 export default defineConfig({
+  plugins: [react()],
   server: {
     port: 5173,
     host: '127.0.0.1',
@@ -13,6 +15,7 @@ export default defineConfig({
         '**/tests/**',
         '**/*.db',
         '**/*.db-journal',
+        '**/*.db-wal',
         '**/*.mmd',
         '**/*.png',
         '**/*.svg',
@@ -42,11 +45,12 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: false,
     rollupOptions: {
       output: {
         manualChunks(id) {
-          if (id.includes('node_modules/lucide')) return 'lucide';
+          if (id.includes('node_modules/react')) return 'react-vendor';
+          if (id.includes('node_modules/lucide-react')) return 'lucide';
         },
       },
     },

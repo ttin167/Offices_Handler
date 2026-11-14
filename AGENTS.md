@@ -8,7 +8,7 @@ Welcome, AI Agent! This file is your operational manual for `antigravity-doc-han
 
 1. **High-Fidelity Document Processing**: Bidirectional conversion between PDF, DOCX, and Markdown with zero data loss, OpenXML table repair, and decoupled styling.
 2. **Precision Technical Diagram Engine**: Programmatic and declarative generation of publication-grade Hub & Spoke architecture and mobile screen flow diagrams (300+ DPI, vector SVG + headless Chromium PNG).
-3. **Enterprise Business Analysis & HR Governance Workstation**: BABOK v3/IEEE 830 BRD synthesis, User Story linter, 6 Canonical Data Scopes, Segregation of Duties (SoD) audit, 4-Gatekeeper OFB workflows, DBML 2-way schema, Universal FTS5 RAG & Hybrid AI Copilot.
+3. **Pure Office IT Automation & AI Copilot Workstation**: 6-Tool Excel Power Suite, Office Work Tracker, 57-Formula Playbook & AST Evaluator, Vietnamese Word Mastery (Decree 30/2020/NĐ-CP & `vn_words`), PDF Pro 17-Tool Suite, Universal FTS5 RAG & Hybrid AI Copilot.
 
 ---
 
@@ -45,32 +45,25 @@ Welcome, AI Agent! This file is your operational manual for `antigravity-doc-han
 | **Declarative Workflow Pipeline** | File/Dir + Spec | `doc_run_pipeline(...)` | `ai_tools_cli.py run-pipeline` | `core/pipeline/engine.py` (`WorkflowPipelineEngine`) |
 | **AST Code-to-Diagram & SVG Export** | Python / SQL / Prisma | `diagram_from_code(...)` | `ai_tools_cli.py code-to-diagram` | `core/diagrams/code_to_diagram.py` (`generate_diagram_from_code`) |
 | **Launch Native Web Studio App Mode** | Desktop App | (CLI / GUI Button) | `ai_tools_cli.py desktop-web` | `ui/webview_launcher.py` (`launch_native_web_studio`) |
-| **User Story BABOK Linter** | JSON / Text Spec | `ba_story_lint(...)` | `ai_tools_cli.py ba-story-lint` | `core/ba_hub/story_builder.py` (`UserStoryBuilder`) |
-| **Requirements Traceability Matrix** | Spec JSON | `ba_rtm_matrix(...)` | `ai_tools_cli.py ba-rtm-matrix` | `core/ba_hub/rtm_matrix.py` (`RTMMatrixEngine`) |
-| **DBML 2-Way Schema Conversion** | DBML / SQL DDL | `ba_dbml_convert(...)` | `ai_tools_cli.py ba-dbml-convert` | `core/ba_hub/dbml_converter.py` (`DBMLConverter`) |
-| **Satsuma Data Lineage Graph** | Satsuma Spec | (via CLI / API) | `ai_tools_cli.py ba-satsuma-lineage` | `core/ba_hub/satsuma_engine.py` (`SatsumaMappingEngine`) |
-| **7-Gate SQL Integrity Test Suite** | SQL DDL Schema | `ba_sql_integrity_suite(...)` | `ai_tools_cli.py ba-sql-suite` | `core/ba_hub/sql_integrity.py` (`SQLIntegritySuite`) |
-| **Scope Creep & Semantic Diff** | DOCX v1 + DOCX v2 | (via CLI / API) | `ai_tools_cli.py ba-scope-creep` | `core/ba_hub/scope_creep.py` (`ScopeCreepAuditor`) |
-| **Obsidian Vault Export (.zip)** | Project Spec | `ba_obsidian_export_vault(...)` | `ai_tools_cli.py ba-obsidian-export` | `core/ba_hub/obsidian_vault.py` (`ObsidianVaultExporter`) |
-| **Obsidian Vault Compile to Word** | Vault .zip Archive | `ba_obsidian_compile_vault(...)` | `ai_tools_cli.py ba-obsidian-compile` | `core/ba_hub/obsidian_vault.py` (`ObsidianVaultCompiler`) |
-| **OpenAPI / Swagger Data Dict Scan** | Swagger JSON / YAML | `ba_openapi_scan(...)` | `ai_tools_cli.py ba-openapi` | `core/ba_hub/data_dictionary.py` (`DataDictionaryScanner`) |
-| **BABOK Decision Table Matrix** | Condition/Action Spec | `ba_decision_table(...)` | `ai_tools_cli.py ba-decision-table` | `core/ba_hub/decision_table.py` (`DecisionTableMatrix`) |
-| **Meeting Notes to Stories Parser** | Markdown / Text Notes | `ba_meeting_parse(...)` | `ai_tools_cli.py ba-meeting-parser` | `core/ba_hub/meeting_parser.py` (`MeetingNotesParser`) |
-| **PlantUML Salt UI Wireframe** | Salt Text / Spec | `ba_wireframe_render(...)` | `ai_tools_cli.py wireframe-render` | `core/diagrams/salt_wireframe.py` (`SaltWireframeEngine`) |
-| **Labor Law Local FTS5 Search** | Query / Keywords | `law_knowledge_search(...)` | `ai_tools_cli.py law-search` | `core/ba_hub/labor_law_search.py` (`LaborLawSearchEngine`) |
-| **Legal 2026/2027 Story Linter** | User Story Spec | `law_compliance_lint(...)` | `ai_tools_cli.py law-story-lint` | `core/ba_hub/labor_law_compliance.py` (`LaborLawComplianceLinter`) |
-| **Auto-Scan & Stage Legal Decree** | Document / Text Spec | `regulatory_watch_scan(...)` | `ai_tools_cli.py law-watch-scan` | `core/ba_hub/regulatory_watcher.py` (`RegulatoryWatcher`) |
-| **1-Click Human-in-the-Loop Merge** | Draft Filename | `regulatory_approve_update(...)` | `ai_tools_cli.py law-merge-update` | `core/ba_hub/regulatory_watcher.py` (`approve_regulatory_update`) |
-| **Test SMTP Gmail Alert Dispatch** | Recipient Address | (via CLI) | `ai_tools_cli.py law-notify-test` | `core/ba_hub/regulatory_notifier.py` (`send_policy_alert_email`) |
+| **Excel Power Clean (Trim/Date/CCCD/Dedup)** | XLSX Workbook | `xlsx_power_clean(...)` | `ai_tools_cli.py xlsx-power-clean` | `core/xlsx/power_tools.py` (`clean_and_standardize_workbook`) |
+| **Excel Split / Merge Columns (VN Names)** | XLSX + Columns | `xlsx_transform_columns(...)` | `ai_tools_cli.py xlsx-transform-cols` | `core/xlsx/power_tools.py` (`transform_workbook_columns`) |
+| **Excel Pivot Summary & Native Chart** | XLSX Workbook | `xlsx_pivot_chart(...)` | `ai_tools_cli.py xlsx-pivot-chart` | `core/xlsx/power_tools.py` (`build_pivot_summary_and_chart`) |
+| **Excel No-Code XLOOKUP Join** | XLSX v1 (+ XLSX v2) | `xlsx_xlookup_join(...)` | `ai_tools_cli.py xlsx-xlookup-join` | `core/xlsx/power_tools.py` (`xlookup_join_workbooks`) |
+| **Excel Split Workbook by Column (.zip)** | XLSX + Split Col | `xlsx_split_by_column(...)` | `ai_tools_cli.py xlsx-split-col` | `core/xlsx/power_tools.py` (`split_workbook_by_column`) |
+| **Excel Visual Cell Diff & _Diff_Summary** | XLSX v1 + XLSX v2 | `xlsx_diff_visual(...)` | `ai_tools_cli.py xlsx-diff` | `core/xlsx/power_tools.py` (`diff_workbooks_visual`) |
+| **Office Work & Daily Task Tracker** | Tracking Workbooks | (via REST API `/api/xlsx/tracker/*`) | `ai_tools_cli.py xlsx-track` | `core/xlsx/tracker.py` (`OfficeWorkTracker`) |
+| **Excel 57-Formula Playbook & Demo** | Formula Catalog | `xlsx_formula_helper(...)` | `ai_tools_cli.py xlsx-formulas` | `core/xlsx/formula_playbook.py` (`FORMULA_CATALOG`) |
+| **Word Mastery Polish (NĐ30 & Page X/Y)** | DOCX Document | `docx_polish(...)` | `ai_tools_cli.py docx-polish` | `core/docx/toolkit.py` (`polish_docx_document`) |
+| **Word Multi-File Merge & Media Remap** | Multiple DOCX | `docx_merge(...)` | `ai_tools_cli.py docx-merge` | `core/docx/toolkit.py` (`merge_docx_files`) |
+| **Word Split by Heading Level (.zip)** | DOCX Document | `docx_split(...)` | `ai_tools_cli.py docx-split` | `core/docx/toolkit.py` (`split_docx_by_heading`) |
+| **Word Watermark & Header/Footer Brand** | DOCX + Text | `docx_watermark_hf(...)` | `ai_tools_cli.py docx-watermark` | `core/docx/toolkit.py` (`apply_docx_watermark_and_hf`) |
+| **VN Amount in Words (`vn_words`) & Tokens** | Number / Date / Spec | `doc_mail_merge(...)` | `ai_tools_cli.py docx-mail-merge` | `core/docx/design_system.py` (`number_to_vietnamese_words`) |
 | **List Hardware System Printers** | Hardware Spooler | `doc_list_printers(...)` | `ai_tools_cli.py print-list` | `core/printing/printer_manager.py` (`list_printers`) |
 | **Inspect Printer Status & Spooler Queue** | Printer Name | `doc_printer_status(...)` | `ai_tools_cli.py print-status` | `core/printing/printer_manager.py` (`get_printer_status`) |
 | **Enterprise Silent Print Document** | PDF / DOCX + Print Spec | `doc_print_job(...)` | `ai_tools_cli.py print-doc` | `core/printing/printer_manager.py` (`print_document`) |
 | **Offline AST Formula Evaluator** | XLSX Workbook | `xlsx_evaluate_formulas(...)` | `ai_tools_cli.py xlsx-eval` | `core/xlsx/formula_evaluator.py` (`ASTFormulaEvaluator`) |
-| **Universal FTS5 RAG Search** | Multi-Format File + Query | `universal_rag_search(...)` | `ai_tools_cli.py rag-search` | `core/ba_hub/universal_rag.py` (`UniversalRAGVault`) |
-| **Hybrid AI Copilot Assistant** | Prompt + RAG Context | `copilot_assist(...)` | `ai_tools_cli.py copilot-chat` | `core/ba_hub/copilot_provider.py` (`CopilotHybridOrchestrator`) |
-| **Enterprise HR Governance & Scopes** | HR Spec / Permissions / Context | `hr_governance_blueprint(...)` | `ai_tools_cli.py hr-governance` | `core/ba_hub/hr_governance.py` (`HRDataScope`, `SoDConflictAuditor`) |
-| **BABOK v3 URD Synthesizer** | Spec JSON / File | `ba_urd_synthesize(...)` | `ai_tools_cli.py ba-urd-generate` | `core/ba_hub/urd_generator.py` (`URDGenerator`, `URDLinter`) |
-| **Functional Spec Doc (FSD)** | Spec JSON / File | `ba_fsd_synthesize(...)` | `ai_tools_cli.py ba-fsd-generate` | `core/ba_hub/fsd_generator.py` (`FSDGenerator`, `FSDLinter`) |
+| **Universal FTS5 RAG Search** | Multi-Format File + Query | `universal_rag_search(...)` | `ai_tools_cli.py rag-search` | `core/copilot/universal_rag.py` (`UniversalRAGEngine`) |
+| **Hybrid AI Copilot Assistant** | Prompt + RAG Context | `copilot_assist(...)` | `ai_tools_cli.py copilot-chat` | `core/copilot/copilot_provider.py` (`CopilotOrchestrator`) |
 | **Periodic System Maintenance (7-Pillars)** | System Workspace | `system_maintenance(...)` | `ai_tools_cli.py system-maintenance` | `core/system_maintenance.py` (`run_periodic_maintenance`) |
 
 ---
@@ -85,7 +78,6 @@ The workspace includes preconfigured Antigravity customizations:
 - **Skill 4**: [mxgraph-diagram-engineering](.agents/skills/mxgraph-diagram-engineering/SKILL.md) — Draw.io (.drawio / XML) pure mxGraphModel generation, layout, orthogonal routing, and monochrome line-art.
 - **Skill 5**: [technical-diagrams](.agents/skills/technical-diagrams/SKILL.md) — Declarative diagram rendering (Canvas, Mermaid, PlantUML), orthogonal Manhattan routing, and collision prevention.
 - **Skill 6**: [security-audit](.agents/skills/security-audit/SKILL.md) — Cloudflare-seeded defensive security audit harness (Reconnaissance, Coverage-Led Hunting, Adversarial Validation, Structured Schema, Zero-Dependency Verification, Reporting).
-- **Skill 7**: [ba-workspace](.agents/skills/ba-workspace/SKILL.md) — Enterprise Business Analysis Workstation (BABOK v3 / IEEE 830 BRD/SRS, User Stories & Gherkin AC Linter, Use Cases, RTM Traceability, DBML 2-Way, Satsuma Data Mapping, SQL Integrity Suite, Scope Creep & Semantic Diff, Obsidian Two-Way Vault, OpenAPI Scanner, Decision Tables, Meeting Parser, and PlantUML Salt Wireframes).
 - **Rule 1**: [rule_technical_diagram_standards.md](.agents/rules/rule_technical_diagram_standards.md) — English screen names, codebase-truth action labels, multi-line wrapping (`\n`), and automated AABB collision detection.
 - **Rule 2**: [rule_decoupled_document_converter.md](.agents/rules/rule_decoupled_document_converter.md) — Table OpenXML invariants (`cantSplit`, `tblHeader`, `vAlign="center"`) and decoupled styling.
 - **Rule 3**: [rule_feature_lifecycle_and_doc_sync.md](.agents/rules/rule_feature_lifecycle_and_doc_sync.md) — Documentation synchronization (`CHANGELOG.md`, `ARCHITECTURE.md`, `README.md`, and Core Docs Triad) on feature completions (`ERR_DOC_SYNC_001`).
@@ -98,7 +90,6 @@ The workspace includes preconfigured Antigravity customizations:
 - **Rule 10**: [rule_context_recovery_protocol.md](.agents/rules/rule_context_recovery_protocol.md) — Recovery invariants and checkpoint protocols.
 - **Rule 11**: [rule_quality_gate_and_verification.md](.agents/rules/rule_quality_gate_and_verification.md) — Mandatory multi-layer quality gate audit before task completion.
 - **Rule 12**: [rule_security_audit_standards.md](.agents/rules/rule_security_audit_standards.md) — Mandatory security principles, Adversarial Verifier protocol, and document safety invariants (`ERR_SEC_001`–`005`).
-- **Rule 13**: [rule_render_cloud_deployment_and_sync.md](.agents/rules/rule_render_cloud_deployment_and_sync.md) — Render Cloud 24/7 Deployment, Single-Port Container Invariants (`RND_INV_01`–`08`), Docker Cache Preservation, and Pre-Deploy Verification.
 
 ---
 
@@ -130,7 +121,7 @@ When user requests you to perform document tasks or draw diagrams, run these com
 | **Vietnamese OCR & Scan Recovery** | `python ai_tools_cli.py ocr-scan <scan.pdf> -o <out.md> [--lang vie+eng]` |
 | **Build 16:9 Presentation from Spec** | `python ai_tools_cli.py pptx-build <spec.json> -o <deck.pptx> [--template <tpl.pptx>]` |
 | **Export Slide PNG Previews for QA** | `python ai_tools_cli.py pptx-preview <deck.pptx> -o <preview_dir> [--slides 1,5,11]` |
-| **PDF Pro Studio Suite (16 Actions)** | `python ai_tools_cli.py pdf-tools {images-to-pdf,export-images-zip,sign,flatten,reorganize,redact,protect,giap-lai,...}` |
+| **PDF Pro Studio Suite (17 Actions)** | `python ai_tools_cli.py pdf-tools {merge,split,compress,watermark,images-to-pdf,export-images-zip,sign,flatten,reorganize,redact,protect,giap-lai,crypto-sign,pdfa,...}` |
 | **Images to PDF** | `python ai_tools_cli.py pdf-tools images-to-pdf --inputs <img1> <img2> -o <out.pdf>` |
 | **PDF to 300 DPI Images ZIP** | `python ai_tools_cli.py pdf-tools export-images-zip -i <doc.pdf> -o <bundle.zip> --dpi 300` |
 | **Sign PDF with Stamp/Signature** | `python ai_tools_cli.py pdf-tools sign -i <doc.pdf> -o <signed.pdf> --stamp <sig.png> --page 1` |
@@ -140,27 +131,18 @@ When user requests you to perform document tasks or draw diagrams, run these com
 | **Insert Excel Rows & Shift Formulas** | `python ai_tools_cli.py xlsx-insert-rows <file.xlsx> --sheet <sheet> --start-row <row> --count <n>` |
 | **Inspect Word Template Tokens** | `python ai_tools_cli.py docx-tokens <tpl.docx> [--json]` |
 | **Atomic Word Text Replace** | `python ai_tools_cli.py docx-replace <doc.docx> --data <patch.json>` |
-| **User Story BABOK Linter** | `python ai_tools_cli.py ba-story-lint --story-id <id> --title <title> --persona <role> --action <act> --value <val> --ac <ac>` |
-| **User Story Export (DOCX/MD)** | `python ai_tools_cli.py ba-story-export <story.json> -o <story.docx>` |
-| **Cockburn Use Case Export** | `python ai_tools_cli.py ba-usecase-export <spec.json> -o <usecase.docx>` |
-| **Requirements Traceability Matrix (RTM)** | `python ai_tools_cli.py ba-rtm-matrix <spec.json> -o <rtm.xlsx>` |
-| **DBML 2-Way Convert (SQL <-> DBML)** | `python ai_tools_cli.py ba-dbml-convert <input.sql | input.dbml> -o <output>` |
-| **Satsuma Data Lineage Graph** | `python ai_tools_cli.py ba-satsuma-lineage <mapping.satsuma> -o <lineage.png>` |
-| **7-Gate SQL Data Integrity Suite** | `python ai_tools_cli.py ba-sql-suite <schema.sql> -o <tests.sql>` |
-| **Scope Creep & Semantic Diff** | `python ai_tools_cli.py ba-scope-creep <v1.docx> <v2.docx> -o <report.docx>` |
-| **Export Obsidian Vault (.zip)** | `python ai_tools_cli.py ba-obsidian-export --project <name> -o <vault.zip>` |
-| **Compile Obsidian Vault to Word BRD** | `python ai_tools_cli.py ba-obsidian-compile <vault.zip> -o <brd.docx>` |
-| **OpenAPI / Swagger Data Dict Scan** | `python ai_tools_cli.py ba-openapi <swagger.json> -o <dict.xlsx>` |
-| **BABOK Decision Table Matrix** | `python ai_tools_cli.py ba-decision-table <spec.json> -o <matrix.docx> [--audit]` |
-| **Meeting Notes to Stories Parser** | `python ai_tools_cli.py ba-meeting-parser <notes.md> -o <stories.docx>` |
-| **PlantUML Salt UI Wireframe Render** | `python ai_tools_cli.py wireframe-render [<spec.json>] [-t <template>] [-f {png,svg,both}] [--inject-doc <doc.docx>] -o <out>` |
-| **Init Labor Law Local Knowledge Vault** | `python ai_tools_cli.py law-init-vault [-o <dir>]` |
-| **Labor Law Sub-10ms Local FTS5 Search** | `python ai_tools_cli.py law-search <query> [-c <cat>] [-l <n>]` |
-| **Legal 2026+ Story Compliance Linter** | `python ai_tools_cli.py law-story-lint <story.json>` |
-| **Payroll Reconciliation (Excel 12-Gate)** | `python ai_tools_cli.py law-reconcile-payroll <client.xlsx> <standard.xlsx>` |
-| **Test SMTP Gmail Policy Alert Email** | `python ai_tools_cli.py law-notify-test [--email <recipient>]` |
-| **Auto-Scan & Stage New Decree/Circular** | `python ai_tools_cli.py law-watch-scan [--file <doc>] [--sample-2027] [--skip-email]` |
-| **1-Click Human-in-the-Loop Merge Draft** | `python ai_tools_cli.py law-merge-update --draft <draft_filename>` |
+| **Excel Power Clean (VN Dates/CCCD/Dedup)** | `python ai_tools_cli.py xlsx-power-clean <file.xlsx> [--dedup MaNV] [--case title]` |
+| **Excel Split / Merge Columns** | `python ai_tools_cli.py xlsx-transform-cols <file.xlsx> --mode split_vn_fullname --cols HoVaTen` |
+| **Excel Pivot Summary & Chart** | `python ai_tools_cli.py xlsx-pivot-chart <file.xlsx> --group-by PhongBan --values Luong --agg SUM --chart bar` |
+| **Excel No-Code XLOOKUP Join** | `python ai_tools_cli.py xlsx-xlookup-join <left.xlsx> --left-key MaNV --right-key MaNV --return-cols HoTen,Luong` |
+| **Excel Split Workbook by Column (.zip)** | `python ai_tools_cli.py xlsx-split-col <file.xlsx> --col PhongBan -o split.zip` |
+| **Excel Visual Cell Diff** | `python ai_tools_cli.py xlsx-diff <v1.xlsx> <v2.xlsx> -o diff.xlsx` |
+| **Office Work & Daily Task Tracker** | `python ai_tools_cli.py xlsx-track {init,add,list,sync-daily,inspect}` |
+| **Excel 57-Formula Playbook** | `python ai_tools_cli.py xlsx-formulas [--category lookup] [--export playbook.xlsx]` |
+| **Word NĐ 30/2020 Polish & Page X/Y** | `python ai_tools_cli.py docx-polish <doc.docx> --preset nd30` |
+| **Word Multi-File Merge** | `python ai_tools_cli.py docx-merge <doc1.docx> <doc2.docx> -o merged.docx` |
+| **Word Split by Heading Level (.zip)** | `python ai_tools_cli.py docx-split <doc.docx> --level 1 -o chapters.zip` |
+| **Word Watermark & Header/Footer Brand** | `python ai_tools_cli.py docx-watermark <doc.docx> --text "CONFIDENTIAL" --header "Company"` |
 | **List System Hardware Printers** | `python ai_tools_cli.py print-list` |
 | **Inspect Printer Status & Spooler Queue** | `python ai_tools_cli.py print-status [--printer <name>] [--json]` |
 | **Enterprise Silent Print Document** | `python ai_tools_cli.py print-doc <file.pdf | docx> [--printer <name>] [--page-range "1-5, 8"] [--page-size a4] [--scaling fit] [--duplex vertical] [--n-up 2] [--grayscale]` |
@@ -169,9 +151,6 @@ When user requests you to perform document tasks or draw diagrams, run these com
 | **Universal FTS5 RAG Semantic Search** | `python ai_tools_cli.py rag-search <query> [-k <top_k>] [-t <type>] [--json]` |
 | **Hybrid AI Copilot Terminal Chat** | `python ai_tools_cli.py copilot-chat <prompt> [-p {hybrid,local,cloud}] [--index-file <file>] [--json]` |
 | **Sync Core Docs Triad (MD->DOCX+PDF)** | `python tools/sync_core_docs.py [--build | --check]` |
-| **Core HR Governance & 6 Data Scopes** | `python ai_tools_cli.py hr-governance {data-scopes,sod-audit,ofb-workflow,export-schema}` |
-| **BABOK v3 URD Document Generation** | `python ai_tools_cli.py ba-urd-generate <spec.json> [-o <out.docx>] [--format {docx,md}]` |
-| **Functional Spec Doc (FSD)** | `python ai_tools_cli.py ba-fsd-generate <spec.json> [-o <out.docx>] [--excel <inventory.xlsx>]` |
 | **Launch Desktop GUI** | `python main.py` |
 
 ---
@@ -183,16 +162,16 @@ antigravity-doc-handler/
 ├── core/                       # Layer 3: Core Document & Diagram Engines
 │   ├── converter/              # Universal Converter, Decoupled MD, OCR, PDF Toolkit, COM Watchdog
 │   ├── diagrams/               # Diagram Bridge, mxGraph, Code-to-Diagram, Editor, Legacy
-│   ├── docx/                   # OpenXML Reader/Writer, Lists, Math, Diff, Mail Merge, Presets
+│   ├── docx/                   # OpenXML Reader/Writer, Lists, Math, Diff, Mail Merge, Presets, Toolkit
 │   ├── pptx/                   # 16:9 Widescreen Engine, DOCX-to-PPTX, Charts, Math
-│   ├── xlsx/                   # Universal Excel Engine, AST Formula Evaluator, Validator, Streaming, Playbook, Reporting
+│   ├── xlsx/                   # Power Tools, Tracker, Universal Excel Engine, AST Evaluator, Validator, Streaming, 57-Formula Playbook, Reporting
 │   ├── security/               # Cloudflare Document Auditor & Deep CDR / PII Sanitizer
 │   ├── pipeline/               # Declarative Multi-Step Workflow Pipeline Engine
-│   ├── ba_hub/                 # BA Enterprise Hub & Universal FTS5 RAG + Hybrid AI Copilot
+│   ├── copilot/                # Universal FTS5 RAG Vault & Hybrid AI Copilot
 │   ├── printing/               # Enterprise Printing Engine (Vector /DeviceGray, Booklet Creep, DEVMODE Guard G2)
 │   ├── env_doctor.py           # 12-Component Environment Health Doctor
 │   └── system_maintenance.py   # 7-Pillar Enterprise System Maintenance & MPO Guard
-├── server/                     # Layer 2: Web Studio REST API (:8000), Modular Routes, MCP Server (50 Tools), Persistent WAL Queue
+├── server/                     # Layer 2: Web Studio REST API (:8000), Modular Routes, MCP Server (43 Tools), Persistent WAL Queue
 ├── cli/                        # Layer 2: Unified AI CLI Dispatcher & Subcommands
 ├── ui/                         # Layer 1: Desktop GUI (Tkinter) & Native WebView App Launcher
 ├── src/                        # Layer 1: Vite ES6 Web Studio Frontend & Modular Controllers
@@ -202,14 +181,14 @@ antigravity-doc-handler/
 │   ├── sync_core_docs.py       # Core Docs Triad Compiler & Semantic Auditor (ERR_DOC_SYNC_001)
 │   └── plantuml.jar            # Local PlantUML JAR (v1.2026+, bundled C4 standard library)
 ├── specs/                      # Declarative Diagram Specs (flow_*.json, master_erd_*.json)
-├── tests/                      # 513 Automated Test Suites (tests/test_*.py)
+├── tests/                      # Automated Test Suites (tests/test_*.py)
 ├── main.py                     # Official Entrypoint: Desktop GUI & Native Web App Mode
 ├── ai_tools_cli.py             # Official Entrypoint: Unified CLI Dispatcher for AI Agents
 ├── web_api_server.py           # Official Entrypoint: Web Studio REST API Server
 ├── mcp_server.py               # Official Entrypoint: Model Context Protocol STDIO Server
 ├── spec_diagram_engine.py      # Official Entrypoint: SVG Canvas Precision Diagram CLI
 ├── diagram_editor.py           # Official Entrypoint: Interactive Canvas Diagram Editor
-└── .agents/                    # Antigravity Customizations (7 Skills & 13 Rules)
+└── .agents/                    # Antigravity Customizations (6 Skills & 13 Rules)
 ```
 
 ---

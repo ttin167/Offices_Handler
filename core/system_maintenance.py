@@ -488,8 +488,8 @@ class SystemMaintenanceEngine:
         """
         Dynamically scan and optimize SQLite databases:
         - .web_outputs/studio_history.db (Primary conversion history)
-        - .labor_law_fts.db (FTS5 Knowledge Vault if present)
-        - Any *.db file in workspace.
+        - .universal_rag_fts.db (Universal FTS5 RAG Knowledge Base if present)
+        - history.db
         
         Performs PRAGMA quick_check, PRAGMA wal_checkpoint(TRUNCATE), VACUUM, and PRAGMA optimize.
         """
@@ -501,7 +501,7 @@ class SystemMaintenanceEngine:
         # Candidate DB paths
         candidates = [
             os.path.join(self.workspace_root, ".web_outputs", "studio_history.db"),
-            os.path.join(self.workspace_root, ".labor_law_fts.db"),
+            os.path.join(self.workspace_root, ".universal_rag_fts.db"),
             os.path.join(self.workspace_root, "history.db"),
         ]
 
@@ -536,8 +536,8 @@ class SystemMaintenanceEngine:
                 # If FTS5 table is present, run optimize
                 try:
                     tables = [r[0] for r in cur.execute("SELECT name FROM sqlite_master WHERE type='table';").fetchall()]
-                    if "labor_law_fts" in tables:
-                        cur.execute("INSERT INTO labor_law_fts(labor_law_fts) VALUES('optimize');")
+                    if "universal_rag_fts" in tables:
+                        cur.execute("INSERT INTO universal_rag_fts(universal_rag_fts) VALUES('optimize');")
                         conn.commit()
                         fts_optimized = True
                 except Exception:

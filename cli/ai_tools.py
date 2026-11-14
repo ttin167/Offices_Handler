@@ -2540,13 +2540,8 @@ Examples:
     from cli.maintenance_commands import register_maintenance_subcommands
     register_maintenance_subcommands(sub)
 
-    # Optional local BA Enterprise Hub & Labor Law subcommands (only registered if core/ba_hub is present)
-    try:
-        import core.ba_hub  # type: ignore
-        from cli.ba_print_commands import register_ba_print_subcommands
-        register_ba_print_subcommands(sub)
-    except (ImportError, ModuleNotFoundError):
-        pass
+    from cli.office_power_commands import register_office_power_subcommands
+    register_office_power_subcommands(sub)
 
     return parser
 

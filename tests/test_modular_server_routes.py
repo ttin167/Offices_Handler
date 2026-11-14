@@ -70,3 +70,44 @@ def test_print_routes_dispatch():
     assert args[0]["success"] is True
     assert "printers" in args[0]
 
+
+def test_pure_office_xlsx_and_docx_routes_registered_and_validate() -> None:
+    r = Router.get_instance()
+
+    expected_post_routes = [
+        "/api/xlsx/power-clean",
+        "/api/xlsx/transform-columns",
+        "/api/xlsx/pivot-chart",
+        "/api/xlsx/xlookup-join",
+        "/api/xlsx/split-by-column",
+        "/api/xlsx/diff",
+        "/api/xlsx/eval",
+        "/api/xlsx/tracker/init",
+        "/api/xlsx/tracker/add",
+        "/api/xlsx/tracker/sync-daily",
+        "/api/docx/polish",
+        "/api/docx/merge",
+        "/api/docx/split",
+        "/api/docx/watermark-hf",
+    ]
+    assert ("GET", "/api/xlsx/tracker/inspect") in r._exact_routes
+    for route in expected_post_routes:
+        assert ("POST", route) in r._exact_routes
+
+    # Verify forbidden BA/Law/Wireframe prefixes are completely gone
+    for method, route in r._exact_routes:
+        assert not route.startswith("/api/ba/")
+        assert not route.startswith("/api/law/")
+        assert not route.startswith("/api/wireframe/")
+
+    # Invalid/missing file inputs should fail cleanly with status 400 JSON error
+    for route in ("/api/xlsx/power-clean", "/api/docx/polish"):
+        mock_req = MagicMock()
+        mock_req._read_body_json = MagicMock(return_value={})
+        mock_req._send_json = MagicMock()
+        assert r.dispatch(mock_req, "POST", route) is True
+        mock_req._send_json.assert_called_once()
+        args, kwargs = mock_req._send_json.call_args
+        assert kwargs.get("status", args[1] if len(args) > 1 else None) == 400 or args[0].get("error")
+
+

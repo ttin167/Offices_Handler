@@ -36,6 +36,15 @@ from .reporting import (
     consolidate_workbooks,
     _evaluate_basic_excel_formula,
 )
+from .power_tools import (
+    clean_and_standardize_workbook,
+    transform_workbook_columns,
+    build_pivot_summary_and_chart,
+    xlookup_join_workbooks,
+    split_workbook_by_column,
+    diff_workbooks_visual,
+)
+from .tracker import OfficeWorkTracker
 
 __all__ = [
     "UniversalExcelEngine",
@@ -63,6 +72,13 @@ __all__ = [
     "excel_to_brief",
     "consolidate_workbooks",
     "_evaluate_basic_excel_formula",
+    "clean_and_standardize_workbook",
+    "transform_workbook_columns",
+    "build_pivot_summary_and_chart",
+    "xlookup_join_workbooks",
+    "split_workbook_by_column",
+    "diff_workbooks_visual",
+    "OfficeWorkTracker",
 ]
 
 

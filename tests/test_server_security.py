@@ -209,6 +209,47 @@ class TestServerSecurity(unittest.TestCase):
         h_health.do_HEAD()
         self.assertEqual(h_health.status_code, 200)
 
+    def test_08_pure_local_defaults_and_origin_firewall(self):
+        """Validates Pure Local 127.0.0.1:8000 defaults and blocking external web origins."""
+        import server.app as app_mod
+
+        if "HOST" not in os.environ:
+            self.assertEqual(app_mod.HOST, "127.0.0.1")
+        if "PORT" not in os.environ:
+            self.assertEqual(app_mod.PORT, 8000)
+
+        # Spoofed / external origins must not get Access-Control-Allow-Origin and must fail origin guard
+        for bad_origin in ("https://evil.example", "http://localhost:80.evil.com"):
+            h_bad = DummyMockHandler(b"", {"Origin": bad_origin}, path="/api/info", method="GET")
+            h_bad._send_cors_headers()
+            cors_headers = dict(h_bad._headers_buffer)
+            self.assertNotIn("Access-Control-Allow-Origin", cors_headers)
+
+            h_guard = DummyMockHandler(b"", {"Origin": bad_origin}, path="/api/info", method="GET")
+            self.assertFalse(h_guard._check_local_origin_guard("/api/info"))
+            self.assertEqual(h_guard.status_code, 403)
+
+    def test_09_session_purge_and_local_copilot_lock(self):
+        """Validates POST /api/session/purge and default Local-Only Copilot enforcement."""
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
+        temp_secret = os.path.join(UPLOAD_DIR, "_test_purge_dummy.txt")
+        with open(temp_secret, "w", encoding="utf-8") as f:
+            f.write("sensitive local content")
+
+        h_purge = DummyMockHandler(b"{}", {"Content-Length": "2"}, path="/api/session/purge", method="POST")
+        h_purge.do_POST()
+        self.assertEqual(h_purge.status_code, 200)
+        purge_res = json.loads(h_purge.wfile.getvalue().decode("utf-8"))
+        self.assertTrue(purge_res["success"])
+        self.assertFalse(os.path.exists(temp_secret))
+
+        h_cop = DummyMockHandler(b"", {}, path="/api/copilot/status", method="GET")
+        h_cop.do_GET()
+        self.assertEqual(h_cop.status_code, 200)
+        cop_res = json.loads(h_cop.wfile.getvalue().decode("utf-8"))
+        self.assertTrue(cop_res["copilot"]["local_only_enforced"])
+        self.assertTrue(cop_res["copilot"]["cloud"]["blocked_by_local_policy"])
+
 
 if __name__ == "__main__":
     unittest.main()
