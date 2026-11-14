@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Download, Eye, FileText, FunctionSquare, Table2, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { Download, Eye, FileText, FunctionSquare, Image as ImageIcon, Table2, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { apiPost, buildPreviewUrl } from '../../services/api';
-import type { DocxSnapshot, XlsxCellData, XlsxSnapshot } from '../../types/api';
+import type { DocxBodyElement, DocxSnapshot, DocxTableCell, XlsxCellData, XlsxSnapshot } from '../../types/api';
 
 export interface PreviewTarget {
   filePath?: string;
@@ -50,8 +50,44 @@ function colNumberToLetters(col: number): string {
   return letters || 'A';
 }
 
+function colLettersToNumber(letters: string): number {
+  let num = 0;
+  const upper = letters.toUpperCase();
+  for (let i = 0; i < upper.length; i++) {
+    num = num * 26 + (upper.charCodeAt(i) - 64);
+  }
+  return num || 1;
+}
+
+function parseCellAddress(addr?: string): { row: number; col: number } | null {
+  if (!addr) return null;
+  const match = /^([A-Z]+)(\d+)$/i.exec(addr.trim());
+  if (!match) return null;
+  return {
+    col: colLettersToNumber(match[1]),
+    row: Number.parseInt(match[2], 10),
+  };
+}
+
+function normalizeHexColor(c?: string | null): string | undefined {
+  if (!c) return undefined;
+  const s = c.trim();
+  if (!s || s === 'auto' || s === 'none' || s === 'transparent') return undefined;
+  return s.startsWith('#') ? s : `#${s}`;
+}
+
+function extractDocxTableRows(elem: DocxBodyElement): DocxTableCell[][] {
+  if (Array.isArray(elem.cells)) {
+    return elem.cells.filter((r): r is DocxTableCell[] => Array.isArray(r));
+  }
+  if (Array.isArray(elem.rows)) {
+    return elem.rows.map((r) => (Array.isArray(r) ? r : r.cells || []));
+  }
+  return [];
+}
+
 function DocxAstView({ snapshot }: { snapshot: DocxSnapshot }) {
-  const body = snapshot.body || [];
+  const body = Array.isArray(snapshot.body) ? snapshot.body : [];
   if (!body.length) {
     return (
       <div className="p-8 text-center text-xs text-slate-500">
@@ -63,36 +99,80 @@ function DocxAstView({ snapshot }: { snapshot: DocxSnapshot }) {
     <div className="p-4">
       <div className="docx-paper-sheet space-y-2 text-[13px] leading-relaxed">
         {body.map((elem, idx) => {
+          if (elem.type === 'image') {
+            return (
+              <div
+                key={idx}
+                className="my-2 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+              >
+                <ImageIcon className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
+                <span>
+                  {elem.image_name || elem.alt_text || 'Hình ảnh nhúng'}
+                  {elem.width_cm && elem.height_cm ? ` (${elem.width_cm} × ${elem.height_cm} cm)` : ''}
+                </span>
+              </div>
+            );
+          }
+
           if (elem.type === 'table') {
-            const rows = elem.rows || [];
+            const rows = extractDocxTableRows(elem);
             return (
               <div key={idx} className="my-3 overflow-x-auto">
                 <table className="w-full border-collapse border border-slate-300 text-xs dark:border-slate-700">
                   <tbody>
-                    {rows.map((row, rIdx) => (
-                      <tr key={rIdx}>
-                        {(row.cells || []).map((cell, cIdx) => {
-                          const isHeader = rIdx === 0 && elem.has_header;
-                          const Tag = isHeader ? 'th' : 'td';
-                          return (
-                            <Tag
-                              key={cIdx}
-                              style={{
-                                backgroundColor: cell.shading ? `#${cell.shading}` : undefined,
-                                verticalAlign: cell.vertical_alignment?.toLowerCase(),
-                              }}
-                              className={`border border-slate-300 px-2 py-1.5 text-left dark:border-slate-700 ${
-                                isHeader ? 'bg-slate-100 font-semibold dark:bg-slate-800' : ''
-                              }`}
-                            >
-                              {(cell.paragraphs || []).map((p, pIdx) => (
-                                <div key={pIdx}>{p.text || ''}</div>
-                              ))}
-                            </Tag>
-                          );
-                        })}
-                      </tr>
-                    ))}
+                    {rows.map((rowCells, rIdx) => {
+                      let remainingSkip = 0;
+                      return (
+                        <tr key={rIdx}>
+                          {rowCells.map((cell, cIdx) => {
+                            if (
+                              remainingSkip > 0 &&
+                              cIdx > 0 &&
+                              cell.colspan === rowCells[cIdx - 1]?.colspan &&
+                              cell.text === rowCells[cIdx - 1]?.text
+                            ) {
+                              remainingSkip -= 1;
+                              return null;
+                            }
+                            if ((cell.colspan || 1) > 1) {
+                              remainingSkip = (cell.colspan || 1) - 1;
+                            }
+                            if (cell.rowspan === 0) {
+                              return null;
+                            }
+
+                            const isHeader = Boolean(cell.is_header) || (rIdx === 0 && Boolean(elem.has_header));
+                            const Tag = isHeader ? 'th' : 'td';
+                            const bgColor = normalizeHexColor(cell.fill_color || cell.shading);
+                            const paras =
+                              Array.isArray(cell.paragraphs) && cell.paragraphs.length > 0
+                                ? cell.paragraphs
+                                : cell.text
+                                  ? [{ text: cell.text }]
+                                  : [{ text: '' }];
+
+                            return (
+                              <Tag
+                                key={cIdx}
+                                colSpan={(cell.colspan || 1) > 1 ? cell.colspan : undefined}
+                                rowSpan={(cell.rowspan || 1) > 1 ? cell.rowspan : undefined}
+                                style={{
+                                  backgroundColor: bgColor,
+                                  verticalAlign: cell.vertical_alignment?.toLowerCase(),
+                                }}
+                                className={`border border-slate-300 px-2 py-1.5 text-left dark:border-slate-700 ${
+                                  isHeader ? 'bg-slate-100 font-semibold dark:bg-slate-800' : ''
+                                }`}
+                              >
+                                {paras.map((p, pIdx) => (
+                                  <div key={pIdx}>{p.text || ''}</div>
+                                ))}
+                              </Tag>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -100,8 +180,13 @@ function DocxAstView({ snapshot }: { snapshot: DocxSnapshot }) {
           }
 
           const styleName = (elem.style_name || '').toLowerCase();
-          const align = (elem.alignment || 'left').toLowerCase() as 'left' | 'center' | 'right' | 'justify';
-          const runs = elem.runs || [];
+          const rawAlign = (elem.alignment || 'left').toLowerCase();
+          const align = (rawAlign === 'distribute' ? 'justify' : rawAlign) as
+            | 'left'
+            | 'center'
+            | 'right'
+            | 'justify';
+          const runs = Array.isArray(elem.runs) ? elem.runs : [];
 
           let className = 'text-slate-800 dark:text-slate-200';
           if (styleName.includes('heading 1') || styleName === 'title') {
@@ -121,7 +206,7 @@ function DocxAstView({ snapshot }: { snapshot: DocxSnapshot }) {
                     fontWeight: r.bold ? 700 : undefined,
                     fontStyle: r.italic ? 'italic' : undefined,
                     textDecoration: r.underline ? 'underline' : undefined,
-                    color: r.color ? `#${r.color}` : undefined,
+                    color: normalizeHexColor(r.font_color || r.color),
                   }}
                 >
                   {r.text || ''}
@@ -136,7 +221,7 @@ function DocxAstView({ snapshot }: { snapshot: DocxSnapshot }) {
 }
 
 function XlsxGridView({ snapshot }: { snapshot: XlsxSnapshot }) {
-  const sheets = snapshot.sheets || [];
+  const sheets = Array.isArray(snapshot.sheets) ? snapshot.sheets : [];
   const [sheetIdx, setSheetIdx] = useState(0);
   const [selectedCell, setSelectedCell] = useState<{ addr: string; formula: string; val: string }>({
     addr: 'A1',
@@ -153,8 +238,35 @@ function XlsxGridView({ snapshot }: { snapshot: XlsxSnapshot }) {
   }
 
   const active = sheets[sheetIdx] || sheets[0];
-  const rows = active.rows || [];
-  const maxCol = Math.min(Math.max(active.stats?.max_column || 8, 6), 26);
+  const rowMap = new Map<number, Map<number, XlsxCellData>>();
+  let detectedMaxCol = active.stats?.max_column || 0;
+
+  if (Array.isArray(active.rows) && active.rows.length > 0) {
+    active.rows.forEach((rowObj, rIdx) => {
+      const rowNum = rowObj.row_number || rIdx + 1;
+      const colsMap = rowMap.get(rowNum) || new Map<number, XlsxCellData>();
+      (rowObj.cells || []).forEach((cell) => {
+        const colIdx = cell.column_number || 1;
+        colsMap.set(colIdx, cell);
+        if (colIdx > detectedMaxCol) detectedMaxCol = colIdx;
+      });
+      rowMap.set(rowNum, colsMap);
+    });
+  } else if (Array.isArray(active.cells)) {
+    active.cells.forEach((cell) => {
+      const pos = parseCellAddress(cell.address);
+      if (!pos) return;
+      const colsMap = rowMap.get(pos.row) || new Map<number, XlsxCellData>();
+      colsMap.set(pos.col, cell);
+      rowMap.set(pos.row, colsMap);
+      if (pos.col > detectedMaxCol) detectedMaxCol = pos.col;
+    });
+  }
+
+  const rowNumbers = Array.from(rowMap.keys())
+    .sort((a, b) => a - b)
+    .slice(0, 150);
+  const maxCol = Math.min(Math.max(detectedMaxCol, 6), 26);
 
   return (
     <div className="flex h-full flex-col">
@@ -170,7 +282,7 @@ function XlsxGridView({ snapshot }: { snapshot: XlsxSnapshot }) {
           readOnly
           value={
             selectedCell.formula
-              ? `=${selectedCell.formula}  [Hiển thị: ${selectedCell.val}]`
+              ? `${selectedCell.formula.startsWith('=') ? selectedCell.formula : `=${selectedCell.formula}`}  [Hiển thị: ${selectedCell.val}]`
               : selectedCell.val
           }
           placeholder="Nhấp vào một ô bên dưới để xem giá trị hoặc công thức"
@@ -196,10 +308,8 @@ function XlsxGridView({ snapshot }: { snapshot: XlsxSnapshot }) {
             </tr>
           </thead>
           <tbody>
-            {rows.slice(0, 150).map((rowObj, rIdx) => {
-              const rowNum = rowObj.row_number || rIdx + 1;
-              const cellMap = new Map<number, XlsxCellData>();
-              (rowObj.cells || []).forEach((c) => cellMap.set(c.column_number, c));
+            {rowNumbers.map((rowNum) => {
+              const cellMap = rowMap.get(rowNum) || new Map<number, XlsxCellData>();
 
               return (
                 <tr key={rowNum} className="hover:bg-slate-50/80 dark:hover:bg-slate-900/50">
@@ -209,20 +319,25 @@ function XlsxGridView({ snapshot }: { snapshot: XlsxSnapshot }) {
                   {Array.from({ length: maxCol }, (_, idx) => {
                     const colIdx = idx + 1;
                     const cell = cellMap.get(colIdx);
-                    const val = cell ? String(cell.formatted_value ?? cell.value ?? '') : '';
+                    const rawVal = cell?.formatted_value ?? cell?.value;
+                    const val = rawVal !== null && rawVal !== undefined ? String(rawVal) : '';
                     const formula = cell?.formula || '';
-                    const addr = `${colNumberToLetters(colIdx)}${rowNum}`;
+                    const addr = cell?.address || `${colNumberToLetters(colIdx)}${rowNum}`;
                     const isSelected = selectedCell.addr === addr;
+                    const isBold = Boolean(cell?.format?.bold ?? cell?.bold);
+                    const isItalic = Boolean(cell?.format?.italic ?? cell?.italic);
+                    const fontColor = normalizeHexColor(cell?.format?.font_color ?? cell?.font_color);
+                    const fillColor = normalizeHexColor(cell?.format?.fill_color ?? cell?.fill_color);
 
                     return (
                       <td
                         key={colIdx}
                         onClick={() => setSelectedCell({ addr, formula, val })}
                         style={{
-                          fontWeight: cell?.bold ? 700 : undefined,
-                          fontStyle: cell?.italic ? 'italic' : undefined,
-                          color: cell?.font_color || undefined,
-                          backgroundColor: cell?.fill_color || undefined,
+                          fontWeight: isBold ? 700 : undefined,
+                          fontStyle: isItalic ? 'italic' : undefined,
+                          color: fontColor,
+                          backgroundColor: fillColor,
                           textAlign: cell?.alignment?.toLowerCase() as 'left' | 'center' | 'right' | undefined,
                         }}
                         className={`cursor-cell border border-slate-200 px-2 py-1 text-slate-800 dark:border-slate-800 dark:text-slate-200 ${

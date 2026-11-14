@@ -116,23 +116,38 @@ export interface DocxRun {
   bold?: boolean;
   italic?: boolean;
   underline?: boolean;
-  color?: string;
+  color?: string | null;
+  font_color?: string | null;
   font_size_pt?: number;
+  font_size?: number | null;
 }
 
 export interface DocxTableCell {
-  shading?: string;
+  row?: number;
+  col?: number;
+  colspan?: number;
+  rowspan?: number;
+  shading?: string | null;
+  fill_color?: string | null;
+  is_header?: boolean;
   vertical_alignment?: string;
-  paragraphs?: Array<{ text?: string }>;
+  text?: string;
+  paragraphs?: Array<{ text?: string; runs?: DocxRun[] }>;
 }
 
 export interface DocxBodyElement {
-  type?: 'paragraph' | 'table' | string;
+  type?: 'paragraph' | 'table' | 'image' | string;
   style_name?: string;
   alignment?: string;
   runs?: DocxRun[];
   has_header?: boolean;
-  rows?: Array<{ cells?: DocxTableCell[] }>;
+  rows?: number | Array<{ cells?: DocxTableCell[] }>;
+  cols?: number;
+  cells?: DocxTableCell[][];
+  image_name?: string;
+  alt_text?: string;
+  width_cm?: number | null;
+  height_cm?: number | null;
 }
 
 export interface DocxSnapshot {
@@ -140,15 +155,30 @@ export interface DocxSnapshot {
   stats?: Record<string, unknown>;
 }
 
-export interface XlsxCellData {
-  column_number: number;
-  value?: unknown;
-  formatted_value?: string;
-  formula?: string;
+export interface XlsxCellFormat {
+  font_name?: string | null;
+  font_size?: number | null;
   bold?: boolean;
   italic?: boolean;
-  font_color?: string;
-  fill_color?: string;
+  underline?: boolean;
+  font_color?: string | null;
+  fill_color?: string | null;
+  number_format?: string | null;
+}
+
+export interface XlsxCellData {
+  address?: string;
+  column_number?: number;
+  value?: unknown;
+  formatted_value?: string;
+  formula?: string | null;
+  data_type?: string;
+  format?: XlsxCellFormat;
+  merged?: boolean;
+  bold?: boolean;
+  italic?: boolean;
+  font_color?: string | null;
+  fill_color?: string | null;
   alignment?: string;
 }
 
@@ -160,10 +190,13 @@ export interface XlsxRowData {
 export interface XlsxSheetSnapshot {
   name?: string;
   sheet_name?: string;
+  used_range?: string;
+  merged_cells?: string[];
   stats?: {
     max_column?: number;
     max_row?: number;
   };
+  cells?: XlsxCellData[];
   rows?: XlsxRowData[];
 }
 
