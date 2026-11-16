@@ -21,6 +21,22 @@ interface PolishResponse {
   download_url: string;
   output_path?: string;
   stats?: Record<string, unknown>;
+  writing_style_report?: {
+    style_name?: string;
+    edits_count?: number;
+    suitability_score?: number;
+  };
+}
+
+interface QuickStyleResponse {
+  success: boolean;
+  style_name?: string;
+  suitability_score?: number;
+  refined_text?: string;
+  changes_count?: number;
+  findings?: Array<{ matched_text: string; suggestion: string; message: string }>;
+  recommendations?: string[];
+  analysis_after?: { suitability_score?: number };
 }
 
 export function WordPolishPage() {
@@ -30,10 +46,17 @@ export function WordPolishPage() {
 
   const [inputFile, setInputFile] = useState<SelectedFileInfo | null>(null);
   const [preset, setPreset] = useState('nd30');
+  const [writingStyle, setWritingStyle] = useState('');
+  const [writingStyleMode, setWritingStyleMode] = useState<'safe' | 'strict'>('safe');
   const [addPageNumbers, setAddPageNumbers] = useState(true);
   const [sanitizeTypography, setSanitizeTypography] = useState(true);
   const [fixTables, setFixTables] = useState(true);
   const [normalizeCaptions, setNormalizeCaptions] = useState(false);
+
+  const [sampleText, setSampleText] = useState('');
+  const [sampleStyle, setSampleStyle] = useState('hanh_chinh');
+  const [sampleResult, setSampleResult] = useState<QuickStyleResponse | null>(null);
+  const [sampleLoading, setSampleLoading] = useState(false);
 
   const [includeAdminHeader, setIncludeAdminHeader] = useState(false);
   const [agencyParent, setAgencyParent] = useState('UBND TỈNH / CƠ QUAN CHỦ QUẢN');
@@ -43,6 +66,7 @@ export function WordPolishPage() {
 
   const [running, setRunning] = useState(false);
   const [outputSession, setOutputSession] = useState<SessionFile | null>(null);
+  const [lastStyleReport, setLastStyleReport] = useState<PolishResponse['writing_style_report'] | null>(null);
 
   useEffect(() => {
     const hf = consumeHandoffFile();
@@ -66,6 +90,10 @@ export function WordPolishPage() {
         fix_tables: fixTables,
         normalize_captions: normalizeCaptions,
       };
+      if (writingStyle) {
+        payload.writing_style = writingStyle;
+        payload.writing_style_mode = writingStyleMode;
+      }
       if (includeAdminHeader) {
         payload.admin_header = {
           agency_parent: agencyParent,
@@ -75,6 +103,7 @@ export function WordPolishPage() {
         };
       }
       const res = await apiPost<PolishResponse>('/api/docx/polish', payload);
+      setLastStyleReport(res.writing_style_report ?? null);
       const outPath = res.output_path || res.filename;
       const sf = addSessionFile({
         filePath: outPath,
@@ -89,6 +118,33 @@ export function WordPolishPage() {
       toast.error('Lỗi chuẩn hóa Word', err instanceof Error ? err.message : String(err));
     } finally {
       setRunning(false);
+    }
+  };
+
+  const handleQuickStyle = async (action: 'analyze' | 'refine') => {
+    if (!sampleText.trim()) {
+      toast.warning('Chưa có văn bản', 'Vui lòng dán đoạn văn bản cần kiểm tra hoặc chuẩn hóa hành văn.');
+      return;
+    }
+    setSampleLoading(true);
+    try {
+      const endpoint =
+        action === 'analyze'
+          ? '/api/docx/writing-style/analyze'
+          : '/api/docx/writing-style/refine';
+      const res = await apiPost<QuickStyleResponse>(endpoint, {
+        text: sampleText,
+        style_id: sampleStyle,
+        mode: writingStyleMode,
+      });
+      setSampleResult(res);
+      if (action === 'refine' && res.refined_text) {
+        setSampleText(res.refined_text);
+      }
+    } catch (err) {
+      toast.error('Lỗi xử lý văn phong', err instanceof Error ? err.message : String(err));
+    } finally {
+      setSampleLoading(false);
     }
   };
 
@@ -149,6 +205,35 @@ export function WordPolishPage() {
               <option value="corporate_report">Báo cáo Doanh nghiệp (Corporate Clean)</option>
               <option value="academic_thesis">Báo cáo / Luận văn Học thuật</option>
             </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-slate-700 dark:text-slate-300">
+              3. Chuẩn hóa văn phong / hành văn (Tùy chọn)
+            </label>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <select
+                value={writingStyle}
+                onChange={(e) => setWritingStyle(e.target.value)}
+                className="sm:col-span-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              >
+                <option value="">Giữ nguyên câu chữ (Mặc định)</option>
+                <option value="hanh_chinh">Hành chính Công vụ (NĐ 30/2020)</option>
+                <option value="hoc_thuat">Học thuật &amp; Nghiên cứu</option>
+                <option value="doanh_nghiep">Doanh nghiệp &amp; Điều hành (BLUF)</option>
+                <option value="phap_ly">Pháp lý &amp; Hợp đồng</option>
+                <option value="ky_thuat">Đặc tả Kỹ thuật (SRS / Docs)</option>
+              </select>
+              <select
+                value={writingStyleMode}
+                disabled={!writingStyle}
+                onChange={(e) => setWritingStyleMode(e.target.value as 'safe' | 'strict')}
+                className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-800 disabled:opacity-50 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              >
+                <option value="safe">An toàn (Safe)</option>
+                <option value="strict">Chặt chẽ (Strict)</option>
+              </select>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
@@ -247,6 +332,62 @@ export function WordPolishPage() {
           >
             Chuẩn hóa Văn bản Ngay
           </Button>
+
+          <CollapsibleSection title="Kiểm tra & Chuẩn hóa nhanh văn phong đoạn văn">
+            <div className="space-y-2.5 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={sampleStyle}
+                  onChange={(e) => setSampleStyle(e.target.value)}
+                  className="flex-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-800"
+                >
+                  <option value="hanh_chinh">Hành chính Công vụ (NĐ30)</option>
+                  <option value="hoc_thuat">Học thuật &amp; Nghiên cứu</option>
+                  <option value="doanh_nghiep">Doanh nghiệp &amp; Điều hành</option>
+                  <option value="phap_ly">Pháp lý &amp; Hợp đồng</option>
+                  <option value="ky_thuat">Đặc tả Kỹ thuật</option>
+                </select>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  loading={sampleLoading}
+                  onClick={() => handleQuickStyle('analyze')}
+                >
+                  Phân tích
+                </Button>
+                <Button
+                  size="sm"
+                  accent="word"
+                  loading={sampleLoading}
+                  onClick={() => handleQuickStyle('refine')}
+                >
+                  Chuẩn hóa
+                </Button>
+              </div>
+              <textarea
+                rows={4}
+                value={sampleText}
+                onChange={(e) => setSampleText(e.target.value)}
+                placeholder="Dán đoạn văn bản tiếng Việt để kiểm tra khẩu ngữ, viết tắt, độ dài câu hoặc chuẩn hóa hành văn..."
+                className="w-full rounded-lg border border-slate-200 bg-white p-2.5 text-xs text-slate-800 focus:border-blue-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+              />
+              {sampleResult ? (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-[11px] dark:border-slate-700 dark:bg-slate-900">
+                  <div className="font-medium text-slate-800 dark:text-slate-200">
+                    Điểm phù hợp: {sampleResult.analysis_after?.suitability_score ?? sampleResult.suitability_score ?? 100}/100
+                    {typeof sampleResult.changes_count === 'number' ? ` · Đã chỉnh ${sampleResult.changes_count} mục` : ''}
+                  </div>
+                  {sampleResult.recommendations?.length ? (
+                    <ul className="mt-1 list-disc space-y-0.5 pl-4 text-slate-600 dark:text-slate-400">
+                      {sampleResult.recommendations.slice(0, 3).map((rec, i) => (
+                        <li key={i}>{rec}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </CollapsibleSection>
         </div>
       }
       resultPanel={
@@ -258,6 +399,14 @@ export function WordPolishPage() {
               { label: 'Quy chuẩn', value: preset.toUpperCase() },
               { label: 'Đánh số trang', value: addPageNumbers ? 'Page X / Y' : 'Không đổi' },
               { label: 'Sửa bảng OpenXML', value: fixTables ? 'cantSplit + tblHeader' : 'Tắt' },
+              ...(lastStyleReport
+                ? [
+                    {
+                      label: 'Văn phong',
+                      value: `${lastStyleReport.style_name || writingStyle} (${lastStyleReport.edits_count ?? 0} sửa · ${lastStyleReport.suitability_score ?? 100}/100)`,
+                    },
+                  ]
+                : []),
             ]}
           />
         ) : undefined

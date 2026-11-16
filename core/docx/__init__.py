@@ -67,6 +67,12 @@ from .toolkit import (
     split_docx_by_heading,
     apply_docx_watermark_and_hf,
 )
+from core.writing_style import (
+    analyze_docx_writing_style,
+    apply_writing_style_to_document,
+    apply_writing_style_to_docx,
+    list_writing_styles,
+)
 
 __all__ = [
     "read_docx",
@@ -109,4 +115,8 @@ __all__ = [
     "merge_docx_files",
     "split_docx_by_heading",
     "apply_docx_watermark_and_hf",
+    "analyze_docx_writing_style",
+    "apply_writing_style_to_document",
+    "apply_writing_style_to_docx",
+    "list_writing_styles",
 ]

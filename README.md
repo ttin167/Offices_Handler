@@ -5,8 +5,8 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Release: v5.0.0](https://img.shields.io/badge/Release-v5.0.0_Production-success.svg)](CHANGELOG.md)
-[![Tests: 418 Passed](https://img.shields.io/badge/Tests-418%2F418_Passed-brightgreen.svg)](tests/)
-[![MCP Tools: 43](https://img.shields.io/badge/MCP_Tools-43_Available-blue.svg)](server/mcp_server.py)
+[![Tests: 425 Passed](https://img.shields.io/badge/Tests-425%2F425_Passed-brightgreen.svg)](tests/)
+[![MCP Tools: 44](https://img.shields.io/badge/MCP_Tools-44_Available-blue.svg)](server/mcp_server.py)
 [![Antigravity Skills: 6](https://img.shields.io/badge/Antigravity_Skills-6_Specialized-indigo.svg)](.agents/skills/)
 [![Antigravity IDE Ready](https://img.shields.io/badge/Antigravity_AI-Compatible-orange.svg)](AGENTS.md)
 [![Resolution: 300+ DPI](https://img.shields.io/badge/DPI-300%2B_Vector_Grade-purple.svg)](spec_diagram_engine.py)
@@ -44,7 +44,7 @@ The workspace provides 6 specialized Antigravity Skills in `.agents/skills/` des
    - **57-Formula Playbook & AST Evaluator**: Expanded 57 interactive Excel formulas across 6 categories + Pure-Python `ASTFormulaEvaluator` computing cached `<v>` tags offline.
 2. **Pillar 2 — Word Mastery, Decree 30/2020/NĐ-CP & Vietnamese Amount in Words (`core.docx`)**:
    - **Vietnamese Financial Number Reader (`number_to_vietnamese_words`)**: Built-in Mail Merge filters (`{{SoTien:vn_words}}`, `{{SoTien:words_plain}}`, `{{NgayKy:date_vn}}`, `:vnd`, `:upper`, `:lower`, `:title`) plus header/footer table scanning.
-   - **Word Mastery Toolkit (`core.docx.toolkit`)**: One-click Decree 30/2020/NĐ-CP or Executive document polishing (`polish_docx_document` with `ERR_DOCX_001/003/005` guards & Page X/Y), media-preserving multi-DOCX merge (`merge_docx_files`), Heading-level ZIP splitter (`split_docx_by_heading`), and native diagonal VML Watermark + Header/Footer branding (`apply_docx_watermark_and_hf`).
+   - **Word Mastery Toolkit (`core.docx.toolkit` & `core.writing_style`)**: One-click Decree 30/2020/NĐ-CP or Executive document polishing (`polish_docx_document` with `ERR_DOCX_001/003/005` guards, Page X/Y, & optional 5-register Vietnamese prose refinement `core.writing_style`), media-preserving multi-DOCX merge (`merge_docx_files`), Heading-level ZIP splitter (`split_docx_by_heading`), and native diagonal VML Watermark + Header/Footer branding (`apply_docx_watermark_and_hf`).
 3. **Pillar 3 — Complete PDF Pro 17-Tool Suite (`core.converter.pdf_toolkit` & Web Studio)**:
    - Exposes all 17 Stirling-grade tools natively in the Web Studio UI and CLI/MCP: Merge, Split (with multi-file ZIP bundling), Compress, Diagonal Watermark, Images $\leftrightarrow$ PDF / 300 DPI ZIP Export, Interactive Visual Page Organizer, Bates / A4 Normalization, True Byte/Pixel Redaction (`ERR_PDF_001`), AES-256 Permission Protection, Multi-Page Overlap Stamp / Dấu Giáp Lai (`ERR_PDF_002`), Flatten & Scrub, Table Extraction to `@` Excel (`ERR_XLSX_007`), Digital Stamp Signing, AcroForms Inspect & Fill, PKCS#7 / PAdES Signing, and ISO 19005-2 PDF/A-2b archival conversion.
 
@@ -71,7 +71,7 @@ The workspace provides 6 specialized Antigravity Skills in `.agents/skills/` des
   - *RAM-Constrained Big Data Streaming (`ERR_XLSX_014`)*: Module `core.xlsx.streaming` (`stream_read_xlsx` & `stream_write_xlsx`) maintains RAM consumption strictly $\le 50\text{MB}$ when processing workbooks exceeding 10 MB or 30,000 rows locally.
   - *6 Enterprise Subsystems*: Corporate pastel conditional formatting (red, green, yellow status highlights), in-cell Data Bars & 3-point Color Scales, Data Validation (dropdowns, CCCD 12-digit, year 2026), native in-sheet OpenXML charts (`BarChart`, `LineChart`, `PieChart` with safe `ERR_DIAG_003` placement), and Executive Index Dashboard with 2-way hyperlink navigation.
 - **Excel Formula Playbook & Live Interactive Catalog (`core.xlsx.formula_playbook`)**: 57+ essential Excel functions documented across 4 comprehensive dimensions (Syntax, Sample formula, Real-world use case, Architectural reason why Excel chose this function); 1-click export to 2-sheet workbook (`Formula_Playbook` + `Live_Interactive_Formulas` with live calculating `=SUMIFS`, `=COUNTIFS`, `=AVERAGEIFS`, `=XLOOKUP`, `=IFS`, `=TEXTJOIN`).
-- **Atomic Office Tools Suite**: Programmatic fine-grained inspection and manipulation of Word (.docx) and Excel (.xlsx) at cell/run level via MCP JSON-RPC 2.0 (43 tools) and CLI (`xlsx-set`, `xlsx-insert-rows`, `docx-tokens`, `docx-replace`, `xlsx-power-clean`, `docx-polish`), guaranteeing invariants `ERR_XLSX_004` (merged-cell safe targeting), `ERR_XLSX_007` (leading-zero string preservation `'@'`), and `ERR_DOCX_002` (run formatting preservation).
+- **Atomic Office Tools Suite**: Programmatic fine-grained inspection and manipulation of Word (.docx) and Excel (.xlsx) at cell/run level via MCP JSON-RPC 2.0 (44 tools) and CLI (`xlsx-set`, `xlsx-insert-rows`, `docx-tokens`, `docx-replace`, `xlsx-power-clean`, `docx-polish`, `docx-style`), guaranteeing invariants `ERR_XLSX_004` (merged-cell safe targeting), `ERR_XLSX_007` (leading-zero string preservation `'@'`), and `ERR_DOCX_002` (run formatting preservation).
 - **DOCX Quick Patch Studio**: Interactive Web Studio sub-tab with real-time **Two-Way Synchronization** between visual input form and JSON code editor, automatic AST token discovery, and one-click template patching.
 - **Word Mastery Toolkit (`core.docx.toolkit`)**: One-click Decree 30/2020/NĐ-CP or Executive document polishing (`polish_docx_document`), `numbering.xml`/`styles.xml` and multi-section header/footer preserving multi-DOCX merge (`merge_docx_files`), Heading-level ZIP splitter with automatic staging cleanup (`split_docx_by_heading`), and VML Watermark + Page X/Y branding.
 - **PDF Pro Studio Suite & ISO PDF/A (17 Tools)**: Complete Stirling-PDF alternative — Merge, Split ZIP, Compress, Watermark, Images $\leftrightarrow$ PDF, 300 DPI Export, Visual Organizer, true byte/pixel redaction (`ERR_PDF_001`), AES-256 permission encryption, $N$-cut overlapping page-spanning stamp (`ERR_PDF_002`), Flatten & Scrub, Table Extract to Excel, rotation-compensated digital signing, AcroForms Inspect/Fill, PKCS#7/PAdES Crypto Sign, and ISO 19005-2 PDF/A archival with embedded sRGB IEC61966-2.1 ICC `/DestOutputProfile` & font audit.
@@ -385,7 +385,7 @@ antigravity-doc-handler/
 ├── server/                                      # Layer 2: Protocol & Service Layer
 │   ├── app.py                                   # Web Studio REST API Server (:8000) & Security Guards
 │   ├── routes/                                  # Modular Routers (xlsx_routes.py, docx_routes.py)
-│   ├── mcp_server.py                            # Model Context Protocol Server (43 Tools, JSON-RPC 2.0)
+│   ├── mcp_server.py                            # Model Context Protocol Server (44 Tools, JSON-RPC 2.0)
 │   ├── job_manager.py                           # Asynchronous SSE Background Task Queue
 │   └── db.py                                    # Zero-Config SQLite History Storage
 ├── cli/                                         # Layer 2: Command-Line Interface Layer

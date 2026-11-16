@@ -109,6 +109,7 @@ class TestMCPServer(unittest.TestCase):
             "docx_merge",
             "docx_split",
             "docx_watermark_hf",
+            "doc_writing_style",
         ]
         self.assertEqual(len(tools), len(expected_tools))
         for forbidden_prefix in ("ba_", "law_", "regulatory_"):
@@ -283,6 +284,39 @@ class TestMCPServer(unittest.TestCase):
         self.assertTrue(data.get("dry_run"))
         self.assertIn("vitals", data)
         self.assertIn("databases_vacuumed", data)
+
+    def test_12_tools_call_doc_writing_style(self):
+        req_list = {
+            "jsonrpc": "2.0",
+            "id": 105,
+            "method": "tools/call",
+            "params": {"name": "doc_writing_style", "arguments": {"action": "list"}},
+        }
+        res_list = handle_rpc_request(req_list)
+        self.assertIsNotNone(res_list)
+        self.assertFalse(res_list["result"]["isError"])
+        data_list = json.loads(res_list["result"]["content"][0]["text"])
+        self.assertEqual(len(data_list["styles"]), 5)
+
+        req_refine = {
+            "jsonrpc": "2.0",
+            "id": 106,
+            "method": "tools/call",
+            "params": {
+                "name": "doc_writing_style",
+                "arguments": {
+                    "action": "refine",
+                    "style_id": "hanh_chinh",
+                    "text": "Tài liệu cái này ko đc thiếu nhé.",
+                },
+            },
+        }
+        res_refine = handle_rpc_request(req_refine)
+        self.assertIsNotNone(res_refine)
+        self.assertFalse(res_refine["result"]["isError"])
+        data_refine = json.loads(res_refine["result"]["content"][0]["text"])
+        self.assertTrue(data_refine["success"])
+        self.assertIn("không được", data_refine["refined_text"])
 
 
 if __name__ == "__main__":

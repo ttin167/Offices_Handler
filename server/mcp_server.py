@@ -1236,14 +1236,23 @@ TOOL_DEFINITIONS = [
     },
     {
         "name": "docx_polish",
-        "description": "Polish Word .docx with Vietnamese Decree 30/2020/ND-CP or Executive presets, OpenXML table guards, typography cleanup, and Page X/Y footer.",
+        "description": "Polish Word .docx with Vietnamese Decree 30/2020/ND-CP or Executive presets, OpenXML table guards, typography cleanup, optional writing style refinement, and Page X/Y footer.",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "input_path": {"type": "string"},
                 "output_path": {"type": "string"},
                 "preset": {"type": "string", "default": "nd30"},
-                "add_page_numbers": {"type": "boolean", "default": True}
+                "add_page_numbers": {"type": "boolean", "default": True},
+                "writing_style": {
+                    "type": "string",
+                    "description": "Optional prose register (hanh_chinh, hoc_thuat, doanh_nghiep, phap_ly, ky_thuat)"
+                },
+                "writing_style_mode": {
+                    "type": "string",
+                    "enum": ["safe", "strict"],
+                    "default": "safe"
+                }
             },
             "required": ["input_path"]
         }
@@ -1287,6 +1296,33 @@ TOOL_DEFINITIONS = [
                 "footer_text": {"type": "string"}
             },
             "required": ["input_path"]
+        }
+    },
+    {
+        "name": "doc_writing_style",
+        "description": "Vietnamese & Enterprise Writing Style Engine (Văn phong / Hành văn): list style registers, analyze prose quality, deterministically refine or Hybrid-AI rewrite text/.docx files, and retrieve standard phrase templates.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["list", "analyze", "refine", "rewrite", "templates", "apply_docx"],
+                    "default": "analyze"
+                },
+                "style_id": {
+                    "type": "string",
+                    "description": "Target prose register: hanh_chinh, hoc_thuat, doanh_nghiep, phap_ly, ky_thuat",
+                    "default": "hanh_chinh"
+                },
+                "text": {"type": "string", "description": "Source plain text or Markdown prose"},
+                "file_path": {"type": "string", "description": "Optional path to .docx, .md, or .txt file"},
+                "output_path": {"type": "string", "description": "Optional destination path for apply_docx"},
+                "mode": {"type": "string", "enum": ["safe", "strict"], "default": "safe"},
+                "doc_type": {"type": "string", "description": "Optional subtype for templates (e.g. cong_van, to_trinh, abstract)"},
+                "use_ai": {"type": "boolean", "default": False},
+                "preserve_quotes": {"type": "boolean", "default": True}
+            },
+            "required": ["action"]
         }
     }
 ]
@@ -2304,6 +2340,8 @@ def execute_docx_polish(args: Dict[str, Any]) -> Dict[str, Any]:
         output_path=args.get("output_path"),
         preset=args.get("preset", "nd30"),
         add_page_numbers=bool(args.get("add_page_numbers", True)),
+        writing_style=args.get("writing_style"),
+        writing_style_mode=args.get("writing_style_mode", "safe"),
     )
 
 
@@ -2334,6 +2372,80 @@ def execute_docx_watermark_hf(args: Dict[str, Any]) -> Dict[str, Any]:
         header_text=args.get("header_text"),
         footer_text=args.get("footer_text"),
     )
+
+
+def execute_doc_writing_style(args: Dict[str, Any]) -> Dict[str, Any]:
+    from core.writing_style import (
+        analyze_docx_writing_style,
+        analyze_writing_style,
+        apply_writing_style_to_docx,
+        get_phrase_templates,
+        list_writing_styles,
+        refine_writing_style,
+        rewrite_with_style,
+    )
+
+    action = str(args.get("action") or "analyze").strip().lower()
+    style_id = str(args.get("style_id") or "hanh_chinh").strip()
+    mode = str(args.get("mode") or "safe").strip().lower()
+    preserve_quotes = bool(args.get("preserve_quotes", True))
+    file_path = args.get("file_path")
+
+    if action == "list":
+        return {"success": True, "styles": list_writing_styles()}
+    if action == "templates":
+        return {"success": True, **get_phrase_templates(style_id=style_id, doc_type=args.get("doc_type"))}
+    if action == "apply_docx":
+        if not file_path:
+            raise ValueError("action='apply_docx' requires 'file_path'.")
+        return apply_writing_style_to_docx(
+            input_path=str(file_path),
+            output_path=args.get("output_path"),
+            style_id=style_id,
+            mode=mode,
+            preserve_quotes=preserve_quotes,
+        )
+
+    if file_path:
+        p_str = str(file_path)
+        if p_str.lower().endswith(".docx"):
+            if action == "analyze":
+                return {"success": True, **analyze_docx_writing_style(p_str, style_id=style_id)}
+            return apply_writing_style_to_docx(
+                input_path=p_str,
+                output_path=args.get("output_path"),
+                style_id=style_id,
+                mode=mode,
+                preserve_quotes=preserve_quotes,
+            )
+        with open(p_str, "r", encoding="utf-8", errors="replace") as f:
+            text_val = f.read()
+    else:
+        text_val = str(args.get("text") or "")
+
+    if not text_val.strip():
+        raise ValueError("Provide 'text' or 'file_path' for writing style analysis/refinement.")
+
+    if action == "analyze":
+        return {"success": True, **analyze_writing_style(text_val, style_id=style_id).to_dict()}
+    if action == "refine":
+        return refine_writing_style(
+            text_val,
+            style_id=style_id,
+            mode=mode,
+            preserve_quotes=preserve_quotes,
+        ).to_dict()
+    if action == "rewrite":
+        return rewrite_with_style(
+            text_val,
+            style_id=style_id,
+            mode=mode,
+            use_ai=bool(args.get("use_ai", False)),
+            document_type=args.get("doc_type"),
+            preserve_quotes=preserve_quotes,
+        ).to_dict()
+
+    raise ValueError(f"Unsupported writing style action: '{action}'")
 
 
 TOOL_DISPATCHER = {
@@ -2386,6 +2498,7 @@ TOOL_DISPATCHER = {
     "docx_merge": execute_docx_merge,
     "docx_split": execute_docx_split,
     "docx_watermark_hf": execute_docx_watermark_hf,
+    "doc_writing_style": execute_doc_writing_style,
 }
 
 

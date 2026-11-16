@@ -41,12 +41,13 @@ Khi nhận tín hiệu `{{ CHECKPOINT N }}` hoặc bắt đầu một phiên là
 | **Office Work & Daily Task Tracker** | `core/xlsx/tracker.py` | `OfficeWorkTracker` |
 | **Excel 57-Formula Playbook** | `core/xlsx/formula_playbook.py` | `FORMULA_CATALOG`, `generate_formula_playbook_xlsx()` |
 | **Word Mastery Toolkit (NĐ30/Merge/Split)** | `core/docx/toolkit.py` | `polish_docx_document()`, `merge_docx_files()`, `split_docx_by_heading()`, `apply_docx_watermark_and_hf()` |
+| **Writing Style & Prose Engine (Văn phong)** | `core/writing_style.py` | `analyze_writing_style()`, `refine_writing_style()`, `rewrite_with_style()`, `get_phrase_templates()`, `apply_writing_style_to_docx()` |
 | **Vietnamese Amount in Words (`vn_words`)** | `core/docx/design_system.py` | `number_to_vietnamese_words()`, `format_token_value()` |
 | **Enterprise Silent Print Spooler** | `core/printing/printer_manager.py` | `PrinterManager.print_document()` |
 | **Universal FTS5 RAG Vault** | `core/copilot/universal_rag.py` | `UniversalRAGEngine` |
 | **Hybrid AI Copilot Assistant** | `core/copilot/copilot_provider.py` | `CopilotOrchestrator` |
 | **7-Pillars Periodic Maintenance** | `core/system_maintenance.py` | `run_periodic_maintenance()` |
-| **Model Context Protocol (43 Tools)** | `server/mcp_server.py` | `TOOL_DEFINITIONS`, `handle_rpc_request()` |
+| **Model Context Protocol (44 Tools)** | `server/mcp_server.py` | `TOOL_DEFINITIONS`, `handle_rpc_request()` |
 | **Modular REST API Routes** | `server/routes/` | `xlsx_routes.py`, `docx_routes.py`, `doc_routes.py`, `print_routes.py`, `copilot_routes.py` |
 | **Unified Terminal CLI Dispatcher** | `ai_tools_cli.py`, `cli/` | `office_power_commands.py`, `v46_commands.py`, `print_commands.py` |
 

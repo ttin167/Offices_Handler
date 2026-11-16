@@ -2,7 +2,7 @@
 
 > **Phiên bản**: 5.0.0 (Pure Office IT Studio — Excel Power Suite, Word NĐ30 & `vn_words`, PDF Pro 17 Tools, AST Offline Formula Engine, Vector Print & Universal FTS5 RAG Copilot)  
 > **Tiêu chuẩn**: Zero-Regression, 100% Backward Compatibility, Strict Layer Isolation, Clean-Room MIT Compliance  
-> **Test Suite**: 418+ Automated Tests (416 passed, 2 skipped; 0 failures) | **MCP Tools**: 43 Tools
+> **Test Suite**: 425+ Automated Tests (423 passed, 2 skipped; 0 failures) | **MCP Tools**: 44 Tools
 
 ---
 
@@ -19,7 +19,7 @@ Hệ thống được tổ chức theo mô hình phân tầng chặt chẽ (Clea
                                             ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
 │                              2. Interface & Protocol Layer                             │
-│   Web REST API (server/app.py :8000)      │ Model Context Protocol (43 Tools)          │
+│   Web REST API (server/app.py :8000)      │ Model Context Protocol (44 Tools)          │
 │   SSE Task Manager (server/job_manager)   │ AI Unified CLI (cli/ai_tools + office+v46) │
 └───────────────────────────────────────────┬────────────────────────────────────────────┘
                                             │
@@ -64,7 +64,7 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
       - Bảng biểu Modern Clean Studio (padding 6pt/8pt, viền mảnh `#E2E8F0`, tự động căn lề theo kiểu dữ liệu cột).
       - Token Formatters động (`{{KEY:VND}}`, `{{KEY:USD}}`, `{{KEY:VN_WORDS}}`, `{{KEY:WORDS_PLAIN}}`, `{{KEY:DATE}}`, `{{KEY:DATE_VN}}`, `{{KEY:UPPER}}`, `{{KEY:LOWER}}`, `{{KEY:TITLE}}`, `{{KEY:INT}}`, `{{KEY:NUM}}`) và bộ chuyển đổi đọc số tiền thành chữ tiếng Việt `number_to_vietnamese_words`.
     - `reader.py` / `writer.py`: Đọc và ghi tài liệu Word OpenXML, duy trì `<w:cantSplit/>`, `<w:tblHeader/>`, `<w:vAlign w:val="center"/>`; hỗ trợ vá hình ảnh động `{{IMAGE:key}}` và ngắt dòng OpenXML `<w:br/>` an toàn trong `patch_docx_template`. Bảo vệ xung đột tệp Windows bằng `safe_save_docx`.
-    - `toolkit.py`: Bộ tiện ích Word Mastery chuẩn hóa văn bản theo Nghị định 30/2020/NĐ-CP & Executive (`polish_docx_document` kèm đánh số trang `Page X/Y` & giới hạn ảnh lề in `ERR_DOCX_005`), ghép nối nhiều tệp Word bảo toàn ảnh/bảng kèm đồng bộ `numbering.xml`/`styles.xml` và header/footer đa section (`merge_docx_files`), tách chương theo Heading ra gói ZIP kèm dọn tạm staging (`split_docx_by_heading`), và đóng dấu chéo VML Watermark + Header/Footer (`apply_docx_watermark_and_hf`).
+    - `toolkit.py`: Bộ tiện ích Word Mastery chuẩn hóa văn bản theo Nghị định 30/2020/NĐ-CP & Executive (`polish_docx_document` hỗ trợ tùy chọn `writing_style`, đánh số trang `Page X/Y` & giới hạn ảnh lề in `ERR_DOCX_005`), ghép nối nhiều tệp Word bảo toàn ảnh/bảng kèm đồng bộ `numbering.xml`/`styles.xml` và header/footer đa section (`merge_docx_files`), tách chương theo Heading ra gói ZIP kèm dọn tạm staging (`split_docx_by_heading`), và đóng dấu chéo VML Watermark + Header/Footer (`apply_docx_watermark_and_hf`).
     - `lists.py`: Động cơ đánh số tự động OpenXML (`numId` động, `startOverride=1`, bullet 3 cấp, checkbox `☐`/`☑`).
     - `math.py`: Kiến trúc toán học Dual-Mode (OpenXML Multi-Run & OMML `<m:oMath>`).
     - `diff_engine.py`: So sánh tài liệu pháp lý và AI Track Changes (`<w:ins>`, `<w:del>`, `<w:delText>`, `word/comments.xml`).
@@ -107,6 +107,7 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
   - `core/pipeline/`:
     - `engine.py`: Động cơ đường ống công việc khai báo đa bước (`WorkflowPipeline`, `run_pipeline`, `run_bulk_directory_pipeline`) tuân thủ `ERR_PIPE_001` (giới hạn `MAX_JOB_WORKERS=2` kiểm soát RAM máy trạm và dọn sạch 100% tệp trung gian `step_*_temp.*` trong khối `try...finally`).
   - `core/env_doctor.py`: Tự động quét kiểm tra môi trường (Python, gói lõi gồm `numpy`, gói tùy chọn `security`/`legacy-xls`/`xlwings`, Office Word/Excel/PowerPoint COM, LibreOffice, Tesseract, Chromium, PlantUML) và xuất báo cáo JSON / Terminal kèm mã lệnh khắc phục 1-click.
+  - `core/writing_style.py`: Động cơ Phân tích & Chuẩn hóa Văn phong / Hành văn Tiếng Việt (`WRITING_STYLE_REGISTRY` 5 ngữ vực chuẩn: `hanh_chinh`, `hoc_thuat`, `doanh_nghiep`, `phap_ly`, `ky_thuat`; phân tích câu dài/lặp từ/khẩu ngữ/mơ hồ `analyze_writing_style`; chuẩn hóa xác định ngoại tuyến bảo vệ `{{TOKEN}}`/code/URL/ngoặc kép `refine_writing_style`; bộ mẫu câu chuẩn `get_phrase_templates`; biên tập Hybrid AI có fallback ngoại tuyến `rewrite_with_style`; và chỉnh sửa `.docx` bảo toàn run `ERR_DOCX_002` qua `apply_writing_style_to_docx`).
   - `core/diagrams/`:
     - `bridge.py`: Điều phối sơ đồ thống nhất đa engine (Canvas, PlantUML, Mermaid, Draw.io mxGraph).
     - `mxgraph.py`: Bộ sinh sơ đồ cấu trúc Draw.io XML native (`MX_INV_01`..`20`) và tự động nhúng vào `.docx` / `.pptx`.
@@ -117,11 +118,12 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
 ### 2.2. `server/` — Tầng Giao Thức & Cung Cấp Dịch Vụ (Web API, MCP, SSE)
 
 - `app.py`: REST API Server nhẹ nhàng dựa trên `http.server`, phục vụ Web Studio cổng `8000`. Cung cấp endpoints cho conversion, history, mail merge, ocr, diff, math, static assets, trọn bộ 17 công cụ PDF Pro Endpoints, Atomic Office Endpoints, Formula Playbook Endpoints, trọn bộ Enterprise Printing Endpoints (`/api/print/printers`, `/api/print/status`, `/api/print/job`), và System Maintenance Endpoints (`/api/system/maintenance`, `/api/system/vitals`).
-- `mcp_server.py`: Model Context Protocol Server (STDIO JSON-RPC 2.0) tương thích với Claude Desktop, Cursor, và Antigravity IDE. Đăng ký **43 tools** chuẩn:
+- `mcp_server.py`: Model Context Protocol Server (STDIO JSON-RPC 2.0) tương thích với Claude Desktop, Cursor, và Antigravity IDE. Đăng ký **44 tools** chuẩn:
   - Macro Tools (11): `env_doctor`, `doc_convert`, `doc_inspect`, `doc_insert_diagram`, `diagram_render`, `pptx_synthesize`, `docx_apply_preset`, `doc_mail_merge`, `doc_redline_diff`, `doc_ocr_scan`, `pdf_quick_tools`.
   - Atomic Office Tools (8): `xlsx_set_cell`, `xlsx_set_range`, `xlsx_insert_rows`, `xlsx_find_anchor`, `docx_inspect_placeholders`, `docx_replace_text`, `docx_insert_paragraph`, `docx_insert_table`.
   - Excel Power Suite & Diff Tools (6): `xlsx_power_clean`, `xlsx_transform_columns`, `xlsx_pivot_chart`, `xlsx_xlookup_join`, `xlsx_split_by_column`, `xlsx_diff_visual`.
   - Word Mastery Toolkit Tools (4): `docx_polish`, `docx_merge`, `docx_split`, `docx_watermark_hf`.
+  - Writing Style & Prose Engine Tool (1): `doc_writing_style` (`list`, `analyze`, `refine`, `rewrite`, `templates`, `apply_docx`).
   - Formula Playbook & Offline AST Evaluator Tools (2): `xlsx_formula_helper`, `xlsx_evaluate_formulas`.
   - Document Security Tool (1): `doc_security_audit`.
   - Enterprise Omni-Pipeline & Reporting Tools (5): `pdf_crypto_sign_and_pdfa`, `xlsx_to_brief_report`, `xlsx_consolidate_workbooks`, `doc_run_pipeline`, `diagram_from_code`.
@@ -142,7 +144,7 @@ Tầng này chứa 100% logic thuật toán xử lý dữ liệu và tạo lập
 - `md-toc`: Tạo, xem trước và tự động đồng bộ hóa mục lục tương tác trực tiếp trong tệp Markdown.
 - `docx-read`, `docx-write`, `docx-inject`, `docx-patch`, `docx-diff`: Quản lý tài liệu Word.
 - `docx-tokens`, `docx-replace`: Atomic Word CLI tools (quét biến & thay thế text bảo tồn OpenXML run).
-- `docx-polish`, `docx-merge`, `docx-split`, `docx-watermark`: Word Mastery CLI tools (chuẩn NĐ 30/2020, ghép/tách theo heading ZIP, đóng dấu Watermark + Header/Footer).
+- `docx-polish`, `docx-merge`, `docx-split`, `docx-watermark`, `docx-style`: Word Mastery & Writing Style CLI tools (chuẩn NĐ 30/2020, ghép/tách theo heading ZIP, đóng dấu Watermark + Header/Footer, phân tích/chuẩn hóa văn phong 5 ngữ vực & mẫu câu hành văn).
 - `xlsx-set`, `xlsx-insert-rows`, `xlsx-eval`: Atomic Excel CLI tools (sửa ô hợp nhất, mở rộng dòng kèm dịch công thức, và giải công thức AST ngoại tuyến nạp thẻ `<v>`).
 - `xlsx-power-clean`, `xlsx-transform-cols`, `xlsx-pivot-chart`, `xlsx-xlookup-join`, `xlsx-split-col`, `xlsx-diff`, `xlsx-track`: Excel Power Suite & Work Tracker CLI tools (`cli/office_power_commands.py`).
 - `xlsx-formulas`: Cẩm nang tra cứu và xuất Excel Formula Playbook 57+ công thức.

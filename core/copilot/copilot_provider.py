@@ -70,7 +70,8 @@ class CopilotResponse:
 
 SYSTEM_COPILOT_PROMPT = (
     "Bạn là Antigravity AI Copilot — Trợ lý chuyên gia Tin học Văn phòng cho Antigravity Office Suite. "
-    "Bạn hỗ trợ người dùng chuẩn hóa Word theo Nghị định 30/2020/NĐ-CP & trộn thư Mail Merge ({{SoTien:vn_words}}), "
+    "Bạn hỗ trợ người dùng chuẩn hóa Word theo Nghị định 30/2020/NĐ-CP, biên tập văn phong & hành văn tiếng Việt "
+    "(Hành chính, Học thuật, Doanh nghiệp, Pháp lý, Kỹ thuật) & trộn thư Mail Merge ({{SoTien:vn_words}}), "
     "xử lý dữ liệu Excel (làm sạch tên/SĐT/CCCD, khử trùng lặp, Pivot + biểu đồ, nối file XLOOKUP, 57 công thức & AST Evaluator), "
     "xử lý PDF Pro (17 công cụ: ghép/tách, nén, đóng dấu giáp lai, ký số PAdES/PKCS#7, PDF/A-2b), "
     "tổng hợp PowerPoint 16:9 và chế bản in ấn công nghiệp (Vector Grayscale, Booklet Creep). "
@@ -104,6 +105,18 @@ def infer_action_cards(prompt: str, context_chunks: Optional[List[Dict[str, Any]
                 command_type="switch_tab",
                 payload={"tab": "documents", "subtab": "mailmerge", "tool_id": "word-mail-merge"},
                 badge="Mail Merge",
+            )
+        )
+
+    if any(k in q for k in ("văn phong", "hành văn", "diễn đạt", "câu chữ", "chỉnh văn", "viết lại văn", "writing style")):
+        cards.append(
+            CopilotActionCard(
+                action_id="act_writing_style",
+                title="Chuẩn hóa Văn phong & Hành văn (Word Studio)",
+                description="Phân tích và biên tập câu chữ theo 5 ngữ vực chuẩn (Hành chính NĐ30, Học thuật, Doanh nghiệp, Pháp lý, Kỹ thuật).",
+                command_type="switch_tab",
+                payload={"tab": "documents", "subtab": "wordstudio", "tool_id": "word-polish"},
+                badge="Văn phong",
             )
         )
 
@@ -589,6 +602,32 @@ class CopilotOrchestrator:
             context_chunks=chunks,
             system_prompt=system_prompt,
         )
+
+    def rewrite_style(
+        self,
+        text: str,
+        style_id: str = "hanh_chinh",
+        mode: Optional[str] = None,
+        refine_mode: str = "safe",
+        use_ai: bool = True,
+        document_type: Optional[str] = None,
+        instructions: Optional[str] = None,
+        context_chunks: Optional[List[Dict[str, Any]]] = None,
+    ) -> Dict[str, Any]:
+        """Rewrite prose in a target writing style using Hybrid AI with deterministic offline fallback."""
+        from core.writing_style import rewrite_with_style
+
+        res = rewrite_with_style(
+            text=text,
+            style_id=style_id,
+            mode=refine_mode,
+            use_ai=use_ai,
+            copilot_mode=mode or self.default_mode,
+            document_type=document_type,
+            instructions=instructions,
+            context_chunks=context_chunks,
+        )
+        return res.to_dict()
 
     def status(self) -> Dict[str, Any]:
         return {

@@ -54,6 +54,7 @@ Welcome, AI Agent! This file is your operational manual for `antigravity-doc-han
 | **Office Work & Daily Task Tracker** | Tracking Workbooks | (via REST API `/api/xlsx/tracker/*`) | `ai_tools_cli.py xlsx-track` | `core/xlsx/tracker.py` (`OfficeWorkTracker`) |
 | **Excel 57-Formula Playbook & Demo** | Formula Catalog | `xlsx_formula_helper(...)` | `ai_tools_cli.py xlsx-formulas` | `core/xlsx/formula_playbook.py` (`FORMULA_CATALOG`) |
 | **Word Mastery Polish (NĐ30 & Page X/Y)** | DOCX Document | `docx_polish(...)` | `ai_tools_cli.py docx-polish` | `core/docx/toolkit.py` (`polish_docx_document`) |
+| **Writing Style & Prose Engine (Văn phong)** | Text / MD / DOCX | `doc_writing_style(...)` | `ai_tools_cli.py docx-style` | `core/writing_style.py` (`analyze_writing_style`, `refine_writing_style`, `rewrite_with_style`, `apply_writing_style_to_docx`) |
 | **Word Multi-File Merge & Media Remap** | Multiple DOCX | `docx_merge(...)` | `ai_tools_cli.py docx-merge` | `core/docx/toolkit.py` (`merge_docx_files`) |
 | **Word Split by Heading Level (.zip)** | DOCX Document | `docx_split(...)` | `ai_tools_cli.py docx-split` | `core/docx/toolkit.py` (`split_docx_by_heading`) |
 | **Word Watermark & Header/Footer Brand** | DOCX + Text | `docx_watermark_hf(...)` | `ai_tools_cli.py docx-watermark` | `core/docx/toolkit.py` (`apply_docx_watermark_and_hf`) |
@@ -139,7 +140,8 @@ When user requests you to perform document tasks or draw diagrams, run these com
 | **Excel Visual Cell Diff** | `python ai_tools_cli.py xlsx-diff <v1.xlsx> <v2.xlsx> -o diff.xlsx` |
 | **Office Work & Daily Task Tracker** | `python ai_tools_cli.py xlsx-track {init,add,list,sync-daily,inspect}` |
 | **Excel 57-Formula Playbook** | `python ai_tools_cli.py xlsx-formulas [--category lookup] [--export playbook.xlsx]` |
-| **Word NĐ 30/2020 Polish & Page X/Y** | `python ai_tools_cli.py docx-polish <doc.docx> --preset nd30` |
+| **Word NĐ 30/2020 Polish & Page X/Y** | `python ai_tools_cli.py docx-polish <doc.docx> --preset nd30 [--writing-style hanh_chinh]` |
+| **Writing Style & Prose Refine** | `python ai_tools_cli.py docx-style {list,analyze,refine,templates} --style hanh_chinh [--file doc.docx \| --text "..."]` |
 | **Word Multi-File Merge** | `python ai_tools_cli.py docx-merge <doc1.docx> <doc2.docx> -o merged.docx` |
 | **Word Split by Heading Level (.zip)** | `python ai_tools_cli.py docx-split <doc.docx> --level 1 -o chapters.zip` |
 | **Word Watermark & Header/Footer Brand** | `python ai_tools_cli.py docx-watermark <doc.docx> --text "CONFIDENTIAL" --header "Company"` |
@@ -170,8 +172,9 @@ antigravity-doc-handler/
 │   ├── copilot/                # Universal FTS5 RAG Vault & Hybrid AI Copilot
 │   ├── printing/               # Enterprise Printing Engine (Vector /DeviceGray, Booklet Creep, DEVMODE Guard G2)
 │   ├── env_doctor.py           # 12-Component Environment Health Doctor
+│   ├── writing_style.py        # 5-Register Vietnamese & Enterprise Prose / Writing Style Engine
 │   └── system_maintenance.py   # 7-Pillar Enterprise System Maintenance & MPO Guard
-├── server/                     # Layer 2: Web Studio REST API (:8000), Modular Routes, MCP Server (43 Tools), Persistent WAL Queue
+├── server/                     # Layer 2: Web Studio REST API (:8000), Modular Routes, MCP Server (44 Tools), Persistent WAL Queue
 ├── cli/                        # Layer 2: Unified AI CLI Dispatcher & Subcommands
 ├── ui/                         # Layer 1: Desktop GUI (Tkinter) & Native WebView App Launcher
 ├── src/                        # Layer 1: Vite ES6 Web Studio Frontend & Modular Controllers

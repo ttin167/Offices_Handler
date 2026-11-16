@@ -190,10 +190,74 @@ def cmd_docx_polish(args: argparse.Namespace) -> int:
             add_page_numbers=not args.no_page_numbers,
             sanitize_typography=not args.no_typo,
             fix_tables=not args.no_fix_tables,
+            writing_style=getattr(args, "writing_style", None),
+            writing_style_mode=getattr(args, "writing_style_mode", "safe"),
         )
         return _print_result(res, args.json)
     except Exception as exc:
         print(f"[ERROR] docx-polish failed: {exc}", file=sys.stderr)
+        return 2
+
+
+def cmd_docx_style(args: argparse.Namespace) -> int:
+    from core.writing_style import (
+        analyze_docx_writing_style,
+        analyze_writing_style,
+        apply_writing_style_to_docx,
+        get_phrase_templates,
+        list_writing_styles,
+        rewrite_with_style,
+    )
+
+    try:
+        action = args.action
+        if action == "list":
+            return _print_result({"styles": list_writing_styles()}, args.json)
+        if action == "templates":
+            res = get_phrase_templates(style_id=args.style, doc_type=args.doc_type)
+            return _print_result(res, args.json)
+
+        if args.file:
+            if args.file.lower().endswith(".docx"):
+                if action == "analyze":
+                    res = analyze_docx_writing_style(args.file, style_id=args.style)
+                else:
+                    res = apply_writing_style_to_docx(
+                        input_path=args.file,
+                        output_path=args.output,
+                        style_id=args.style,
+                        mode=args.mode,
+                        preserve_quotes=not args.no_preserve_quotes,
+                    )
+                return _print_result(res, args.json)
+            with open(args.file, "r", encoding="utf-8", errors="replace") as f:
+                src_text = f.read()
+        else:
+            src_text = args.text or ""
+
+        if not src_text.strip():
+            raise ValueError("Provide --text or --file for writing-style analysis/refinement.")
+
+        if action == "analyze":
+            res = analyze_writing_style(src_text, style_id=args.style).to_dict()
+            return _print_result(res, args.json)
+
+        res_obj = rewrite_with_style(
+            text=src_text,
+            style_id=args.style,
+            mode=args.mode,
+            use_ai=args.ai,
+            document_type=args.doc_type,
+            preserve_quotes=not args.no_preserve_quotes,
+        )
+        res = res_obj.to_dict()
+        if args.output and res_obj.refined_text:
+            with open(args.output, "w", encoding="utf-8") as f:
+                f.write(res_obj.refined_text)
+            res["output_path"] = args.output
+        return _print_result(res, args.json)
+    except Exception as exc:
+        print(f"[ERROR] docx-style failed: {exc}", file=sys.stderr)
         return 2
 
 
@@ -337,11 +401,26 @@ def register_office_power_subcommands(sub: argparse._SubParsersAction) -> None:
     p_dpol.add_argument("file")
     p_dpol.add_argument("-o", "--output", default=None)
     p_dpol.add_argument("--preset", default="nd30")
+    p_dpol.add_argument("--writing-style", default=None, help="Optional prose register (hanh_chinh, hoc_thuat, doanh_nghiep, phap_ly, ky_thuat)")
+    p_dpol.add_argument("--writing-style-mode", default="safe", choices=["safe", "strict"])
     p_dpol.add_argument("--no-page-numbers", action="store_true")
     p_dpol.add_argument("--no-typo", action="store_true")
     p_dpol.add_argument("--no-fix-tables", action="store_true")
     p_dpol.add_argument("--json", action="store_true")
     p_dpol.set_defaults(func=cmd_docx_polish)
+
+    p_dst = sub.add_parser("docx-style", help="Analyze or refine Vietnamese/enterprise prose writing style (Văn phong / Hành văn)")
+    p_dst.add_argument("action", choices=["list", "analyze", "refine", "templates"])
+    p_dst.add_argument("--file", default=None, help="Input .docx, .md, or .txt file")
+    p_dst.add_argument("--text", default=None, help="Inline text to analyze or refine")
+    p_dst.add_argument("--style", default="hanh_chinh", help="Target style (hanh_chinh, hoc_thuat, doanh_nghiep, phap_ly, ky_thuat)")
+    p_dst.add_argument("--mode", default="safe", choices=["safe", "strict"])
+    p_dst.add_argument("--doc-type", default=None, help="Subtype for phrase templates (e.g. cong_van, to_trinh, abstract)")
+    p_dst.add_argument("--ai", action="store_true", help="Enable Hybrid AI Copilot rewriting with offline fallback")
+    p_dst.add_argument("--no-preserve-quotes", action="store_true")
+    p_dst.add_argument("-o", "--output", default=None)
+    p_dst.add_argument("--json", action="store_true")
+    p_dst.set_defaults(func=cmd_docx_style)
 
     p_dmrg = sub.add_parser("docx-merge", help="Merge multiple Word .docx files preserving media and tables")
     p_dmrg.add_argument("files", nargs="+")

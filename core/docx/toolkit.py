@@ -306,12 +306,15 @@ def polish_docx_document(
     fix_tables: bool = True,
     normalize_captions: bool = False,
     admin_header: Optional[Dict[str, str]] = None,
+    writing_style: Optional[str] = None,
+    writing_style_mode: str = "safe",
 ) -> Dict[str, Any]:
     """
     Apply full Vietnamese administrative / executive Word formatting & OpenXML cleanup:
     - Apply preset (`nd30`, `nd30_report`, `modern_report`) via `core.docx.presets`.
     - Optionally prepend Vietnamese Decree 30/2020/NĐ-CP administrative header block.
     - Clean quotes, dashes, emojis, enforce cantSplit/tblHeader/trailing <w:p>, clamp images.
+    - Optionally apply deterministic prose/writing-style normalization (`writing_style`).
     - Inject bottom-right / bottom-center dynamic `Trang X / Y` footer numbering.
     """
     src = Path(input_path)
@@ -340,6 +343,16 @@ def polish_docx_document(
         typo_changes = sanitize_vietnamese_typography(doc)
         emoji_changes = sanitize_emojis_and_symbols(doc)
 
+    writing_style_report: Optional[Dict[str, Any]] = None
+    if writing_style and str(writing_style).strip():
+        from core.writing_style import apply_writing_style_to_document
+
+        writing_style_report = apply_writing_style_to_document(
+            doc,
+            style_id=str(writing_style).strip(),
+            mode=writing_style_mode,
+        )
+
     captions_formatted = 0
     if normalize_captions:
         captions_formatted = format_figure_captions(doc)
@@ -352,7 +365,7 @@ def polish_docx_document(
         inject_dynamic_page_numbers(doc)
 
     saved_path = safe_save_docx(doc, str(dst))
-    return {
+    res: Dict[str, Any] = {
         "ok": True,
         "input_path": str(src),
         "output_path": saved_path,
@@ -363,6 +376,9 @@ def polish_docx_document(
         "page_numbers_added": add_page_numbers,
         **inv_stats,
     }
+    if writing_style_report is not None:
+        res["writing_style_report"] = writing_style_report
+    return res
 
 
 def _extract_style_num_ids(doc_obj: docx.Document) -> Dict[str, str]:
