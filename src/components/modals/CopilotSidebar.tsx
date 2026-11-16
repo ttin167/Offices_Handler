@@ -32,20 +32,88 @@ interface ChatMessage {
   actions?: CopilotActionCard[];
 }
 
+const VALID_TOOL_IDS: ReadonlySet<string> = new Set<ToolId>([
+  'home',
+  'word-polish',
+  'word-merge-split',
+  'word-mail-merge',
+  'word-quick-patch',
+  'word-diff',
+  'pdf-pro',
+  'excel-power',
+  'excel-reporting',
+  'excel-tracker',
+  'excel-formulas',
+  'excel-template',
+  'convert-universal',
+  'ocr-vietnamese',
+  'qa-security',
+  'presentation-studio',
+  'diagram-studio',
+]);
+
 const ACTION_TOOL_MAP: Record<string, ToolId> = {
   word_polish: 'word-polish',
   docx_polish: 'word-polish',
+  word_merge_split: 'word-merge-split',
+  mail_merge: 'word-mail-merge',
   pdf_pro: 'pdf-pro',
   excel_power: 'excel-power',
+  excel_tracker: 'excel-tracker',
+  excel_formulas: 'excel-formulas',
+  excel_template: 'excel-template',
+  excel_reporting: 'excel-reporting',
   convert: 'convert-universal',
+  open_viewer: 'convert-universal',
   ocr: 'ocr-vietnamese',
   qa_audit: 'qa-security',
   pptx: 'presentation-studio',
   diagram: 'diagram-studio',
 };
 
+const SUBTAB_TOOL_MAP: Record<string, ToolId> = {
+  mailmerge: 'word-mail-merge',
+  wordstudio: 'word-polish',
+  wordmergesplit: 'word-merge-split',
+  pdftools: 'pdf-pro',
+  powertools: 'excel-power',
+  tracker: 'excel-tracker',
+  validator: 'excel-formulas',
+  qa: 'qa-security',
+  ocr: 'ocr-vietnamese',
+  convert: 'convert-universal',
+  pptx: 'presentation-studio',
+};
+
+function resolveActionNavigation(
+  card: CopilotActionCard
+): { kind: 'modal'; modal: 'print' } | { kind: 'tool'; toolId: ToolId } {
+  const payload = (card.payload ?? {}) as Record<string, unknown>;
+  const target = typeof payload.target === 'string' ? payload.target : '';
+  const modal = typeof payload.modal === 'string' ? payload.modal : '';
+  if (card.command_type === 'open_modal' && (modal === 'print' || target === 'modal-print')) {
+    return { kind: 'modal', modal: 'print' };
+  }
+
+  const rawToolId = typeof payload.tool_id === 'string' ? payload.tool_id : '';
+  if (rawToolId && VALID_TOOL_IDS.has(rawToolId)) {
+    return { kind: 'tool', toolId: rawToolId as ToolId };
+  }
+
+  const rawSubtab = typeof payload.subtab === 'string' ? payload.subtab.toLowerCase() : '';
+  if (rawSubtab && rawSubtab in SUBTAB_TOOL_MAP) {
+    return { kind: 'tool', toolId: SUBTAB_TOOL_MAP[rawSubtab] };
+  }
+
+  if (card.command_type in ACTION_TOOL_MAP) {
+    return { kind: 'tool', toolId: ACTION_TOOL_MAP[card.command_type] };
+  }
+
+  return { kind: 'tool', toolId: 'home' };
+}
+
 export function CopilotSidebar() {
-  const { copilotOpen, setCopilotOpen, navigateToTool } = useWorkspace();
+  const { copilotOpen, setCopilotOpen, navigateToTool, openPrintModal } = useWorkspace();
   const { sessionFiles } = useSessionFiles();
   const toast = useToast();
 
@@ -134,10 +202,20 @@ export function CopilotSidebar() {
   const localOnlyEnforced = status?.copilot?.local_only_enforced !== false;
 
   const handleActionClick = (card: CopilotActionCard) => {
-    const mappedTool = ACTION_TOOL_MAP[card.command_type] || 'home';
+    const target = resolveActionNavigation(card);
     setCopilotOpen(false);
-    navigateToTool(mappedTool);
-    toast.info(`Đã chuyển tới: ${card.title}`);
+    if (target.kind === 'modal' && target.modal === 'print') {
+      const candidate = ragFile || sessionFiles[0] || null;
+      openPrintModal(
+        candidate ? { filePath: candidate.filePath, filename: candidate.filename } : null
+      );
+      toast.info(`Đã mở Trạm In: ${card.title}`);
+      return;
+    }
+    if (target.kind === 'tool') {
+      navigateToTool(target.toolId);
+      toast.info(`Đã chuyển tới: ${card.title}`);
+    }
   };
 
   return (

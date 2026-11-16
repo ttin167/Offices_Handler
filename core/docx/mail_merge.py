@@ -10,6 +10,7 @@ Capabilities:
 
 from __future__ import annotations
 
+import ast
 import copy
 import csv
 import datetime
@@ -118,8 +119,10 @@ def inspect_template_tokens(template_path: str) -> Dict[str, Any]:
     # Discover conditionals
     conditionals = [m.group(1).strip() for m in CONDITIONAL_FULL_REGEX.finditer(combined_text)]
 
-    # Discover blocks
+    # Discover blocks ({{BLOCK:id}}) and nested repeating table blocks ({{#TABLE:key}} / {{#ROWS:key}})
     blocks = BLOCK_REGEX.findall(combined_text)
+    nested_table_re = re.compile(r"\{\{#(?:TABLE|ROWS)?:?\s*([A-Za-z0-9_\.\-]+)\}\}", re.IGNORECASE)
+    nested_tables = nested_table_re.findall(combined_text)
 
     return {
         "template_file": os.path.basename(template_path),
@@ -127,8 +130,33 @@ def inspect_template_tokens(template_path: str) -> Dict[str, Any]:
         "formatted_tokens": formatted_tokens,
         "conditionals": list(dict.fromkeys(conditionals)),
         "blocks": sorted(list(set(blocks))),
+        "nested_tables": sorted(list(set(nested_tables))),
         "total_unique_tokens": len(clean_vars),
     }
+
+
+def _parse_membership_items(raw_rhs: str) -> Optional[List[str]]:
+    """
+    Parse list/tuple literal RHS for `in` membership expressions such as
+    `['Admin', 'Manager']` or `("A", "B")`. Returns None if RHS is not a sequence literal.
+    """
+    trimmed = raw_rhs.strip()
+    if not (
+        (trimmed.startswith("[") and trimmed.endswith("]"))
+        or (trimmed.startswith("(") and trimmed.endswith(")"))
+    ):
+        return None
+    try:
+        parsed = ast.literal_eval(trimmed)
+        if isinstance(parsed, (list, tuple, set)):
+            return [str(x).strip() for x in parsed]
+    except Exception:
+        pass
+
+    inner = trimmed[1:-1].strip()
+    if not inner:
+        return []
+    return [part.strip().strip("'\"") for part in inner.split(",") if part.strip()]
 
 
 def evaluate_condition(condition_str: str, record: Dict[str, Any]) -> bool:
@@ -156,7 +184,6 @@ def evaluate_condition(condition_str: str, record: Dict[str, Any]) -> bool:
         if op in cond:
             left_part, right_part = cond.split(op, 1)
             left_key = left_part.strip().strip("'\"")
-            right_val_raw = right_part.strip().strip("'\"")
 
             # Extract left value from record (case-insensitive fallback)
             left_val = record.get(left_key)
@@ -165,6 +192,16 @@ def evaluate_condition(condition_str: str, record: Dict[str, Any]) -> bool:
                     if k.lower() == left_key.lower():
                         left_val = v
                         break
+
+            if op == " in ":
+                items = _parse_membership_items(right_part)
+                s_left = str(left_val if left_val is not None else "").strip()
+                if items is not None:
+                    return s_left in items
+                rhs_scalar = right_part.strip().strip("'\"")
+                return bool(s_left) and (s_left in rhs_scalar)
+
+            right_val_raw = right_part.strip().strip("'\"")
 
             # Handle type coercion for numeric comparison
             try:
@@ -558,12 +595,19 @@ def execute_mail_merge(
         # 3. Open fresh copy of template
         doc = Document(t_path)
 
-        # 4. Resolve conditional logic in paragraphs
+        # 4. Resolve conditional logic in paragraphs while preserving run formatting
         def _resolve_paragraph_conditionals(p):
-            if "{{IF:" in p.text and "{{ENDIF}}" in p.text:
-                new_text = resolve_conditional_text(p.text, record)
-                if new_text != p.text:
-                    p.text = new_text
+            p_text = p.text
+            if "{{IF:" not in p_text or "{{ENDIF}}" not in p_text:
+                return
+            for m in list(CONDITIONAL_FULL_REGEX.finditer(p_text)):
+                block_raw = m.group(0)
+                evaluated = resolve_conditional_text(block_raw, record)
+                if evaluated != block_raw and block_raw in p.text:
+                    replaced = _replace_text_in_paragraph(p, {block_raw: evaluated})
+                    if replaced == 0:
+                        p.text = resolve_conditional_text(p.text, record)
+                        break
 
         for p in doc.paragraphs:
             _resolve_paragraph_conditionals(p)

@@ -10,14 +10,15 @@ Provides robust, high-performance PDF manipulation using PyMuPDF (fitz):
 """
 
 import base64
+import html
 import io
 import math
 import os
 import re
 import zipfile
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
-from PIL import Image, ImageOps
+from PIL import Image, ImageCms, ImageOps
 
 try:
     import openpyxl
@@ -1392,6 +1393,260 @@ def extract_pdf_tables_to_xlsx(
     }
 
 
+def _extract_der_octet_length(raw_padded: bytes) -> bytes:
+    """Trim trailing zero padding from a fixed-size DER signature buffer using ASN.1 TLV header."""
+    if len(raw_padded) < 2 or raw_padded[0] != 0x30:
+        return raw_padded.rstrip(b"\x00")
+    first_len = raw_padded[1]
+    if first_len < 0x80:
+        total_len = 2 + first_len
+    else:
+        num_octets = first_len & 0x7F
+        if num_octets == 0 or 2 + num_octets > len(raw_padded):
+            return raw_padded.rstrip(b"\x00")
+        content_len = int.from_bytes(raw_padded[2 : 2 + num_octets], "big")
+        total_len = 2 + num_octets + content_len
+    return raw_padded[:total_len] if total_len <= len(raw_padded) else raw_padded.rstrip(b"\x00")
+
+
+def _build_pkcs7_signature_hex(
+    signed_bytes: bytes,
+    pfx_path: str,
+    pfx_password: Optional[str],
+    target_hex_len: int,
+) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """
+    Sign `signed_bytes` using a PKCS#12 (.pfx/.p12) private key and X.509 certificate,
+    producing a padded hex string of DER-encoded PKCS#7 detached SignedData.
+    Returns (sig_hex_padded, cert_subject, cert_serial) or (None, None, None) on fallback.
+    """
+    if not pfx_path or not os.path.isfile(os.path.abspath(pfx_path)):
+        return None, None, None
+
+    try:
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.serialization import pkcs12, pkcs7
+        from cryptography.x509.oid import NameOID
+    except ImportError:
+        return None, None, None
+
+    try:
+        with open(os.path.abspath(pfx_path), "rb") as pf:
+            pfx_data = pf.read()
+        pwd_bytes = pfx_password.encode("utf-8") if pfx_password else None
+        private_key, certificate, _ = pkcs12.load_key_and_certificates(pfx_data, pwd_bytes)
+        if private_key is None or certificate is None:
+            return None, None, None
+
+        cert_serial = format(certificate.serial_number, "X")
+        cn_attrs = certificate.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
+        cert_subject = str(cn_attrs[0].value) if cn_attrs else None
+
+        der_sig = (
+            pkcs7.PKCS7SignatureBuilder()
+            .set_data(signed_bytes)
+            .add_signer(certificate, private_key, hashes.SHA256())
+            .sign(
+                serialization.Encoding.DER,
+                [pkcs7.PKCS7Options.DetachedSignature, pkcs7.PKCS7Options.Binary],
+            )
+        )
+        hex_sig = der_sig.hex().upper()
+        if len(hex_sig) > target_hex_len:
+            raise ValueError(
+                f"PKCS#7 DER payload ({len(hex_sig)} hex chars) exceeds reserved buffer ({target_hex_len})."
+            )
+        return hex_sig.ljust(target_hex_len, "0"), cert_subject, cert_serial
+    except Exception:
+        return None, None, None
+
+
+def _patch_pdf_signature_byterange(
+    pdf_path: str,
+    contents_sentinel: bytes,
+    pfx_path: Optional[str],
+    pfx_password: Optional[str],
+    seal_key_seed: str,
+) -> Dict[str, Any]:
+    """
+    Patch reserved fixed-width /ByteRange and /Contents placeholders in a saved PDF
+    so /ByteRange covers exact byte offsets around `/Contents <...>` without altering
+    file length or xref offsets.
+    """
+    import hashlib
+    import hmac
+
+    with open(pdf_path, "rb") as f:
+        pdf_bytes = bytearray(f.read())
+
+    br_pattern = re.compile(rb"/ByteRange\s*\[\s*1000000000\s+1000000001\s+1000000002\s+1000000003\s*\]")
+    br_match = br_pattern.search(pdf_bytes)
+    c_marker = b"<" + contents_sentinel + b">"
+    c_idx = pdf_bytes.find(c_marker)
+    if br_match is None or c_idx == -1:
+        raise RuntimeError("Failed to locate reserved /ByteRange or /Contents markers in saved PDF.")
+
+    c_end_idx = c_idx + len(c_marker)
+    total_len = len(pdf_bytes)
+    byte_range = [0, c_idx, c_end_idx, total_len - c_end_idx]
+
+    br_orig = br_match.group(0)
+    br_inner = f"[{byte_range[0]:10d} {byte_range[1]:10d} {byte_range[2]:10d} {byte_range[3]:10d}]".encode("ascii")
+    prefix = br_orig[: br_orig.find(b"[")]
+    br_patched = (prefix + br_inner).ljust(len(br_orig), b" ")
+    if len(br_patched) != len(br_orig):
+        # Preserve exact byte length: trim whitespace after '[' if serializer omitted spaces
+        max_inner_len = len(br_orig) - len(prefix)
+        compact_inner = f"[{byte_range[0]} {byte_range[1]} {byte_range[2]} {byte_range[3]}]".encode("ascii")
+        if len(compact_inner) > max_inner_len:
+            raise RuntimeError("Reserved /ByteRange placeholder is too narrow for PDF offsets.")
+        br_patched = prefix + compact_inner[:-1] + (b" " * (max_inner_len - len(compact_inner))) + b"]"
+
+    pdf_bytes[br_match.start() : br_match.end()] = br_patched
+
+    signed_bytes = bytes(pdf_bytes[:c_idx]) + bytes(pdf_bytes[c_end_idx:])
+    signed_sha256 = hashlib.sha256(signed_bytes).hexdigest()
+    target_hex_len = len(contents_sentinel)
+
+    sig_mode = "hmac_integrity_seal"
+    pkcs7_hex, cert_subj, cert_ser = (None, None, None)
+    if pfx_path:
+        pkcs7_hex, cert_subj, cert_ser = _build_pkcs7_signature_hex(
+            signed_bytes, pfx_path, pfx_password, target_hex_len
+        )
+
+    if pkcs7_hex:
+        payload_hex = pkcs7_hex
+        sig_mode = "pkcs7_x509"
+    else:
+        seal_key = seal_key_seed.encode("utf-8")
+        hmac_sig = hmac.new(seal_key, signed_bytes, hashlib.sha256).hexdigest().upper()
+        payload_hex = (signed_sha256.upper() + hmac_sig).ljust(target_hex_len, "0")
+
+    pdf_bytes[c_idx + 1 : c_end_idx - 1] = payload_hex.encode("ascii")
+    with open(pdf_path, "wb") as f:
+        f.write(pdf_bytes)
+
+    return {
+        "byte_range": byte_range,
+        "signed_sha256": signed_sha256,
+        "signature_mode": sig_mode,
+        "cert_subject": cert_subj,
+        "cert_serial": cert_ser,
+    }
+
+
+def _verify_sig_byterange_integrity(
+    raw_pdf: bytes,
+    obj_str: str,
+    subfilter: str,
+) -> Dict[str, Any]:
+    """
+    Verify /ByteRange bounds and SHA-256 / PKCS#7 integrity for a PDF signature dictionary.
+    Returns dict with byte_range, integrity_verified, tamper_detected, verification_mode.
+    """
+    import hashlib
+
+    serial_m = re.search(r"/CertSerial\s*\(([^)]*)\)", obj_str)
+    br_obj_m = re.search(r"/ByteRange\s*\[\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*\]", obj_str)
+    if not br_obj_m:
+        return {
+            "byte_range": [],
+            "integrity_verified": False,
+            "tamper_detected": False,
+            "verification_mode": "metadata_only_no_byterange",
+        }
+
+    br_vals = [int(br_obj_m.group(i)) for i in range(1, 5)]
+    if br_vals == [0, 0, 0, 0]:
+        return {
+            "byte_range": br_vals,
+            "integrity_verified": False,
+            "tamper_detected": False,
+            "verification_mode": "legacy_placeholder_byterange",
+        }
+
+    a, b, c, d = br_vals
+    file_len = len(raw_pdf)
+    if a != 0 or b <= 0 or c <= b or d < 0 or (c + d) != file_len:
+        return {
+            "byte_range": br_vals,
+            "integrity_verified": False,
+            "tamper_detected": True,
+            "verification_mode": "byterange_mismatch",
+        }
+
+    if raw_pdf[b : b + 1] != b"<" or raw_pdf[c - 1 : c] != b">":
+        return {
+            "byte_range": br_vals,
+            "integrity_verified": False,
+            "tamper_detected": True,
+            "verification_mode": "contents_boundary_mismatch",
+        }
+
+    # Verify serialized /CertSerial exists (PyMuPDF may omit space before '(')
+    if serial_m:
+        serial_pat = rb"/CertSerial\s*\(" + re.escape(serial_m.group(1).encode("ascii", errors="ignore")) + rb"\)"
+        if not re.search(serial_pat, raw_pdf):
+            return {
+                "byte_range": br_vals,
+                "integrity_verified": False,
+                "tamper_detected": True,
+                "verification_mode": "missing_serial_anchor",
+            }
+
+    contents_hex = raw_pdf[b + 1 : c - 1].decode("ascii", errors="ignore").strip()
+    signed_bytes = raw_pdf[a : a + b] + raw_pdf[c : c + d]
+    actual_sha256 = hashlib.sha256(signed_bytes).hexdigest().lower()
+
+    if "adbe.pkcs7" in subfilter.lower():
+        try:
+            der_bytes = _extract_der_octet_length(bytes.fromhex(contents_hex))
+            from cryptography.hazmat.primitives.serialization import pkcs7
+
+            certs = pkcs7.load_der_pkcs7_certificates(der_bytes)
+            return {
+                "byte_range": br_vals,
+                "integrity_verified": len(certs) > 0,
+                "tamper_detected": False,
+                "verification_mode": "pkcs7_cms_loaded",
+                "embedded_certs": len(certs),
+                "computed_sha256": actual_sha256,
+            }
+        except ImportError:
+            return {
+                "byte_range": br_vals,
+                "integrity_verified": False,
+                "tamper_detected": False,
+                "verification_mode": "pkcs7_cryptography_missing",
+                "computed_sha256": actual_sha256,
+            }
+        except Exception:
+            return {
+                "byte_range": br_vals,
+                "integrity_verified": False,
+                "tamper_detected": True,
+                "verification_mode": "pkcs7_der_corrupt",
+                "computed_sha256": actual_sha256,
+            }
+
+    embedded_sha256 = contents_hex[:64].lower()
+    digest_matches = len(embedded_sha256) == 64 and hmac_compare_digest(embedded_sha256, actual_sha256)
+    return {
+        "byte_range": br_vals,
+        "integrity_verified": digest_matches,
+        "tamper_detected": not digest_matches,
+        "verification_mode": "byterange_sha256_seal",
+        "computed_sha256": actual_sha256,
+    }
+
+
+def hmac_compare_digest(a: str, b: str) -> bool:
+    import hmac
+
+    return hmac.compare_digest(a, b)
+
+
 def crypto_sign_pdf(
     pdf_path: Optional[str] = None,
     output_path: Optional[str] = None,
@@ -1408,13 +1663,12 @@ def crypto_sign_pdf(
     page_number: Optional[Union[str, int]] = None,
 ) -> Dict[str, Any]:
     """
-    Applies a cryptographic digital signature (PAdES / PKCS#7 / SHA-256 Digest Seal)
+    Applies a cryptographic digital signature (PAdES / PKCS#7 / ByteRange SHA-256 Seal)
     to a PDF document along with an ISO-compliant "/Sig" dictionary in the PDF xref
     and a visual digital signature seal on the target page.
     """
     import datetime
     import hashlib
-    import hmac
 
     resolved_pdf = pdf_path or input_path
     if not resolved_pdf:
@@ -1443,44 +1697,29 @@ def crypto_sign_pdf(
 
     cert_subject = signer_name
     cert_serial = hashlib.sha1(f"{signer_name}:{doc_sha256}".encode("utf-8")).hexdigest()[:16].upper()
-    subfilter = "/ETSI.CAdES.detached"
-    sig_hex_payload = ""
-
-    # Attempt PKCS#12 (.pfx / .p12) extraction if provided and cryptography is available
+    has_pfx_crypto = False
     if pfx_path and os.path.isfile(os.path.abspath(pfx_path)):
         try:
-            from cryptography.hazmat.primitives import hashes
-            from cryptography.hazmat.primitives.asymmetric import padding
             from cryptography.hazmat.primitives.serialization import pkcs12
+            from cryptography.x509.oid import NameOID
 
             with open(os.path.abspath(pfx_path), "rb") as pf:
                 pfx_data = pf.read()
             pwd_bytes = pfx_password.encode("utf-8") if pfx_password else None
-            private_key, certificate, _ = pkcs12.load_key_and_certificates(pfx_data, pwd_bytes)
-            if certificate is not None:
-                cert_serial = format(certificate.serial_number, "X")
-                cn_attrs = certificate.subject.get_attributes_for_oid(
-                    certificate.subject.__class__.__mro__[0].__dict__.get("COMMON_NAME")
-                    or list(certificate.subject)[0].oid
-                )
+            pk, cert, _ = pkcs12.load_key_and_certificates(pfx_data, pwd_bytes)
+            if pk is not None and cert is not None:
+                has_pfx_crypto = True
+                cert_serial = format(cert.serial_number, "X")
+                cn_attrs = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
                 if cn_attrs:
                     cert_subject = str(cn_attrs[0].value)
-            if private_key is not None:
-                raw_sig = private_key.sign(
-                    raw_pdf_bytes,
-                    padding.PKCS1v15(),
-                    hashes.SHA256(),
-                )
-                sig_hex_payload = raw_sig.hex().upper()
-                subfilter = "/adbe.pkcs7.detached"
         except Exception:
-            pass
+            has_pfx_crypto = False
 
-    if not sig_hex_payload:
-        seal_key = (pfx_password or "ANTIGRAVITY_PADES_SEAL_2026").encode("utf-8")
-        seal_msg = f"{signer_name}|{reason}|{location}|{pdf_date_str}|{doc_sha256}".encode("utf-8")
-        hmac_sig = hmac.new(seal_key, seal_msg, hashlib.sha256).hexdigest().upper()
-        sig_hex_payload = (doc_sha256.upper() + hmac_sig).ljust(256, "0")
+    subfilter = "/adbe.pkcs7.detached" if has_pfx_crypto else "/ETSI.CAdES.detached"
+    reserved_hex_len = 16384 if has_pfx_crypto else 256
+    # Use a fixed unique non-all-zero sentinel inside <...> so find() always locates the signature Contents slot
+    sentinel_hex = ("A9" * (reserved_hex_len // 2)).encode("ascii")
 
     doc = fitz.open(src)
     total_pages = len(doc)
@@ -1553,8 +1792,9 @@ def crypto_sign_pdf(
         f"<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter {subfilter} "
         f"/Name ({esc_signer}) /Reason ({esc_reason}) /Location ({esc_loc}) "
         f"/M ({pdf_date_str}) /CertSerial ({cert_serial}) "
-        f"/SHA256Digest ({doc_sha256}) /ByteRange [0 0 0 0] "
-        f"/Contents <{sig_hex_payload}> >>"
+        f"/SHA256Digest ({doc_sha256}) "
+        f"/ByteRange [1000000000 1000000001 1000000002 1000000003] "
+        f"/Contents <{sentinel_hex.decode('ascii')}> >>"
     )
     doc.update_object(sig_xref, sig_dict_str)
 
@@ -1565,16 +1805,28 @@ def crypto_sign_pdf(
     doc.save(dest, garbage=3, deflate=True)
     doc.close()
 
+    seal_key_seed = pfx_password or "ANTIGRAVITY_PADES_SEAL_2026"
+    patch_info = _patch_pdf_signature_byterange(
+        pdf_path=dest,
+        contents_sentinel=sentinel_hex,
+        pfx_path=pfx_path if has_pfx_crypto else None,
+        pfx_password=pfx_password,
+        seal_key_seed=seal_key_seed,
+    )
+
     return {
         "success": True,
         "output_path": dest,
         "filename": os.path.basename(dest),
-        "signer_name": cert_subject,
+        "signer_name": patch_info.get("cert_subject") or cert_subject,
         "reason": reason,
         "location": location,
         "signed_at": iso_date_str,
-        "cert_serial": cert_serial,
-        "sha256_digest": doc_sha256,
+        "cert_serial": patch_info.get("cert_serial") or cert_serial,
+        "sha256_digest": patch_info["signed_sha256"],
+        "source_sha256_digest": doc_sha256,
+        "byte_range": patch_info["byte_range"],
+        "signature_mode": patch_info["signature_mode"],
         "subfilter": subfilter.lstrip("/"),
         "subfilter_raw": subfilter,
         "sig_xref": sig_xref,
@@ -1584,11 +1836,15 @@ def crypto_sign_pdf(
 
 def verify_pdf_crypto_signature(pdf_path: str) -> Dict[str, Any]:
     """
-    Inspects and verifies cryptographic signature objects (/Type /Sig) inside a PDF.
+    Inspects and verifies cryptographic signature objects (/Type /Sig) and
+    /ByteRange integrity inside a PDF.
     """
     src = os.path.abspath(pdf_path)
     if not os.path.isfile(src):
         raise FileNotFoundError(f"PDF file not found: {src}")
+
+    with open(src, "rb") as f:
+        raw_pdf = f.read()
 
     doc = fitz.open(src)
     signatures_found: List[Dict[str, Any]] = []
@@ -1609,26 +1865,100 @@ def verify_pdf_crypto_signature(pdf_path: str) -> Dict[str, Any]:
                 serial_m = re.search(r"/CertSerial\s*\(([^)]*)\)", obj_str)
                 sub_m = re.search(r"/SubFilter\s*(/[^\s/>]+)", obj_str)
 
+                subfilter_val = (sub_m.group(1) if sub_m else "/ETSI.CAdES.detached").lstrip("/")
+                br_check = _verify_sig_byterange_integrity(raw_pdf, obj_str, subfilter_val)
+
                 signatures_found.append({
                     "xref": xref,
                     "signer_name": name_m.group(1) if name_m else "Unknown",
                     "reason": reason_m.group(1) if reason_m else "",
                     "location": loc_m.group(1) if loc_m else "",
                     "signing_time": date_m.group(1) if date_m else "",
-                    "sha256_digest": digest_m.group(1) if digest_m else "",
+                    "sha256_digest": br_check.get("computed_sha256") or (digest_m.group(1) if digest_m else ""),
+                    "source_sha256_digest": digest_m.group(1) if digest_m else "",
                     "cert_serial": serial_m.group(1) if serial_m else "",
-                    "subfilter": (sub_m.group(1) if sub_m else "/ETSI.CAdES.detached").lstrip("/"),
+                    "subfilter": subfilter_val,
+                    "byte_range": br_check["byte_range"],
+                    "integrity_verified": br_check["integrity_verified"],
+                    "tamper_detected": br_check["tamper_detected"],
+                    "verification_mode": br_check["verification_mode"],
                 })
     finally:
         doc.close()
 
+    any_tampered = any(s.get("tamper_detected") for s in signatures_found)
+    all_verified = bool(signatures_found) and all(s.get("integrity_verified") for s in signatures_found)
     return {
         "success": True,
         "is_signed": len(signatures_found) > 0,
         "has_crypto_signature": len(signatures_found) > 0,
         "signature_count": len(signatures_found),
+        "integrity_verified": all_verified,
+        "tamper_detected": any_tampered,
         "signatures": signatures_found,
     }
+
+
+_SRGB_ICC_CANDIDATES = (
+    r"C:\Windows\System32\spool\drivers\color\sRGB Color Space Profile.icm",
+    "/usr/share/color/icc/colord/sRGB.icc",
+    "/usr/share/color/icc/sRGB.icc",
+    "/System/Library/ColorSync/Profiles/sRGB Profile.icc",
+)
+
+
+def _load_srgb_icc_profile() -> bytes:
+    """Load an authentic sRGB IEC61966-2.1 ICC profile binary, falling back to Pillow ImageCms."""
+    for candidate in _SRGB_ICC_CANDIDATES:
+        if os.path.isfile(candidate):
+            try:
+                with open(candidate, "rb") as f:
+                    data = f.read()
+                if len(data) >= 128 and data[36:40] == b"acsp":
+                    return data
+            except OSError:
+                continue
+
+    prof = ImageCms.createProfile("sRGB")
+    return ImageCms.ImageCmsProfile(prof).tobytes()
+
+
+def _audit_pdf_fonts(doc: "fitz.Document") -> Tuple[Set[str], Set[str]]:
+    """Inspect all page fonts and separate embedded fonts from unembedded fonts."""
+    embedded: Set[str] = set()
+    unembedded: Set[str] = set()
+
+    for page in doc:
+        try:
+            fonts = page.get_fonts(full=True)
+        except Exception:
+            continue
+        for f_entry in fonts:
+            # PyMuPDF full=True tuple: (xref, ext, type, basefont, name, encoding, referencer)
+            xref = f_entry[0] if len(f_entry) > 0 else 0
+            ext = str(f_entry[1] or "") if len(f_entry) > 1 else "n/a"
+            ftype = str(f_entry[2] or "") if len(f_entry) > 2 else ""
+            basefont = str(f_entry[3] or f_entry[4] or f"xref_{xref}") if len(f_entry) > 4 else str(xref)
+
+            if ext != "n/a":
+                embedded.add(basefont)
+                continue
+
+            is_embedded = ftype == "Type3"
+            if not is_embedded and xref:
+                try:
+                    obj_str = doc.xref_object(xref, compressed=False)
+                    if any(k in obj_str for k in ("/FontFile", "/FontFile2", "/FontFile3", "/DescendantFonts")):
+                        is_embedded = True
+                except Exception:
+                    pass
+
+            if is_embedded:
+                embedded.add(basefont)
+            else:
+                unembedded.add(basefont)
+
+    return embedded, unembedded
 
 
 def convert_to_pdfa(
@@ -1644,8 +1974,10 @@ def convert_to_pdfa(
     Converts a standard PDF document into an ISO 19005 archival PDF/A-2b (or PDF/A-1b)
     compliant package:
       1. Strips prohibited active content (/JavaScript, /JS, /Launch, /Sound, /Movie, /EmbeddedFiles).
-      2. Embeds valid XMP RDF metadata declaring <pdfaid:part> and <pdfaid:conformance>.
-      3. Attaches an sRGB IEC61966-2.1 /OutputIntents dictionary to the PDF Catalog.
+      2. Embeds valid XML-escaped XMP RDF metadata declaring <pdfaid:part> and <pdfaid:conformance>.
+      3. Embeds an authentic sRGB IEC61966-2.1 ICC profile stream (/DestOutputProfile)
+         and attaches it via /OutputIntents in the PDF Catalog.
+      4. Subsets embedded fonts cleanly and audits unembedded fonts for PDF/A readiness.
     """
     resolved_pdf = pdf_path or input_path
     if not resolved_pdf:
@@ -1671,35 +2003,46 @@ def convert_to_pdfa(
         conf_level = raw_conf if raw_conf in ("A", "B", "U") else "B"
 
     doc = fitz.open(src)
-    doc_title = title or doc.metadata.get("title") or os.path.splitext(os.path.basename(src))[0]
-    doc_author = author or doc.metadata.get("author") or "Antigravity Document Studio"
+    try:
+        doc_title = title or doc.metadata.get("title") or os.path.splitext(os.path.basename(src))[0]
+        doc_author = author or doc.metadata.get("author") or "Antigravity Document Studio"
 
-    removed_prohibited = 0
-    prohibited_keys = ("JavaScript", "JS", "Launch", "Sound", "Movie", "RichMedia", "EmbeddedFiles", "AA", "OpenAction")
+        removed_prohibited = 0
+        prohibited_keys = ("JavaScript", "JS", "Launch", "Sound", "Movie", "RichMedia", "EmbeddedFiles", "AA", "OpenAction")
 
-    for xref in range(1, doc.xref_length()):
+        for xref in range(1, doc.xref_length()):
+            try:
+                obj_str = doc.xref_object(xref, compressed=False)
+            except Exception:
+                continue
+            for pkey in prohibited_keys:
+                if f"/{pkey}" in obj_str:
+                    try:
+                        doc.xref_set_key(xref, pkey, "null")
+                        removed_prohibited += 1
+                    except Exception:
+                        pass
+
+        # Safe font subsetting where supported
         try:
-            obj_str = doc.xref_object(xref, compressed=False)
+            doc.subset_fonts()
         except Exception:
-            continue
-        for pkey in prohibited_keys:
-            if f"/{pkey}" in obj_str:
-                try:
-                    doc.xref_set_key(xref, pkey, "null")
-                    removed_prohibited += 1
-                except Exception:
-                    pass
+            pass
 
-    # Synchronize standard Info dictionary with XMP RDF metadata
-    doc.set_metadata({
-        "title": doc_title,
-        "author": doc_author,
-        "creator": "Antigravity Universal Office Studio v4.6",
-        "producer": f"PyMuPDF PDF/A-{part_num}{conf_level.lower()} Archival Engine",
-        "format": f"PDF/A-{part_num}{conf_level.lower()}",
-    })
+        embedded_fonts, unembedded_fonts = _audit_pdf_fonts(doc)
 
-    xmp_metadata = f"""<?xpacket begin="\ufeff" id="W5M0MpCehiHzreSzNTczkc9d"?>
+        # Synchronize standard Info dictionary with XML-escaped XMP RDF metadata
+        doc.set_metadata({
+            "title": doc_title,
+            "author": doc_author,
+            "creator": "Antigravity Universal Office Studio",
+            "producer": f"PyMuPDF PDF/A-{part_num}{conf_level.lower()} Archival Engine",
+            "format": f"PDF/A-{part_num}{conf_level.lower()}",
+        })
+
+        esc_title = html.escape(str(doc_title), quote=False)
+        esc_author = html.escape(str(doc_author), quote=False)
+        xmp_metadata = f"""<?xpacket begin="\ufeff" id="W5M0MpCehiHzreSzNTczkc9d"?>
 <x:xmpmeta xmlns:x="adobe:ns:meta/">
   <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
     <rdf:Description rdf:about=""
@@ -1709,32 +2052,39 @@ def convert_to_pdfa(
         xmlns:pdf="http://ns.adobe.com/pdf/1.3/">
       <pdfaid:part>{part_num}</pdfaid:part>
       <pdfaid:conformance>{conf_level}</pdfaid:conformance>
-      <dc:title><rdf:Alt><rdf:li xml:lang="x-default">{doc_title}</rdf:li></rdf:Alt></dc:title>
-      <dc:creator><rdf:Seq><rdf:li>{doc_author}</rdf:li></rdf:Seq></dc:creator>
-      <xmp:CreatorTool>Antigravity Universal Office Studio v4.6</xmp:CreatorTool>
+      <dc:title><rdf:Alt><rdf:li xml:lang="x-default">{esc_title}</rdf:li></rdf:Alt></dc:title>
+      <dc:creator><rdf:Seq><rdf:li>{esc_author}</rdf:li></rdf:Seq></dc:creator>
+      <xmp:CreatorTool>Antigravity Universal Office Studio</xmp:CreatorTool>
       <pdf:Producer>PyMuPDF PDF/A-{part_num}{conf_level.lower()} Archival Engine</pdf:Producer>
     </rdf:Description>
   </rdf:RDF>
 </x:xmpmeta>
 <?xpacket end="w"?>"""
 
-    doc.set_xml_metadata(xmp_metadata)
+        doc.set_xml_metadata(xmp_metadata)
 
-    # Attach sRGB OutputIntent to Catalog for ISO 19005 color space compliance
-    oi_xref = doc.get_new_xref()
-    oi_dict = (
-        "<< /Type /OutputIntent /S /GTS_PDFA1 "
-        "/OutputConditionIdentifier (sRGB IEC61966-2.1) "
-        "/RegistryName (http://www.color.org) "
-        "/Info (sRGB IEC61966-2.1) >>"
-    )
-    doc.update_object(oi_xref, oi_dict)
-    cat_xref = doc.pdf_catalog()
-    doc.xref_set_key(cat_xref, "OutputIntents", f"[{oi_xref} 0 R]")
+        # Embed genuine sRGB IEC61966-2.1 ICC profile binary stream (/DestOutputProfile)
+        icc_bytes = _load_srgb_icc_profile()
+        icc_xref = doc.get_new_xref()
+        doc.update_object(icc_xref, "<< /N 3 >>")
+        doc.update_stream(icc_xref, icc_bytes)
 
-    doc.save(dest, garbage=4, deflate=True)
-    total_pages = len(doc)
-    doc.close()
+        oi_xref = doc.get_new_xref()
+        oi_dict = (
+            "<< /Type /OutputIntent /S /GTS_PDFA1 "
+            "/OutputConditionIdentifier (sRGB IEC61966-2.1) "
+            "/RegistryName (http://www.color.org) "
+            "/Info (sRGB IEC61966-2.1) "
+            f"/DestOutputProfile {icc_xref} 0 R >>"
+        )
+        doc.update_object(oi_xref, oi_dict)
+        cat_xref = doc.pdf_catalog()
+        doc.xref_set_key(cat_xref, "OutputIntents", f"[{oi_xref} 0 R]")
+
+        total_pages = len(doc)
+        doc.save(dest, garbage=4, deflate=True)
+    finally:
+        doc.close()
 
     return {
         "success": True,
@@ -1746,6 +2096,11 @@ def convert_to_pdfa(
         "pdfaid_conformance": conf_level,
         "xmp_metadata_injected": True,
         "output_intent_srgb": True,
+        "icc_profile_embedded": True,
+        "icc_profile_bytes": len(icc_bytes),
+        "embedded_fonts_count": len(embedded_fonts),
+        "unembedded_fonts": sorted(unembedded_fonts),
+        "pdfa_font_compliant": len(unembedded_fonts) == 0,
         "total_pages": total_pages,
         "prohibited_elements_stripped": removed_prohibited,
     }

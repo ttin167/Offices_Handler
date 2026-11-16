@@ -17,6 +17,8 @@ import json
 import os
 from typing import Any
 
+from .streaming import estimate_xlsx_metrics
+
 
 def _get_color_hex(xw_color) -> str | None:
     """Convert xlwings color tuple (R, G, B) or None to hex string."""
@@ -278,6 +280,79 @@ def _read_xlsx_openpyxl(
                 pass
 
 
+def _read_xlsx_streaming(
+    xlsx_path: str,
+    sheet_name: str | None = None,
+) -> dict[str, Any]:
+    """
+    Low-memory streaming fallback reader (read_only=True) for large workbooks
+    exceeding ERR_XLSX_014 thresholds (>= 10 MB or >= 30,000 rows).
+    """
+    import openpyxl
+    from openpyxl.utils import get_column_letter
+
+    wb = openpyxl.load_workbook(xlsx_path, read_only=True, data_only=True)
+    try:
+        target_sheets = [sheet_name] if sheet_name else wb.sheetnames
+        sheets_data = []
+
+        for sname in target_sheets:
+            if sname not in wb.sheetnames:
+                raise ValueError(f"Sheet '{sname}' not found. Available: {wb.sheetnames}")
+            ws = wb[sname]
+            cells_data = []
+            max_r = 0
+            max_c = 0
+
+            for r_idx, row in enumerate(ws.iter_rows(values_only=True), start=1):
+                if not any(v is not None for v in row):
+                    continue
+                max_r = max(max_r, r_idx)
+                for c_idx, val in enumerate(row, start=1):
+                    if val is None:
+                        continue
+                    max_c = max(max_c, c_idx)
+                    addr = f"{get_column_letter(c_idx)}{r_idx}"
+                    if isinstance(val, bool):
+                        dtype = "boolean"
+                    elif isinstance(val, (int, float)):
+                        dtype = "number"
+                    elif isinstance(val, str):
+                        dtype = "string"
+                    else:
+                        dtype = type(val).__name__
+
+                    cells_data.append({
+                        "address": addr,
+                        "value": val if not hasattr(val, "isoformat") else val.isoformat(),
+                        "formula": None,
+                        "data_type": dtype,
+                        "format": {},
+                        "merged": False,
+                    })
+
+            max_c_letter = get_column_letter(max_c or 1)
+            used_address = f"A1:{max_c_letter}{max_r or 1}"
+            sheets_data.append({
+                "sheet_name": sname,
+                "used_range": used_address,
+                "cells": cells_data,
+                "merged_cells": [],
+            })
+
+        return {
+            "source_file": os.path.abspath(xlsx_path),
+            "snapshot_version": "1.0",
+            "streaming_mode": True,
+            "sheets": sheets_data,
+        }
+    finally:
+        try:
+            wb.close()
+        except Exception:
+            pass
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -287,6 +362,7 @@ def read_xlsx(
     sheet_name: str | None = None,
     cell_range: str | None = None,
     engine: str = "auto",
+    streaming: bool | None = None,
 ) -> dict[str, Any]:
     """
     Read an XLSX file and return a structured JSON-serialisable snapshot.
@@ -298,6 +374,8 @@ def read_xlsx(
         engine:     'auto' (default: attempts xlwings, falls back to openpyxl),
                     'openpyxl' (pure headless, zero MS Excel dependency),
                     'xlwings' (requires Microsoft Excel Desktop installed).
+        streaming:  Optional override for low-RAM streaming read_only mode. When None,
+                    auto-activates on large workbooks (>=10 MB or >=30,000 rows).
 
     Returns:
         dict with keys: source_file, snapshot_version, sheets
@@ -306,9 +384,28 @@ def read_xlsx(
         raise FileNotFoundError(f"File not found: {xlsx_path}")
 
     selected_engine = (engine or "auto").lower()
+    is_legacy_xls = xlsx_path.lower().endswith(".xls")
+
+    def _should_use_streaming() -> bool:
+        if is_legacy_xls or cell_range is not None:
+            return False
+        if streaming is not None:
+            return bool(streaming)
+        try:
+            return bool(estimate_xlsx_metrics(xlsx_path).get("is_large_file"))
+        except Exception:
+            return False
 
     if selected_engine == "openpyxl":
+        if is_legacy_xls:
+            return _read_legacy_xls_via_converter(xlsx_path, sheet_name=sheet_name, cell_range=cell_range)
+        if _should_use_streaming():
+            return _read_xlsx_streaming(xlsx_path, sheet_name=sheet_name)
         return _read_xlsx_openpyxl(xlsx_path, sheet_name=sheet_name, cell_range=cell_range)
+
+    # Large non-legacy files skip heavy COM/DOM allocations unless xlwings was explicitly requested
+    if selected_engine == "auto" and _should_use_streaming():
+        return _read_xlsx_streaming(xlsx_path, sheet_name=sheet_name)
 
     # Attempt xlwings (either auto or explicit xlwings)
     try:
@@ -343,8 +440,36 @@ def read_xlsx(
     except Exception as exc:
         if selected_engine == "xlwings":
             raise
-        # Auto-fallback to openpyxl headless engine
+        # Auto-fallback to openpyxl headless engine (with automatic legacy .xls upgrade)
+        if is_legacy_xls:
+            return _read_legacy_xls_via_converter(xlsx_path, sheet_name=sheet_name, cell_range=cell_range)
+        if _should_use_streaming():
+            return _read_xlsx_streaming(xlsx_path, sheet_name=sheet_name)
         return _read_xlsx_openpyxl(xlsx_path, sheet_name=sheet_name, cell_range=cell_range)
+
+
+def _read_legacy_xls_via_converter(
+    xls_path: str,
+    sheet_name: str | None = None,
+    cell_range: str | None = None,
+) -> dict[str, Any]:
+    """Upgrade legacy .xls into temporary .xlsx cleanly and parse via OpenPyXL."""
+    import tempfile
+    from core.converter.pdf_renderer import convert_xls_to_xlsx
+
+    fd, temp_xlsx = tempfile.mkstemp(prefix=".ag_xls_read_", suffix=".xlsx")
+    os.close(fd)
+    try:
+        convert_xls_to_xlsx(xls_path, temp_xlsx)
+        snap = _read_xlsx_openpyxl(temp_xlsx, sheet_name=sheet_name, cell_range=cell_range)
+        snap["source_file"] = os.path.abspath(xls_path)
+        return snap
+    finally:
+        if os.path.isfile(temp_xlsx):
+            try:
+                os.remove(temp_xlsx)
+            except OSError:
+                pass
 
 
 def read_xlsx_to_json(

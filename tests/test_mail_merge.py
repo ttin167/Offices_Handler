@@ -51,6 +51,9 @@ class TestMailMergeStudio(unittest.TestCase):
         self.assertFalse(evaluate_condition("IsVip", rec2))
         self.assertTrue(evaluate_condition("Role in ['Admin', 'Lead']", rec1))
         self.assertFalse(evaluate_condition("Role in ['Admin', 'Lead']", rec2))
+        self.assertFalse(evaluate_condition('Role in ["Admin", "Manager"]', {"Role": "Adm"}))
+        self.assertFalse(evaluate_condition('Role in ["Admin", "Manager"]', {"Role": "["}))
+        self.assertTrue(evaluate_condition('Role in ["Admin", "Manager"]', {"Role": "Manager"}))
 
         # 2. Text substitution with {{IF:...}}...{{ELSE}}...{{ENDIF}}
         tmpl = "Kính gửi {{IF:Gender == 'Nam'}}Ông{{ELSE}}Bà{{ENDIF}} {{HoTen}}, trạng thái: {{IF:Age >= 18}}Người lớn{{ELSE}}Vị thành niên{{ENDIF}}."
@@ -166,6 +169,47 @@ class TestMailMergeStudio(unittest.TestCase):
             self.assertEqual(len(namelist), 3)
             self.assertTrue(any("NV001" in n for n in namelist))
             self.assertTrue(any("NV002" in n for n in namelist))
+
+    def test_conditional_preserves_run_formatting_and_nested_table_inspection(self):
+        """Conditionals preserve bold/italic runs and inspect_template_tokens lists nested tables."""
+        tpl = os.path.join(self.scratch_dir, "rich_cond_tpl.docx")
+        out_dir = os.path.join(self.scratch_dir, "rich_cond_out")
+
+        doc = Document()
+        p = doc.add_paragraph()
+        r_prefix = p.add_run("Trạng thái: ")
+        r_prefix.bold = True
+        p.add_run("{{IF:IsVip}}Khách VIP{{ELSE}}Thường{{ENDIF}} ")
+        r_name = p.add_run("{{HoTen}}")
+        r_name.italic = True
+
+        tbl = doc.add_table(rows=1, cols=2)
+        tbl.cell(0, 0).paragraphs[0].text = "{{#TABLE:Items}}{{Items.Name}}"
+        tbl.cell(0, 1).paragraphs[0].text = "{{Items.Qty}}{{/TABLE:Items}}"
+        doc.save(tpl)
+
+        info = inspect_template_tokens(tpl)
+        self.assertIn("Items", info.get("nested_tables", []))
+
+        res = execute_mail_merge(
+            template_path=tpl,
+            data_source=[
+                {
+                    "IsVip": True,
+                    "HoTen": "Nguyễn An",
+                    "Items": [{"Name": "Laptop", "Qty": 2}],
+                }
+            ],
+            output_dir=out_dir,
+            filename_pattern="Rich_{{HoTen}}.docx",
+        )
+        self.assertTrue(res["success"])
+        merged = Document(res["generated_files"][0])
+        merged_p = merged.paragraphs[0]
+        self.assertEqual(merged_p.text, "Trạng thái: Khách VIP Nguyễn An")
+        self.assertTrue(merged_p.runs[0].bold)
+        self.assertTrue(merged_p.runs[-1].italic)
+        self.assertEqual(merged.tables[0].cell(0, 0).text, "Laptop")
 
 
 if __name__ == "__main__":

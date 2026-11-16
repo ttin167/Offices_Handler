@@ -342,6 +342,30 @@ class TestExcelEnterpriseSuite(unittest.TestCase):
         self.assertIn("=HYPERLINK", child_ws["A1"].value)
         self.assertIn("Mục Lục", child_ws["A1"].value)
 
+    def test_reader_streaming_auto_and_explicit(self):
+        from unittest.mock import patch
+        from core.xlsx.reader import read_xlsx
+
+        stream_path = os.path.join(self.dpath, "large_sim.xlsx")
+        stream_write_xlsx(
+            stream_path,
+            ([f"R{i}", i * 10] for i in range(1, 21)),
+            sheet_name="BigData",
+            headers=["Code", "Val"],
+        )
+
+        # Explicit streaming=True
+        snap1 = read_xlsx(stream_path, streaming=True)
+        self.assertTrue(snap1.get("streaming_mode"))
+        self.assertEqual(snap1["sheets"][0]["sheet_name"], "BigData")
+        self.assertEqual(snap1["sheets"][0]["cells"][0]["value"], "Code")
+
+        # Auto streaming when estimate_xlsx_metrics flags large file
+        with patch("core.xlsx.reader.estimate_xlsx_metrics", return_value={"is_large_file": True}):
+            snap2 = read_xlsx(stream_path, engine="openpyxl")
+            self.assertTrue(snap2.get("streaming_mode"))
+            self.assertGreater(len(snap2["sheets"][0]["cells"]), 10)
+
 
 if __name__ == "__main__":
     unittest.main()

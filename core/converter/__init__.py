@@ -37,6 +37,7 @@ from .ocr_pipeline import (
     detect_skew_angle,
     deskew_image,
     run_tesseract_ocr,
+    run_ocr_with_fallback,
     find_tesseract_binary,
     VietnameseOcrPipeline,
 )
@@ -77,6 +78,7 @@ __all__ = [
     "detect_skew_angle",
     "deskew_image",
     "run_tesseract_ocr",
+    "run_ocr_with_fallback",
     "find_tesseract_binary",
     "VietnameseOcrPipeline",
     "UniversalPdfRenderer",

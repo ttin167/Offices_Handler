@@ -112,6 +112,13 @@ def test_copilot_hybrid_orchestrator_and_action_cards() -> None:
     assert "ba" not in card_tabs
     assert "wireframe" not in card_tabs
     assert "law" not in card_tabs
+    tool_ids = {c.payload.get("tool_id") for c in resp.action_cards}
+    assert {"excel-power", "word-mail-merge"}.issubset(tool_ids)
+
+    print_cards = infer_action_cards("in ấn tài liệu booklet grayscale")
+    assert any(c.command_type == "open_modal" and c.payload.get("modal") == "print" for c in print_cards)
+    formula_cards = infer_action_cards("hướng dẫn công thức excel")
+    assert any("57 công thức" in c.description for c in formula_cards)
 
     # Test cloud provider routing in hybrid mode with large context
     cloud_prov = GoogleGeminiProvider(api_key="dummy-key-test", timeout=0.2)

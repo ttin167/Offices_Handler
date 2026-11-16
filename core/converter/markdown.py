@@ -2351,7 +2351,7 @@ def docx_to_pdf(
                 import pythoncom
                 pythoncom.CoInitialize()
                 import win32com.client as win32
-                word = win32.Dispatch("Word.Application")
+                word = win32.DispatchEx("Word.Application")
                 word.Visible = False
                 word.DisplayAlerts = 0
 
@@ -2376,7 +2376,7 @@ def docx_to_pdf(
             try:
                 from core.converter.com_watchdog import ComProcessWatchdog
                 ComProcessWatchdog.run_with_timeout(_word_com_convert, timeout_sec=30.0, app_type="word")
-            except Exception:
+            except (ImportError, ValueError):
                 _word_com_convert()
 
             abs_pdf = os.path.abspath(pdf_path)

@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import sys
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 _CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 _WORKSPACE_ROOT = os.path.dirname(_CURRENT_DIR)
@@ -167,31 +167,48 @@ class EnvironmentDoctor:
         """Alias for check_chromium for naming consistency."""
         return self.check_chromium()
 
-    def check_office_converters(self) -> Dict[str, Any]:
-        """Check Microsoft Word COM and LibreOffice for vector PDF conversion."""
-        word_com_available = False
-        word_version = ""
+    @staticmethod
+    def _probe_office_com(prog_id: str, label: str, try_word_dispatch: bool = False) -> Tuple[bool, str]:
+        """Probe Windows Registry CurVer (and optional Dispatch fallback) for an Office COM ProgID."""
+        if sys.platform != "win32":
+            return False, "Non-Windows platform"
 
-        if sys.platform == "win32":
+        try:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, f"{prog_id}\\CurVer") as key:
+                curver, _ = winreg.QueryValueEx(key, "")
+                return True, f"Microsoft {label} (v{curver.split('.')[-1]}.0)"
+        except Exception as reg_exc:
+            if not try_word_dispatch:
+                return False, f"COM Unavailable ({reg_exc})"
+
+        try:
+            import pythoncom
+            pythoncom.CoInitialize()
+            import win32com.client as win32
+            app = win32.DispatchEx(prog_id)
             try:
-                import winreg
-                with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"Word.Application\CurVer") as key:
-                    curver, _ = winreg.QueryValueEx(key, "")
-                    word_version = f"Microsoft Word (v{curver.split('.')[-1]}.0)"
-                    word_com_available = True
-            except Exception:
+                version = f"Microsoft {label} v{app.Version}"
+            finally:
                 try:
-                    import pythoncom
-                    pythoncom.CoInitialize()
-                    import win32com.client as win32
-                    w = win32.Dispatch("Word.Application")
-                    word_version = f"Microsoft Word v{w.Version}"
-                    w.Quit()
-                    del w
-                    pythoncom.CoUninitialize()
-                    word_com_available = True
-                except Exception as exc:
-                    word_version = f"COM Unavailable ({exc})"
+                    app.Quit()
+                except Exception:
+                    pass
+                del app
+                pythoncom.CoUninitialize()
+            return True, version
+        except Exception as exc:
+            return False, f"COM Unavailable ({exc})"
+
+    def check_office_converters(self) -> Dict[str, Any]:
+        """Check Microsoft Office COM (Word, Excel, PowerPoint) and LibreOffice for vector PDF conversion."""
+        word_com_available, word_version = self._probe_office_com(
+            "Word.Application", "Word", try_word_dispatch=True
+        )
+        excel_com_available, excel_version = self._probe_office_com("Excel.Application", "Excel")
+        powerpoint_com_available, powerpoint_version = self._probe_office_com(
+            "PowerPoint.Application", "PowerPoint"
+        )
 
         soffice_candidates = [
             r"C:\Program Files\LibreOffice\program\soffice.com",
@@ -201,15 +218,22 @@ class EnvironmentDoctor:
         ]
         soffice_path = next((c for c in soffice_candidates if c and os.path.isfile(c)), None)
 
-        status = "healthy" if (word_com_available or soffice_path) else "degraded"
+        has_any_com = word_com_available or excel_com_available or powerpoint_com_available
+        status = "healthy" if (has_any_com or soffice_path) else "degraded"
         issues = []
-        if not word_com_available and not soffice_path:
-            issues.append("Neither Microsoft Word COM nor LibreOffice detected. PDF export will fall back to Edge Headless print.")
+        if not has_any_com and not soffice_path:
+            issues.append("Neither Microsoft Office COM nor LibreOffice detected. PDF export will fall back to Edge Headless print.")
+        elif not excel_com_available and not soffice_path:
+            issues.append("Neither Microsoft Excel COM nor LibreOffice detected. Native spreadsheet PDF export is disabled.")
 
         return {
             "status": status,
             "word_com_available": word_com_available,
             "word_version": word_version,
+            "excel_com_available": excel_com_available,
+            "excel_version": excel_version,
+            "powerpoint_com_available": powerpoint_com_available,
+            "powerpoint_version": powerpoint_version,
             "libreoffice_available": bool(soffice_path),
             "libreoffice_path": soffice_path,
             "issues": issues,
@@ -258,7 +282,7 @@ class EnvironmentDoctor:
         }
 
     def check_python_dependencies(self) -> Dict[str, Any]:
-        """Verify core document processing Python libraries."""
+        """Verify core and optional document processing Python libraries."""
         deps = [
             ("docx", "python-docx"),
             ("pptx", "python-pptx"),
@@ -266,6 +290,7 @@ class EnvironmentDoctor:
             ("pymupdf", "PyMuPDF"),
             ("PIL", "Pillow"),
             ("yaml", "PyYAML"),
+            ("numpy", "numpy"),
         ]
         installed = {}
         missing = []
@@ -286,11 +311,31 @@ class EnvironmentDoctor:
                         pass
                 missing.append(pkg)
 
+        optional_deps = [
+            ("cryptography", "cryptography"),
+            ("xlrd", "xlrd"),
+            ("xlwt", "xlwt"),
+            ("xlwings", "xlwings"),
+        ]
+        if sys.platform == "win32":
+            optional_deps.append(("win32com", "pywin32"))
+
+        optional_installed: Dict[str, str] = {}
+        optional_missing: List[str] = []
+        for mod, pkg in optional_deps:
+            try:
+                m = __import__(mod)
+                optional_installed[pkg] = getattr(m, "__version__", "installed")
+            except ImportError:
+                optional_missing.append(pkg)
+
         status = "healthy" if not missing else "critical"
         return {
             "status": status,
             "installed": installed,
             "missing": missing,
+            "optional_installed": optional_installed,
+            "optional_missing": optional_missing,
             "issues": [f"Missing required Python package: {p}" for p in missing],
         }
 
@@ -324,6 +369,10 @@ class EnvironmentDoctor:
             recommendations.append("Ensure Microsoft Edge or Google Chrome is installed for Full HD Draw.io & Canvas rendering.")
         if not office["word_com_available"] and not office["libreoffice_available"]:
             recommendations.append("Install Microsoft Word or LibreOffice for 100% pixel-perfect vector PDF conversion.")
+        if "cryptography" in py_deps.get("optional_missing", []):
+            recommendations.append("Optional: Install 'cryptography' (pip install .[security]) for full PKCS#7 CMS PAdES signing.")
+        if "xlrd" in py_deps.get("optional_missing", []) and not office.get("excel_com_available") and not office.get("libreoffice_available"):
+            recommendations.append("Optional: Install 'xlrd' (pip install .[legacy-xls]) for standalone legacy .xls reading.")
         if not ocr["found"]:
             recommendations.append("Optional: Install Tesseract OCR with Vietnamese language pack for scanned document processing.")
 
@@ -372,12 +421,17 @@ def format_doctor_report(report: Dict[str, Any]) -> str:
     comp = report["components"]
 
     # 1. Python Dependencies
-    py_ok = comp["python_dependencies"]["status"] == "healthy"
+    py_deps = comp["python_dependencies"]
+    py_ok = py_deps["status"] == "healthy"
     lines.append(f"[{'OK' if py_ok else 'FAIL'}] Python Libraries:")
-    for pkg, ver in comp["python_dependencies"]["installed"].items():
+    for pkg, ver in py_deps["installed"].items():
         lines.append(f"     + {pkg:15s} : {ver}")
-    for m in comp["python_dependencies"]["missing"]:
+    for m in py_deps["missing"]:
         lines.append(f"     x {m:15s} : MISSING")
+    for pkg, ver in py_deps.get("optional_installed", {}).items():
+        lines.append(f"     * {pkg:15s} : {ver} (optional)")
+    for m in py_deps.get("optional_missing", []):
+        lines.append(f"     - {m:15s} : Not installed (optional)")
 
     # 2. Java & PlantUML
     jp = comp["java_plantuml"]
@@ -398,6 +452,8 @@ def format_doctor_report(report: Dict[str, Any]) -> str:
     of_ok = of["status"] == "healthy"
     lines.append(f"[{'OK' if of_ok else 'WARN'}] Office PDF Converters:")
     lines.append(f"     + Word COM      : {'Available' if of['word_com_available'] else 'Unavailable'} ({of['word_version']})")
+    lines.append(f"     + Excel COM     : {'Available' if of.get('excel_com_available') else 'Unavailable'} ({of.get('excel_version', 'N/A')})")
+    lines.append(f"     + PowerPoint COM: {'Available' if of.get('powerpoint_com_available') else 'Unavailable'} ({of.get('powerpoint_version', 'N/A')})")
     lines.append(f"     + LibreOffice   : {of['libreoffice_path'] or 'Not found'}")
 
     # 5. Tesseract OCR

@@ -113,7 +113,7 @@ class UniversalDocStudioApp:
 
     def _build_single_tab(self) -> None:
         # Source File Section
-        file_box = ttk.LabelFrame(self.tab_single, text=" Tệp Nguồn đầu vào (PDF / DOCX / MD) ", padding=10)
+        file_box = ttk.LabelFrame(self.tab_single, text=" Tệp Nguồn đầu vào (PDF / DOCX / MD / XLSX / XLS) ", padding=10)
         file_box.pack(fill=tk.X, pady=(0, 10))
 
         f_row = ttk.Frame(file_box)
@@ -126,7 +126,7 @@ class UniversalDocStudioApp:
         btn_browse_src = ttk.Button(f_row, text="Chọn Tệp...", command=self._browse_single_src)
         btn_browse_src.pack(side=tk.RIGHT)
 
-        dnd_text = "💡 Kéo & thả file (.pdf, .docx, .md) trực tiếp vào ô trên hoặc bấm 'Chọn Tệp...'" if HAS_DND else "💡 Bấm 'Chọn Tệp...' để duyệt tệp"
+        dnd_text = "💡 Kéo & thả file (.pdf, .docx, .md, .xlsx, .xls) trực tiếp vào ô trên hoặc bấm 'Chọn Tệp...'" if HAS_DND else "💡 Bấm 'Chọn Tệp...' để duyệt tệp"
         lbl_hint = tk.Label(master=file_box, text=dnd_text, font=("Segoe UI", 8), fg="#64748b", bg=self.root["bg"])
         lbl_hint.pack(anchor=tk.W, pady=(4, 0))
 
@@ -146,10 +146,11 @@ class UniversalDocStudioApp:
                 "Word Document (.docx)",
                 "Markdown Document (.md - kèm CSS Meta)",
                 "PDF Document (.pdf)",
-                "PowerPoint Presentation (.pptx - Tự động tạo slide từ Word)"
+                "PowerPoint Presentation (.pptx - Tự động tạo slide từ Word)",
+                "Excel Spreadsheet (.xlsx - Bảng tính / Nâng cấp .xls)"
             ],
             state="readonly",
-            width=48
+            width=52
         )
         self.combo_target_fmt.pack(side=tk.LEFT)
         self.combo_target_fmt.current(0)
@@ -423,7 +424,7 @@ class UniversalDocStudioApp:
         data = event.data.strip()
         if data.startswith("{") and data.endswith("}"):
             data = data[1:-1]
-        valid_exts = (".pdf", ".docx", ".md")
+        valid_exts = (".pdf", ".docx", ".md", ".xlsx", ".xlsm", ".xls")
         files = [f.strip() for f in data.split() if f.strip().lower().endswith(valid_exts)]
         if not files:
             return
@@ -436,6 +437,9 @@ class UniversalDocStudioApp:
                 self.set_pptx_file(files[0])
             else:
                 self.log(f"[CẢNH BÁO] Tab Tạo Slide yêu cầu file Word (.docx), nhận được: {os.path.basename(files[0])}")
+        elif current_tab == 3:
+            self.ent_src_var.set(files[0])
+            self.log(f"[PURE OFFICE] Đã nạp tệp mục tiêu: {os.path.basename(files[0])}")
         else:
             for f in files:
                 if f not in self.batch_files and os.path.isfile(f):
@@ -464,6 +468,14 @@ class UniversalDocStudioApp:
             self.combo_target_fmt.current(0)  # Word (.docx)
             self.entry_pages.config(state=tk.DISABLED)
             self.log(f"[FILE] Đã chọn Markdown: {os.path.basename(file_path)}")
+        elif src_ext == ".xls":
+            self.combo_target_fmt.current(4)  # Excel (.xlsx)
+            self.entry_pages.config(state=tk.DISABLED)
+            self.log(f"[FILE] Đã chọn Excel Legacy (.xls): {os.path.basename(file_path)}")
+        elif src_ext in (".xlsx", ".xlsm"):
+            self.combo_target_fmt.current(2)  # PDF (.pdf)
+            self.entry_pages.config(state=tk.DISABLED)
+            self.log(f"[FILE] Đã chọn Excel: {os.path.basename(file_path)}")
 
         self._update_output_path()
 
@@ -502,6 +514,8 @@ class UniversalDocStudioApp:
         val = self.combo_target_fmt.get().lower()
         if "powerpoint" in val or ".pptx" in val:
             return ".pptx"
+        elif "excel" in val or ".xlsx" in val:
+            return ".xlsx"
         elif "word" in val or ".docx" in val:
             return ".docx"
         elif "markdown" in val or ".md" in val:
@@ -525,9 +539,10 @@ class UniversalDocStudioApp:
         selected = filedialog.askopenfilename(
             title="Chọn tệp nguồn cần chuyển đổi",
             filetypes=[
-                ("Supported Documents (*.pdf, *.docx, *.md)", "*.pdf;*.docx;*.md"),
+                ("Supported Office Documents", "*.pdf;*.docx;*.md;*.xlsx;*.xlsm;*.xls"),
                 ("PDF Documents (*.pdf)", "*.pdf"),
                 ("Word Documents (*.docx)", "*.docx"),
+                ("Excel Spreadsheets (*.xlsx, *.xls)", "*.xlsx;*.xlsm;*.xls"),
                 ("Markdown Documents (*.md)", "*.md"),
                 ("All Files (*.*)", "*.*")
             ]
@@ -608,7 +623,7 @@ class UniversalDocStudioApp:
             ).start()
         elif current_tab == 1:
             self._start_pptx_synthesis()
-        else:
+        elif current_tab == 2:
             if not self.batch_files:
                 messagebox.showerror("Lỗi", "Danh sách batch đang trống. Vui lòng thêm ít nhất một tệp.")
                 return
@@ -620,6 +635,11 @@ class UniversalDocStudioApp:
                 args=(list(self.batch_files), target_ext),
                 daemon=True
             ).start()
+        else:
+            messagebox.showinfo(
+                "Tác Vụ Pure Office",
+                "Vui lòng chọn tệp mục tiêu và bấm nút chức năng tương ứng ngay trong tab, hoặc mở Web Studio đầy đủ.",
+            )
 
     def _start_pptx_synthesis(self) -> None:
         src_path = self.pptx_src_var.get().strip()
@@ -818,10 +838,10 @@ class UniversalDocStudioApp:
         threading.Thread(target=launch_native_web_studio, daemon=True).start()
 
     def _build_enterprise_tab(self) -> None:
-        """Builds the v4.6 Enterprise Quick Actions Tab (Deep CDR, Excel-to-Brief, PDF/A, Code-to-Diagram)."""
+        """Builds the Pure Office & Enterprise Quick Actions Tab (CDR, Word NĐ30, Excel AST/Brief, PDF/A, Print)."""
         box = ttk.LabelFrame(
             self.tab_enterprise,
-            text=" Tác Vụ Doanh Nghiệp Nhanh (Deep CDR, PII Redact, Excel-to-Brief, PDF/A-2b) ",
+            text=" Tác Vụ Văn Phòng Pure Office & Doanh Nghiệp Nhanh ",
             padding=12,
         )
         box.pack(fill=tk.BOTH, expand=True)
@@ -837,12 +857,19 @@ class UniversalDocStudioApp:
             row1,
             text="Chọn Tệp...",
             command=lambda: self.ent_src_var.set(
-                filedialog.askopenfilename(title="Chọn tài liệu cần xử lý") or self.ent_src_var.get()
+                filedialog.askopenfilename(
+                    title="Chọn tài liệu cần xử lý",
+                    filetypes=[
+                        ("Office & PDF Files", "*.pdf;*.docx;*.xlsx;*.xlsm;*.xls"),
+                        ("All Files (*.*)", "*.*"),
+                    ],
+                )
+                or self.ent_src_var.get()
             ),
         ).pack(side=tk.RIGHT)
 
         btn_grid = ttk.Frame(box)
-        btn_grid.pack(fill=tk.X, pady=8)
+        btn_grid.pack(fill=tk.X, pady=(6, 4))
 
         ttk.Button(
             btn_grid,
@@ -862,6 +889,27 @@ class UniversalDocStudioApp:
             command=self._run_quick_pdfa_sign,
         ).pack(side=tk.LEFT, padx=(0, 8))
 
+        btn_grid_office = ttk.Frame(box)
+        btn_grid_office.pack(fill=tk.X, pady=(6, 4))
+
+        ttk.Button(
+            btn_grid_office,
+            text="📝 Word NĐ 30/2020 Polish",
+            command=self._run_quick_word_polish,
+        ).pack(side=tk.LEFT, padx=(0, 8))
+
+        ttk.Button(
+            btn_grid_office,
+            text="🧮 Excel Tính Cache Công Thức (<v>)",
+            command=self._run_quick_excel_eval,
+        ).pack(side=tk.LEFT, padx=(0, 8))
+
+        ttk.Button(
+            btn_grid_office,
+            text="🖨️ In Tài Liệu Nhanh",
+            command=self._run_quick_print,
+        ).pack(side=tk.LEFT, padx=(0, 8))
+
     def _run_quick_cdr_pii(self) -> None:
         src = self.ent_src_var.get().strip()
         if not src or not os.path.isfile(src):
@@ -877,15 +925,25 @@ class UniversalDocStudioApp:
 
     def _run_quick_excel_brief(self) -> None:
         src = self.ent_src_var.get().strip()
-        if not src or not os.path.isfile(src) or not src.lower().endswith(".xlsx"):
-            messagebox.showwarning("Thiếu tệp Excel", "Vui lòng chọn tệp .xlsx để xuất báo cáo Word Brief.")
+        ext = os.path.splitext(src)[1].lower()
+        if not src or not os.path.isfile(src) or ext not in (".xlsx", ".xlsm", ".xls"):
+            messagebox.showwarning("Thiếu tệp Excel", "Vui lòng chọn tệp .xlsx / .xlsm / .xls để xuất báo cáo Word Brief.")
             return
-        from core.xlsx.reporting import excel_to_brief
 
-        res = excel_to_brief(src, target_format="docx")
-        self.last_output_path = res["output_path"]
-        self.log(f"[EXCEL-TO-BRIEF] Hoàn tất: {res['output_path']}")
-        messagebox.showinfo("Hoàn tất Excel-to-Brief", f"Báo cáo Word đã lưu tại:\n{res['output_path']}")
+        if ext == ".xls":
+            out_docx = f"{os.path.splitext(src)[0]}_brief.docx"
+            ok, out_path, _elap = convert_universal(src, out_docx)
+            if not ok:
+                messagebox.showerror("Thất bại", f"Không thể xuất Word Brief từ .xls:\n{out_path}")
+                return
+            self.last_output_path = out_path
+        else:
+            from core.xlsx.reporting import excel_to_brief
+            res = excel_to_brief(src, target_format="docx")
+            self.last_output_path = res["output_path"]
+
+        self.log(f"[EXCEL-TO-BRIEF] Hoàn tất: {self.last_output_path}")
+        messagebox.showinfo("Hoàn tất Excel-to-Brief", f"Báo cáo Word đã lưu tại:\n{self.last_output_path}")
 
     def _run_quick_pdfa_sign(self) -> None:
         src = self.ent_src_var.get().strip()
@@ -901,6 +959,64 @@ class UniversalDocStudioApp:
         self.last_output_path = res["output_path"]
         self.log(f"[PDF/A-2b & PAdES] Hoàn tất: {res['output_path']}")
         messagebox.showinfo("Hoàn tất Ký Số & PDF/A-2b", f"Tệp lưu trữ đã lưu tại:\n{res['output_path']}")
+
+    def _run_quick_word_polish(self) -> None:
+        src = self.ent_src_var.get().strip()
+        if not src or not os.path.isfile(src) or not src.lower().endswith(".docx"):
+            messagebox.showwarning("Thiếu tệp Word", "Vui lòng chọn tệp .docx để chuẩn hóa NĐ 30/2020.")
+            return
+        from core.docx.toolkit import polish_docx_document
+
+        out_path = f"{os.path.splitext(src)[0]}_nd30.docx"
+        res = polish_docx_document(src, out_path, preset="nd30")
+        final_out = res.get("output_path") or out_path
+        self.last_output_path = final_out
+        self.log(f"[WORD NĐ30] Đã chuẩn hóa: {final_out}")
+        messagebox.showinfo("Hoàn tất Word Polish", f"Tệp chuẩn NĐ 30/2020 đã lưu tại:\n{final_out}")
+
+    def _run_quick_excel_eval(self) -> None:
+        src = self.ent_src_var.get().strip()
+        if not src or not os.path.isfile(src) or not src.lower().endswith((".xlsx", ".xlsm")):
+            messagebox.showwarning("Thiếu tệp Excel", "Vui lòng chọn tệp .xlsx hoặc .xlsm để tính cache công thức <v>.")
+            return
+        import openpyxl
+        from core.xlsx.formula_evaluator import ASTFormulaEvaluator
+
+        out_path = f"{os.path.splitext(src)[0]}_evaluated.xlsx"
+        wb = openpyxl.load_workbook(src, data_only=False)
+        try:
+            eval_map = ASTFormulaEvaluator(wb).evaluate_all()
+        finally:
+            wb.close()
+        count = sum(len(cells) for cells in eval_map.values())
+        final_out = ASTFormulaEvaluator.populate_cached_values(src, out_path)
+        self.last_output_path = final_out
+        self.log(f"[AST EVAL] Đã tính {count} công thức -> {self.last_output_path}")
+        messagebox.showinfo(
+            "Hoàn tất AST Formula Evaluator",
+            f"Đã nạp giá trị <v> cho {count} công thức:\n{self.last_output_path}",
+        )
+
+    def _run_quick_print(self) -> None:
+        src = self.ent_src_var.get().strip()
+        if not src or not os.path.isfile(src):
+            messagebox.showwarning("Thiếu tệp", "Vui lòng chọn tệp (.pdf, .docx, .xlsx) cần gửi in.")
+            return
+        from core.printing.printer_manager import PrinterManager
+
+        printer = PrinterManager.get_default_printer() or "Virtual Spooler (PDF Buffer)"
+        confirmed = messagebox.askyesno(
+            "Xác nhận in tài liệu",
+            f"Gửi lệnh in tệp:\n{os.path.basename(src)}\n\nMáy in mặc định: {printer}\n\nTiếp tục?",
+        )
+        if not confirmed:
+            return
+        res = PrinterManager.print_file(src, printer_name=printer)
+        self.log(f"[PRINT] {res.get('mode')} -> {res.get('printer')} ({res.get('status')})")
+        messagebox.showinfo(
+            "Hoàn tất gửi lệnh in",
+            f"Trạng thái: {res.get('status')} ({res.get('mode')})\nMáy in: {res.get('printer')}",
+        )
 
 
 def launch_gui(initial_file: Optional[str] = None) -> None:

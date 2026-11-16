@@ -153,3 +153,108 @@ def test_polish_merge_split_and_watermark_hf(tmp_path: Path) -> None:
         header_xml = zf.read("word/header1.xml").decode("utf-8", errors="ignore")
         assert "PowerPlusWaterMarkObject" in header_xml
         assert "CÔNG TY ANTIGRAVITY" in header_xml
+
+    # Non-destructive header/footer preservation when template already has header content
+    doc_existing = tmp_path / "existing_hdr.docx"
+    d_ex = Document()
+    d_ex.sections[0].header.paragraphs[0].text = "TÊN ĐƠN VỊ CHỦ QUẢN"
+    d_ex.add_paragraph("Nội dung tài liệu.")
+    d_ex.save(str(doc_existing))
+
+    branded_existing = tmp_path / "existing_hdr_branded.docx"
+    res_ex = apply_docx_watermark_and_hf(
+        input_path=str(doc_existing),
+        output_path=str(branded_existing),
+        header_text="Mã hiệu: BM-01",
+        add_page_numbers=False,
+    )
+    assert res_ex["ok"] is True
+    out_doc = Document(str(branded_existing))
+    hdr_texts = "\n".join(p.text for p in out_doc.sections[0].header.paragraphs)
+    assert "TÊN ĐƠN VỊ CHỦ QUẢN" in hdr_texts
+    assert "Mã hiệu: BM-01" in hdr_texts
+
+
+def test_p2_merge_numbering_styles_headers_and_split_temp_cleanup(tmp_path: Path, monkeypatch) -> None:
+    import shutil
+    import tempfile
+    import xml.etree.ElementTree as ET
+    from core.docx.lists import ListContextTracker, apply_list_formatting
+
+    staging_root = tmp_path / "temp_stage"
+    staging_root.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(staging_root))
+
+    # Doc 1: Ordered list + Custom Style A + Header 1
+    p1 = tmp_path / "doc1.docx"
+    d1 = Document()
+    d1.sections[0].header.paragraphs[0].text = "HEADER DOCUMENT ONE"
+    t1 = ListContextTracker(d1)
+    for line in ("1. Mục 1 của Doc 1", "2. Mục 2 của Doc 1"):
+        item = t1.parse_markdown_line(line)
+        para = d1.add_paragraph(item.text)
+        apply_list_formatting(para, item.item_type, item.level, t1.get_num_id_for_item(item))
+    d1.add_paragraph("Dòng cuối Doc 1", style="List Number")
+    d1.save(str(p1))
+
+    # Doc 2: Custom numbered list (colliding numId=3000!) + Custom style + Header 2 / Footer 2
+    p2 = tmp_path / "doc2.docx"
+    d2 = Document()
+    d2.sections[0].header.paragraphs[0].text = "HEADER DOCUMENT TWO"
+    d2.sections[0].footer.paragraphs[0].text = "FOOTER DOCUMENT TWO"
+    st = d2.styles.add_style("CustomNoteStyle", 1)
+    st.font.bold = True
+    t2 = ListContextTracker(d2)
+    for line in ("1. Bước 1 của Doc 2", "2. Bước 2 của Doc 2"):
+        item = t2.parse_markdown_line(line)
+        para = d2.add_paragraph(item.text)
+        apply_list_formatting(para, item.item_type, item.level, t2.get_num_id_for_item(item))
+    d2.add_paragraph("Ghi chú đặc biệt", style="CustomNoteStyle")
+    d2.save(str(p2))
+
+    merged_out = tmp_path / "merged_full.docx"
+    res = merge_docx_files([str(p1), str(p2)], output_path=str(merged_out), normalize_page_numbers=False)
+    assert res["ok"] is True
+    assert res["numbering_remapped"] > 0
+    assert res["styles_merged"] >= 1
+    assert res["sections_preserved"] == 2
+
+    m_doc = Document(str(merged_out))
+    assert "CustomNoteStyle" in [s.name for s in m_doc.styles]
+    assert len(m_doc.sections) == 2
+    assert "HEADER DOCUMENT ONE" in "\n".join(p.text for p in m_doc.sections[0].header.paragraphs)
+    assert m_doc.sections[1].header.is_linked_to_previous is False
+    assert "HEADER DOCUMENT TWO" in "\n".join(p.text for p in m_doc.sections[1].header.paragraphs)
+    assert "FOOTER DOCUMENT TWO" in "\n".join(p.text for p in m_doc.sections[1].footer.paragraphs)
+
+    # Verify numbering.xml schema order (<w:abstractNum> precedes <w:num>) and distinct body numIds
+    with zipfile.ZipFile(str(merged_out), "r") as zf:
+        num_root = ET.fromstring(zf.read("word/numbering.xml"))
+        tags = [el.tag.split("}")[-1] for el in list(num_root)]
+        if "abstractNum" in tags and "num" in tags:
+            assert max(i for i, t in enumerate(tags) if t == "abstractNum") < min(
+                i for i, t in enumerate(tags) if t == "num"
+            )
+        doc_root = ET.fromstring(zf.read("word/document.xml"))
+        body_num_ids = [
+            el.attrib.get("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}val")
+            for el in doc_root.iter("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}numId")
+        ]
+        # Must contain distinct numIds between Doc 1 and Doc 2 instead of colliding
+        assert len(set(body_num_ids)) >= 2
+
+    # Verify split_docx_by_heading cleans up its temp staging folder when as_zip=True
+    d_split = Document()
+    d_split.add_heading("Chương 1", level=1)
+    d_split.add_paragraph("Nội dung 1")
+    d_split.add_heading("Chương 2", level=1)
+    d_split.add_paragraph("Nội dung 2")
+    src_split = tmp_path / "split_src.docx"
+    d_split.save(str(src_split))
+
+    out_zip = tmp_path / "out_chapters.zip"
+    s_res = split_docx_by_heading(str(src_split), output_path=str(out_zip), heading_level=1, as_zip=True)
+    assert s_res["total_chapters"] == 2
+    assert list(staging_root.glob("antigravity_docx_split_*")) == []
+    shutil.rmtree(staging_root, ignore_errors=True)
+

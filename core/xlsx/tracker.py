@@ -18,6 +18,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
+from .formula_evaluator import safe_populate_cached_values
 from .writer import apply_worksheet_print_setup, sanitize_xml_string
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -278,6 +279,7 @@ class OfficeWorkTracker:
 
         self.project_file.parent.mkdir(parents=True, exist_ok=True)
         wb.save(str(self.project_file))
+        safe_populate_cached_values(str(self.project_file))
         return {
             "ok": True,
             "created": True,
@@ -331,6 +333,7 @@ class OfficeWorkTracker:
         )
         _write_log_row(ws, target_row, row_tuple)
         wb.save(str(self.project_file))
+        safe_populate_cached_values(str(self.project_file))
 
         return {
             "ok": True,

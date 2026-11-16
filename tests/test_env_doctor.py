@@ -36,6 +36,9 @@ class TestEnvironmentDoctor(unittest.TestCase):
         self.assertIn("python-docx", res["installed"])
         self.assertIn("python-pptx", res["installed"])
         self.assertIn("openpyxl", res["installed"])
+        self.assertIn("numpy", res["installed"])
+        self.assertIn("optional_installed", res)
+        self.assertIn("optional_missing", res)
         self.assertEqual(res["status"], "healthy")
 
     def test_03_check_java_plantuml(self):
@@ -55,6 +58,8 @@ class TestEnvironmentDoctor(unittest.TestCase):
         res = self.doctor.check_office_converters()
         self.assertIn("status", res)
         self.assertIn("word_com_available", res)
+        self.assertIn("excel_com_available", res)
+        self.assertIn("powerpoint_com_available", res)
         self.assertIn("libreoffice_path", res)
 
     def test_06_check_ocr_tesseract(self):

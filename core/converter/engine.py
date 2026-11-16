@@ -256,7 +256,7 @@ def convert_universal(
         target_path = os.path.splitext(source_path)[0] + dest_ext
     else:
         # Default fallback transitions
-        default_next = {".pdf": ".docx", ".docx": ".md", ".md": ".docx"}
+        default_next = {".pdf": ".docx", ".docx": ".md", ".md": ".docx", ".xls": ".xlsx"}
         dest_ext = default_next.get(src_ext, ".docx")
         target_path = os.path.splitext(source_path)[0] + dest_ext
 
@@ -397,19 +397,58 @@ def convert_universal(
                 progress_callback(100.0, f"Hoàn tất trích xuất {count} bảng sang Excel!")
             return True, res_path, time.time() - start_time
 
-        # Route 13: XLSX -> DOCX / MD / PDF (Excel-to-Brief Reporting Engine)
-        elif src_ext == ".xlsx" and dest_ext in (".docx", ".md", ".markdown", ".pdf"):
-            from core.xlsx.reporting import excel_to_brief
-            if progress_callback:
-                progress_callback(30.0, f"Đang tổng hợp báo cáo từ Excel sang {dest_ext.upper()}...")
-            res = excel_to_brief(
-                source_path,
-                output_path=target_path,
-                target_format=dest_ext.lstrip("."),
-            )
-            if progress_callback:
-                progress_callback(100.0, "Hoàn tất tổng hợp báo cáo từ bảng tính Excel!")
-            return True, res["output_path"], time.time() - start_time
+        # Route 13: XLSX / XLSM / XLS -> PDF / DOCX / MD / XLSX
+        elif src_ext in (".xlsx", ".xlsm", ".xls") and dest_ext in (".docx", ".md", ".markdown", ".pdf", ".xlsx"):
+            if src_ext == ".xls" and dest_ext == ".xlsx":
+                from core.converter.pdf_renderer import convert_xls_to_xlsx
+                if progress_callback:
+                    progress_callback(30.0, "Đang nâng cấp bảng tính .xls sang chuẩn .xlsx...")
+                out_xlsx = convert_xls_to_xlsx(source_path, target_path)
+                if progress_callback:
+                    progress_callback(100.0, "Hoàn tất nâng cấp .xls sang .xlsx!")
+                return True, out_xlsx, time.time() - start_time
+
+            if dest_ext == ".pdf":
+                try:
+                    from core.converter.pdf_renderer import UniversalPdfRenderer
+                    if progress_callback:
+                        progress_callback(35.0, "Đang xuất PDF trực tiếp qua Excel COM / LibreOffice...")
+                    pdf_out = UniversalPdfRenderer().convert_xlsx_to_pdf(source_path, target_path)
+                    if os.path.isfile(pdf_out) and os.path.getsize(pdf_out) > 0:
+                        if progress_callback:
+                            progress_callback(100.0, "Hoàn tất xuất PDF từ bảng tính Excel!")
+                        return True, pdf_out, time.time() - start_time
+                except Exception:
+                    pass
+
+            temp_xlsx: Optional[str] = None
+            brief_source = source_path
+            try:
+                if src_ext == ".xls":
+                    import tempfile
+                    from core.converter.pdf_renderer import convert_xls_to_xlsx
+                    fd, temp_xlsx = tempfile.mkstemp(prefix=".ag_xls_", suffix=".xlsx")
+                    os.close(fd)
+                    convert_xls_to_xlsx(source_path, temp_xlsx)
+                    brief_source = temp_xlsx
+
+                from core.xlsx.reporting import excel_to_brief
+                if progress_callback:
+                    progress_callback(30.0, f"Đang tổng hợp báo cáo từ Excel sang {dest_ext.upper()}...")
+                res = excel_to_brief(
+                    brief_source,
+                    output_path=target_path,
+                    target_format=dest_ext.lstrip("."),
+                )
+                if progress_callback:
+                    progress_callback(100.0, "Hoàn tất tổng hợp báo cáo từ bảng tính Excel!")
+                return True, res["output_path"], time.time() - start_time
+            finally:
+                if temp_xlsx and os.path.isfile(temp_xlsx):
+                    try:
+                        os.remove(temp_xlsx)
+                    except OSError:
+                        pass
 
         # Same format or unsupported
         elif src_ext == dest_ext:

@@ -61,6 +61,33 @@ def is_win32_com_available(app_name: str = "Word.Application") -> bool:
     return False
 
 
+def _dispatch_isolated_com(prog_id: str) -> Any:
+    """Create an isolated COM server instance and register its HWND PID with ComProcessWatchdog."""
+    import win32com.client  # type: ignore
+
+    app = win32com.client.DispatchEx(prog_id)
+    try:
+        from core.converter.com_watchdog import ComProcessWatchdog
+
+        hwnd = getattr(app, "Hwnd", None) or getattr(app, "HWND", None)
+        if hwnd:
+            ComProcessWatchdog.register_pid_from_hwnd(hwnd)
+    except Exception:
+        pass
+    return app
+
+
+def _run_with_com_watchdog(func: Any, app_type: str, timeout_sec: float = 25.0) -> Any:
+    try:
+        from core.converter.com_watchdog import ComProcessWatchdog
+
+        return ComProcessWatchdog.run_with_timeout(
+            func, timeout_sec=timeout_sec, app_type=app_type
+        )
+    except (ImportError, ValueError):
+        return func()
+
+
 class UniversalPdfRenderer:
     """
     Universal Multi-Backend PDF Renderer.
@@ -75,19 +102,25 @@ class UniversalPdfRenderer:
         self.prefer_libreoffice = prefer_libreoffice
         self.libreoffice_binary = libreoffice_path or find_libreoffice_binary()
 
+    @staticmethod
+    def _any_office_com_available() -> bool:
+        return any(
+            is_win32_com_available(prog_id)
+            for prog_id in ("Word.Application", "Excel.Application", "PowerPoint.Application")
+        )
+
     def get_available_backends(self) -> List[str]:
         """Return list of functional backends in priority order."""
         backends: List[str] = []
-        if sys.platform == "win32" and not self.prefer_libreoffice:
-            if is_win32_com_available("Word.Application"):
-                backends.append("win32com")
+        has_com = sys.platform == "win32" and self._any_office_com_available()
+        if has_com and not self.prefer_libreoffice:
+            backends.append("win32com")
 
         if self.libreoffice_binary:
             backends.append("libreoffice")
 
-        if sys.platform == "win32" and self.prefer_libreoffice:
-            if is_win32_com_available("Word.Application"):
-                backends.append("win32com")
+        if has_com and self.prefer_libreoffice:
+            backends.append("win32com")
 
         backends.append("fallback")
         return backends
@@ -158,7 +191,7 @@ class UniversalPdfRenderer:
     def convert_xlsx_to_pdf(
         self, xlsx_path: str, output_pdf_path: Optional[str] = None
     ) -> str:
-        """Convert Excel (.xlsx) spreadsheet to PDF."""
+        """Convert Excel (.xlsx/.xlsm/.xls) spreadsheet to PDF via Excel COM or LibreOffice."""
         if not os.path.exists(xlsx_path):
             raise FileNotFoundError(f"Source XLSX not found: {xlsx_path}")
 
@@ -167,13 +200,78 @@ class UniversalPdfRenderer:
         os.makedirs(target_dir, exist_ok=True)
 
         backends = self.get_available_backends()
+        has_excel_com = sys.platform == "win32" and is_win32_com_available("Excel.Application")
+        has_lo = "libreoffice" in backends
 
-        if "libreoffice" in backends:
-            return self._convert_via_libreoffice(xlsx_path, target_pdf)
+        attempts: List[str] = []
+        if self.prefer_libreoffice:
+            if has_lo:
+                attempts.append("libreoffice")
+            if has_excel_com:
+                attempts.append("excel_com")
+        else:
+            if has_excel_com:
+                attempts.append("excel_com")
+            if has_lo:
+                attempts.append("libreoffice")
+
+        last_err: Optional[Exception] = None
+        for backend in attempts:
+            try:
+                if backend == "excel_com":
+                    return self._convert_xlsx_win32com(xlsx_path, target_pdf)
+                return self._convert_via_libreoffice(xlsx_path, target_pdf)
+            except Exception as ex:
+                last_err = ex
+
+        if last_err is not None:
+            raise RuntimeError(f"Excel to PDF conversion failed: {last_err}") from last_err
 
         raise RuntimeError(
-            "LibreOffice backend is required for Excel to PDF conversion on this platform."
+            "Microsoft Excel COM (Windows) or LibreOffice backend is required for Excel to PDF conversion on this platform."
         )
+
+    def convert_xls_to_xlsx(
+        self, xls_path: str, output_xlsx_path: Optional[str] = None
+    ) -> str:
+        """Upgrade legacy .xls binary workbook to modern OpenXML .xlsx."""
+        if not os.path.exists(xls_path):
+            raise FileNotFoundError(f"Source XLS not found: {xls_path}")
+
+        target_xlsx = output_xlsx_path or os.path.splitext(xls_path)[0] + ".xlsx"
+        target_dir = os.path.dirname(os.path.abspath(target_xlsx))
+        os.makedirs(target_dir, exist_ok=True)
+
+        backends = self.get_available_backends()
+        has_excel_com = sys.platform == "win32" and is_win32_com_available("Excel.Application")
+        has_lo = "libreoffice" in backends
+
+        order = (
+            (["libreoffice"] if has_lo else []) + (["excel_com"] if has_excel_com else [])
+            if self.prefer_libreoffice
+            else (["excel_com"] if has_excel_com else []) + (["libreoffice"] if has_lo else [])
+        )
+
+        last_err: Optional[Exception] = None
+        for backend in order:
+            try:
+                if backend == "excel_com":
+                    return self._convert_xls_win32com(xls_path, target_xlsx)
+                return self._convert_via_libreoffice_format(xls_path, target_xlsx, "xlsx")
+            except Exception as exc:
+                last_err = exc
+
+        # Optional pure-Python fallback via xlrd + openpyxl if installed
+        try:
+            return self._convert_xls_via_xlrd(xls_path, target_xlsx)
+        except Exception as xlrd_exc:
+            if last_err is not None:
+                raise RuntimeError(
+                    f"Legacy .xls conversion failed ({last_err}; xlrd fallback: {xlrd_exc})"
+                ) from last_err
+            raise RuntimeError(
+                "Legacy .xls conversion requires Microsoft Excel COM, LibreOffice, or 'xlrd' package."
+            ) from xlrd_exc
 
     def convert_to_pdf(
         self, source_path: str, output_pdf_path: Optional[str] = None
@@ -194,16 +292,18 @@ class UniversalPdfRenderer:
         else:
             raise ValueError(f"Unsupported file format for PDF conversion: {ext}")
 
-    def _convert_via_libreoffice(self, source_path: str, target_pdf: str) -> str:
-        """Run LibreOffice headless convert-to pdf command."""
+    def _convert_via_libreoffice_format(
+        self, source_path: str, target_path: str, target_fmt: str
+    ) -> str:
+        """Run LibreOffice headless convert-to <target_fmt> command."""
         bin_path = self.libreoffice_binary or "soffice"
-        out_dir = os.path.dirname(os.path.abspath(target_pdf))
+        out_dir = os.path.dirname(os.path.abspath(target_path))
 
         cmd = [
             bin_path,
             "--headless",
             "--convert-to",
-            "pdf",
+            target_fmt,
             "--outdir",
             out_dir,
             os.path.abspath(source_path),
@@ -212,30 +312,35 @@ class UniversalPdfRenderer:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
         if proc.returncode != 0:
             raise RuntimeError(
-                f"LibreOffice PDF conversion failed with exit code {proc.returncode}: {proc.stderr}"
+                f"LibreOffice {target_fmt.upper()} conversion failed with exit code {proc.returncode}: {proc.stderr}"
             )
 
-        # LibreOffice names the output file <basename>.pdf in outdir
         expected_out = os.path.join(
-            out_dir, os.path.splitext(os.path.basename(source_path))[0] + ".pdf"
+            out_dir, f"{os.path.splitext(os.path.basename(source_path))[0]}.{target_fmt}"
         )
 
         if os.path.exists(expected_out):
-            if os.path.abspath(expected_out) != os.path.abspath(target_pdf):
-                shutil.move(expected_out, target_pdf)
-            return target_pdf
+            if os.path.abspath(expected_out) != os.path.abspath(target_path):
+                shutil.move(expected_out, target_path)
+            return target_path
 
-        raise FileNotFoundError(f"Expected converted PDF not produced at: {expected_out}")
+        raise FileNotFoundError(f"Expected converted output not produced at: {expected_out}")
+
+    def _convert_via_libreoffice(self, source_path: str, target_pdf: str) -> str:
+        """Run LibreOffice headless convert-to pdf command."""
+        return self._convert_via_libreoffice_format(source_path, target_pdf, "pdf")
 
     def _convert_docx_win32com(self, docx_path: str, target_pdf: str) -> str:
-        """Convert DOCX via Microsoft Word COM automation with watchdog protection."""
+        """Convert DOCX via isolated Microsoft Word COM automation with watchdog protection."""
         def _do_convert() -> str:
-            import win32com.client  # type: ignore
-
-            word = win32com.client.Dispatch("Word.Application")
+            word = _dispatch_isolated_com("Word.Application")
             word.Visible = False
             try:
-                doc = word.Documents.Open(os.path.abspath(docx_path))
+                word.DisplayAlerts = 0
+            except Exception:
+                pass
+            try:
+                doc = word.Documents.Open(os.path.abspath(docx_path), ReadOnly=True)
                 # 17 represents wdFormatPDF
                 doc.SaveAs(os.path.abspath(target_pdf), FileFormat=17)
                 doc.Close(False)
@@ -246,20 +351,12 @@ class UniversalPdfRenderer:
                 except Exception:
                     pass
 
-        try:
-            from core.converter.com_watchdog import ComProcessWatchdog
-            return ComProcessWatchdog.run_with_timeout(
-                _do_convert, timeout_sec=20.0, app_type="word"
-            )
-        except (ImportError, ValueError):
-            return _do_convert()
+        return _run_with_com_watchdog(_do_convert, app_type="word", timeout_sec=20.0)
 
     def _convert_pptx_win32com(self, pptx_path: str, target_pdf: str) -> str:
-        """Convert PPTX via Microsoft PowerPoint COM automation with watchdog protection."""
+        """Convert PPTX via isolated Microsoft PowerPoint COM automation with watchdog protection."""
         def _do_convert() -> str:
-            import win32com.client  # type: ignore
-
-            powerpoint = win32com.client.Dispatch("PowerPoint.Application")
+            powerpoint = _dispatch_isolated_com("PowerPoint.Application")
             try:
                 deck = powerpoint.Presentations.Open(
                     os.path.abspath(pptx_path), WithWindow=False
@@ -274,13 +371,113 @@ class UniversalPdfRenderer:
                 except Exception:
                     pass
 
-        try:
-            from core.converter.com_watchdog import ComProcessWatchdog
-            return ComProcessWatchdog.run_with_timeout(
-                _do_convert, timeout_sec=20.0, app_type="powerpoint"
-            )
-        except (ImportError, ValueError):
-            return _do_convert()
+        return _run_with_com_watchdog(_do_convert, app_type="powerpoint", timeout_sec=20.0)
+
+    def _convert_xlsx_win32com(self, xlsx_path: str, target_pdf: str) -> str:
+        """Convert XLSX/XLS/XLSM via isolated Microsoft Excel COM ExportAsFixedFormat (PDF)."""
+        abs_src = os.path.abspath(xlsx_path)
+        abs_pdf = os.path.abspath(target_pdf)
+
+        def _do_convert() -> str:
+            excel = _dispatch_isolated_com("Excel.Application")
+            excel.Visible = False
+            try:
+                excel.DisplayAlerts = False
+            except Exception:
+                pass
+            wb = None
+            try:
+                wb = excel.Workbooks.Open(abs_src, UpdateLinks=0, ReadOnly=True)
+                # 0 represents xlTypePDF
+                wb.ExportAsFixedFormat(Type=0, Filename=abs_pdf)
+                return target_pdf
+            finally:
+                if wb is not None:
+                    try:
+                        wb.Close(SaveChanges=False)
+                    except Exception:
+                        pass
+                try:
+                    excel.Quit()
+                except Exception:
+                    pass
+
+        return _run_with_com_watchdog(_do_convert, app_type="excel", timeout_sec=25.0)
+
+    def _convert_xls_win32com(self, xls_path: str, target_xlsx: str) -> str:
+        """Convert legacy .xls via isolated Microsoft Excel COM SaveAs (FileFormat=51)."""
+        abs_src = os.path.abspath(xls_path)
+        abs_xlsx = os.path.abspath(target_xlsx)
+
+        def _do_convert() -> str:
+            excel = _dispatch_isolated_com("Excel.Application")
+            excel.Visible = False
+            try:
+                excel.DisplayAlerts = False
+            except Exception:
+                pass
+            wb = None
+            try:
+                wb = excel.Workbooks.Open(abs_src, UpdateLinks=0, ReadOnly=True)
+                # 51 represents xlOpenXMLWorkbook (.xlsx)
+                wb.SaveAs(abs_xlsx, FileFormat=51)
+                return target_xlsx
+            finally:
+                if wb is not None:
+                    try:
+                        wb.Close(SaveChanges=False)
+                    except Exception:
+                        pass
+                try:
+                    excel.Quit()
+                except Exception:
+                    pass
+
+        return _run_with_com_watchdog(_do_convert, app_type="excel", timeout_sec=25.0)
+
+    @staticmethod
+    def _convert_xls_via_xlrd(xls_path: str, target_xlsx: str) -> str:
+        """Pure-Python legacy .xls -> .xlsx converter via optional xlrd + openpyxl."""
+        import openpyxl  # type: ignore
+        import xlrd  # type: ignore
+
+        book = xlrd.open_workbook(os.path.abspath(xls_path))
+        wb_out = openpyxl.Workbook()
+        # Remove initial blank sheet after writing converted sheets
+        first_sheet = wb_out.active
+        wrote_any = False
+
+        for s_idx in range(book.nsheets):
+            sh = book.sheet_by_index(s_idx)
+            ws = first_sheet if not wrote_any else wb_out.create_sheet(title=sh.name[:31] or f"Sheet{s_idx+1}")
+            if not wrote_any:
+                ws.title = sh.name[:31] or "Sheet1"
+                wrote_any = True
+            for r in range(sh.nrows):
+                for c in range(sh.ncols):
+                    cell = sh.cell(r, c)
+                    val = cell.value
+                    if cell.ctype == xlrd.XL_CELL_DATE:
+                        val = xlrd.xldate_as_datetime(val, book.datemode)
+                    elif cell.ctype == xlrd.XL_CELL_BOOLEAN:
+                        val = bool(val)
+                    elif cell.ctype == xlrd.XL_CELL_EMPTY:
+                        val = None
+                    ws.cell(row=r + 1, column=c + 1, value=val)
+
+        wb_out.save(os.path.abspath(target_xlsx))
+        wb_out.close()
+        return target_xlsx
+
+
+def convert_xls_to_xlsx(
+    xls_path: str,
+    output_xlsx_path: Optional[str] = None,
+    prefer_libreoffice: bool = False,
+) -> str:
+    """Convenience functional wrapper to upgrade legacy .xls to .xlsx."""
+    renderer = UniversalPdfRenderer(prefer_libreoffice=prefer_libreoffice)
+    return renderer.convert_xls_to_xlsx(xls_path, output_xlsx_path)
 
 
 def convert_document_to_pdf(

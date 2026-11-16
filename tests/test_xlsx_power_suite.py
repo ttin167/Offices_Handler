@@ -6,6 +6,7 @@ tests/test_xlsx_power_suite.py — Unit Tests for Pillar 1: Excel Power Suite & 
 from __future__ import annotations
 
 import datetime
+import os
 import zipfile
 from pathlib import Path
 
@@ -155,6 +156,18 @@ def test_pivot_summary_and_chart_creation(tmp_path: Path) -> None:
     assert any("SUMIFS(" in f or "COUNTIFS(" in f for f in formulas)
     wb.close()
 
+    # Cached values populated automatically for offline data_only=True readers (P0.1)
+    wb_val = openpyxl.load_workbook(str(out), data_only=True)
+    ws_pv = wb_val["Pivot_Summary"]
+    cached_nums = [
+        ws_pv.cell(r, 2).value
+        for r in range(4, ws_pv.max_row + 1)
+        if isinstance(ws_pv.cell(r, 2).value, (int, float))
+    ]
+    assert len(cached_nums) >= 2
+    assert any(v > 0 for v in cached_nums)
+    wb_val.close()
+
 
 def test_xlookup_join_same_workbook_and_cross_workbook(tmp_path: Path) -> None:
     wb_both = openpyxl.Workbook()
@@ -279,3 +292,82 @@ def test_formula_playbook_expanded_catalog() -> None:
     assert len(all_items) == len(FORMULA_CATALOG)
     cat_ids = {c["category"] for c in all_items}
     assert {"aggregation", "logic", "text", "lookup", "dynamic", "financial"}.issubset(cat_ids)
+
+
+def test_p2_power_suite_streaming_and_split_temp_cleanup(tmp_path: Path, monkeypatch) -> None:
+    import tempfile
+
+    staging_root = tmp_path / "split_stage"
+    staging_root.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(staging_root))
+
+    src = tmp_path / "hr_stream.xlsx"
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "NhanSu"
+    ws.append(["MaNV", "PhongBan", "SDT", "NgayVao"])
+    ws.append(["NV01", "IT", 912345678, "15/05/2026"])
+    ws.append(["NV01", "IT", 912345678, "15/05/2026"])
+    ws.append(["NV02", "HR", "0987654321", "2026-06-01"])
+    wb.save(str(src))
+    wb.close()
+
+    cleaned_out = tmp_path / "hr_cleaned_stream.xlsx"
+    res_clean = clean_and_standardize_workbook(
+        input_path=str(src),
+        output_path=str(cleaned_out),
+        dedup_columns=["MaNV"],
+        streaming=True,
+    )
+    assert res_clean["ok"] is True
+    assert res_clean["streaming_mode"] is True
+    assert res_clean["duplicates_removed"] == 1
+    assert res_clean["ids_protected"] >= 1
+
+    wb_c = openpyxl.load_workbook(str(cleaned_out))
+    ws_c = wb_c["NhanSu"]
+    assert ws_c["C2"].value == "0912345678"
+    assert ws_c["C2"].number_format == "@"
+    wb_c.close()
+
+    # Cross-workbook XLOOKUP with large right table simulated -> streaming_right
+    left = tmp_path / "left.xlsx"
+    wb_l = openpyxl.Workbook()
+    wl = wb_l.active
+    wl.append(["MaNV", "Ten"])
+    wl.append(["NV01", "An"])
+    wl.append(["NV02", "Binh"])
+    wb_l.save(str(left))
+    wb_l.close()
+
+    joined_out = tmp_path / "joined_stream.xlsx"
+    monkeypatch.setattr(
+        "core.xlsx.power_tools.estimate_xlsx_metrics",
+        lambda p: {"is_large_file": os.path.abspath(p) == str(cleaned_out.resolve())},
+    )
+    res_join = xlookup_join_workbooks(
+        left_path=str(left),
+        right_path=str(cleaned_out),
+        left_key="MaNV",
+        right_key="MaNV",
+        return_cols=["PhongBan", "SDT"],
+        output_path=str(joined_out),
+    )
+    assert res_join["ok"] is True
+    assert res_join["streaming_right"] is True
+    assert res_join["matched_rows"] == 2
+
+    # Split with as_zip=True cleans temp staging folder
+    split_zip = tmp_path / "split_stream.zip"
+    res_split = split_workbook_by_column(
+        input_path=str(cleaned_out),
+        split_col="PhongBan",
+        output_path=str(split_zip),
+        as_zip=True,
+        streaming=True,
+    )
+    assert res_split["ok"] is True
+    assert res_split["streaming_mode"] is True
+    assert res_split["total_files"] == 2
+    assert list(staging_root.glob("antigravity_split_*")) == []
+

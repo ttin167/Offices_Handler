@@ -135,6 +135,16 @@ class TestExcelFormulaPlaybook(unittest.TestCase):
 
         wb.close()
 
+        # Verify Sheet 2 live formulas have computed cached values in data_only=True mode (P0.1)
+        wb_val = openpyxl.load_workbook(res_path, data_only=True)
+        ws_guide_val = wb_val["Formula_Playbook"]
+        self.assertTrue(str(ws_guide_val.cell(row=4, column=4).value or "").startswith("="))
+        ws_live_val = wb_val["Live_Interactive_Formulas"]
+        self.assertEqual(ws_live_val["F5"].value, "Xuất Sắc")
+        self.assertIsInstance(ws_live_val["C17"].value, (int, float))
+        self.assertGreater(ws_live_val["C17"].value, 0)
+        wb_val.close()
+
     def test_mcp_server_formula_helper_dispatch(self):
         """Test MCP tool dispatcher for xlsx_formula_helper."""
         res = execute_xlsx_formula_helper({"category": "lookup", "search": "XLOOKUP"})

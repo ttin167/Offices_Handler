@@ -92,3 +92,41 @@ def test_guard_g2_device_capabilities():
     # Should safely return False without exception
     assert applied is False
 
+
+def test_build_devmode_non_privileged_no_setprinter(monkeypatch):
+    import sys
+    if sys.platform != "win32":
+        pytest.skip("Windows-only DEVMODE test")
+
+    import types
+    import core.printing.printer_manager as pm_mod
+
+    fake_dm = types.SimpleNamespace(DefaultSource=0, Duplex=1, Fields=0)
+    open_calls = []
+
+    monkeypatch.setattr(
+        PrinterManager,
+        "get_device_capabilities",
+        classmethod(lambda cls, name=None: {"printer": "HP Laser", "supported_bins": (1, 7), "supports_duplex": True, "is_virtual": False}),
+    )
+    monkeypatch.setattr(
+        pm_mod.win32print,
+        "OpenPrinter",
+        lambda name, defaults=None: (open_calls.append((name, defaults)) or 123),
+    )
+    monkeypatch.setattr(pm_mod.win32print, "GetPrinter", lambda h, lvl: {"pDevMode": fake_dm})
+    monkeypatch.setattr(pm_mod.win32print, "DocumentProperties", lambda *args: 1)
+    monkeypatch.setattr(pm_mod.win32print, "ClosePrinter", lambda h: None)
+
+    def forbid_set_printer(*args, **kwargs):
+        raise AssertionError("SetPrinter should never be called for per-job DEVMODE")
+
+    monkeypatch.setattr(pm_mod.win32print, "SetPrinter", forbid_set_printer)
+
+    dm = PrinterManager.build_devmode("HP Laser", tray_id=7, duplex="vertical")
+    assert dm is fake_dm
+    assert dm.DefaultSource == 7
+    assert dm.Duplex == pm_mod.win32con.DMDUP_VERTICAL
+    assert open_calls == [("HP Laser", None)]
+    assert PrinterManager.apply_devmode("HP Laser", tray_id=7, duplex="vertical") is True
+

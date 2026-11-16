@@ -143,3 +143,49 @@ def test_vietnamese_ocr_pipeline_document_image(tmp_path):
 
     assert res["total_pages"] == 1
     assert os.path.exists(out_md)
+
+
+def test_ocr_fallback_without_tesseract_and_hybrid_pdf(tmp_path, monkeypatch):
+    import sys
+    from PIL import ImageFont
+    from core.converter.ocr_pipeline import run_ocr_with_fallback
+
+    monkeypatch.setattr("core.converter.ocr_pipeline.find_tesseract_binary", lambda: None)
+
+    img = Image.new("RGB", (600, 120), color=(255, 255, 255))
+    draw = ImageDraw.Draw(img)
+    try:
+        font = ImageFont.truetype(r"C:\Windows\Fonts\arial.ttf", 40)
+    except Exception:
+        font = ImageFont.load_default()
+    draw.text((20, 30), "INVOICE 2026 TOTAL 1500", fill=(0, 0, 0), font=font)
+
+    res = run_ocr_with_fallback(img, lang="eng", tesseract_cmd=None, backend="auto")
+    if sys.platform == "win32":
+        assert res["success"] is True
+        assert res["backend"] in ("windows_winrt", "rapidocr", "tesseract")
+        assert "2026" in res["text"]
+    else:
+        assert "backend" in res
+
+    # Hybrid PDF text-layer recovery fallback when raster OCR yields empty output
+    import pymupdf
+
+    pdf_path = str(tmp_path / "hybrid_layer.pdf")
+    doc = pymupdf.open()
+    pg = doc.new_page(width=595, height=842)
+    pg.insert_text((72, 72), "Embedded Digital Layer Text 2026", fontsize=12)
+    doc.save(pdf_path)
+    doc.close()
+
+    monkeypatch.setattr(
+        "core.converter.ocr_pipeline.run_ocr_with_fallback",
+        lambda *a, **kw: {"success": False, "text": "", "lang_used": "vie+eng", "backend": "none", "error": "disabled"},
+    )
+    pipeline = VietnameseOcrPipeline(lang="vie+eng", filter_red_stamp=False, deskew=False)
+    doc_res = pipeline.process_document(pdf_path)
+    assert doc_res["total_pages"] == 1
+    assert doc_res["pages"][0]["success"] is True
+    assert doc_res["pages"][0]["backend"] == "pdf_text_layer"
+    assert "Embedded Digital Layer Text 2026" in doc_res["full_text"]
+

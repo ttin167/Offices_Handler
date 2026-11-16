@@ -31,6 +31,11 @@ try:
 except ImportError:
     apply_worksheet_print_setup = None  # type: ignore
 
+try:
+    from core.xlsx.formula_evaluator import safe_populate_cached_values
+except ImportError:
+    safe_populate_cached_values = None  # type: ignore
+
 
 # ---------------------------------------------------------------------------
 # Visual Tokens & Styles
@@ -772,13 +777,15 @@ def generate_formula_playbook_xlsx(output_path: str) -> Tuple[bool, str]:
         c_name.alignment = Alignment(horizontal="center", vertical="center")
         c_name.font = DATA_BOLD_FONT
 
-        # Col D: Cú Pháp
+        # Col D: Cú Pháp (store as text so Excel displays syntax instead of evaluating it)
         c_tpl = ws1.cell(row=current_row, column=4, value=item["template"])
+        c_tpl.data_type = "s"
         c_tpl.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
         c_tpl.font = CODE_FONT
 
-        # Col E: Ví Dụ
+        # Col E: Ví Dụ (store as text so Excel displays example syntax verbatim)
         c_ex = ws1.cell(row=current_row, column=5, value=item["example"])
+        c_ex.data_type = "s"
         c_ex.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
         c_ex.font = CODE_FONT
 
@@ -959,8 +966,9 @@ def generate_formula_playbook_xlsx(output_path: str) -> Tuple[bool, str]:
         c1.alignment = Alignment(horizontal="left", vertical="center")
         c1.font = DATA_BOLD_FONT
 
-        # Col 2: Formula string representation
+        # Col 2: Formula string representation (text literal)
         c2 = ws2.cell(row=k_idx, column=2, value=kpi_formula)
+        c2.data_type = "s"
         c2.alignment = Alignment(horizontal="left", vertical="center")
         c2.font = CODE_FONT
 
@@ -998,4 +1006,6 @@ def generate_formula_playbook_xlsx(output_path: str) -> Tuple[bool, str]:
         ws2.page_setup.orientation = ws2.ORIENTATION_LANDSCAPE
 
     wb.save(dest)
+    if safe_populate_cached_values is not None:
+        safe_populate_cached_values(dest)
     return True, dest

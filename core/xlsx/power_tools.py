@@ -17,6 +17,7 @@ from __future__ import annotations
 import datetime
 import os
 import re
+import shutil
 import tempfile
 import zipfile
 from copy import copy
@@ -24,12 +25,15 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import openpyxl
+from openpyxl.cell import WriteOnlyCell
 from openpyxl.chart import BarChart, LineChart, PieChart, Reference
 from openpyxl.comments import Comment
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import column_index_from_string, get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
+from .formula_evaluator import safe_populate_cached_values
+from .streaming import estimate_xlsx_metrics
 from .writer import (
     apply_worksheet_print_setup,
     parse_vietnamese_date,
@@ -346,6 +350,179 @@ def _delete_rows_grouped(ws: Worksheet, row_indices: List[int]) -> int:
 # ---------------------------------------------------------------------------
 
 
+def _is_large_xlsx(path: Path, streaming: Optional[bool] = None) -> bool:
+    if streaming is not None:
+        return bool(streaming)
+    try:
+        return bool(estimate_xlsx_metrics(str(path)).get("is_large_file"))
+    except Exception:
+        return False
+
+
+def _clean_workbook_streaming(
+    src: Path,
+    dst: Path,
+    sheet_name: Optional[str],
+    dedup_columns: Optional[List[str]],
+    normalize_dates: bool,
+    normalize_phones_and_ids: bool,
+    trim_whitespace: bool,
+    case_mode: str,
+) -> Dict[str, Any]:
+    """Low-RAM read_only + write_only cleaning path for >10MB / >30,000-row workbooks."""
+    wb_in = openpyxl.load_workbook(str(src), read_only=True, data_only=False)
+    wb_out = openpyxl.Workbook(write_only=True)
+    try:
+        if sheet_name:
+            if sheet_name not in wb_in.sheetnames:
+                raise ValueError(f"Sheet '{sheet_name}' not found. Available: {wb_in.sheetnames}")
+            ws_in = wb_in[sheet_name]
+        else:
+            ws_in = wb_in.active or wb_in.worksheets[0]
+
+        ws_out = wb_out.create_sheet(title=ws_in.title[:31])
+        row_iter = ws_in.iter_rows(values_only=True)
+        scanned_rows: List[Tuple[int, List[Any]]] = []
+        header_row_idx = 1
+        header_vals: List[Any] = []
+
+        # Scan top rows for header
+        for r_idx, row in enumerate(row_iter, start=1):
+            r_list = list(row)
+            scanned_rows.append((r_idx, r_list))
+            non_empty = sum(1 for v in r_list if v is not None and str(v).strip() != "")
+            if non_empty >= 2:
+                header_row_idx = r_idx
+                header_vals = r_list
+                break
+            if r_idx >= 15:
+                break
+
+        if not header_vals and scanned_rows:
+            header_row_idx, header_vals = scanned_rows[0]
+
+        headers = [str(v).strip() if v is not None else "" for v in header_vals]
+        max_col = max(1, len(headers))
+        col_flags: Dict[int, Tuple[bool, bool]] = {
+            c: _is_id_or_phone_header(headers[c - 1] if c - 1 < len(headers) else "")
+            for c in range(1, max_col + 1)
+        }
+
+        dedup_indices: Optional[List[int]] = None
+        if dedup_columns:
+            if len(dedup_columns) == 1 and dedup_columns[0].strip() == "*":
+                dedup_indices = list(range(1, max_col + 1))
+            else:
+                norm_hdrs = {h.lower(): idx + 1 for idx, h in enumerate(headers) if h}
+                dedup_indices = []
+                for col in dedup_columns:
+                    c_low = col.strip().lower()
+                    if c_low in norm_hdrs:
+                        dedup_indices.append(norm_hdrs[c_low])
+                    else:
+                        dedup_indices.append(column_index_from_string(col.strip().upper()))
+
+        for r_idx, r_list in scanned_rows:
+            if r_idx <= header_row_idx:
+                ws_out.append(r_list)
+
+        cells_cleaned = 0
+        dates_standardized = 0
+        ids_protected = 0
+        rows_processed = 0
+        duplicates_removed = 0
+        seen_keys: set[Tuple[str, ...]] = set()
+
+        for row in row_iter:
+            r_list = list(row)
+            if len(r_list) < max_col:
+                r_list.extend([None] * (max_col - len(r_list)))
+            if all(v is None or str(v).strip() == "" for v in r_list):
+                continue
+            rows_processed += 1
+
+            out_cells: List[Any] = []
+            norm_row_vals: List[Any] = []
+            for c in range(1, max_col + 1):
+                val = r_list[c - 1]
+                if val is None or (isinstance(val, str) and val.startswith("=")):
+                    out_cells.append(val)
+                    norm_row_vals.append(val)
+                    continue
+
+                is_id, is_phone = col_flags[c]
+                if normalize_phones_and_ids and is_id:
+                    norm_id = _normalize_identifier_value(val, is_phone=is_phone)
+                    if norm_id != str(val):
+                        ids_protected += 1
+                    clean_id = sanitize_xml_string(norm_id)
+                    cell = WriteOnlyCell(ws_out, value=clean_id)
+                    cell.data_type = "s"
+                    cell.number_format = "@"
+                    out_cells.append(cell)
+                    norm_row_vals.append(clean_id)
+                    continue
+
+                if isinstance(val, str):
+                    cleaned_str = sanitize_xml_string(val)
+                    collapsed = " ".join(cleaned_str.split()) if trim_whitespace else cleaned_str
+                    if normalize_dates and _looks_like_date_string(collapsed):
+                        parsed_date = parse_vietnamese_date(collapsed)
+                        if parsed_date is not None:
+                            cell = WriteOnlyCell(ws_out, value=parsed_date)
+                            cell.number_format = "dd/mm/yyyy"
+                            dates_standardized += 1
+                            out_cells.append(cell)
+                            norm_row_vals.append(parsed_date)
+                            continue
+                    if case_mode != "preserve" and collapsed:
+                        collapsed = _apply_case_mode(collapsed, case_mode)
+                    if collapsed != val:
+                        cells_cleaned += 1
+                    out_cells.append(collapsed)
+                    norm_row_vals.append(collapsed)
+                else:
+                    out_cells.append(val)
+                    norm_row_vals.append(val)
+
+            if dedup_indices is not None:
+                key = tuple(
+                    _normalize_key_for_join(norm_row_vals[c - 1] if c - 1 < len(norm_row_vals) else None).lower()
+                    for c in dedup_indices
+                )
+                if any(key):
+                    if key in seen_keys:
+                        duplicates_removed += 1
+                        continue
+                    seen_keys.add(key)
+
+            ws_out.append(out_cells)
+
+        wb_out.save(str(dst))
+        return {
+            "ok": True,
+            "input_path": str(src),
+            "output_path": str(dst),
+            "sheet_name": ws_in.title,
+            "header_row": header_row_idx,
+            "rows_processed": rows_processed,
+            "cells_cleaned": cells_cleaned,
+            "dates_standardized": dates_standardized,
+            "ids_protected": ids_protected,
+            "duplicates_removed": duplicates_removed,
+            "streaming_mode": True,
+        }
+    finally:
+        try:
+            wb_in.close()
+        except Exception:
+            pass
+        try:
+            wb_out.close()
+        except Exception:
+            pass
+
+
 def clean_and_standardize_workbook(
     input_path: str,
     output_path: Optional[str] = None,
@@ -355,6 +532,7 @@ def clean_and_standardize_workbook(
     normalize_phones_and_ids: bool = True,
     trim_whitespace: bool = True,
     case_mode: str = "preserve",
+    streaming: Optional[bool] = None,
 ) -> Dict[str, Any]:
     """
     Standardize a messy Excel sheet in-place on a cloned copy of the workbook:
@@ -362,109 +540,128 @@ def clean_and_standardize_workbook(
     - Convert Vietnamese date strings (dd/mm/yyyy, yyyy-mm-dd, ...) to real Excel dates.
     - Protect Phones, CCCD, IDs, Tax Codes as '@' text with leading zeros restored.
     - Remove duplicate rows keyed on `dedup_columns` (or `["*"]` for whole-row dedup).
+    Auto-activates RAM-bounded streaming mode for workbooks >=10 MB or >=30,000 rows.
     """
     src = _ensure_existing_file(input_path)
     dst = _resolve_output_path(src, output_path, "cleaned")
 
+    if _is_large_xlsx(src, streaming=streaming):
+        return _clean_workbook_streaming(
+            src=src,
+            dst=dst,
+            sheet_name=sheet_name,
+            dedup_columns=dedup_columns,
+            normalize_dates=normalize_dates,
+            normalize_phones_and_ids=normalize_phones_and_ids,
+            trim_whitespace=trim_whitespace,
+            case_mode=case_mode,
+        )
+
     wb = openpyxl.load_workbook(str(src))
-    ws = _select_worksheet(wb, sheet_name)
-    header_row = _detect_header_row(ws)
-    headers, _ = _get_header_map(ws, header_row)
-    max_col = max(ws.max_column or 1, len(headers))
-    max_row = ws.max_row or header_row
+    try:
+        ws = _select_worksheet(wb, sheet_name)
+        header_row = _detect_header_row(ws)
+        headers, _ = _get_header_map(ws, header_row)
+        max_col = max(ws.max_column or 1, len(headers))
+        max_row = ws.max_row or header_row
 
-    # Resolve column categories once
-    col_flags: Dict[int, Tuple[bool, bool]] = {
-        c: _is_id_or_phone_header(headers[c - 1] if c - 1 < len(headers) else "")
-        for c in range(1, max_col + 1)
-    }
+        # Resolve column categories once
+        col_flags: Dict[int, Tuple[bool, bool]] = {
+            c: _is_id_or_phone_header(headers[c - 1] if c - 1 < len(headers) else "")
+            for c in range(1, max_col + 1)
+        }
 
-    # Resolve dedup column indices
-    dedup_indices: Optional[List[int]] = None
-    if dedup_columns:
-        if len(dedup_columns) == 1 and dedup_columns[0].strip() == "*":
-            dedup_indices = list(range(1, max_col + 1))
-        else:
-            dedup_indices = [_resolve_column_index(col, ws, header_row) for col in dedup_columns]
+        # Resolve dedup column indices
+        dedup_indices: Optional[List[int]] = None
+        if dedup_columns:
+            if len(dedup_columns) == 1 and dedup_columns[0].strip() == "*":
+                dedup_indices = list(range(1, max_col + 1))
+            else:
+                dedup_indices = [_resolve_column_index(col, ws, header_row) for col in dedup_columns]
 
-    cells_cleaned = 0
-    dates_standardized = 0
-    ids_protected = 0
-    rows_processed = 0
-    seen_keys: set[Tuple[str, ...]] = set()
-    dup_rows: List[int] = []
+        cells_cleaned = 0
+        dates_standardized = 0
+        ids_protected = 0
+        rows_processed = 0
+        seen_keys: set[Tuple[str, ...]] = set()
+        dup_rows: List[int] = []
 
-    for r in range(header_row + 1, max_row + 1):
-        row_values = [ws.cell(r, c).value for c in range(1, max_col + 1)]
-        if all(v is None or str(v).strip() == "" for v in row_values):
-            continue
-        rows_processed += 1
-
-        for c in range(1, max_col + 1):
-            cell = ws.cell(r, c)
-            val = cell.value
-            if val is None or cell.data_type == "f":
+        for r in range(header_row + 1, max_row + 1):
+            row_values = [ws.cell(r, c).value for c in range(1, max_col + 1)]
+            if all(v is None or str(v).strip() == "" for v in row_values):
                 continue
+            rows_processed += 1
 
-            is_id, is_phone = col_flags[c]
-            if normalize_phones_and_ids and is_id:
-                norm_id = _normalize_identifier_value(val, is_phone=is_phone)
-                if norm_id != str(val) or cell.number_format != "@":
-                    ids_protected += 1
-                cell.value = sanitize_xml_string(norm_id)
-                cell.data_type = "s"
-                cell.number_format = "@"
-                continue
+            for c in range(1, max_col + 1):
+                cell = ws.cell(r, c)
+                val = cell.value
+                if val is None or cell.data_type == "f":
+                    continue
 
-            if isinstance(val, str):
-                cleaned_str = sanitize_xml_string(val)
-                if trim_whitespace:
-                    collapsed = " ".join(cleaned_str.split())
-                else:
-                    collapsed = cleaned_str
+                is_id, is_phone = col_flags[c]
+                if normalize_phones_and_ids and is_id:
+                    norm_id = _normalize_identifier_value(val, is_phone=is_phone)
+                    if norm_id != str(val) or cell.number_format != "@":
+                        ids_protected += 1
+                    cell.value = sanitize_xml_string(norm_id)
+                    cell.data_type = "s"
+                    cell.number_format = "@"
+                    continue
 
-                if normalize_dates and _looks_like_date_string(collapsed):
-                    parsed_date = parse_vietnamese_date(collapsed)
-                    if parsed_date is not None:
-                        cell.value = parsed_date
-                        cell.number_format = "dd/mm/yyyy"
-                        dates_standardized += 1
-                        continue
+                if isinstance(val, str):
+                    cleaned_str = sanitize_xml_string(val)
+                    if trim_whitespace:
+                        collapsed = " ".join(cleaned_str.split())
+                    else:
+                        collapsed = cleaned_str
 
-                if case_mode != "preserve" and collapsed:
-                    collapsed = _apply_case_mode(collapsed, case_mode)
+                    if normalize_dates and _looks_like_date_string(collapsed):
+                        parsed_date = parse_vietnamese_date(collapsed)
+                        if parsed_date is not None:
+                            cell.value = parsed_date
+                            cell.number_format = "dd/mm/yyyy"
+                            dates_standardized += 1
+                            continue
 
-                if collapsed != val:
-                    cells_cleaned += 1
-                cell.value = collapsed
+                    if case_mode != "preserve" and collapsed:
+                        collapsed = _apply_case_mode(collapsed, case_mode)
 
-        if dedup_indices is not None:
-            key = tuple(
-                _normalize_key_for_join(ws.cell(r, c).value).lower() for c in dedup_indices
-            )
-            if any(key):
-                if key in seen_keys:
-                    dup_rows.append(r)
-                else:
-                    seen_keys.add(key)
+                    if collapsed != val:
+                        cells_cleaned += 1
+                    cell.value = collapsed
 
-    duplicates_removed = _delete_rows_grouped(ws, dup_rows)
-    ws.freeze_panes = ws.cell(header_row + 1, 1).coordinate
-    apply_worksheet_print_setup(ws, print_title_header_row=header_row)
-    wb.save(str(dst))
+            if dedup_indices is not None:
+                key = tuple(
+                    _normalize_key_for_join(ws.cell(r, c).value).lower() for c in dedup_indices
+                )
+                if any(key):
+                    if key in seen_keys:
+                        dup_rows.append(r)
+                    else:
+                        seen_keys.add(key)
 
-    return {
-        "ok": True,
-        "input_path": str(src),
-        "output_path": str(dst),
-        "sheet_name": ws.title,
-        "header_row": header_row,
-        "rows_processed": rows_processed,
-        "cells_cleaned": cells_cleaned,
-        "dates_standardized": dates_standardized,
-        "ids_protected": ids_protected,
-        "duplicates_removed": duplicates_removed,
-    }
+        duplicates_removed = _delete_rows_grouped(ws, dup_rows)
+        ws.freeze_panes = ws.cell(header_row + 1, 1).coordinate
+        apply_worksheet_print_setup(ws, print_title_header_row=header_row)
+        wb.save(str(dst))
+
+        return {
+            "ok": True,
+            "input_path": str(src),
+            "output_path": str(dst),
+            "sheet_name": ws.title,
+            "header_row": header_row,
+            "rows_processed": rows_processed,
+            "cells_cleaned": cells_cleaned,
+            "dates_standardized": dates_standardized,
+            "ids_protected": ids_protected,
+            "duplicates_removed": duplicates_removed,
+        }
+    finally:
+        try:
+            wb.close()
+        except Exception:
+            pass
 
 
 # ---------------------------------------------------------------------------
@@ -798,6 +995,7 @@ def build_pivot_summary_and_chart(
     piv_ws.freeze_panes = f"A{data_start_row}"
     apply_worksheet_print_setup(piv_ws, orientation="landscape", print_title_header_row=tbl_hdr_row)
     wb.save(str(dst))
+    safe_populate_cached_values(str(dst))
 
     return {
         "ok": True,
@@ -843,110 +1041,163 @@ def xlookup_join_workbooks(
     dst = _resolve_output_path(left_src, output_path, "joined")
 
     same_workbook = left_src.resolve() == right_src.resolve()
-    left_wb = openpyxl.load_workbook(str(left_src))
-    left_ws = _select_worksheet(left_wb, left_sheet)
-
-    right_wb = left_wb if same_workbook else openpyxl.load_workbook(str(right_src), data_only=True)
-    right_ws = _select_worksheet(right_wb, right_sheet)
-
-    l_hdr_row = _detect_header_row(left_ws)
-    r_hdr_row = _detect_header_row(right_ws)
-    r_headers, _ = _get_header_map(right_ws, r_hdr_row)
-
-    l_key_idx = _resolve_column_index(left_key, left_ws, l_hdr_row)
-    r_key_idx = _resolve_column_index(right_key, right_ws, r_hdr_row)
-    r_ret_indices = [_resolve_column_index(col, right_ws, r_hdr_row) for col in return_cols]
-
-    # Build lookup index from right sheet (first-match semantics like XLOOKUP)
-    r_max_row = right_ws.max_row or r_hdr_row
-    lookup_index: Dict[str, Dict[int, Any]] = {}
-    for r in range(r_hdr_row + 1, r_max_row + 1):
-        key_val = _normalize_key_for_join(right_ws.cell(r, r_key_idx).value)
-        if not key_val or key_val in lookup_index:
-            continue
-        lookup_index[key_val] = {c_idx: right_ws.cell(r, c_idx).value for c_idx in r_ret_indices}
-
     use_live_formula = (formula_mode == "formula") or (formula_mode == "auto" and same_workbook)
-    if use_live_formula and not same_workbook:
-        # Copy right table into a clean internal lookup sheet so formulas have 0 external links
-        ref_sheet_name = "_Lookup_Ref"
-        if ref_sheet_name in left_wb.sheetnames:
-            del left_wb[ref_sheet_name]
-        ref_ws = left_wb.create_sheet(title=ref_sheet_name)
-        for r in range(1, r_max_row + 1):
-            for c in range(1, (right_ws.max_column or 1) + 1):
-                ref_ws.cell(r, c, value=right_ws.cell(r, c).value)
-        right_ws = ref_ws
+    stream_right = (not same_workbook) and (not use_live_formula) and _is_large_xlsx(right_src)
 
-    # Append joined columns cleanly preserving left sheet prototype header/cell styles
-    l_max_col = left_ws.max_column or 1
-    l_max_row = left_ws.max_row or l_hdr_row
-    proto_hdr = left_ws.cell(l_hdr_row, l_key_idx)
-    proto_data = left_ws.cell(min(l_hdr_row + 1, l_max_row), l_key_idx)
+    left_wb = openpyxl.load_workbook(str(left_src))
+    right_wb = left_wb if same_workbook else openpyxl.load_workbook(
+        str(right_src), read_only=stream_right, data_only=True
+    )
+    try:
+        left_ws = _select_worksheet(left_wb, left_sheet)
+        right_ws = _select_worksheet(right_wb, right_sheet)
 
-    added_columns: List[str] = []
-    escaped_right = right_ws.title.replace("'", "''")
-    r_key_letter = get_column_letter(r_key_idx)
-    l_key_letter = get_column_letter(l_key_idx)
-    escaped_not_found = str(not_found_value).replace('"', '""')
+        l_hdr_row = _detect_header_row(left_ws)
+        if stream_right:
+            r_hdr_row = 1
+            header_vals: List[Any] = []
+            row_iter = right_ws.iter_rows(values_only=True)
+            for idx, r_row in enumerate(row_iter, start=1):
+                vals = list(r_row)
+                if sum(1 for v in vals if v is not None and str(v).strip() != "") >= 2 or idx >= 15:
+                    r_hdr_row = idx
+                    header_vals = vals
+                    break
+            r_headers = [str(v).strip() if v is not None else "" for v in header_vals]
+            r_hdr_map = {h.lower(): i + 1 for i, h in enumerate(r_headers) if h}
+            def _resolve_r(spec: str) -> int:
+                s = spec.strip().lower()
+                if s in r_hdr_map:
+                    return r_hdr_map[s]
+                return column_index_from_string(spec.strip().upper())
 
-    for offset, r_col_idx in enumerate(r_ret_indices, start=1):
-        dest_col = l_max_col + offset
-        col_title = r_headers[r_col_idx - 1] if r_col_idx - 1 < len(r_headers) else get_column_letter(r_col_idx)
-        added_columns.append(col_title)
-        hdr_cell = left_ws.cell(l_hdr_row, dest_col, value=sanitize_xml_string(col_title))
-        _clone_cell_style(proto_hdr, hdr_cell)
+            l_key_idx = _resolve_column_index(left_key, left_ws, l_hdr_row)
+            r_key_idx = _resolve_r(right_key)
+            r_ret_indices = [_resolve_r(col) for col in return_cols]
+            r_max_row = r_hdr_row
 
-    matched_rows = 0
-    unmatched_rows = 0
-    for r in range(l_hdr_row + 1, l_max_row + 1):
-        raw_left_key = left_ws.cell(r, l_key_idx).value
-        norm_k = _normalize_key_for_join(raw_left_key)
-        if not norm_k:
-            continue
-        match_record = lookup_index.get(norm_k)
-        if match_record is not None:
-            matched_rows += 1
+            lookup_index: Dict[str, Dict[int, Any]] = {}
+            for r_row in row_iter:
+                r_max_row += 1
+                vals = list(r_row)
+                raw_k = vals[r_key_idx - 1] if r_key_idx - 1 < len(vals) else None
+                key_val = _normalize_key_for_join(raw_k)
+                if not key_val or key_val in lookup_index:
+                    continue
+                lookup_index[key_val] = {
+                    c_idx: (vals[c_idx - 1] if c_idx - 1 < len(vals) else None)
+                    for c_idx in r_ret_indices
+                }
         else:
-            unmatched_rows += 1
+            r_hdr_row = _detect_header_row(right_ws)
+            r_headers, _ = _get_header_map(right_ws, r_hdr_row)
+
+            l_key_idx = _resolve_column_index(left_key, left_ws, l_hdr_row)
+            r_key_idx = _resolve_column_index(right_key, right_ws, r_hdr_row)
+            r_ret_indices = [_resolve_column_index(col, right_ws, r_hdr_row) for col in return_cols]
+
+            # Build lookup index from right sheet (first-match semantics like XLOOKUP)
+            r_max_row = right_ws.max_row or r_hdr_row
+            lookup_index = {}
+            for r in range(r_hdr_row + 1, r_max_row + 1):
+                key_val = _normalize_key_for_join(right_ws.cell(r, r_key_idx).value)
+                if not key_val or key_val in lookup_index:
+                    continue
+                lookup_index[key_val] = {c_idx: right_ws.cell(r, c_idx).value for c_idx in r_ret_indices}
+
+        if use_live_formula and not same_workbook:
+            # Copy right table into a clean internal lookup sheet so formulas have 0 external links
+            ref_sheet_name = "_Lookup_Ref"
+            if ref_sheet_name in left_wb.sheetnames:
+                del left_wb[ref_sheet_name]
+            ref_ws = left_wb.create_sheet(title=ref_sheet_name)
+            for r in range(1, r_max_row + 1):
+                for c in range(1, (right_ws.max_column or 1) + 1):
+                    ref_ws.cell(r, c, value=right_ws.cell(r, c).value)
+            right_ws = ref_ws
+
+        # Append joined columns cleanly preserving left sheet prototype header/cell styles
+        l_max_col = left_ws.max_column or 1
+        l_max_row = left_ws.max_row or l_hdr_row
+        proto_hdr = left_ws.cell(l_hdr_row, l_key_idx)
+        proto_data = left_ws.cell(min(l_hdr_row + 1, l_max_row), l_key_idx)
+
+        added_columns: List[str] = []
+        escaped_right = right_ws.title.replace("'", "''")
+        r_key_letter = get_column_letter(r_key_idx)
+        l_key_letter = get_column_letter(l_key_idx)
+        escaped_not_found = str(not_found_value).replace('"', '""')
 
         for offset, r_col_idx in enumerate(r_ret_indices, start=1):
             dest_col = l_max_col + offset
-            is_id, _ = _is_id_or_phone_header(added_columns[offset - 1])
-            if use_live_formula:
-                ret_letter = get_column_letter(r_col_idx)
-                r_key_rng = f"'{escaped_right}'!${r_key_letter}${r_hdr_row + 1}:${r_key_letter}${r_max_row}"
-                r_val_rng = f"'{escaped_right}'!${ret_letter}${r_hdr_row + 1}:${ret_letter}${r_max_row}"
-                formula = (
-                    f'=IFERROR(INDEX({r_val_rng},MATCH(${l_key_letter}{r},{r_key_rng},0)),"{escaped_not_found}")'
-                )
-                dst_cell = left_ws.cell(r, dest_col, value=formula)
-                _clone_cell_style(proto_data, dst_cell)
+            col_title = r_headers[r_col_idx - 1] if r_col_idx - 1 < len(r_headers) else get_column_letter(r_col_idx)
+            added_columns.append(col_title)
+            hdr_cell = left_ws.cell(l_hdr_row, dest_col, value=sanitize_xml_string(col_title))
+            _clone_cell_style(proto_hdr, hdr_cell)
+
+        matched_rows = 0
+        unmatched_rows = 0
+        for r in range(l_hdr_row + 1, l_max_row + 1):
+            raw_left_key = left_ws.cell(r, l_key_idx).value
+            norm_k = _normalize_key_for_join(raw_left_key)
+            if not norm_k:
+                continue
+            match_record = lookup_index.get(norm_k)
+            if match_record is not None:
+                matched_rows += 1
             else:
-                val = match_record[r_col_idx] if match_record is not None else not_found_value
-                dst_cell = left_ws.cell(r, dest_col)
-                _clone_cell_style(proto_data, dst_cell)
-                if is_id and val is not None and val != not_found_value:
-                    dst_cell.value = sanitize_xml_string(_normalize_identifier_value(val, is_phone=False))
-                    dst_cell.data_type = "s"
-                    dst_cell.number_format = "@"
+                unmatched_rows += 1
+
+            for offset, r_col_idx in enumerate(r_ret_indices, start=1):
+                dest_col = l_max_col + offset
+                is_id, _ = _is_id_or_phone_header(added_columns[offset - 1])
+                if use_live_formula:
+                    ret_letter = get_column_letter(r_col_idx)
+                    r_key_rng = f"'{escaped_right}'!${r_key_letter}${r_hdr_row + 1}:${r_key_letter}${r_max_row}"
+                    r_val_rng = f"'{escaped_right}'!${ret_letter}${r_hdr_row + 1}:${ret_letter}${r_max_row}"
+                    formula = (
+                        f'=IFERROR(INDEX({r_val_rng},MATCH(${l_key_letter}{r},{r_key_rng},0)),"{escaped_not_found}")'
+                    )
+                    dst_cell = left_ws.cell(r, dest_col, value=formula)
+                    _clone_cell_style(proto_data, dst_cell)
                 else:
-                    dst_cell.value = sanitize_xml_string(val) if isinstance(val, str) else val
+                    val = match_record[r_col_idx] if match_record is not None else not_found_value
+                    dst_cell = left_ws.cell(r, dest_col)
+                    _clone_cell_style(proto_data, dst_cell)
+                    if is_id and val is not None and val != not_found_value:
+                        dst_cell.value = sanitize_xml_string(_normalize_identifier_value(val, is_phone=False))
+                        dst_cell.data_type = "s"
+                        dst_cell.number_format = "@"
+                    else:
+                        dst_cell.value = sanitize_xml_string(val) if isinstance(val, str) else val
 
-    _auto_fit_worksheet_columns(left_ws, header_row=l_hdr_row)
-    apply_worksheet_print_setup(left_ws, print_title_header_row=l_hdr_row)
-    left_wb.save(str(dst))
+        _auto_fit_worksheet_columns(left_ws, header_row=l_hdr_row)
+        apply_worksheet_print_setup(left_ws, print_title_header_row=l_hdr_row)
+        left_wb.save(str(dst))
+        if use_live_formula:
+            safe_populate_cached_values(str(dst))
 
-    return {
-        "ok": True,
-        "output_path": str(dst),
-        "left_sheet": left_ws.title,
-        "right_sheet": right_ws.title,
-        "matched_rows": matched_rows,
-        "unmatched_rows": unmatched_rows,
-        "added_columns": added_columns,
-        "live_formulas": use_live_formula,
-    }
+        return {
+            "ok": True,
+            "output_path": str(dst),
+            "left_sheet": left_ws.title,
+            "right_sheet": right_ws.title,
+            "matched_rows": matched_rows,
+            "unmatched_rows": unmatched_rows,
+            "added_columns": added_columns,
+            "live_formulas": use_live_formula,
+            "streaming_right": stream_right,
+        }
+    finally:
+        try:
+            left_wb.close()
+        except Exception:
+            pass
+        if not same_workbook:
+            try:
+                right_wb.close()
+            except Exception:
+                pass
 
 
 # ---------------------------------------------------------------------------
@@ -960,32 +1211,16 @@ def split_workbook_by_column(
     output_path: Optional[str] = None,
     sheet_name: Optional[str] = None,
     as_zip: bool = True,
+    streaming: Optional[bool] = None,
 ) -> Dict[str, Any]:
     """
     Split a master worksheet into separate Excel files grouped by unique values
     of `split_col`, preserving headers, cell styles, number formats, and print setup.
-    Returns paths / ZIP bundle metadata.
+    Automatically switches to low-RAM streaming read_only/write_only mode for large files
+    and cleans up temporary staging folders after building the ZIP archive.
     """
     src = _ensure_existing_file(input_path)
-    src_wb = openpyxl.load_workbook(str(src))
-    src_ws = _select_worksheet(src_wb, sheet_name)
-
-    header_row = _detect_header_row(src_ws)
-    split_idx = _resolve_column_index(split_col, src_ws, header_row)
-    max_col = src_ws.max_column or 1
-    max_row = src_ws.max_row or header_row
-
-    groups: Dict[str, List[int]] = {}
-    for r in range(header_row + 1, max_row + 1):
-        row_vals = [src_ws.cell(r, c).value for c in range(1, max_col + 1)]
-        if all(v is None or str(v).strip() == "" for v in row_vals):
-            continue
-        raw_key = src_ws.cell(r, split_idx).value
-        group_name = str(raw_key).strip() if raw_key is not None and str(raw_key).strip() else "Unassigned"
-        groups.setdefault(group_name, []).append(r)
-
-    if not groups:
-        raise ValueError(f"No data rows found to split in sheet '{src_ws.title}'.")
+    use_streaming = _is_large_xlsx(src, streaming=streaming)
 
     if as_zip:
         out_zip = (
@@ -1000,67 +1235,161 @@ def split_workbook_by_column(
         work_dir.mkdir(parents=True, exist_ok=True)
         out_zip = work_dir
 
-    generated_files: List[Dict[str, Any]] = []
-    used_filenames: set[str] = set()
+    src_wb = openpyxl.load_workbook(str(src), read_only=use_streaming)
+    try:
+        src_ws = _select_worksheet(src_wb, sheet_name)
+        generated_files: List[Dict[str, Any]] = []
+        used_filenames: set[str] = set()
 
-    for group_key, row_indices in groups.items():
-        slug = _safe_filename_slug(group_key, fallback="Group")
-        candidate = f"{slug}.xlsx"
-        suffix_num = 2
-        while candidate.lower() in used_filenames:
-            candidate = f"{slug}_{suffix_num}.xlsx"
-            suffix_num += 1
-        used_filenames.add(candidate.lower())
+        if use_streaming:
+            row_iter = src_ws.iter_rows(values_only=True)
+            prefix_rows: List[List[Any]] = []
+            header_vals: List[Any] = []
+            for idx, raw_row in enumerate(row_iter, start=1):
+                vals = list(raw_row)
+                prefix_rows.append(vals)
+                if sum(1 for v in vals if v is not None and str(v).strip() != "") >= 2 or idx >= 15:
+                    header_vals = vals
+                    break
+            if not header_vals and prefix_rows:
+                header_vals = prefix_rows[-1]
+            headers = [str(v).strip() if v is not None else "" for v in header_vals]
+            hdr_map = {h.lower(): i + 1 for i, h in enumerate(headers) if h}
+            sc_low = split_col.strip().lower()
+            split_idx = hdr_map[sc_low] if sc_low in hdr_map else column_index_from_string(split_col.strip().upper())
 
-        child_wb = openpyxl.Workbook()
-        child_ws = child_wb.active
-        child_ws.title = src_ws.title
+            grouped_rows: Dict[str, List[List[Any]]] = {}
+            for raw_row in row_iter:
+                vals = list(raw_row)
+                if all(v is None or str(v).strip() == "" for v in vals):
+                    continue
+                raw_key = vals[split_idx - 1] if split_idx - 1 < len(vals) else None
+                group_name = str(raw_key).strip() if raw_key is not None and str(raw_key).strip() else "Unassigned"
+                grouped_rows.setdefault(group_name, []).append(vals)
 
-        # Copy column widths
-        for c in range(1, max_col + 1):
-            col_l = get_column_letter(c)
-            if col_l in src_ws.column_dimensions and src_ws.column_dimensions[col_l].width:
-                child_ws.column_dimensions[col_l].width = src_ws.column_dimensions[col_l].width
+            if not grouped_rows:
+                raise ValueError(f"No data rows found to split in sheet '{src_ws.title}'.")
 
-        # Copy header rows (1..header_row) + matched data rows
-        rows_to_copy = list(range(1, header_row + 1)) + row_indices
-        for target_r, orig_r in enumerate(rows_to_copy, start=1):
-            if orig_r in src_ws.row_dimensions and src_ws.row_dimensions[orig_r].height:
-                child_ws.row_dimensions[target_r].height = src_ws.row_dimensions[orig_r].height
-            for c in range(1, max_col + 1):
-                src_c = src_ws.cell(orig_r, c)
-                dst_c = child_ws.cell(target_r, c, value=src_c.value)
-                _clone_cell_style(src_c, dst_c)
-                if src_c.data_type == "s":
-                    dst_c.data_type = "s"
+            for group_key, rows_list in grouped_rows.items():
+                slug = _safe_filename_slug(group_key, fallback="Group")
+                candidate = f"{slug}.xlsx"
+                suffix_num = 2
+                while candidate.lower() in used_filenames:
+                    candidate = f"{slug}_{suffix_num}.xlsx"
+                    suffix_num += 1
+                used_filenames.add(candidate.lower())
 
-        child_ws.freeze_panes = child_ws.cell(header_row + 1, 1).coordinate
-        apply_worksheet_print_setup(child_ws, print_title_header_row=header_row)
-        child_file = work_dir / candidate
-        child_wb.save(str(child_file))
-        generated_files.append(
-            {
-                "group": group_key,
-                "filename": candidate,
-                "path": str(child_file),
-                "rows": len(row_indices),
-            }
-        )
+                child_file = work_dir / candidate
+                child_wb = openpyxl.Workbook(write_only=True)
+                try:
+                    child_ws = child_wb.create_sheet(title=src_ws.title[:31])
+                    for p_row in prefix_rows:
+                        child_ws.append(p_row)
+                    for d_row in rows_list:
+                        child_ws.append(d_row)
+                    child_wb.save(str(child_file))
+                finally:
+                    child_wb.close()
 
-    if as_zip:
-        with zipfile.ZipFile(str(out_zip), "w", compression=zipfile.ZIP_DEFLATED) as zf:
-            for item in generated_files:
-                zf.write(item["path"], arcname=item["filename"])
+                generated_files.append(
+                    {
+                        "group": group_key,
+                        "filename": candidate,
+                        "path": str(out_zip) if as_zip else str(child_file),
+                        "_local_file": str(child_file),
+                        "rows": len(rows_list),
+                    }
+                )
+        else:
+            header_row = _detect_header_row(src_ws)
+            split_idx = _resolve_column_index(split_col, src_ws, header_row)
+            max_col = src_ws.max_column or 1
+            max_row = src_ws.max_row or header_row
 
-    return {
-        "ok": True,
-        "input_path": str(src),
-        "output_path": str(out_zip),
-        "as_zip": as_zip,
-        "total_files": len(generated_files),
-        "total_rows": sum(item["rows"] for item in generated_files),
-        "groups": generated_files,
-    }
+            groups: Dict[str, List[int]] = {}
+            for r in range(header_row + 1, max_row + 1):
+                row_vals = [src_ws.cell(r, c).value for c in range(1, max_col + 1)]
+                if all(v is None or str(v).strip() == "" for v in row_vals):
+                    continue
+                raw_key = src_ws.cell(r, split_idx).value
+                group_name = str(raw_key).strip() if raw_key is not None and str(raw_key).strip() else "Unassigned"
+                groups.setdefault(group_name, []).append(r)
+
+            if not groups:
+                raise ValueError(f"No data rows found to split in sheet '{src_ws.title}'.")
+
+            for group_key, row_indices in groups.items():
+                slug = _safe_filename_slug(group_key, fallback="Group")
+                candidate = f"{slug}.xlsx"
+                suffix_num = 2
+                while candidate.lower() in used_filenames:
+                    candidate = f"{slug}_{suffix_num}.xlsx"
+                    suffix_num += 1
+                used_filenames.add(candidate.lower())
+
+                child_wb = openpyxl.Workbook()
+                try:
+                    child_ws = child_wb.active
+                    child_ws.title = src_ws.title
+
+                    for c in range(1, max_col + 1):
+                        col_l = get_column_letter(c)
+                        if col_l in src_ws.column_dimensions and src_ws.column_dimensions[col_l].width:
+                            child_ws.column_dimensions[col_l].width = src_ws.column_dimensions[col_l].width
+
+                    rows_to_copy = list(range(1, header_row + 1)) + row_indices
+                    for target_r, orig_r in enumerate(rows_to_copy, start=1):
+                        if orig_r in src_ws.row_dimensions and src_ws.row_dimensions[orig_r].height:
+                            child_ws.row_dimensions[target_r].height = src_ws.row_dimensions[orig_r].height
+                        for c in range(1, max_col + 1):
+                            src_c = src_ws.cell(orig_r, c)
+                            dst_c = child_ws.cell(target_r, c, value=src_c.value)
+                            _clone_cell_style(src_c, dst_c)
+                            if src_c.data_type == "s":
+                                dst_c.data_type = "s"
+
+                    child_ws.freeze_panes = child_ws.cell(header_row + 1, 1).coordinate
+                    apply_worksheet_print_setup(child_ws, print_title_header_row=header_row)
+                    child_file = work_dir / candidate
+                    child_wb.save(str(child_file))
+                finally:
+                    child_wb.close()
+
+                generated_files.append(
+                    {
+                        "group": group_key,
+                        "filename": candidate,
+                        "path": str(out_zip) if as_zip else str(child_file),
+                        "_local_file": str(child_file),
+                        "rows": len(row_indices),
+                    }
+                )
+
+        if as_zip:
+            with zipfile.ZipFile(str(out_zip), "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                for item in generated_files:
+                    zf.write(item["_local_file"], arcname=item["filename"])
+
+        for item in generated_files:
+            item.pop("_local_file", None)
+
+        return {
+            "ok": True,
+            "input_path": str(src),
+            "output_path": str(out_zip),
+            "as_zip": as_zip,
+            "streaming_mode": use_streaming,
+            "total_files": len(generated_files),
+            "total_rows": sum(item["rows"] for item in generated_files),
+            "groups": generated_files,
+        }
+    finally:
+        try:
+            src_wb.close()
+        except Exception:
+            pass
+        if as_zip and work_dir.exists():
+            shutil.rmtree(work_dir, ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------

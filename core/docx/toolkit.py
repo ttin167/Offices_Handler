@@ -18,13 +18,15 @@ import copy
 import io
 import os
 import re
+import shutil
 import tempfile
 import zipfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import docx
 from docx import Document
+from docx.enum.section import WD_SECTION
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.ns import nsdecls, qn
@@ -133,6 +135,168 @@ def _remap_element_relationships(
                 continue
 
 
+def _remap_num_ids_in_element(element: Any, num_id_map: Dict[str, str]) -> None:
+    """Rewrite <w:numId w:val="..."/> references inside a cloned XML subtree."""
+    if not num_id_map:
+        return
+    num_id_tag = qn("w:numId")
+    val_attr = qn("w:val")
+    for node in element.iter():
+        if node.tag == num_id_tag:
+            old_val = node.get(val_attr)
+            if old_val and old_val in num_id_map:
+                node.set(val_attr, num_id_map[old_val])
+
+
+def _merge_numbering_definitions(
+    sub_doc: docx.Document, master: docx.Document
+) -> Dict[str, str]:
+    """
+    Merge numbering definitions (abstractNum + num) from `sub_doc` into `master`
+    with collision-free IDs so bullet/numbered lists retain their definitions and restarts.
+    Returns mapping `{old_numId_str: new_numId_str}`.
+    """
+    try:
+        sub_num_part = getattr(sub_doc.part, "numbering_part", None)
+    except Exception:
+        return {}
+    if sub_num_part is None:
+        return {}
+
+    sub_nums = sub_num_part.element.findall(qn("w:num"))
+    if not sub_nums:
+        return {}
+
+    try:
+        master_num_part = master.part.numbering_part
+    except Exception:
+        return {}
+    if master_num_part is None:
+        return {}
+
+    m_el = master_num_part.element
+    s_el = sub_num_part.element
+
+    existing_abs_ids = {
+        int(el.get(qn("w:abstractNumId")))
+        for el in m_el.findall(qn("w:abstractNum"))
+        if str(el.get(qn("w:abstractNumId") or "")).isdigit()
+    }
+    existing_num_ids = {
+        int(el.get(qn("w:numId")))
+        for el in m_el.findall(qn("w:num"))
+        if str(el.get(qn("w:numId") or "")).isdigit()
+    }
+    next_abs_id = max(existing_abs_ids, default=0) + 1
+    next_num_id = max(existing_num_ids, default=0) + 1
+
+    # Index sub abstractNum definitions
+    sub_abs_map: Dict[str, Any] = {}
+    for el in s_el.findall(qn("w:abstractNum")):
+        aid = el.get(qn("w:abstractNumId"))
+        if aid is not None:
+            sub_abs_map[aid] = el
+
+    abs_id_map: Dict[str, str] = {}
+    num_id_map: Dict[str, str] = {}
+
+    first_num_el = m_el.find(qn("w:num"))
+    for num_el in sub_nums:
+        old_num_id = num_el.get(qn("w:numId"))
+        if not old_num_id:
+            continue
+        abs_ref = num_el.find(qn("w:abstractNumId"))
+        old_abs_id = abs_ref.get(qn("w:val")) if abs_ref is not None else None
+
+        new_abs_id: Optional[str] = None
+        if old_abs_id is not None and old_abs_id in sub_abs_map:
+            if old_abs_id in abs_id_map:
+                new_abs_id = abs_id_map[old_abs_id]
+            else:
+                new_abs_id = str(next_abs_id)
+                next_abs_id += 1
+                cloned_abs = copy.deepcopy(sub_abs_map[old_abs_id])
+                cloned_abs.set(qn("w:abstractNumId"), new_abs_id)
+                _remap_element_relationships(cloned_abs, sub_num_part, master_num_part)
+                # ECMA-376 requires all <w:abstractNum> elements to appear before <w:num>
+                if first_num_el is not None:
+                    first_num_el.addprevious(cloned_abs)
+                else:
+                    m_el.append(cloned_abs)
+                abs_id_map[old_abs_id] = new_abs_id
+
+        new_num_id = str(next_num_id)
+        next_num_id += 1
+        cloned_num = copy.deepcopy(num_el)
+        cloned_num.set(qn("w:numId"), new_num_id)
+        cloned_abs_ref = cloned_num.find(qn("w:abstractNumId"))
+        if cloned_abs_ref is not None and new_abs_id is not None:
+            cloned_abs_ref.set(qn("w:val"), new_abs_id)
+        m_el.append(cloned_num)
+        num_id_map[old_num_id] = new_num_id
+
+    return num_id_map
+
+
+def _merge_missing_styles(
+    sub_doc: docx.Document, master: docx.Document, num_id_map: Dict[str, str]
+) -> int:
+    """Copy non-colliding custom styles from `sub_doc` into `master`."""
+    try:
+        m_styles_el = master.styles.element
+        s_styles_el = sub_doc.styles.element
+    except Exception:
+        return 0
+
+    existing_ids = {
+        el.get(qn("w:styleId"))
+        for el in m_styles_el.findall(qn("w:style"))
+        if el.get(qn("w:styleId"))
+    }
+    added = 0
+    for st_el in s_styles_el.findall(qn("w:style")):
+        sid = st_el.get(qn("w:styleId"))
+        if not sid or sid in existing_ids:
+            continue
+        cloned_st = copy.deepcopy(st_el)
+        _remap_num_ids_in_element(cloned_st, num_id_map)
+        m_styles_el.append(cloned_st)
+        existing_ids.add(sid)
+        added += 1
+    return added
+
+
+def _hf_has_content(hf: Any) -> bool:
+    """Return True if a section header/footer contains visible text, tables, or drawings."""
+    for p in getattr(hf, "paragraphs", []):
+        if _paragraph_has_content(p):
+            return True
+    if getattr(hf, "tables", []):
+        return True
+    return False
+
+
+def _section_has_custom_hf(sec: Any) -> bool:
+    for attr in ("header", "footer", "first_page_header", "first_page_footer"):
+        hf = getattr(sec, attr, None)
+        if hf is not None and _hf_has_content(hf):
+            return True
+    return False
+
+
+def _copy_hf_content(src_hf: Any, dst_hf: Any, num_id_map: Dict[str, str]) -> None:
+    """Copy header/footer XML body elements cleanly with remapped relationships and numIds."""
+    dst_hf.is_linked_to_previous = False
+    dst_el = dst_hf._element
+    for existing in list(dst_el):
+        dst_el.remove(existing)
+    for child in list(src_hf._element):
+        cloned = copy.deepcopy(child)
+        _remap_element_relationships(cloned, src_hf.part, dst_hf.part)
+        _remap_num_ids_in_element(cloned, num_id_map)
+        dst_el.append(cloned)
+
+
 def polish_docx_document(
     input_path: str,
     output_path: Optional[str] = None,
@@ -201,15 +365,39 @@ def polish_docx_document(
     }
 
 
+def _extract_style_num_ids(doc_obj: docx.Document) -> Dict[str, str]:
+    """Return mapping `{styleId: numId_str}` for styles that attach numbering."""
+    res: Dict[str, str] = {}
+    try:
+        styles_el = doc_obj.styles.element
+    except Exception:
+        return res
+    for st_el in styles_el.findall(qn("w:style")):
+        sid = st_el.get(qn("w:styleId"))
+        pPr = st_el.find(qn("w:pPr"))
+        if not sid or pPr is None:
+            continue
+        numPr = pPr.find(qn("w:numPr"))
+        if numPr is None:
+            continue
+        numId = numPr.find(qn("w:numId"))
+        if numId is not None and numId.get(qn("w:val")):
+            res[sid] = str(numId.get(qn("w:val")))
+    return res
+
+
 def merge_docx_files(
     input_paths: Sequence[str],
     output_path: str,
     add_page_breaks: bool = True,
     normalize_page_numbers: bool = True,
+    preserve_sections: bool = True,
 ) -> Dict[str, Any]:
     """
     Merge multiple Word `.docx` files sequentially into one clean master document,
-    preserving paragraphs, tables, and embedded images cleanly.
+    remapping media/hyperlink relationships, merging `numbering.xml` (`w:numId` /
+    `w:abstractNumId`) and missing `styles.xml` definitions, and preserving distinct
+    sub-document headers/footers across sections.
     """
     valid_paths = [Path(p) for p in input_paths if p and Path(p).is_file()]
     if not valid_paths:
@@ -220,18 +408,56 @@ def merge_docx_files(
 
     master = Document(str(valid_paths[0]))
     master_body = master.element.body
-    master_sectPr = master_body.find(qn("w:sectPr"))
 
     def _insert_before_sect(el: Any) -> None:
-        if master_sectPr is not None:
-            master_sectPr.addprevious(el)
+        sect_pr = master_body.find(qn("w:sectPr"))
+        if sect_pr is not None:
+            sect_pr.addprevious(el)
         else:
             master_body.append(el)
 
     merged_count = 1
+    numbering_remapped = 0
+    styles_merged = 0
+    sections_preserved = 1
+
     for sub_path in valid_paths[1:]:
         sub_doc = Document(str(sub_path))
-        if add_page_breaks:
+        num_id_map = _merge_numbering_definitions(sub_doc, master)
+        numbering_remapped += len(num_id_map)
+        styles_merged += _merge_missing_styles(sub_doc, master, num_id_map)
+        sub_style_nums = _extract_style_num_ids(sub_doc)
+
+        sub_sec = sub_doc.sections[0] if sub_doc.sections else None
+        has_custom_hf = bool(sub_sec is not None and _section_has_custom_hf(sub_sec))
+
+        if preserve_sections and has_custom_hf and sub_sec is not None:
+            start_type = WD_SECTION.NEW_PAGE if add_page_breaks else WD_SECTION.CONTINUOUS
+            new_sec = master.add_section(start_type)
+            sections_preserved += 1
+            for dim_attr in (
+                "page_width",
+                "page_height",
+                "left_margin",
+                "right_margin",
+                "top_margin",
+                "bottom_margin",
+            ):
+                val = getattr(sub_sec, dim_attr, None)
+                if val is not None:
+                    try:
+                        setattr(new_sec, dim_attr, val)
+                    except Exception:
+                        pass
+            new_sec.different_first_page_header_footer = bool(
+                sub_sec.different_first_page_header_footer
+            )
+            _copy_hf_content(sub_sec.header, new_sec.header, num_id_map)
+            _copy_hf_content(sub_sec.footer, new_sec.footer, num_id_map)
+            if sub_sec.different_first_page_header_footer:
+                _copy_hf_content(sub_sec.first_page_header, new_sec.first_page_header, num_id_map)
+                _copy_hf_content(sub_sec.first_page_footer, new_sec.first_page_footer, num_id_map)
+        elif add_page_breaks:
             p_break = OxmlElement("w:p")
             r_el = OxmlElement("w:r")
             br_el = OxmlElement("w:br")
@@ -245,6 +471,29 @@ def merge_docx_files(
                 continue
             cloned = copy.deepcopy(child)
             _remap_element_relationships(cloned, sub_doc.part, master.part)
+            _remap_num_ids_in_element(cloned, num_id_map)
+
+            # Isolate style-bound list numbering (e.g. ListNumber / ListBullet) onto remapped numId
+            if num_id_map and sub_style_nums:
+                for p_el in cloned.iter(qn("w:p")):
+                    pPr = p_el.find(qn("w:pPr"))
+                    if pPr is None:
+                        continue
+                    if pPr.find(qn("w:numPr")) is not None:
+                        continue
+                    pStyle = pPr.find(qn("w:pStyle"))
+                    if pStyle is None:
+                        continue
+                    sid = pStyle.get(qn("w:val"))
+                    if sid and sid in sub_style_nums:
+                        mapped = num_id_map.get(sub_style_nums[sid])
+                        if mapped:
+                            numPr = OxmlElement("w:numPr")
+                            numId_el = OxmlElement("w:numId")
+                            numId_el.set(qn("w:val"), mapped)
+                            numPr.append(numId_el)
+                            pPr.append(numPr)
+
             _insert_before_sect(cloned)
         merged_count += 1
 
@@ -257,6 +506,9 @@ def merge_docx_files(
         "ok": True,
         "merged_files": merged_count,
         "output_path": saved_path,
+        "numbering_remapped": numbering_remapped,
+        "styles_merged": styles_merged,
+        "sections_preserved": sections_preserved,
         "sources": [str(p) for p in valid_paths],
     }
 
@@ -270,6 +522,7 @@ def split_docx_by_heading(
     """
     Split a master `.docx` file into separate `.docx` chapter files whenever a
     paragraph with `Heading {heading_level}` appears, bundled into a ZIP archive.
+    Cleans up temporary staging directories cleanly when `as_zip=True`.
     """
     src = Path(input_path)
     if not src.is_file():
@@ -323,47 +576,61 @@ def split_docx_by_heading(
     generated: List[Dict[str, Any]] = []
     used_names: set[str] = set()
 
-    for idx, sec in enumerate(sections_data, start=1):
-        slug = _safe_slug(sec["title"], fallback=f"Section_{idx}")
-        fname = f"{idx:02d}_{slug}.docx"
-        n = 2
-        while fname.lower() in used_names:
-            fname = f"{idx:02d}_{slug}_{n}.docx"
-            n += 1
-        used_names.add(fname.lower())
+    try:
+        for idx, sec in enumerate(sections_data, start=1):
+            slug = _safe_slug(sec["title"], fallback=f"Section_{idx}")
+            fname = f"{idx:02d}_{slug}.docx"
+            n = 2
+            while fname.lower() in used_names:
+                fname = f"{idx:02d}_{slug}_{n}.docx"
+                n += 1
+            used_names.add(fname.lower())
 
-        child_doc = Document(io.BytesIO(base_bytes))
-        body = child_doc.element.body
-        sectPr = body.find(qn("w:sectPr"))
-        for el in list(body):
-            if el.tag != qn("w:sectPr"):
-                body.remove(el)
+            child_doc = Document(io.BytesIO(base_bytes))
+            body = child_doc.element.body
+            sectPr = body.find(qn("w:sectPr"))
+            for el in list(body):
+                if el.tag != qn("w:sectPr"):
+                    body.remove(el)
 
-        for orig_el in sec["elements"]:
-            cloned = copy.deepcopy(orig_el)
-            _remap_element_relationships(cloned, doc.part, child_doc.part)
-            if sectPr is not None:
-                sectPr.addprevious(cloned)
-            else:
-                body.append(cloned)
+            for orig_el in sec["elements"]:
+                cloned = copy.deepcopy(orig_el)
+                _remap_element_relationships(cloned, doc.part, child_doc.part)
+                if sectPr is not None:
+                    sectPr.addprevious(cloned)
+                else:
+                    body.append(cloned)
 
-        out_file = work_dir / fname
-        child_doc.save(str(out_file))
-        generated.append({"title": sec["title"], "filename": fname, "path": str(out_file)})
+            out_file = work_dir / fname
+            child_doc.save(str(out_file))
+            generated.append(
+                {
+                    "title": sec["title"],
+                    "filename": fname,
+                    "path": str(out_zip) if as_zip else str(out_file),
+                    "_local_file": str(out_file),
+                }
+            )
 
-    if as_zip:
-        with zipfile.ZipFile(str(out_zip), "w", compression=zipfile.ZIP_DEFLATED) as zf:
-            for item in generated:
-                zf.write(item["path"], arcname=item["filename"])
+        if as_zip:
+            with zipfile.ZipFile(str(out_zip), "w", compression=zipfile.ZIP_DEFLATED) as zf:
+                for item in generated:
+                    zf.write(item["_local_file"], arcname=item["filename"])
 
-    return {
-        "ok": True,
-        "input_path": str(src),
-        "output_path": str(out_zip),
-        "heading_level": heading_level,
-        "total_chapters": len(generated),
-        "chapters": generated,
-    }
+        for item in generated:
+            item.pop("_local_file", None)
+
+        return {
+            "ok": True,
+            "input_path": str(src),
+            "output_path": str(out_zip),
+            "heading_level": heading_level,
+            "total_chapters": len(generated),
+            "chapters": generated,
+        }
+    finally:
+        if as_zip and work_dir.exists():
+            shutil.rmtree(work_dir, ignore_errors=True)
 
 
 def _build_watermark_run_xml(text: str) -> Any:
@@ -396,6 +663,17 @@ def _build_watermark_run_xml(text: str) -> Any:
     return parse_xml(xml_str)
 
 
+def _paragraph_has_content(p: Any) -> bool:
+    """Return True if a paragraph contains visible text, drawings, shapes, or field codes."""
+    if (p.text or "").strip():
+        return True
+    return bool(
+        p._p.xpath(
+            ".//*[local-name()='drawing' or local-name()='pict' or local-name()='fldChar' or local-name()='instrText']"
+        )
+    )
+
+
 def apply_docx_watermark_and_hf(
     input_path: str,
     output_path: Optional[str] = None,
@@ -406,7 +684,8 @@ def apply_docx_watermark_and_hf(
 ) -> Dict[str, Any]:
     """
     Inject clean header text, footer text, dynamic Page X/Y numbering, and a
-    native diagonal VML Word watermark across every section of a Word document.
+    native diagonal VML Word watermark across every section of a Word document
+    without overwriting existing header/footer logos or fields.
     """
     src = Path(input_path)
     if not src.is_file():
@@ -420,8 +699,11 @@ def apply_docx_watermark_and_hf(
         sec.different_first_page_header_footer = False
         hdr = sec.header
         if header_text and header_text.strip():
-            hp = hdr.paragraphs[0] if hdr.paragraphs else hdr.add_paragraph()
-            hp.text = ""
+            first_hp = hdr.paragraphs[0] if hdr.paragraphs else None
+            if first_hp is not None and not _paragraph_has_content(first_hp):
+                hp = first_hp
+            else:
+                hp = hdr.add_paragraph()
             hp.alignment = WD_ALIGN_PARAGRAPH.RIGHT
             hr = hp.add_run(header_text.strip())
             hr.font.name = "Times New Roman"
@@ -435,8 +717,11 @@ def apply_docx_watermark_and_hf(
 
         ftr = sec.footer
         if footer_text and footer_text.strip():
-            fp = ftr.paragraphs[0] if ftr.paragraphs else ftr.add_paragraph()
-            fp.text = ""
+            first_fp = ftr.paragraphs[0] if ftr.paragraphs else None
+            if first_fp is not None and not _paragraph_has_content(first_fp):
+                fp = first_fp
+            else:
+                fp = ftr.add_paragraph()
             fp.alignment = WD_ALIGN_PARAGRAPH.LEFT
             fr = fp.add_run(footer_text.strip())
             fr.font.name = "Times New Roman"

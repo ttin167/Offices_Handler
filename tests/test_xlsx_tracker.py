@@ -74,6 +74,15 @@ def test_office_work_tracker_lifecycle_and_daily_sync(tmp_path: Path) -> None:
     assert "14-11" in meta["task_sheets"]
     assert meta["total_entries"] >= 3
 
+    # Verify Module_Overview has cached formula values populated for offline data_only=True readers
+    wb_proj_val = openpyxl.load_workbook(str(proj_file), data_only=True)
+    ws_ov = wb_proj_val["Module_Overview"]
+    assert isinstance(ws_ov["C4"].value, (int, float))
+    assert ws_ov["C4"].value >= 1
+    assert isinstance(ws_ov["C9"].value, (int, float))
+    assert ws_ov["C9"].value >= 2
+    wb_proj_val.close()
+
 
 def test_project_tracker_module_delegates_to_core_tracker() -> None:
     assert hasattr(project_tracker, "OfficeWorkTracker")

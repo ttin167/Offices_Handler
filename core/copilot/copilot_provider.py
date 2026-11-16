@@ -71,7 +71,7 @@ class CopilotResponse:
 SYSTEM_COPILOT_PROMPT = (
     "Bạn là Antigravity AI Copilot — Trợ lý chuyên gia Tin học Văn phòng cho Antigravity Office Suite. "
     "Bạn hỗ trợ người dùng chuẩn hóa Word theo Nghị định 30/2020/NĐ-CP & trộn thư Mail Merge ({{SoTien:vn_words}}), "
-    "xử lý dữ liệu Excel (làm sạch tên/SĐT/CCCD, khử trùng lặp, Pivot + biểu đồ, nối file XLOOKUP, 52+ công thức & AST Evaluator), "
+    "xử lý dữ liệu Excel (làm sạch tên/SĐT/CCCD, khử trùng lặp, Pivot + biểu đồ, nối file XLOOKUP, 57 công thức & AST Evaluator), "
     "xử lý PDF Pro (17 công cụ: ghép/tách, nén, đóng dấu giáp lai, ký số PAdES/PKCS#7, PDF/A-2b), "
     "tổng hợp PowerPoint 16:9 và chế bản in ấn công nghiệp (Vector Grayscale, Booklet Creep). "
     "Hãy trả lời ngắn gọn, chính xác, trích dẫn nguồn từ ngữ cảnh được cung cấp."
@@ -90,7 +90,7 @@ def infer_action_cards(prompt: str, context_chunks: Optional[List[Dict[str, Any]
                 title="Mở Trạm In Ấn Công Nghiệp (Print Studio)",
                 description="Cấu hình Vector Grayscale (/DeviceGray), bù trượt gáy sách Booklet Creep và chọn khay nạp giấy DEVMODE.",
                 command_type="open_modal",
-                payload={"target": "modal-print"},
+                payload={"target": "modal-print", "modal": "print"},
                 badge="Print Engine",
             )
         )
@@ -102,19 +102,22 @@ def infer_action_cards(prompt: str, context_chunks: Optional[List[Dict[str, Any]
                 title="Ánh Xạ Trường & Trộn Thư (Batch Mail Merge)",
                 description="Nối biến {{token}}, {{SoTien:vn_words}} từ mẫu Word với dữ liệu Excel/CSV/JSON hàng loạt.",
                 command_type="switch_tab",
-                payload={"tab": "documents", "subtab": "mailmerge"},
+                payload={"tab": "documents", "subtab": "mailmerge", "tool_id": "word-mail-merge"},
                 badge="Mail Merge",
             )
         )
 
     if any(k in q for k in ("nghị định 30", "nđ30", "văn bản hành chính", "quốc hiệu", "ghép word", "tách word", "watermark word", "số trang word")):
+        is_merge_split = any(k in q for k in ("ghép word", "tách word", "watermark word"))
+        word_tool = "word-merge-split" if is_merge_split else "word-polish"
+        word_subtab = "wordmergesplit" if is_merge_split else "wordstudio"
         cards.append(
             CopilotActionCard(
                 action_id="act_word_studio",
                 title="Mở Word Hành Chính NĐ 30/2020 & Tiện Ích",
                 description="Chuẩn hóa thể thức Nghị định 30/2020/NĐ-CP, ghép/tách văn bản Word, đánh số trang X/Y và đóng dấu Watermark.",
                 command_type="switch_tab",
-                payload={"tab": "documents", "subtab": "wordstudio"},
+                payload={"tab": "documents", "subtab": word_subtab, "tool_id": word_tool},
                 badge="Word NĐ30",
             )
         )
@@ -126,7 +129,7 @@ def infer_action_cards(prompt: str, context_chunks: Optional[List[Dict[str, Any]
                 title="Mở PDF Pro Studio (17 Công Cụ)",
                 description="Ghép/tách trang, nén PDF, đóng dấu giáp lai, ký số PKCS#7/PAdES, chuyển Ảnh ↔ PDF và chuẩn PDF/A-2b.",
                 command_type="switch_tab",
-                payload={"tab": "documents", "subtab": "pdftools"},
+                payload={"tab": "documents", "subtab": "pdftools", "tool_id": "pdf-pro"},
                 badge="PDF Pro 17",
             )
         )
@@ -138,7 +141,7 @@ def infer_action_cards(prompt: str, context_chunks: Optional[List[Dict[str, Any]
                 title="Mở Excel Power Data Suite & Pivot/XLOOKUP",
                 description="Chuẩn hóa Tên/SĐT/CCCD VN, khử trùng lặp, tách/gộp cột, Pivot Chart tự động và nối file XLOOKUP không cần code.",
                 command_type="switch_tab",
-                payload={"tab": "spreadsheet", "subtab": "powertools"},
+                payload={"tab": "spreadsheet", "subtab": "powertools", "tool_id": "excel-power"},
                 badge="Excel Power",
             )
         )
@@ -150,20 +153,61 @@ def infer_action_cards(prompt: str, context_chunks: Optional[List[Dict[str, Any]
                 title="Mở Sổ Theo Dõi Công Việc & Báo Cáo Ngày",
                 description="Quản lý danh mục đầu việc Excel và đồng bộ tự động Daily Report (project_tracking.xlsx / task_tracking.xlsx).",
                 command_type="switch_tab",
-                payload={"tab": "spreadsheet", "subtab": "tracker"},
+                payload={"tab": "spreadsheet", "subtab": "tracker", "tool_id": "excel-tracker"},
                 badge="Work Tracker",
             )
         )
 
     if any(k in q for k in ("công thức", "excel", "xlsx", "bảng tính", "sumif", "12 cổng", "ast")):
+        is_qa = "12 cổng" in q and "công thức" not in q
         cards.append(
             CopilotActionCard(
                 action_id="act_spreadsheet_studio",
-                title="Mở Spreadsheet Studio & 52+ Công Thức Excel",
-                description="Kiểm định 12 cổng chất lượng, tính toán công thức AST ngoại tuyến và tra cứu 52+ công thức thực chiến.",
+                title="Mở Spreadsheet Studio & 57 Công Thức Excel",
+                description="Kiểm định 12 cổng chất lượng, tính toán công thức AST ngoại tuyến và tra cứu 57 công thức thực chiến.",
                 command_type="switch_tab",
-                payload={"tab": "spreadsheet", "subtab": "validator"},
+                payload={
+                    "tab": "spreadsheet",
+                    "subtab": "qa" if is_qa else "validator",
+                    "tool_id": "qa-security" if is_qa else "excel-formulas",
+                },
                 badge="Excel Studio",
+            )
+        )
+
+    if any(k in q for k in ("ocr", "scan", "chữ ký ảnh", "nhận dạng")):
+        cards.append(
+            CopilotActionCard(
+                action_id="act_ocr_vn",
+                title="Mở OCR Tiếng Việt & Phục Hồi Bản Scan",
+                description="Khử dấu đỏ HSV, cân nghiêng và trích xuất văn bản tiếng Việt sang Word/Markdown.",
+                command_type="switch_tab",
+                payload={"tab": "documents", "subtab": "ocr", "tool_id": "ocr-vietnamese"},
+                badge="OCR Việt",
+            )
+        )
+
+    if any(k in q for k in ("chuyển đổi", "convert", "word sang pdf", "pdf sang word")):
+        cards.append(
+            CopilotActionCard(
+                action_id="act_convert",
+                title="Mở Bộ Chuyển Đổi Tài Liệu Đa Năng",
+                description="Chuyển đổi qua lại PDF ↔ Word ↔ Markdown/HTML bảo toàn bố cục OpenXML.",
+                command_type="switch_tab",
+                payload={"tab": "documents", "subtab": "convert", "tool_id": "convert-universal"},
+                badge="Converter",
+            )
+        )
+
+    if any(k in q for k in ("slide", "pptx", "powerpoint", "thuyết trình")):
+        cards.append(
+            CopilotActionCard(
+                action_id="act_pptx",
+                title="Mở Trình Tạo Slide 16:9 (Presentation Studio)",
+                description="Chuyển đổi đề cương Word/Markdown thành slide 16:9 giữ nguyên tỉ lệ hình ảnh.",
+                command_type="switch_tab",
+                payload={"tab": "visual", "subtab": "pptx", "tool_id": "presentation-studio"},
+                badge="Slide 16:9",
             )
         )
 
@@ -180,7 +224,7 @@ def infer_action_cards(prompt: str, context_chunks: Optional[List[Dict[str, Any]
                 title="Mở Trình Xem Tài Liệu Trực Tiếp (In-Browser Viewer)",
                 description="Xem trước DOCX, XLSX, PDF ngay trên trình duyệt với hiệu ứng G3 Shimmer Skeleton.",
                 command_type="open_viewer",
-                payload={"filename": first_file or ""},
+                payload={"filename": first_file or "", "tool_id": "convert-universal"},
                 badge="Viewer G3",
             )
         )
@@ -192,7 +236,7 @@ def infer_action_cards(prompt: str, context_chunks: Optional[List[Dict[str, Any]
                 title="Chạy Kiểm Toán Tài Liệu 13 Cổng (Unified QA Audit)",
                 description="Kiểm tra toàn diện cấu trúc OpenXML, bảng biểu, công thức Excel và bảo mật tài liệu.",
                 command_type="switch_tab",
-                payload={"tab": "documents", "subtab": "qa"},
+                payload={"tab": "documents", "subtab": "qa", "tool_id": "qa-security"},
                 badge="QA Audit",
             )
         )

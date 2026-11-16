@@ -187,3 +187,65 @@ def test_printer_manager_spool_via_gdi():
         assert PrinterManager._spool_via_gdi(src, "NonExistentPrinter12345") is False
 
 
+def test_printer_manager_spool_via_gdi_local_devmode_and_grayscale(monkeypatch):
+    import sys
+    if sys.platform != "win32":
+        pytest.skip("Windows-only GDI test")
+
+    import core.printing.printer_manager as pm_mod
+    from PIL import ImageWin
+
+    drawn_modes = []
+    dc_calls = []
+
+    class FakeDC:
+        def GetDeviceCaps(self, idx):
+            if idx == pm_mod.win32con.LOGPIXELSX:
+                return 600
+            return 4800
+
+        def StartDoc(self, name):
+            dc_calls.append(("StartDoc", name))
+
+        def StartPage(self):
+            dc_calls.append(("StartPage",))
+
+        def GetHandleOutput(self):
+            return 777
+
+        def EndPage(self):
+            dc_calls.append(("EndPage",))
+
+        def EndDoc(self):
+            dc_calls.append(("EndDoc",))
+
+        def DeleteDC(self):
+            dc_calls.append(("DeleteDC",))
+
+    monkeypatch.setattr(pm_mod.win32gui, "CreateDC", lambda drv, printer, dm: (dc_calls.append(("CreateDC", drv, printer, dm)) or 555))
+    monkeypatch.setattr(pm_mod.win32ui, "CreateDCFromHandle", lambda h: FakeDC())
+
+    orig_draw = ImageWin.Dib.draw
+
+    def capture_draw(self, handle, rect):
+        drawn_modes.append(self.mode)
+        return None
+
+    monkeypatch.setattr(ImageWin.Dib, "draw", capture_draw)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        src = os.path.join(tmp, "doc_gray.pdf")
+        create_multi_page_pdf(src, pages=1)
+        ok = PrinterManager._spool_via_gdi(
+            src,
+            "Mock Laser",
+            devmode=object(),
+            grayscale=True,
+        )
+        assert ok is True
+        assert drawn_modes == ["L"]
+        assert any(c[0] == "CreateDC" and c[1] == "WINSPOOL" for c in dc_calls)
+        assert ("EndDoc",) in dc_calls
+        assert ("DeleteDC",) in dc_calls
+
+

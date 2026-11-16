@@ -26,11 +26,13 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 try:
     import win32api
     import win32con
+    import win32gui
     import win32print
     import win32ui
 except ImportError:
     win32api = None
     win32con = None
+    win32gui = None
     win32print = None
     win32ui = None
 
@@ -155,11 +157,14 @@ class PrinterManager:
         printer_name: str,
         job_name: str = "Antigravity Print Job",
         copies: int = 1,
-        target_dpi: int = 300,
+        target_dpi: int = 600,
+        devmode: Any = None,
+        grayscale: bool = False,
     ) -> bool:
         """
-        Natively spools PDF pages directly into Windows GDI printer DC.
-        100% silent, instantaneous, and immune to external browser timeouts or profile locks.
+        Natively spools PDF pages directly into Windows GDI printer DC with optional
+        per-job DEVMODE (tray/duplex without global SetPrinter mutation) and 1-channel
+        grayscale optimization for 3x lighter monochrome spooler payloads.
         """
         if sys.platform != "win32" or win32ui is None or win32con is None or Image is None or ImageWin is None or fitz is None:
             return False
@@ -175,8 +180,14 @@ class PrinterManager:
         hdc = None
         doc_started = False
         try:
-            hdc = win32ui.CreateDC()
-            hdc.CreatePrinterDC(printer_name)
+            if devmode is not None and win32gui is not None:
+                raw_hdc = win32gui.CreateDC("WINSPOOL", printer_name, devmode)
+                if not raw_hdc:
+                    return False
+                hdc = win32ui.CreateDCFromHandle(raw_hdc)
+            else:
+                hdc = win32ui.CreateDC()
+                hdc.CreatePrinterDC(printer_name)
 
             horz_res = hdc.GetDeviceCaps(win32con.HORZRES)
             vert_res = hdc.GetDeviceCaps(win32con.VERTRES)
@@ -186,11 +197,14 @@ class PrinterManager:
             hdc.StartDoc(job_name)
             doc_started = True
 
+            colorspace = fitz.csGRAY if grayscale else fitz.csRGB
+            img_mode = "L" if grayscale else "RGB"
+
             for _ in range(max(1, copies)):
                 for pno in range(len(doc)):
                     page = doc[pno]
-                    pix = page.get_pixmap(dpi=render_dpi, alpha=False)
-                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                    pix = page.get_pixmap(dpi=render_dpi, colorspace=colorspace, alpha=False)
+                    img = Image.frombytes(img_mode, [pix.width, pix.height], pix.samples)
                     dib = ImageWin.Dib(img)
 
                     hdc.StartPage()
@@ -202,6 +216,7 @@ class PrinterManager:
 
                     dib.draw(hdc.GetHandleOutput(), (off_x, off_y, off_x + dest_w, off_y + dest_h))
                     hdc.EndPage()
+                    del dib, img, pix
 
             hdc.EndDoc()
             doc_started = False
@@ -272,32 +287,28 @@ class PrinterManager:
             }
 
     @classmethod
-    def apply_devmode(
+    def _validate_devmode_options(
         cls,
         printer_name: str,
         tray_id: Optional[int] = None,
         duplex: Optional[str] = None,
-    ) -> bool:
-        """
-        Safely configures printer hardware DEVMODE with Guard G2 capabilities check.
-        """
+    ) -> Optional[Tuple[Optional[int], Optional[int]]]:
+        """Validate tray and duplex settings against Guard G2 device capabilities."""
         if sys.platform != "win32" or win32print is None or win32con is None:
-            return False
+            return None
 
         caps = cls.get_device_capabilities(printer_name)
 
-        # Guard G2: Check tray capability before applying
-        valid_tray = None
+        valid_tray: Optional[int] = None
         if tray_id is not None:
             if tray_id not in caps.get("supported_bins", []):
-                return False
+                return None
             valid_tray = tray_id
 
-        # Guard G2: Check duplex capability
-        valid_duplex = None
+        valid_duplex: Optional[int] = None
         if duplex:
             if not caps.get("supports_duplex", False):
-                return False
+                return None
             dup_lower = duplex.lower()
             if dup_lower in ("vertical", "long", "long-edge", "2-sided-long", "duplex_long"):
                 valid_duplex = win32con.DMDUP_VERTICAL
@@ -306,28 +317,62 @@ class PrinterManager:
             elif dup_lower in ("simplex", "none", "single", "1-sided", "1-page"):
                 valid_duplex = win32con.DMDUP_SIMPLEX
             else:
-                return False
+                return None
 
         if valid_tray is None and valid_duplex is None:
-            return False
+            return None
+        return valid_tray, valid_duplex
+
+    @classmethod
+    def build_devmode(
+        cls,
+        printer_name: str,
+        tray_id: Optional[int] = None,
+        duplex: Optional[str] = None,
+    ) -> Optional[Any]:
+        """
+        Build a per-job local PyDEVMODE via DocumentProperties without requiring
+        PRINTER_ALL_ACCESS or mutating system-wide default printer settings via SetPrinter.
+        """
+        validated = cls._validate_devmode_options(printer_name, tray_id=tray_id, duplex=duplex)
+        if validated is None:
+            return None
+        valid_tray, valid_duplex = validated
 
         try:
-            h_printer = win32print.OpenPrinter(printer_name, {"DesiredAccess": win32print.PRINTER_ALL_ACCESS})
+            h_printer = win32print.OpenPrinter(printer_name)
             try:
                 p_info = win32print.GetPrinter(h_printer, 2)
                 devmode = p_info.get("pDevMode")
-                if devmode:
-                    if valid_tray is not None:
-                        devmode.DefaultSource = valid_tray
-                    if valid_duplex is not None:
-                        devmode.Duplex = valid_duplex
-                    win32print.SetPrinter(h_printer, 2, p_info, 0)
-                    return True
+                if devmode is None:
+                    return None
+                if valid_tray is not None:
+                    devmode.DefaultSource = valid_tray
+                    devmode.Fields |= getattr(win32con, "DM_DEFAULTSOURCE", 0x00000200)
+                if valid_duplex is not None:
+                    devmode.Duplex = valid_duplex
+                    devmode.Fields |= getattr(win32con, "DM_DUPLEX", 0x00001000)
+
+                dm_in_out = getattr(win32con, "DM_IN_BUFFER", 8) | getattr(win32con, "DM_OUT_BUFFER", 2)
+                win32print.DocumentProperties(0, h_printer, printer_name, devmode, devmode, dm_in_out)
+                return devmode
             finally:
                 win32print.ClosePrinter(h_printer)
         except Exception:
-            pass
-        return False
+            return None
+
+    @classmethod
+    def apply_devmode(
+        cls,
+        printer_name: str,
+        tray_id: Optional[int] = None,
+        duplex: Optional[str] = None,
+    ) -> bool:
+        """
+        Safely validates and prepares local printer DEVMODE with Guard G2 capabilities check
+        (non-privileged, per-job safe without global SetPrinter mutation).
+        """
+        return cls.build_devmode(printer_name, tray_id=tray_id, duplex=duplex) is not None
 
     @classmethod
     def get_printer_status(cls, printer_name: Optional[str] = None) -> Dict[str, Any]:
@@ -465,158 +510,189 @@ class PrinterManager:
         pre_status = cls.get_printer_status(target_printer)
         hardware_warning = pre_status.get("hardware_warning")
 
-        # Step 0: Apply DEVMODE settings if physical printer on Windows (Guard G2)
-        devmode_applied = False
+        # Step 0: Build per-job local DEVMODE settings if physical printer on Windows (Guard G2)
+        local_devmode = None
         if sys.platform == "win32" and (tray_id is not None or duplex is not None):
-            devmode_applied = cls.apply_devmode(target_printer, tray_id=tray_id, duplex=duplex)
+            local_devmode = cls.build_devmode(target_printer, tray_id=tray_id, duplex=duplex)
+        devmode_applied = local_devmode is not None
 
-        # Step 1: Ensure PDF format for printing
-        ext = os.path.splitext(file_path)[1].lower()
-        printable_pdf = file_path
+        temp_files_to_clean: List[str] = []
+        async_spool = False
 
-        if ext != ".pdf":
-            try:
-                from core.converter.engine import convert_universal
+        try:
+            # Step 1: Ensure PDF format for printing
+            ext = os.path.splitext(file_path)[1].lower()
+            printable_pdf = file_path
+
+            if ext != ".pdf":
                 temp_pdf = os.path.join(tempfile.gettempdir(), f"{job_id}_converted.pdf")
-                convert_universal(file_path, temp_pdf)
-                printable_pdf = temp_pdf
-            except Exception as ce:
-                raise RuntimeError(f"Không thể chuyển đổi {ext} sang PDF để in: {ce}")
+                temp_files_to_clean.append(temp_pdf)
+                converted_ok = False
+                if ext in (".docx", ".pptx", ".xlsx", ".xls", ".xlsm"):
+                    try:
+                        from core.converter.pdf_renderer import UniversalPdfRenderer
+                        rendered = UniversalPdfRenderer().convert_to_pdf(file_path, temp_pdf)
+                        if os.path.isfile(rendered) and os.path.getsize(rendered) > 0:
+                            printable_pdf = rendered
+                            converted_ok = True
+                    except Exception:
+                        converted_ok = False
 
-        # Step 2: Apply Print Optimizer (Vector Grayscale, N-Up, Booklet Creep, Watermark, Margin Guard, Page Range, Page Size)
-        opt_dict = dict(optimizer_options or {})
-        if page_range:
-            opt_dict["page_range"] = page_range
-        if page_size:
-            opt_dict["page_size"] = page_size
-        if scaling:
-            opt_dict["scaling"] = scaling
+                if not converted_ok:
+                    try:
+                        from core.converter.engine import convert_universal
+                        ok_conv, out_conv, _elap = convert_universal(file_path, temp_pdf)
+                        if not ok_conv or not os.path.isfile(out_conv):
+                            raise RuntimeError(out_conv)
+                        printable_pdf = out_conv
+                    except Exception as ce:
+                        raise RuntimeError(f"Không thể chuyển đổi {ext} sang PDF để in: {ce}")
 
-        opt_stats: Dict[str, Any] = {}
-        if opt_dict:
-            optimized_pdf = os.path.join(tempfile.gettempdir(), f"{job_id}_optimized.pdf")
-            opt_stats = PrintOptimizer.optimize_pdf(
-                input_pdf_path=printable_pdf,
-                output_pdf_path=optimized_pdf,
-                grayscale=opt_dict.get("grayscale", False),
-                vector_grayscale=opt_dict.get("vector_grayscale", True),
-                dpi=opt_dict.get("dpi", 300),
-                n_up=opt_dict.get("n_up", 1),
-                booklet=opt_dict.get("booklet", False),
-                creep_compensation=opt_dict.get("creep_compensation", True),
-                paper_thickness_pt=opt_dict.get("paper_thickness_pt", 0.28),
-                watermark_text=opt_dict.get("watermark"),
-                margin_guard_mm=opt_dict.get("margin_guard_mm", 5.0),
-                page_range=opt_dict.get("page_range"),
-                page_size=opt_dict.get("page_size"),
-                scaling=opt_dict.get("scaling", "fit"),
-            )
-            printable_pdf = optimized_pdf
+            # Step 2: Apply Print Optimizer (Vector Grayscale, N-Up, Booklet Creep, Watermark, Margin Guard, Page Range, Page Size)
+            opt_dict = dict(optimizer_options or {})
+            if page_range:
+                opt_dict["page_range"] = page_range
+            if page_size:
+                opt_dict["page_size"] = page_size
+            if scaling:
+                opt_dict["scaling"] = scaling
 
-        # Base response payload
-        base_res: Dict[str, Any] = {
-            "success": True,
-            "job_id": job_id,
-            "printer": target_printer,
-            "copies": copies,
-            "hardware_warning": hardware_warning,
-            "printer_status": pre_status.get("status", "READY"),
-            "devmode_applied": devmode_applied,
-            "duplex": duplex or "simplex",
-            "page_range": opt_dict.get("page_range", "all"),
-            "page_size": opt_dict.get("page_size", "A4"),
-            "scaling": opt_dict.get("scaling", "fit"),
-            "optimization": opt_stats,
-        }
+            opt_stats: Dict[str, Any] = {}
+            if opt_dict:
+                optimized_pdf = os.path.join(tempfile.gettempdir(), f"{job_id}_optimized.pdf")
+                temp_files_to_clean.append(optimized_pdf)
+                opt_stats = PrintOptimizer.optimize_pdf(
+                    input_pdf_path=printable_pdf,
+                    output_pdf_path=optimized_pdf,
+                    grayscale=opt_dict.get("grayscale", False),
+                    vector_grayscale=opt_dict.get("vector_grayscale", True),
+                    dpi=opt_dict.get("dpi", 300),
+                    n_up=opt_dict.get("n_up", 1),
+                    booklet=opt_dict.get("booklet", False),
+                    creep_compensation=opt_dict.get("creep_compensation", True),
+                    paper_thickness_pt=opt_dict.get("paper_thickness_pt", 0.28),
+                    watermark_text=opt_dict.get("watermark"),
+                    margin_guard_mm=opt_dict.get("margin_guard_mm", 5.0),
+                    page_range=opt_dict.get("page_range"),
+                    page_size=opt_dict.get("page_size"),
+                    scaling=opt_dict.get("scaling", "fit"),
+                )
+                printable_pdf = optimized_pdf
 
-        # Step 3: Check if Virtual Spooler is requested or if printer is Virtual Spooler
-        if "virtual" in target_printer.lower() or "buffer" in target_printer.lower():
-            spool_dir = os.path.abspath(os.path.join(os.getcwd(), "output", "spool"))
-            os.makedirs(spool_dir, exist_ok=True)
-            spool_file = os.path.join(spool_dir, f"{job_id}_{os.path.basename(file_path)}.pdf")
-            shutil.copy2(printable_pdf, spool_file)
-            return {
-                **base_res,
-                "spooled_file": spool_file,
-                "mode": "VIRTUAL_SPOOL",
-                "status": "QUEUED"
+            # Base response payload
+            base_res: Dict[str, Any] = {
+                "success": True,
+                "job_id": job_id,
+                "printer": target_printer,
+                "copies": copies,
+                "hardware_warning": hardware_warning,
+                "printer_status": pre_status.get("status", "READY"),
+                "devmode_applied": devmode_applied,
+                "duplex": duplex or "simplex",
+                "page_range": opt_dict.get("page_range", "all"),
+                "page_size": opt_dict.get("page_size", "A4"),
+                "scaling": opt_dict.get("scaling", "fit"),
+                "optimization": opt_stats,
             }
 
-        # Step 4: Physical Spooling on Windows
-        if sys.platform == "win32":
-            # Priority 1: Native Windows GDI Spooler (100% silent, instantaneous, immune to browser locks)
-            try:
-                gdi_ok = cls._spool_via_gdi(printable_pdf, target_printer, job_name=job_name, copies=copies)
-                if gdi_ok:
-                    return {
-                        **base_res,
-                        "mode": "WIN32_GDI_DIRECT",
-                        "status": "SENT_TO_PRINTER"
-                    }
-            except Exception:
-                pass
+            # Step 3: Check if Virtual Spooler is requested or if printer is Virtual Spooler
+            if "virtual" in target_printer.lower() or "buffer" in target_printer.lower():
+                spool_dir = os.path.abspath(os.path.join(os.getcwd(), "output", "spool"))
+                os.makedirs(spool_dir, exist_ok=True)
+                spool_file = os.path.join(spool_dir, f"{job_id}_{os.path.basename(file_path)}.pdf")
+                shutil.copy2(printable_pdf, spool_file)
+                return {
+                    **base_res,
+                    "spooled_file": spool_file,
+                    "mode": "VIRTUAL_SPOOL",
+                    "status": "QUEUED"
+                }
 
-            # Priority 2: ShellExecute printto
-            if win32api is not None:
+            # Step 4: Physical Spooling on Windows
+            if sys.platform == "win32":
+                # Priority 1: Native Windows GDI Spooler (per-job DEVMODE + adaptive 600 DPI / csGRAY)
                 try:
-                    for _ in range(copies):
-                        win32api.ShellExecute(0, "printto", printable_pdf, f'"{target_printer}"', ".", 0)
-                    return {
-                        **base_res,
-                        "mode": "SHELLEXECUTE_PRINTTO",
-                        "status": "SENT_TO_PRINTER"
-                    }
+                    gdi_ok = cls._spool_via_gdi(
+                        printable_pdf,
+                        target_printer,
+                        job_name=job_name,
+                        copies=copies,
+                        devmode=local_devmode,
+                        grayscale=bool(opt_dict.get("grayscale", False)),
+                    )
+                    if gdi_ok:
+                        return {
+                            **base_res,
+                            "mode": "WIN32_GDI_DIRECT",
+                            "status": "SENT_TO_PRINTER"
+                        }
                 except Exception:
                     pass
 
-            # Priority 3: Headless Edge (with safe timeout and exception catch)
-            edge_bin = cls._find_edge_binary()
-            if edge_bin and silent:
-                try:
-                    cmd = [
-                        edge_bin,
-                        "--headless",
-                        "--disable-gpu",
-                        f"--print-to-printer={target_printer}",
-                        printable_pdf
-                    ]
-                    for _ in range(copies):
-                        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
-                    return {
-                        **base_res,
-                        "mode": "EDGE_HEADLESS_SPOOL",
-                        "status": "SENT_TO_PRINTER"
-                    }
-                except Exception:
-                    pass
+                # Priority 2: ShellExecute printto (async handoff, keep temp pdf until OS picks it up)
+                if win32api is not None:
+                    try:
+                        for _ in range(copies):
+                            win32api.ShellExecute(0, "printto", printable_pdf, f'"{target_printer}"', ".", 0)
+                        async_spool = True
+                        return {
+                            **base_res,
+                            "mode": "SHELLEXECUTE_PRINTTO",
+                            "status": "SENT_TO_PRINTER"
+                        }
+                    except Exception:
+                        pass
 
-            # Priority 4: Graceful Virtual Spool fallback if hardware driver blocks execution
-            spool_dir = os.path.abspath(os.path.join(os.getcwd(), "output", "spool"))
-            os.makedirs(spool_dir, exist_ok=True)
-            spool_file = os.path.join(spool_dir, f"{job_id}_{os.path.basename(file_path)}.pdf")
-            shutil.copy2(printable_pdf, spool_file)
-            return {
-                **base_res,
-                "spooled_file": spool_file,
-                "mode": "VIRTUAL_SPOOL_FALLBACK",
-                "status": "QUEUED",
-                "hardware_warning": f"Không thể gửi lệnh in trực tiếp đến driver '{target_printer}'. Tệp in đã được đệm an toàn tại output/spool/."
-            }
+                # Priority 3: Headless Edge (with safe timeout and exception catch)
+                edge_bin = cls._find_edge_binary()
+                if edge_bin and silent:
+                    try:
+                        cmd = [
+                            edge_bin,
+                            "--headless",
+                            "--disable-gpu",
+                            f"--print-to-printer={target_printer}",
+                            printable_pdf
+                        ]
+                        for _ in range(copies):
+                            subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+                        return {
+                            **base_res,
+                            "mode": "EDGE_HEADLESS_SPOOL",
+                            "status": "SENT_TO_PRINTER"
+                        }
+                    except Exception:
+                        pass
 
-        # Step 5: Physical Spooling on Linux / CUPS
-        else:
-            cmd = ["lp", "-d", target_printer, "-n", str(copies), "-t", job_name, printable_pdf]
-            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=15)
-            if res.returncode != 0:
-                raise RuntimeError(f"Lỗi gửi lệnh in CUPS (lp): {res.stderr}")
-            return {
-                **base_res,
-                "mode": "CUPS_LP",
-                "status": "SENT_TO_PRINTER"
-            }
+                # Priority 4: Graceful Virtual Spool fallback if hardware driver blocks execution
+                spool_dir = os.path.abspath(os.path.join(os.getcwd(), "output", "spool"))
+                os.makedirs(spool_dir, exist_ok=True)
+                spool_file = os.path.join(spool_dir, f"{job_id}_{os.path.basename(file_path)}.pdf")
+                shutil.copy2(printable_pdf, spool_file)
+                return {
+                    **base_res,
+                    "spooled_file": spool_file,
+                    "mode": "VIRTUAL_SPOOL_FALLBACK",
+                    "status": "QUEUED",
+                    "hardware_warning": f"Không thể gửi lệnh in trực tiếp đến driver '{target_printer}'. Tệp in đã được đệm an toàn tại output/spool/."
+                }
 
-        return {
-            **base_res,
-            "mode": "COMPLETED",
-            "status": "FINISHED"
-        }
+            # Step 5: Physical Spooling on Linux / CUPS
+            else:
+                cmd = ["lp", "-d", target_printer, "-n", str(copies), "-t", job_name, printable_pdf]
+                res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=15)
+                if res.returncode != 0:
+                    raise RuntimeError(f"Lỗi gửi lệnh in CUPS (lp): {res.stderr}")
+                return {
+                    **base_res,
+                    "mode": "CUPS_LP",
+                    "status": "SENT_TO_PRINTER"
+                }
+        finally:
+            if not async_spool:
+                for tmp_p in temp_files_to_clean:
+                    if tmp_p and os.path.isfile(tmp_p):
+                        try:
+                            os.remove(tmp_p)
+                        except OSError:
+                            pass

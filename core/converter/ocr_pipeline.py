@@ -18,6 +18,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 try:
@@ -326,11 +327,206 @@ def run_tesseract_ocr(
     return result
 
 
+def _run_rapidocr_fallback(image: Any) -> Dict[str, Any]:
+    """Optional zero-external-binary OCR via `rapidocr_onnxruntime` when installed."""
+    res: Dict[str, Any] = {
+        "success": False,
+        "text": "",
+        "lang_used": "multi",
+        "backend": "rapidocr",
+        "error": None,
+    }
+    try:
+        from rapidocr_onnxruntime import RapidOCR  # type: ignore
+    except ImportError:
+        res["error"] = "rapidocr_onnxruntime is not installed."
+        return res
+
+    try:
+        pil_img = image if isinstance(image, Image.Image) else Image.fromarray(image)
+        if pil_img.mode != "RGB":
+            pil_img = pil_img.convert("RGB")
+        engine = RapidOCR()
+        ocr_out, _ = engine(np.array(pil_img))
+        lines = [item[1] for item in (ocr_out or []) if len(item) >= 2 and item[1]]
+        res["success"] = True
+        res["text"] = "\n".join(lines).strip()
+        return res
+    except Exception as ex:
+        res["error"] = f"RapidOCR failed: {ex}"
+        return res
+
+
+def _run_windows_winrt_ocr(image: Any, lang: str = "vie+eng") -> Dict[str, Any]:
+    """
+    Execute Windows 10/11 built-in WinRT OCR (`Windows.Media.Ocr.OcrEngine`) via PowerShell
+    without any external binary or pip package requirements.
+    """
+    result: Dict[str, Any] = {
+        "success": False,
+        "text": "",
+        "lang_used": lang,
+        "backend": "windows_winrt",
+        "error": None,
+    }
+    if sys.platform != "win32":
+        result["error"] = "Windows WinRT OCR is only available on Windows."
+        return result
+
+    pil_img = image if isinstance(image, Image.Image) else Image.fromarray(image)
+    if pil_img.mode != "RGB":
+        pil_img = pil_img.convert("RGB")
+
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp_img:
+        tmp_img_path = tmp_img.name
+
+    ps_script = r"""
+$ErrorActionPreference = 'Stop'
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+Add-Type -AssemblyName System.Runtime.WindowsRuntime
+[Windows.Storage.StorageFile, Windows.Storage, ContentType=WindowsRuntime] | Out-Null
+[Windows.Graphics.Imaging.BitmapDecoder, Windows.Graphics.Imaging, ContentType=WindowsRuntime] | Out-Null
+[Windows.Media.Ocr.OcrEngine, Windows.Foundation, ContentType=WindowsRuntime] | Out-Null
+
+$asTaskGeneric = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
+    $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1'
+})[0]
+function Await($op, $type) {
+    $netTask = $asTaskGeneric.MakeGenericMethod($type).Invoke($null, @($op))
+    $netTask.Wait() | Out-Null
+    return $netTask.Result
+}
+
+$imgPath = $env:AG_OCR_IMG
+$prefs = ($env:AG_OCR_LANGS -split ',') | Where-Object { $_ }
+$engine = $null
+$avail = [Windows.Media.Ocr.OcrEngine]::AvailableRecognizerLanguages
+foreach ($pref in $prefs) {
+    $matched = $avail | Where-Object { $_.LanguageTag.ToLower().StartsWith($pref.ToLower()) } | Select-Object -First 1
+    if ($matched) {
+        $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage($matched)
+        if ($engine) { break }
+    }
+}
+if (-not $engine) {
+    $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages()
+}
+if (-not $engine) {
+    throw 'No Windows OCR recognizer language pack available.'
+}
+
+$stream = $null
+$bmp = $null
+try {
+    $file = Await ([Windows.Storage.StorageFile]::GetFileFromPathAsync($imgPath)) ([Windows.Storage.StorageFile])
+    $stream = Await ($file.OpenAsync([Windows.Storage.FileAccessMode]::Read)) ([Windows.Storage.Streams.IRandomAccessStream])
+    $decoder = Await ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($stream)) ([Windows.Graphics.Imaging.BitmapDecoder])
+    $bmp = Await ($decoder.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap])
+    $res = Await ($engine.RecognizeAsync($bmp)) ([Windows.Media.Ocr.OcrResult])
+    Write-Output ($engine.RecognizerLanguage.LanguageTag)
+    Write-Output ($res.Text)
+} finally {
+    if ($bmp) { $bmp.Dispose() }
+    if ($stream) { $stream.Dispose() }
+}
+"""
+    try:
+        pil_img.save(tmp_img_path, format="PNG")
+        lang_low = (lang or "").lower()
+        prefs = "vi,en" if "vie" in lang_low or "vi" in lang_low else "en,vi"
+        env = dict(os.environ)
+        env["AG_OCR_IMG"] = tmp_img_path
+        env["AG_OCR_LANGS"] = prefs
+
+        proc = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", ps_script],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=env,
+            timeout=30,
+        )
+        if proc.returncode == 0:
+            lines = proc.stdout.splitlines()
+            used_lang = lines[0].strip() if lines else lang
+            text_out = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
+            result["success"] = True
+            result["text"] = text_out
+            result["lang_used"] = used_lang
+        else:
+            result["error"] = (proc.stderr or proc.stdout or "Windows WinRT OCR failed.").strip()
+    except Exception as ex:
+        result["error"] = f"Windows WinRT OCR error: {ex}"
+    finally:
+        if os.path.exists(tmp_img_path):
+            try:
+                os.remove(tmp_img_path)
+            except OSError:
+                pass
+
+    return result
+
+
+def run_ocr_with_fallback(
+    image: Any,
+    lang: str = "vie+eng",
+    tesseract_cmd: Optional[str] = None,
+    backend: str = "auto",
+) -> Dict[str, Any]:
+    """
+    Execute OCR using the best available engine:
+      1. Tesseract OCR (when binary is configured or found on PATH)
+      2. RapidOCR (`rapidocr_onnxruntime`) if installed
+      3. Windows built-in WinRT OCR (`Windows.Media.Ocr.OcrEngine`) on Win10/11
+    """
+    mode = (backend or "auto").strip().lower()
+    if mode == "tesseract":
+        res = run_tesseract_ocr(image, lang=lang, tesseract_cmd=tesseract_cmd)
+        res.setdefault("backend", "tesseract" if res.get("success") else "none")
+        return res
+    if mode == "rapidocr":
+        return _run_rapidocr_fallback(image)
+    if mode in ("windows_winrt", "winrt"):
+        return _run_windows_winrt_ocr(image, lang=lang)
+
+    errors: List[str] = []
+    binary = tesseract_cmd or find_tesseract_binary()
+    if binary:
+        t_res = run_tesseract_ocr(image, lang=lang, tesseract_cmd=binary)
+        if t_res.get("success"):
+            t_res["backend"] = "tesseract"
+            return t_res
+        if t_res.get("error"):
+            errors.append(str(t_res["error"]))
+
+    r_res = _run_rapidocr_fallback(image)
+    if r_res.get("success"):
+        return r_res
+
+    if sys.platform == "win32":
+        w_res = _run_windows_winrt_ocr(image, lang=lang)
+        if w_res.get("success"):
+            return w_res
+        if w_res.get("error"):
+            errors.append(str(w_res["error"]))
+
+    return {
+        "success": False,
+        "text": "",
+        "lang_used": lang,
+        "binary": binary,
+        "backend": "none",
+        "error": "; ".join(errors) if errors else "No OCR backend available (install Tesseract or rapidocr_onnxruntime).",
+    }
+
+
 class VietnameseOcrPipeline:
     """
     High-Fidelity Vietnamese OCR Pipeline for Scanned Documents.
     Performs end-to-end PDF / Image rasterization, deskewing, red-stamp filtering,
-    OCR text extraction, and export to Markdown or DOCX.
+    multi-backend OCR extraction (Tesseract -> RapidOCR -> Windows WinRT / PDF text layer),
+    and export to Markdown or DOCX.
     """
 
     def __init__(
@@ -339,11 +535,13 @@ class VietnameseOcrPipeline:
         filter_red_stamp: bool = True,
         deskew: bool = True,
         tesseract_cmd: Optional[str] = None,
+        backend: str = "auto",
     ) -> None:
         self.lang = lang
         self.filter_red_stamp = filter_red_stamp
         self.deskew = deskew
         self.tesseract_cmd = tesseract_cmd or find_tesseract_binary()
+        self.backend = backend
 
     def process_image(self, image: Any) -> Dict[str, Any]:
         """Process a single image through the pipeline."""
@@ -356,8 +554,11 @@ class VietnameseOcrPipeline:
         if self.filter_red_stamp:
             processed_img = filter_red_stamp(processed_img)
 
-        ocr_res = run_tesseract_ocr(
-            processed_img, lang=self.lang, tesseract_cmd=self.tesseract_cmd
+        ocr_res = run_ocr_with_fallback(
+            processed_img,
+            lang=self.lang,
+            tesseract_cmd=self.tesseract_cmd,
+            backend=self.backend,
         )
 
         return {
@@ -365,6 +566,7 @@ class VietnameseOcrPipeline:
             "success": ocr_res.get("success", False),
             "skew_angle": skew_angle,
             "lang_used": ocr_res.get("lang_used", self.lang),
+            "backend": ocr_res.get("backend", "none"),
             "error": ocr_res.get("error"),
         }
 
@@ -385,19 +587,28 @@ class VietnameseOcrPipeline:
                 raise RuntimeError("PyMuPDF is required to process PDF files in OCR pipeline.")
 
             doc = pymupdf.open(input_path)
-            num_pages = len(doc)
-            if max_pages:
-                num_pages = min(num_pages, max_pages)
+            try:
+                num_pages = len(doc)
+                if max_pages:
+                    num_pages = min(num_pages, max_pages)
 
-            for p_idx in range(num_pages):
-                page = doc[p_idx]
-                # High-res rendering: 300 DPI (dpi=300 -> matrix scale 300/72 ≈ 4.16)
-                pix = page.get_pixmap(dpi=300)
-                img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+                for p_idx in range(num_pages):
+                    page = doc[p_idx]
+                    pix = page.get_pixmap(dpi=300)
+                    img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
 
-                page_res = self.process_image(img)
-                page_res["page_index"] = p_idx + 1
-                pages_results.append(page_res)
+                    page_res = self.process_image(img)
+                    if not (page_res.get("text") or "").strip():
+                        text_layer = page.get_text().strip()
+                        if text_layer:
+                            page_res["text"] = text_layer
+                            page_res["success"] = True
+                            page_res["backend"] = "pdf_text_layer"
+                            page_res["error"] = None
+                    page_res["page_index"] = p_idx + 1
+                    pages_results.append(page_res)
+            finally:
+                doc.close()
 
         elif ext in [".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp"]:
             if not HAS_IMAGE_STACK:
@@ -418,6 +629,7 @@ class VietnameseOcrPipeline:
                 full_text_blocks.append(f"<!-- Page {pr['page_index']} -->\n\n{txt}")
 
         combined_text = "\n\n---\n\n".join(full_text_blocks)
+        backends_used = sorted({str(pr.get("backend") or "none") for pr in pages_results if pr.get("success")})
 
         result_summary = {
             "input_path": input_path,
@@ -426,6 +638,8 @@ class VietnameseOcrPipeline:
             "pages": pages_results,
             "full_text": combined_text,
             "has_tesseract": bool(self.tesseract_cmd),
+            "ocr_backends_used": backends_used,
+            "has_ocr_backend": bool(self.tesseract_cmd or backends_used),
         }
 
         if output_path:
@@ -441,8 +655,7 @@ class VietnameseOcrPipeline:
                             if line_s:
                                 out_doc.add_paragraph(line_s)
                     out_doc.save(output_path)
-                except Exception as ex:
-                    # Fallback to writing as text
+                except Exception:
                     with open(output_path, "w", encoding="utf-8") as f:
                         f.write(combined_text)
             else:

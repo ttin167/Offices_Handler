@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tempfile
 import unittest
 import zipfile
@@ -91,32 +92,62 @@ class TestV46SixSubsystems(unittest.TestCase):
         self.assertEqual(sign_res.get("subfilter"), "ETSI.CAdES.detached")
         self.assertTrue(os.path.isfile(signed_pdf))
         self.assertEqual(len(sign_res.get("sha256_digest", "")), 64)
+        byte_range = sign_res.get("byte_range", [])
+        self.assertEqual(len(byte_range), 4)
+        self.assertGreater(byte_range[1], 0)
+        self.assertGreater(byte_range[2], byte_range[1])
 
-        # Verify cryptographic signature dictionary
+        # Verify cryptographic signature dictionary & ByteRange integrity
         ver_res = verify_pdf_crypto_signature(signed_pdf)
         self.assertTrue(ver_res.get("has_crypto_signature"))
+        self.assertTrue(ver_res.get("integrity_verified"))
+        self.assertFalse(ver_res.get("tamper_detected"))
         self.assertGreaterEqual(ver_res.get("signature_count", 0), 1)
         self.assertEqual(ver_res["signatures"][0]["subfilter"], "ETSI.CAdES.detached")
 
-        # 2. Convert to PDF/A-2b
+        # Tamper detection: mutating 1 byte outside /Contents must fail integrity check
+        tampered_pdf = os.path.join(self.temp_dir, "sample_tampered.pdf")
+        raw_signed = bytearray(Path(signed_pdf).read_bytes())
+        raw_signed[100] = (raw_signed[100] + 1) % 256
+        Path(tampered_pdf).write_bytes(raw_signed)
+        tamper_res = verify_pdf_crypto_signature(tampered_pdf)
+        self.assertFalse(tamper_res.get("integrity_verified"))
+        self.assertTrue(tamper_res.get("tamper_detected"))
+
+        # 2. Convert to PDF/A-2b with real embedded sRGB ICC stream & XML-safe metadata
         pdfa_res = convert_to_pdfa(
             input_path=signed_pdf,
             output_path=pdfa_out,
             conformance="2B",
-            title="Hợp đồng lưu trữ v4.6",
-            author="Antigravity Archive Engine",
+            title="Hợp đồng & Lưu trữ <2026>",
+            author="Antigravity & Partners",
         )
         self.assertTrue(pdfa_res.get("success"))
         self.assertEqual(pdfa_res.get("pdfa_conformance"), "PDF/A-2B")
         self.assertTrue(pdfa_res.get("xmp_metadata_injected"))
         self.assertTrue(pdfa_res.get("output_intent_srgb"))
+        self.assertTrue(pdfa_res.get("icc_profile_embedded"))
+        self.assertGreaterEqual(pdfa_res.get("icc_profile_bytes", 0), 128)
+        self.assertIn("unembedded_fonts", pdfa_res)
 
-        # Verify XMP metadata in output PDF
+        # Verify XMP metadata and authentic /DestOutputProfile ICC stream in output PDF
         check_doc = fitz.open(pdfa_out)
         try:
             xmp = check_doc.get_xml_metadata()
             self.assertIn("pdfaid:part>2<", xmp)
             self.assertIn("pdfaid:conformance>B<", xmp)
+            self.assertIn("Hợp đồng &amp; Lưu trữ &lt;2026&gt;", xmp)
+
+            cat_str = check_doc.xref_object(check_doc.pdf_catalog())
+            m_oi = re.search(r"/OutputIntents\s*\[\s*(\d+)\s+0\s+R", cat_str)
+            self.assertIsNotNone(m_oi)
+            oi_str = check_doc.xref_object(int(m_oi.group(1)))
+            self.assertIn("/DestOutputProfile", oi_str)
+            m_icc = re.search(r"/DestOutputProfile\s+(\d+)\s+0\s+R", oi_str)
+            self.assertIsNotNone(m_icc)
+            icc_stream = check_doc.xref_stream(int(m_icc.group(1)))
+            self.assertGreaterEqual(len(icc_stream), 128)
+            self.assertEqual(icc_stream[36:40], b"acsp")
         finally:
             check_doc.close()
 
